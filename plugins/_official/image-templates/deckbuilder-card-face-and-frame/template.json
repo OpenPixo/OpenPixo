@@ -1,0 +1,23 @@
+{
+  "id": "deckbuilder-card-face-and-frame",
+  "surface": "image",
+  "title": "Deckbuilder Card Face and Frame",
+  "summary": "A single playing card for a card roguelite / deckbuilder: cost gem, name banner, framed illustration, type line, rules box and rarity accent, laid out so the art and frame colour read at in-hand size. Slots for card name, type, cost, rules text, art subject and frame style.",
+  "category": "Game UI",
+  "tags": [
+    "deckbuilder",
+    "card-game",
+    "roguelite",
+    "card-frame",
+    "game-ui",
+    "illustration"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "3:4",
+  "prompt": "A single card for a card roguelite (deckbuilder), shown flat and front-on, centred on a plain neutral dark-grey background with even margin all around so it can be cropped out cleanly. Card proportions 5:7, slightly rounded corners.\n\nCard: name \"{argument name=\"card_name\" default=\"Ember Lash\"}\", type {argument name=\"card_type\" default=\"Attack\"}, energy cost {argument name=\"cost\" default=\"1\"}, rarity {argument name=\"rarity\" default=\"uncommon\"}.\nRules text (exact, short): {argument name=\"rules_text\" default=\"Deal 7 damage. Apply 2 Burn.\"}\nIllustration subject: {argument name=\"art_subject\" default=\"a whip of living fire cracking across a dark stone arena, sparks frozen mid-air\"}.\nFrame style: {argument name=\"frame_style\" default=\"hand-inked fantasy frame, aged brass trim with a crimson enamel fill for attack cards\"}.\n\n# Layout (top to bottom)\n1. Cost gem overlapping the top-left corner, with the number large and bold.\n2. Name banner across the top, centred, one clean display font.\n3. Illustration window taking about 55% of the card height, art bleeding to a thin inner bevel.\n4. Thin type line under the art showing the card type, with a small rarity gem on the right.\n5. Rules box in the lower third on a light parchment panel, with the rules text centred, two lines maximum, keywords like Burn in bold.\n\n# Art direction\n- One clear subject in the illustration with a strong silhouette and a bright focal point; it must read when the whole card is only 180 pixels tall in the player's hand.\n- Frame colour codes the card type so a player can tell attack from skill without reading.\n- Lighting inside the art: one warm key light, dark falloff toward the frame.\n- Palette: {argument name=\"palette\" default=\"crimson, brass and charcoal, with orange-white fire as the brightest value\"}.\n\n# Avoid\nMisspelled or extra text, gibberish glyphs, more than two lines of rules, perspective or tilted cards, hands holding the card, table surfaces, drop shadows bleeding into the margin, watermarks, real trading-card brand frames or logos.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

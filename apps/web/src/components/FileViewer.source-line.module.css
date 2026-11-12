@@ -1,0 +1,5 @@
+.line { scroll-margin-block: 5rem; }
+.line[data-highlighted="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}

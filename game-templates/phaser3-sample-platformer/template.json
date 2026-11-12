@@ -1,0 +1,8 @@
+{
+  "id": "phaser3-sample-platformer",
+  "name": "Sample: pixel platformer",
+  "nameZhCN": "示例：像素平台跳跃",
+  "engine": "phaser",
+  "description": "A complete pixel platformer with coins, platforms, a goal flag, and original art and sound. No generation key needed.",
+  "descriptionZhCN": "完整的像素平台跳跃小游戏，包含金币、平台、终点旗帜及原创图像和音效，无需配置生成密钥。"
+}

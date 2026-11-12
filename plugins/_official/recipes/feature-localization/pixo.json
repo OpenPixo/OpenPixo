@@ -1,0 +1,84 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-localization",
+  "title": "Localization",
+  "title_i18n": {
+    "en": "Localization",
+    "zh-CN": "本地化接入"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Moves user-visible text to translation keys, adds locale files, a language switch, and a missing-key check.",
+  "description_i18n": {
+    "en": "Moves user-visible text to translation keys, adds locale files, a language switch, and a missing-key check.",
+    "zh-CN": "把界面文本迁移为翻译键，加入语言文件、语言切换和缺失键检查。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "languages",
+          "label": "Languages (first is the source)",
+          "label_i18n": {
+            "zh-CN": "语言（第一个是源语言）"
+          },
+          "type": "string",
+          "default": "en, zh-CN"
+        },
+        {
+          "name": "source",
+          "label": "Strings",
+          "label_i18n": {
+            "zh-CN": "文本范围"
+          },
+          "type": "select",
+          "options": [
+            "extract every existing hard-coded string",
+            "set up the system and convert the main menu and HUD only"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "extract every existing hard-coded string": "提取所有现有的硬编码文本",
+              "set up the system and convert the main menu and HUD only": "搭好系统，只转换主菜单和 HUD"
+            }
+          },
+          "default": "extract every existing hard-coded string"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add localization to this {{engine.id}} game for these languages: {{languages}} (the first is the source language). Strings: {{source}}.\n\nRequirements:\n- Every user-visible string becomes a stable, descriptive key (`menu.start`, `hud.coins`). Sentences with values use named placeholders, never string concatenation, and pluralized text has a plural form.\n- Godot: a `localization/strings.csv` with a `keys` column plus one column per language, imported as translations and registered under `[internationalization]` in `project.godot`; code uses `tr()` and controls rely on auto-translate; switch with `TranslationServer.set_locale()`.\n- Phaser: one JSON file per language under `src/i18n/`, a `t(key, params)` helper that falls back to the source language and logs missing keys in development, and text objects that re-render when the language changes.\n- The chosen language persists (in the settings store if the project has one) and can be switched in-game: from the settings menu if there is one, otherwise a debug key.\n- Make sure the UI font has glyphs for every language (CJK needs a CJK-capable font). Use a font already in the project or the system; if none covers a language, do not download one with an unclear license — ask the user.\n- Fill the non-source languages with best-effort translations marked for human review in the file, and add a check that every key exists in every language.\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

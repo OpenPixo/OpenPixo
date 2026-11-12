@@ -1,0 +1,224 @@
+/* Integrations guide panel for the CLI, MCP, HTTP and skill surfaces. */
+
+/* Tab strip — one row of pill buttons for the five surfaces. */
+.use-everywhere-modal__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 22px 0;
+  border-bottom: 1px dashed var(--border);
+  background: var(--bg-panel);
+}
+.use-everywhere-modal__tab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px 8px;
+  margin-bottom: -1px;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out),
+    border-color 120ms var(--ease-out);
+}
+.use-everywhere-modal__tab:hover {
+  color: var(--text);
+  background: var(--bg-subtle);
+}
+.use-everywhere-modal__tab.is-active {
+  color: var(--text-strong);
+  background: var(--bg);
+  border-color: var(--border);
+  border-bottom-color: var(--bg);
+}
+
+.use-everywhere-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px 6px;
+  background: var(--bg);
+}
+
+.use-everywhere-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.use-everywhere-section__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.use-everywhere-section__heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.use-everywhere-section__intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.use-everywhere-section__bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.use-everywhere-section__bullets li::marker {
+  color: var(--text-faint);
+}
+.use-everywhere-section__snippets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.use-everywhere-section__footer {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 10px;
+}
+
+.use-everywhere-snippet {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+.use-everywhere-snippet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.use-everywhere-snippet__label {
+  font-weight: 600;
+  color: var(--text);
+}
+.use-everywhere-snippet__copy {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 120ms var(--ease-out), border-color 120ms var(--ease-out);
+}
+.use-everywhere-snippet__copy:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.use-everywhere-snippet__pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--bg-panel);
+}
+.use-everywhere-snippet__pre code {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+.use-everywhere-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.use-everywhere-modal__foot-info {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
+}
+.use-everywhere-modal__foot-info strong {
+  color: var(--text-strong);
+}
+.use-everywhere-modal__foot-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.use-everywhere-modal__primary,
+.use-everywhere-modal__secondary {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out),
+    border-color 120ms var(--ease-out);
+}
+.use-everywhere-modal__secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.use-everywhere-modal__secondary:hover {
+  background: var(--bg-subtle);
+}
+.use-everywhere-modal__primary {
+  background: var(--accent);
+  color: var(--accent-on, #fff);
+  border: 1px solid var(--accent);
+}
+.use-everywhere-modal__primary:hover {
+  background: var(--accent-strong, var(--accent));
+  border-color: var(--accent-strong, var(--accent));
+}
+
+/* Top-bar entry chip — sibling of the existing settings cog avatar.
+   The chip wraps an icon + label so the affordance reads like an
+   intentional doc/help entry rather than a generic icon button. On
+   tight viewports the label collapses and the chip acts as an icon. */
+
+@media (max-width: 700px) {
+  .use-everywhere-modal__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .use-everywhere-modal__foot-actions {
+    justify-content: flex-end;
+  }
+}

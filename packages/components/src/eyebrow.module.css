@@ -1,0 +1,18 @@
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted, #6e6a88);
+  font: 500 12px/1.5 var(--mono, 'Geist Mono', ui-monospace, monospace);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pixel {
+  display: inline-block;
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  background: var(--lime, #c4f542);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lime, #c4f542) 25%, transparent);
+}

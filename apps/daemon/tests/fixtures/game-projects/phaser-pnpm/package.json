@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "dependencies": { "phaser": "^3.90.0" },
+  "scripts": { "build": "vite build", "dev": "vite", "preview": "vite preview" }
+}

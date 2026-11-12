@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "video-template-logo-sting-title-reveal",
+  "title": "Logo Sting - Game Title Reveal",
+  "title_i18n": {
+    "en": "Logo Sting - Game Title Reveal",
+    "zh-CN": "Logo 片头 - 游戏标题揭幕"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A 5-6 second logo sting for trailers, devlogs and the boot screen: a motif from the game world builds into the title reveal and ends on a long, stable hold. Works with a supplied logo image as reference (reproduced exactly, never redrawn) or leaves a clean empty title area to composite the logo later.",
+  "description_i18n": {
+    "en": "A 5-6 second logo sting for trailers, devlogs and the boot screen: a motif from the game world builds into the title reveal and ends on a long, stable hold. Works with a supplied logo image as reference (reproduced exactly, never redrawn) or leaves a clean empty title area to composite the logo later.",
+    "zh-CN": "一段 5–6 秒的 Logo 片头，可用于预告片、开发日志和游戏启动画面：来自游戏世界的元素逐步汇聚成标题揭幕，并以较长的稳定画面结束。可提供 Logo 图片作为参考（原样还原、绝不重绘），也可留出干净的标题区稍后合成 Logo。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "video-template",
+    "first-party",
+    "video",
+    "motion-graphics",
+    "logo",
+    "title-card",
+    "sting",
+    "intro",
+    "trailer"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "video",
+    "scenario": "video",
+    "surface": "video",
+    "useCase": {
+      "query": {
+        "en": "A 5 to 6 second logo sting that reveals the title of an indie game.\n\nGame mood: {argument name=\"game_mood\" default=\"a melancholic sci-fi exploration game about the last lighthouse keeper on a drifting moon\"}.\nLogo mode: {argument name=\"logo_mode\" default=\"if a logo image is attached as reference, reproduce it exactly and never redraw, retype or distort its letters; otherwise leave a clean empty title area in the centre for the logo to be composited later\"}.\nVisual motif that forms the reveal: {argument name=\"motif\" default=\"motes of dust caught in a rotating lighthouse beam that sweep across darkness\"}.\n\n# Timeline\n- 0-1.5s: darkness with the motif slowly appearing, a low hum or ambient tone.\n- 1.5-3.5s: the motif accelerates and converges on the centre of the frame, light gathering into the title area; one decisive impact or light flare at about 3.2s.\n- 3.5-6s: the title area (logo or clean empty space) is fully revealed and HOLDS perfectly still for at least 2 seconds, with only subtle ambient motion around it (drifting particles, a slow light sweep), so the clip can be cut anywhere in the hold.\n\n# Look\n- Style: {argument name=\"style\" default=\"cinematic, soft volumetric light, fine particles, gentle film grain\"}.\n- Palette: {argument name=\"palette\" default=\"near-black blue background, pale gold light, a hint of cyan in the shadows\"}.\n- Camera: locked off or a very slow push-in; the title area stays centred and never moves during the hold.\n- Sound: {argument name=\"sound\" default=\"a deep swell into a single resonant chime on the reveal\"}.\n\n# Avoid\nGenerated lettering or fake logos when no reference is given, warped or melting letters, extra slogans, the camera drifting off the title, shaking during the hold, studio logos, watermarks.",
+        "zh-CN": "A 5 to 6 second logo sting that reveals the title of an indie game.\n\nGame mood: {argument name=\"game_mood\" default=\"a melancholic sci-fi exploration game about the last lighthouse keeper on a drifting moon\"}.\nLogo mode: {argument name=\"logo_mode\" default=\"if a logo image is attached as reference, reproduce it exactly and never redraw, retype or distort its letters; otherwise leave a clean empty title area in the centre for the logo to be composited later\"}.\nVisual motif that forms the reveal: {argument name=\"motif\" default=\"motes of dust caught in a rotating lighthouse beam that sweep across darkness\"}.\n\n# Timeline\n- 0-1.5s: darkness with the motif slowly appearing, a low hum or ambient tone.\n- 1.5-3.5s: the motif accelerates and converges on the centre of the frame, light gathering into the title area; one decisive impact or light flare at about 3.2s.\n- 3.5-6s: the title area (logo or clean empty space) is fully revealed and HOLDS perfectly still for at least 2 seconds, with only subtle ambient motion around it (drifting particles, a slow light sweep), so the clip can be cut anywhere in the hold.\n\n# Look\n- Style: {argument name=\"style\" default=\"cinematic, soft volumetric light, fine particles, gentle film grain\"}.\n- Palette: {argument name=\"palette\" default=\"near-black blue background, pale gold light, a hint of cyan in the shadows\"}.\n- Camera: locked off or a very slow push-in; the title area stays centred and never moves during the hold.\n- Sound: {argument name=\"sound\" default=\"a deep swell into a single resonant chime on the reveal\"}.\n\n# Avoid\nGenerated lettering or fake logos when no reference is given, warped or melting letters, extra slogans, the camera drifting off the title, shaking during the hold, studio logos, watermarks."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "seedance-2.0"
+        ],
+        "default": "seedance-2.0"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-video"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:video-generate"
+    ]
+  }
+}

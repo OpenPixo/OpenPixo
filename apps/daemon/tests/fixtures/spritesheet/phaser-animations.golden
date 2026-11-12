@@ -1,0 +1,31 @@
+{
+  "texture": {
+    "key": "walk",
+    "image": "walk.png",
+    "atlas": "walk.phaser.json"
+  },
+  "anims": [
+    {
+      "key": "walk-down",
+      "frames": [
+        {
+          "key": "walk",
+          "frame": "down/0000"
+        }
+      ],
+      "frameRate": 10,
+      "repeat": -1
+    },
+    {
+      "key": "walk-up",
+      "frames": [
+        {
+          "key": "walk",
+          "frame": "up/0000"
+        }
+      ],
+      "frameRate": 10,
+      "repeat": -1
+    }
+  ]
+}

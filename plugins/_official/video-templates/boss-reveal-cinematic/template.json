@@ -1,0 +1,23 @@
+{
+  "id": "boss-reveal-cinematic",
+  "surface": "video",
+  "title": "Boss Reveal Cinematic",
+  "summary": "A 10-second in-engine style boss introduction: the arena goes quiet, the boss emerges in silhouette, a signature move and roar, then the camera returns to the gameplay view as the boss health bar and name plate slide in. Usable as a trailer climax or a gameplay reference.",
+  "category": "Cinematic",
+  "tags": [
+    "boss",
+    "cinematic",
+    "trailer",
+    "reveal",
+    "gameplay",
+    "action"
+  ],
+  "model": "doubao-seedance-2-0-260128",
+  "aspect": "16:9",
+  "prompt": "A 10-second boss reveal in the style of an in-engine game cinematic, ending back in the playable view.\n\nGame: {argument name=\"game_pitch\" default=\"a dark 2D action platformer set in a drowned bell tower\"}.\nArt style: {argument name=\"art_style\" default=\"hand-painted 2D with dramatic lighting and smooth skeletal animation\"}.\nBoss: {argument name=\"boss\" default=\"a colossal bell-headed sentinel made of rusted bronze and seaweed, with chains for arms\"}.\nArena: {argument name=\"arena\" default=\"a circular flooded chamber with broken stained glass and moonlight falling through the roof\"}.\n\n# Timeline\n- 0-2s CALM: the player character enters the arena from the left in the normal gameplay camera; ambient sound drops away, drips echo.\n- 2-4.5s EMERGENCE: the camera eases into a low angle as the boss rises from the water in silhouette, backlit by {argument name=\"backlight\" default=\"cold moonlight through the broken window\"}, water pouring off it.\n- 4.5-7s SIGNATURE: the boss performs its signature move, {argument name=\"signature_move\" default=\"swinging its bell head so the toll sends a visible shockwave rippling across the water\"}, then roars; the screen shakes and dust falls.\n- 7-10s HANDOFF: the camera pulls back to the exact gameplay framing, the player in a ready stance; a boss health bar slides in along the bottom of the screen with the name plate \"{argument name=\"boss_name\" default=\"The Drowned Toll\"}\" above it, short and clearly legible.\n\n# Readability\n- The boss silhouette is readable at a glance: one strong shape, glowing weak point at {argument name=\"weak_point\" default=\"the cracked bell mouth\"}.\n- Palette: {argument name=\"palette\" default=\"cold blue-green shadows, bronze and rust midtones, sickly yellow glow on the weak point\"}.\n- Sound: a deep bell toll on the signature move, roar, low choir swell on the handoff.\n\n# Avoid\nGore, misspelled or extra on-screen text beyond the boss name, a camera angle at the end that differs from gameplay, morphing boss anatomy, existing franchise creatures, watermarks.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

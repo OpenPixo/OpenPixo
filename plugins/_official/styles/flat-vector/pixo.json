@@ -1,0 +1,79 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/flat-vector",
+    "title":  "Flat vector",
+    "title_i18n":  {
+                       "en":  "Flat vector",
+                       "zh-CN":  "扁平矢量"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Geometric shapes and carefully limited colors for scalable, readable game assets.",
+    "description_i18n":  {
+                             "en":  "Geometric shapes and carefully limited colors for scalable, readable game assets.",
+                             "zh-CN":  "以几何形体和精简配色，制作适合缩放、易于辨认的游戏素材。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "vector"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Resource tokens",
+                         "title_i18n":  {
+                                            "zh-CN":  "资源标记"
+                                        },
+                         "prompt":  "Generate six matching resource tokens using the flat-vector art style: wood, stone, food, water, energy and coin. Use geometric silhouettes and make every token clear at 32 pixels.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 flat-vector 美术风格生成六枚配套资源标记：木材、石头、食物、水、能量和金币。采用几何轮廓，确保每枚在 32 像素时仍清晰。"
+                                         }
+                     },
+                     {
+                         "title":  "Island map markers",
+                         "title_i18n":  {
+                                            "zh-CN":  "岛屿地图标记"
+                                        },
+                         "prompt":  "Create a family of island map markers using the flat-vector art style: harbor, campsite, cave and lookout tower. Share one corner treatment and a compact, limited palette.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 flat-vector 美术风格制作一组岛屿地图标记：港口、营地、洞穴和瞭望塔。统一转角处理，使用紧凑、精简的配色。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "flat-vector",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "vector"
+                                          ],
+                               "prompt":  "Flat vector-style game artwork built from clean geometric silhouettes, solid color fills and a limited shared palette. Consistent corner treatment, balanced negative spaces and a clear visual hierarchy. Use at most one darker flat shape for depth per material, with no texture or continuous gradients. Keep forms readable as compact icons and repeat geometry consistently.",
+                               "negativePrompt":  "photographic detail, brush texture, raster noise, gradients, soft drop shadows, glass effects, bevels, complex outlines, tiny ornament, text, watermark",
+                               "palette":  [
+                                               "#203F4D",
+                                               "#3D7B80",
+                                               "#79B4A9",
+                                               "#E8D9AF",
+                                               "#EAB36A",
+                                               "#D87563",
+                                               "#8F6E93",
+                                               "#F7F0DE"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Outline-free filled shapes; separate overlaps through solid value contrast.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

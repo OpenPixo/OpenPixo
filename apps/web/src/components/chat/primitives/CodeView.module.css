@@ -1,0 +1,95 @@
+/* 工具行展开后的代码块。只消费 --chat-*(chat/AGENTS.md §2)。外边距由 record 那一族的 `.code` 给。 */
+.view {
+  overflow: hidden;
+  border: var(--chat-stroke) solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  background: var(--chat-bg);
+  font-size: var(--chat-t-cap);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 4px 0 9px;
+  border-bottom: var(--chat-stroke) solid var(--chat-border);
+  background: var(--chat-bg-subtle);
+  color: var(--chat-text-muted);
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  direction: rtl; /* 路径太长时省略前面的目录,文件名留着 */
+  font-family: var(--chat-font-mono);
+  text-align: start;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+  white-space: nowrap;
+}
+
+/* 这一条小工具栏里的按钮比默认 sm 再矮一档,不把头撑高 */
+.head .action {
+  flex: none;
+  gap: 4px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 6px;
+  font-size: var(--chat-t-cap);
+}
+
+.body {
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px 0;
+  font-family: var(--chat-font-mono);
+  line-height: 1.6;
+  tab-size: 4;
+}
+.body:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: -2px;
+}
+
+.line {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  padding-inline: 9px;
+  box-sizing: border-box;
+}
+.line[data-kind='add'] { background: var(--chat-diff-add-bg); }
+.line[data-kind='del'] { background: var(--chat-diff-del-bg); }
+
+.sign {
+  flex: none;
+  width: 14px;
+  color: var(--chat-text-faint);
+  user-select: none;
+}
+.line[data-kind='add'] .sign { color: var(--chat-green); }
+.line[data-kind='del'] .sign { color: var(--chat-red); }
+
+/* 全局 `code` 是行内代码芯片;这里只要等宽字 */
+.text {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--chat-text-strong);
+  font: inherit;
+  white-space: pre;
+}
+
+.gap {
+  height: 1px;
+  margin: 6px 9px;
+  background: var(--chat-border);
+}
+
+.more {
+  padding: 6px 9px 0;
+  color: var(--chat-text-muted);
+  font-family: inherit;
+}

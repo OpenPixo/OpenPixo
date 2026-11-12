@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-deckbuilder-roguelite",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a travelling constellation card fair",
+          "default_i18n": {
+            "zh-CN": "巡回的星座卡牌集市"
+          }
+        },
+        {
+          "name": "runLength",
+          "label": "Run length",
+          "label_i18n": {
+            "zh-CN": "单局长度"
+          },
+          "type": "select",
+          "default": "four rounds",
+          "options": [
+            "four rounds",
+            "six rounds"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "four rounds": "四轮",
+              "six rounds": "六轮"
+            }
+          }
+        }
+      ],
+      "engines": [
+        "godot",
+        "phaser"
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable score/combo-based deckbuilder roguelite. Theme: {{theme}}. Run length: {{runLength}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- Build an original scoring-card game: four distinct suits and ranks 1-8, a seeded 32-card starting deck, eight-card hands, and mouse selection of 1-5 cards. Play Hand scores a high card, pair, three-of-a-kind, straight or flush; Discard replaces selected cards and uses one of two discard charges. Start each round with three playable hands and a data-driven score target.\n- Card definitions, combo rules/base points, modifier cards, shop costs and escalating round targets are data with stable ids. Keep card instances and deck/hand/discard zones in a pure model. Draw from the remaining deck, reshuffling discard only when needed; never duplicate or lose instances.\n- Joker-like modifier cards change scoring: include at least six original modifiers such as bonus for pairs, suit bonus, low-rank bonus and a multiplier. Use an explicit effect-type registry, never eval. Define and display scoring order (base card/combo points, additive bonuses, then multipliers in slot order) with a visible score breakdown. Limit owned modifiers to three slots.\n- Meeting a round target opens a shop between rounds. Earn currency for clearing the target and remaining hands. Offer three seeded purchases: modifiers and a card add/remove/upgrade option. Validate affordability and slot limits atomically, mark purchases sold once, allow Skip/Next Round, and preserve deck/modifiers/currency between rounds. No paid reroll is required.\n- Fail if hands run out below target; win after the selected final round. Show score/target, hands/discards left, currency, modifier slots, controls and a readable hand at 800x600. Lock clicks while scoring/transitioning. Results allow a fresh seeded restart.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Remove the template player. Use Resource/JSON definitions and RefCounted scoring/run/shop models under game/deckbuilder/. Render the hand, score breakdown and shop with Control cards and Buttons. Keep selection/hover animation outside the model; signals carry validated state changes.\n\nGenre-specific Phaser implementation: Use pure TypeScript models in src/deckbuilder/ and data in src/cards/. Separate RunScene/ShopScene or explicit scene states. Interactive Containers and text render hand/modifier cards; stop pointer propagation to avoid a shop click also selecting a card. No physics is needed.\n\nRules checks:\n- A fixed seed reproduces deals/shop offers; card instances are conserved through draw/discard/reshuffle.\n- Fixed hands produce exact pair/straight/flush scores and additive-then-multiplicative modifier order; invalid selection or double-clicked Play Hand cannot consume two hands.\n- Unaffordable/full-slot/sold purchases leave state unchanged; a successful purchase spends once; round transitions preserve deck/modifiers and final win/loss boundaries are correct.\n\nPlaytest hints: Use mouse clicks: select cards, click Play Hand, inspect the score breakdown, select a discard and click Discard. Clear a round, click one affordable shop offer and then Next Round; also try an unaffordable or sold offer. Click Restart on a result. Use a deterministic seed/fixture to reach the shop quickly and capture both hand scoring and a purchased modifier.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  },
+  "title": "Deckbuilder roguelite starter",
+  "title_i18n": {
+    "en": "Deckbuilder roguelite starter",
+    "zh-CN": "肉鸽构筑卡牌起步"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:40:36Z",
+  "description": "Builds score/combo card runs in Godot 2D or Phaser with between-round shops, joker-like modifiers and data-driven cards.",
+  "description_i18n": {
+    "en": "Builds score/combo card runs in Godot 2D or Phaser with between-round shops, joker-like modifiers and data-driven cards.",
+    "zh-CN": "在 Godot 2D 或 Phaser 中构建计分与组合驱动的卡牌闯关：回合间商店、类似小丑牌的修饰卡和数据驱动卡牌。"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ]
+}

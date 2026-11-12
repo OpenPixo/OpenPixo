@@ -1,0 +1,82 @@
+/* Sheet over the panel body. Kept mounted; `data-open` drives the transition
+   (enter 200ms, exit 140ms, never from scale(0)). */
+.sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-panel);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition:
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out),
+    visibility 0s linear 140ms;
+}
+.sheet[data-open] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out),
+    visibility 0s linear 0s;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--shell-gap);
+  flex-shrink: 0;
+  height: var(--shell-subheader-height);
+  min-height: var(--shell-subheader-height);
+  padding: 0 calc(var(--shell-gutter) - 4px) 0 var(--shell-gutter);
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font: var(--shell-meta-font);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.app) .close {
+  width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--shell-radius);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+:global(.app) .close:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-strong);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet[data-open] {
+    transform: none;
+    transition: none;
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo/playtest-bug-triage",
+  "version": "0.1.0",
+  "title": "Playtest bug triage",
+  "title_i18n": {
+    "en": "Playtest bug triage",
+    "zh-CN": "试玩问题定位与修复"
+  },
+  "description": "Reproduce game bugs from logs, screenshots and input steps, apply a minimal fix, and check nearby regressions.",
+  "description_i18n": {
+    "en": "Reproduce game bugs from logs, screenshots and input steps, apply a minimal fix, and check nearby regressions.",
+    "zh-CN": "根据日志、截图和操作步骤复现游戏问题，做最小修复，并检查相邻回归。"
+  },
+  "author": {
+    "name": "OpenPixo"
+  },
+  "license": "Apache-2.0",
+  "engines": [
+    "godot",
+    "unity",
+    "phaser"
+  ],
+  "tags": [
+    "game-development",
+    "first-party",
+    "openpixo",
+    "godot",
+    "unity",
+    "phaser",
+    "testing"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Find a restart callback leak",
+      "title_i18n": {
+        "zh-CN": "排查重开后的回调累积"
+      },
+      "prompt": "In the sample Phaser platformer, win and restart five times using the mouse. Check whether one click triggers multiple restart callbacks, reproduce any leak before fixing it, and verify keyboard restart still works.",
+      "prompt_i18n": {
+        "zh-CN": "在 Phaser 示例平台游戏中获胜并用鼠标重开五次。检查一次点击是否触发多个重开回调，先复现可能的泄漏再修复，并验证键盘重开仍正常。"
+      }
+    },
+    {
+      "title": "Fix a stuck pause menu",
+      "title_i18n": {
+        "zh-CN": "修复无法退出的暂停菜单"
+      },
+      "prompt": "In my Godot 2D game, pressing pause opens the menu but pressing it again does nothing. Reproduce the input sequence, inspect pause processing, make the smallest fix, and verify movement freezes and resumes correctly.",
+      "prompt_i18n": {
+        "zh-CN": "我的 Godot 2D 游戏按暂停能打开菜单，再按却没有反应。请复现这个操作，检查暂停时的处理模式，做最小修复，并验证角色移动能正确冻结和恢复。"
+      }
+    },
+    {
+      "title": "Investigate duplicate coin rewards",
+      "title_i18n": {
+        "zh-CN": "排查金币重复计分"
+      },
+      "prompt": "A coin sometimes adds two points in my game. Use the pickup callback and logs to reproduce it, make collection idempotent if needed, then check two different coins and a fresh restart with pixo game verify.",
+      "prompt_i18n": {
+        "zh-CN": "我的游戏偶尔一枚金币加两分。请结合拾取回调与日志复现，必要时保证每枚金币只结算一次，再检查两枚不同金币与重开后的表现，并运行 pixo game verify。"
+      }
+    }
+  ]
+}

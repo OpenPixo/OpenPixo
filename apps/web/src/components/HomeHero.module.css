@@ -1,0 +1,232 @@
+.hero {
+  --home-hero-chip-height: 46px;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0;
+}
+
+.heading {
+  margin: 0;
+  font: 700 28px/1.15 var(--sans);
+  letter-spacing: -.035em;
+  color: var(--ink);
+}
+
+.hero .stagedArt { display: flex; width: 36px; height: 36px; flex: 0 0 36px; overflow: hidden; }
+
+.subtitle {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.composerCard {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-width: 0;
+  border-radius: 18px;
+  background: var(--bg-app);
+  box-shadow: 0 0 0 1px var(--line-2);
+  transition: box-shadow 200ms var(--ease-out);
+}
+
+.composerCard:focus-within {
+  box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft);
+}
+
+.composerCard:has(:global(.inline-switcher__popover)) {
+  z-index: 40;
+}
+
+.composerCard .inputCard {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 16px 16px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: none;
+  gap: 8px;
+}
+
+.composerCard .inputCard:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.composerCard:has(.dragActive) {
+  box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft);
+}
+
+/* The shared Lexical editor and agent switcher keep their own interaction styles. */
+/* A quiet field at rest; it takes its full height once the user is in it. */
+.composerCard .inputCard :global(.composer-editable) {
+  min-height: 28px;
+  transition: min-height 200ms var(--ease-out);
+  font: 400 15px/1.6 var(--sans);
+  color: var(--ink);
+  caret-color: var(--violet);
+}
+
+.composerCard:focus-within .inputCard :global(.composer-editable) {
+  min-height: 54px;
+}
+
+.composerCard .inputCard :global(.composer-input-placeholder) {
+  font: 400 15px/1.6 var(--sans);
+  color: var(--faint);
+}
+
+.inputCard .footer {
+  align-items: center;
+  gap: 8px;
+  padding-top: 0;
+}
+
+.inputCard .controls {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.executionSwitcher :global(.inline-switcher__chip),
+.controls .attachmentButton,
+.controls .styleTag {
+  height: 30px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--violet) 4%, var(--bg-app));
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-2);
+  font: 500 13.5px/1 var(--sans);
+  white-space: nowrap;
+}
+
+.executionSwitcher :global(.inline-switcher__chip):hover,
+.controls .attachmentButton:hover:not(:disabled) {
+  background: var(--violet-soft);
+  color: var(--violet-strong);
+}
+
+.controls .attachmentButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-shadow);
+}
+
+.executionSwitcher :global(.inline-switcher__chip-model-name) {
+  display: inline;
+}
+
+.executionSwitcher :global(.inline-switcher__chip-conn) {
+  width: 6px;
+  height: 6px;
+}
+
+.controls .styleTag {
+  overflow: hidden;
+  max-width: 200px;
+  text-overflow: ellipsis;
+}
+
+.inputCard .sendControls {
+  align-self: flex-end;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.sendHint {
+  margin: 0;
+  color: var(--faint);
+  font: 400 12px/1.5 var(--mono);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out);
+}
+
+.composerCard:focus-within .sendHint {
+  opacity: 1;
+  transition-duration: 200ms;
+}
+
+.sendControls .submit {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sendAttention::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / .22);
+  animation: sendPulse 900ms var(--ease-out) 250ms 2 both;
+  pointer-events: none;
+}
+
+.composerCard .workingDirectory {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 8px 8px;
+}
+
+.workingDirectory:empty {
+  display: none;
+}
+
+@keyframes sendPulse {
+  from { opacity: 0; }
+  50% { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .inputCard .footer {
+    align-items: flex-end;
+  }
+
+  .sendHint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .controls .styleTag {
+    max-width: 140px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composerCard,
+  .composerCard .inputCard :global(.composer-editable),
+  .sendHint,
+  .submit {
+    transition: none;
+  }
+
+  .sendAttention::after,
+  .executionSwitcher :global(.inline-switcher__chip-conn)::after {
+    animation: none;
+  }
+}
+
+.executionSwitcher :global(.inline-switcher__chip-mode),
+.executionSwitcher :global(.inline-switcher__chip-mode + .inline-switcher__chip-sep) {
+  display: none;
+}

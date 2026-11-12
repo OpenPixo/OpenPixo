@@ -1,0 +1,69 @@
+.root {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 168px;
+}
+
+.select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--chat-border-soft);
+  border-radius: 8px;
+  background: var(--chat-bg-subtle);
+  color: var(--chat-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+.select:disabled {
+  color: var(--chat-text-muted);
+  cursor: default;
+}
+
+.settings {
+  display: grid;
+  gap: 8px;
+  color: var(--chat-text);
+  font-size: 13px;
+}
+
+.settings .select {
+  width: auto;
+  height: 32px;
+  font-size: 13px;
+}
+
+.hint {
+  color: var(--chat-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hint[hidden] { display: none; }
+
+.error {
+  color: var(--chat-red);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.root .error {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  inset-inline-end: 0;
+  width: 240px;
+  padding: 8px;
+  border: 1px solid var(--chat-border-soft);
+  border-radius: 8px;
+  background: var(--chat-bg-panel);
+}

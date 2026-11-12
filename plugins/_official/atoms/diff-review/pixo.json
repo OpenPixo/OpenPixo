@@ -1,0 +1,35 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "diff-review",
+  "title": "Diff review",
+  "version": "0.1.0",
+  "publishedAt": "2026-05-09T14:22:18Z",
+  "description": "Review local project changes as a focused diff and report findings, validation evidence, and unresolved issues.",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "atom",
+    "first-party",
+    "review"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "atom",
+    "scenario": "general",
+    "mode": "review",
+    "capabilities": [
+      "prompt:inject",
+      "fs:read",
+      "fs:write"
+    ]
+  }
+}

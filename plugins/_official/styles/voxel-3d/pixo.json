@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/voxel-3d",
+    "title":  "Voxel 3D",
+    "title_i18n":  {
+                       "en":  "Voxel 3D",
+                       "zh-CN":  "体素 3D"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Grid-built cubic forms and restrained colors for playful, consistent voxel assets.",
+    "description_i18n":  {
+                             "en":  "Grid-built cubic forms and restrained colors for playful, consistent voxel assets.",
+                             "zh-CN":  "以网格搭建的方块形体与精简配色，制作轻快统一的体素素材。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "3d",
+                 "3d-render",
+                 "voxel"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Voxel explorer",
+                         "title_i18n":  {
+                                            "zh-CN":  "体素探险家"
+                                        },
+                         "prompt":  "Generate an original voxel explorer asset concept using the voxel-3d art style, with a square backpack, green scarf and compact lantern. Keep all parts aligned to the same cubic grid.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 voxel-3d 美术风格生成原创体素探险家资产概念图：方形背包、绿围巾和小灯笼。让所有部件对齐同一个立方体网格。"
+                                         }
+                     },
+                     {
+                         "title":  "Floating garden island",
+                         "title_i18n":  {
+                                            "zh-CN":  "漂浮花园岛"
+                                        },
+                         "prompt":  "Create a small floating garden island concept using the voxel-3d art style, with cubic soil layers, a tiny tree, stepping stones and a water channel. Use one voxel scale across every object.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 voxel-3d 美术风格制作小型漂浮花园岛概念图：立方土层、小树、踏脚石和水渠。所有物体使用统一的体素尺度。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "voxel-3d",
+                               "dimension":  [
+                                                 "3d"
+                                             ],
+                               "medium":  [
+                                              "3d-render",
+                                              "voxel"
+                                          ],
+                               "prompt":  "Original voxel 3D game asset concept built entirely from a consistent cubic unit on one axis-aligned grid. Block-stepped silhouettes, flat matte colors from the shared palette and no smooth curved geometry. Use an orthographic three-quarter view, clear top-left light and simple face shading; keep small details at least one full voxel wide.",
+                               "negativePrompt":  "smooth sculpting, rounded subdivision surfaces, inconsistent voxel sizes, non-cubic blocks, photorealistic texture, glossy plastic, tiny floating fragments, perspective distortion, text, logo, watermark",
+                               "palette":  [
+                                               "#2B404A",
+                                               "#4E746B",
+                                               "#8DA87C",
+                                               "#C7C99A",
+                                               "#E4C68C",
+                                               "#B8845D",
+                                               "#855E61",
+                                               "#A9C3C1"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Block-stepped cubic edges; one consistent voxel unit.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

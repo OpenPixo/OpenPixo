@@ -1,0 +1,101 @@
+/* OPEND-2947: reuse the question card and its header; only add native
+   disclosure behavior and the existing 11px chat chevron. */
+.unanswered > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.unanswered > summary::-webkit-details-marker {
+  display: none;
+}
+
+.chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-soft);
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.unanswered[open] > summary .chevron {
+  transform: rotate(180deg);
+}
+
+/*
+ * A form still waiting for the user's answer (owner decision 2026-11-10).
+ *
+ * It is the one place in the chat that blocks on the user, so it gets the
+ * brand accent: violet outline + soft halo, a tinted head band with a small
+ * "Your choice needed" label, and the whole message column instead of the
+ * fixed 380px card. Answered / retired forms do not get this class and keep
+ * the calm `.question-form-locked` look from `styles/viewer/composio.css`.
+ *
+ * Colors only come from the chat seam (`--chat-brand*`), which is defined for
+ * both themes; the fallbacks cover hosts that render outside the chat root.
+ *
+ * The doubled `.pending.pending` raises specificity over the global
+ * `.question-form:has(.question-form-foot) > .question-form-head` reset in
+ * composio.css, which otherwise strips the head's background and border.
+ */
+.pending:global(.question-form) {
+  width: 100%;
+  max-width: 600px;
+  border-color: var(--chat-brand, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--chat-brand, var(--accent)) 14%, transparent);
+  animation: pendingEnter 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.pending.pending:global(.question-form) > :global(.question-form-head) {
+  border-bottom: 1px solid color-mix(in srgb, var(--chat-brand, var(--accent)) 22%, transparent);
+  background: var(--chat-brand-soft, var(--accent-tint));
+}
+
+.pending > :global(.question-form-head) > :global(.question-form-icon) {
+  color: var(--chat-brand, var(--accent));
+}
+
+.needsYou {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--chat-brand, var(--accent));
+  color: var(--accent-contrast, #fff);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* Brief pulse used when the composer hint scrolls the form into view. */
+.pending[data-highlight='true'] {
+  animation: pendingFlash 600ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes pendingEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pendingFlash {
+  0% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--chat-brand, var(--accent)) 14%, transparent);
+  }
+  40% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--chat-brand, var(--accent)) 30%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--chat-brand, var(--accent)) 14%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending:global(.question-form),
+  .pending[data-highlight='true'] {
+    animation: none;
+  }
+}

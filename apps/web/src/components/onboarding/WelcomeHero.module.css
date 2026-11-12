@@ -1,0 +1,273 @@
+/* The first-run hero. The stage and the game are dark in both themes (a game has
+   its own lighting); the chat card follows the theme through the app's tokens.
+   Every size inside the composition is in `em`, and the composition's font size
+   follows its width, so the whole picture scales as one piece. */
+
+.stage {
+  position: relative;
+  container-type: size;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 12px 12px 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    radial-gradient(60% 55% at 62% 62%, rgba(38, 165, 188, 0.3), transparent 72%),
+    radial-gradient(38% 34% at 18% 16%, rgba(196, 245, 66, 0.1), transparent 75%),
+    var(--media-ground);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Dot grid: the workbench the picture sits on. */
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--media-grid) 1px, transparent 1.5px);
+  background-size: 24px 24px;
+  opacity: 0.55;
+  mask-image: radial-gradient(75% 75% at 50% 50%, transparent 40%, #000 100%);
+  pointer-events: none;
+}
+
+/* The logo's detached pixel, loose on the stage. */
+.pixelA, .pixelB, .pixelC {
+  position: absolute;
+  background: var(--lime);
+  pointer-events: none;
+  transform: translate(calc(var(--px, 0) * 18px), calc(var(--py, 0) * 14px));
+  transition: transform 700ms var(--ease-out);
+}
+.pixelA { left: 7%; bottom: 9%; width: 14px; height: 14px; }
+.pixelB { right: 8%; top: 7%; width: 10px; height: 10px; opacity: 0.8; }
+.pixelC { left: 4%; bottom: 14%; width: 6px; height: 6px; opacity: 0.55; }
+
+.composition {
+  --w: min(92cqw, 100cqh, 1300px);
+  position: relative;
+  width: var(--w);
+  height: calc(var(--w) * 0.96);
+  font-family: var(--sans);
+  font-size: calc(var(--w) * 0.0205);
+}
+
+/* ---- The game ---------------------------------------------------------- */
+
+.frame {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 88%;
+  overflow: hidden;
+  border-radius: 1em;
+  background: #0b1530;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 2.6em 6em -1.2em rgba(38, 165, 188, 0.5),
+    0 1.2em 3em -1em rgba(0, 0, 0, 0.7);
+  transform: translate(calc(var(--px, 0) * 8px), calc(var(--py, 0) * 6px));
+  transition: transform 700ms var(--ease-out);
+}
+
+.frameBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55em;
+  height: 2.5em;
+  padding: 0 0.9em;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.92em;
+  font-weight: 500;
+}
+.frameDot {
+  width: 0.5em;
+  height: 0.5em;
+  background: var(--lime);
+}
+.frameTitle { white-space: nowrap; }
+.frameTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  margin-left: 0.4em;
+  padding: 0.18em 0.6em 0.18em 0.5em;
+  border-radius: 99em;
+  background: var(--lime);
+  color: #141128;
+  font-size: 0.88em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.frameTag svg { width: 0.85em; height: 0.85em; }
+
+.screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.sceneBox { position: absolute; inset: 0; }
+.scene { display: block; width: 100%; height: 100%; }
+
+.keys {
+  position: absolute;
+  right: 0.8em;
+  bottom: 0.8em;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.4em 0.75em 0.4em 0.45em;
+  border-radius: 0.7em;
+  background: rgba(11, 21, 48, 0.78);
+  color: #fff;
+  font-size: 0.86em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.keyCaps {
+  display: grid;
+  grid-template: repeat(2, 1.32em) / repeat(3, 1.32em);
+  gap: 0.14em;
+}
+.keyCaps kbd {
+  display: grid;
+  place-items: center;
+  border-radius: 0.26em;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 0.8em;
+  line-height: 1;
+}
+.keyUp { grid-area: 1 / 2; }
+.keyLeft { grid-area: 2 / 1; }
+.keyDown { grid-area: 2 / 2; }
+.keyRight { grid-area: 2 / 3; animation: hero-key 2.4s steps(1) infinite; }
+
+/* ---- The chat ---------------------------------------------------------- */
+
+.chat {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  width: 58%;
+  padding: 1em;
+  box-sizing: border-box;
+  border-radius: 1.1em;
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--line-2), var(--sh-3);
+  font-size: 1em;
+  line-height: 1.45;
+  transform: translate(calc(var(--px, 0) * -10px), calc(var(--py, 0) * -8px));
+  transition: transform 700ms var(--ease-out);
+}
+.userBubble {
+  align-self: flex-end;
+  max-width: 90%;
+  margin: 0;
+  padding: 0.55em 0.8em;
+  border-radius: 0.95em 0.95em 0.25em 0.95em;
+  background: var(--bg-muted);
+  color: var(--text-strong);
+  font-weight: 500;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.88em;
+}
+.steps li { display: flex; align-items: center; gap: 0.5em; }
+.steps svg { flex: none; width: 1em; height: 1em; color: var(--green); }
+.reply { margin: 0; color: var(--text-strong); }
+.composer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6em;
+  padding: 0.4em 0.42em 0.4em 0.8em;
+  border-radius: 0.8em;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  color: var(--text-faint);
+  font-size: 0.92em;
+}
+.composer > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 0.5em;
+  background: var(--text-strong);
+  color: var(--bg);
+}
+.send svg { width: 0.9em; height: 0.9em; }
+
+/* ---- Game motion: stepped like the sprites, and only ever decoration ---- */
+
+.layerFar { transform: translateX(round(calc(var(--px, 0) * -2px), 1px)); }
+.layerMid { transform: translateX(round(calc(var(--px, 0) * -4px), 1px)); }
+.layerNear { transform: translateX(round(calc(var(--px, 0) * -7px), 1px)); }
+
+.diver { animation: hero-bob 2.2s steps(4) infinite alternate; }
+.frameA { animation: hero-frame-a 0.9s steps(1) infinite; }
+.frameB { animation: hero-frame-b 0.9s steps(1) infinite; }
+.jellySlow { animation: hero-jelly 3.4s steps(8) infinite alternate; }
+.jellyFast { animation: hero-jelly 2.6s steps(6) infinite alternate-reverse; }
+.tail { animation: hero-tail 1.3s steps(2) infinite alternate; }
+.twinkle { animation: hero-twinkle 1.8s steps(3) infinite alternate; }
+.bubble { animation: hero-rise 4s steps(28) infinite; }
+.rays { animation: hero-rays 7s steps(6) infinite alternate; }
+.school { animation: hero-school 16s steps(32) infinite alternate; }
+.oxygen { transform-box: fill-box; transform-origin: left; animation: hero-oxygen 12s steps(11) infinite alternate; }
+.sway1, .sway2, .sway3 { animation-duration: 2.8s; animation-iteration-count: infinite; animation-direction: alternate; animation-timing-function: steps(2); }
+.sway1 { animation-name: hero-sway-1; }
+.sway2 { animation-name: hero-sway-2; }
+.sway3 { animation-name: hero-sway-3; }
+
+@keyframes hero-bob { from { transform: translateY(-2px); } to { transform: translateY(3px); } }
+@keyframes hero-frame-a { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes hero-frame-b { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes hero-jelly { from { transform: translateY(-4px); } to { transform: translateY(5px); } }
+@keyframes hero-tail { from { transform: translateX(0); } to { transform: translateX(1px); } }
+@keyframes hero-twinkle { from { opacity: 0.35; } to { opacity: 1; } }
+@keyframes hero-rise {
+  from { transform: translateY(0); opacity: 0; }
+  12% { opacity: 1; }
+  85% { opacity: 1; }
+  to { transform: translateY(-56px); opacity: 0; }
+}
+@keyframes hero-rays { from { opacity: 0.6; } to { opacity: 1; } }
+@keyframes hero-school { from { transform: translateX(-10px); } to { transform: translateX(22px); } }
+@keyframes hero-oxygen { from { transform: scaleX(1); } to { transform: scaleX(0.7); } }
+@keyframes hero-sway-1 { from { transform: translateX(0); } to { transform: translateX(1px); } }
+@keyframes hero-sway-2 { from { transform: translateX(-1px); } to { transform: translateX(1px); } }
+@keyframes hero-sway-3 { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+@keyframes hero-key { 0%, 60% { background: rgba(255, 255, 255, 0.16); } 61%, 100% { background: var(--lime); color: #141128; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage *, .stage { animation: none !important; transition: none !important; }
+  .frameB { opacity: 0; }
+}
+
+/* Too narrow to sit beside the form: the picture goes under it, at a set shape. */
+@media (max-width: 920px) {
+  .stage {
+    width: auto;
+    aspect-ratio: 1 / 0.82;
+    margin: 0 12px 12px;
+  }
+}

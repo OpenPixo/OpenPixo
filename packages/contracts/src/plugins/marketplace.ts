@@ -1,0 +1,126 @@
+import { z } from 'zod';
+import {
+  LocalizedTextSchema,
+  OPENPIXO_PLUGIN_SPEC_VERSION,
+  OpenPixoSpecVersionSchema,
+  PluginExampleSchema,
+} from './manifest.js';
+
+const MarketplaceEntryDistSchema = z.object({
+  type:           z.string().optional(),
+  archive:        z.string().optional(),
+  integrity:      z.string().optional(),
+  manifestDigest: z.string().optional(),
+}).passthrough();
+
+const MarketplacePluginVersionSchema = z.object({
+  version:        z.string().min(1),
+  source:         z.string().min(1).optional(),
+  ref:            z.string().optional(),
+  dist:           MarketplaceEntryDistSchema.optional(),
+  integrity:      z.string().optional(),
+  manifestDigest: z.string().optional(),
+  deprecated:     z.union([z.boolean(), z.string()]).optional(),
+  yanked:         z.boolean().optional(),
+  yankedAt:       z.string().optional(),
+  yankReason:     z.string().optional(),
+}).passthrough();
+
+export type MarketplacePluginVersion = z.infer<typeof MarketplacePluginVersionSchema>;
+
+export const StoreItemKindSchema = z.enum([
+  'skill', 'recipe', 'mcp', 'project-template', 'asset-pack', 'character-card', 'style',
+]);
+export type StoreItemKind = z.infer<typeof StoreItemKindSchema>;
+
+// `openpixo-marketplace.json` schema (v1). Mirrors
+// `docs/schemas/openpixo.marketplace.v1.json`. The federated catalog
+// format is intentionally permissive — community catalogs can carry extra
+// fields (e.g. clawhub category tags) without breaking OD installs.
+export const MarketplacePluginEntrySchema = z.object({
+  name:        z.string().min(1),
+  source:      z.string().min(1),
+  version:     z.string().min(1),
+  ref:         z.string().optional(),
+  dist:        MarketplaceEntryDistSchema.optional(),
+  versions:    z.array(MarketplacePluginVersionSchema).optional(),
+  distTags:    z.record(z.string()).optional(),
+  integrity:   z.string().optional(),
+  manifestDigest: z.string().optional(),
+  publisher: z.object({
+    id:     z.string().optional(),
+    github: z.string().optional(),
+    url:    z.string().optional(),
+  }).passthrough().optional(),
+  homepage:    z.string().optional(),
+  license:     z.string().optional(),
+  kind:        StoreItemKindSchema.optional(),
+  engines:     z.array(z.string().min(1)).optional(),
+  pricing: z.object({
+    type: z.enum(['free', 'paid']),
+    credits: z.number().int().nonnegative().optional(),
+    sku: z.string().min(1).optional(),
+  }).passthrough().optional(),
+  assetLicense: z.object({
+    commercialUse: z.boolean(),
+    attributionRequired: z.boolean(),
+  }).passthrough().optional(),
+  archive: z.object({
+    url: z.string().min(1),
+    integrity: z.string().min(1),
+    size: z.number().int().nonnegative(),
+  }).passthrough().optional(),
+  previews: z.array(z.string().min(1)).optional(),
+  requires: z.object({
+    openpixo: z.string().min(1).optional(),
+    capabilities: z.array(z.string().min(1)).optional(),
+  }).passthrough().optional(),
+  capabilitiesSummary: z.array(z.string()).optional(),
+  deprecated:  z.union([z.boolean(), z.string()]).optional(),
+  yanked:      z.boolean().optional(),
+  yankedAt:    z.string().optional(),
+  yankReason:  z.string().optional(),
+  tags:        z.array(z.string()).optional(),
+  title:       z.string().optional(),
+  title_i18n:  LocalizedTextSchema.optional(),
+  description: z.string().optional(),
+  description_i18n: LocalizedTextSchema.optional(),
+  examples: z.array(PluginExampleSchema).optional(),
+  icon:        z.string().optional(),
+}).passthrough().superRefine((entry, ctx) => {
+  if ((entry.name.startsWith('openpixo/') || entry.kind !== undefined) && !entry.license?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['license'], message: 'OpenPixo entries require a license' });
+  }
+  if (entry.kind === 'asset-pack' && !entry.assetLicense) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['assetLicense'], message: 'asset-pack entries require an assetLicense' });
+  }
+});
+
+export type MarketplacePluginEntry = z.infer<typeof MarketplacePluginEntrySchema>;
+
+export const MarketplaceManifestSchema = z.object({
+  $schema:     z.string().optional(),
+  specVersion: OpenPixoSpecVersionSchema.default(OPENPIXO_PLUGIN_SPEC_VERSION),
+  name:        z.string().min(1),
+  version:     z.string().min(1),
+  owner: z.object({
+    name: z.string().optional(),
+    url:  z.string().optional(),
+  }).passthrough().optional(),
+  metadata: z.object({
+    description: z.string().optional(),
+    version:     z.string().optional(),
+  }).passthrough().optional(),
+  plugins: z.array(MarketplacePluginEntrySchema),
+}).passthrough();
+
+export type MarketplaceManifest = z.infer<typeof MarketplaceManifestSchema>;
+
+// Trust levels for both individual plugins and entire marketplace indexes.
+// Spec §6: bundled / official-marketplace start trusted; everything else
+// starts restricted unless an operator explicitly elevates it.
+export const TrustTierSchema = z.enum(['bundled', 'trusted', 'restricted']);
+export type TrustTier = z.infer<typeof TrustTierSchema>;
+
+export const MarketplaceTrustSchema = z.enum(['official', 'trusted', 'restricted']);
+export type MarketplaceTrust = z.infer<typeof MarketplaceTrustSchema>;

@@ -1,0 +1,33 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "handoff",
+  "title": "Handoff",
+  "version": "0.1.0",
+  "publishedAt": "2026-05-09T14:22:18Z",
+  "description": "Prepare a local project handoff with artifact paths, provenance, validation evidence, and remaining work.",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "atom",
+    "first-party",
+    "handoff"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "atom",
+    "scenario": "general",
+    "mode": "handoff",
+    "capabilities": [
+      "prompt:inject"
+    ]
+  }
+}

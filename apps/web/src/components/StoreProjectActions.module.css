@@ -1,0 +1,2 @@
+.content { display: flex; flex-direction: column; min-width: 0; }
+.field { display: grid; gap: var(--spacing-8); }

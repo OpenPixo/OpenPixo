@@ -1,0 +1,74 @@
+.controls {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-text-strong);
+}
+
+.dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 20px;
+  height: 20px;
+  color: inherit;
+  pointer-events: none;
+}
+
+.dots > span {
+  display: block;
+  flex: 0 0 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: running-dot-pulse 1200ms cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+.dots > span:nth-child(2) { animation-delay: 150ms; }
+.dots > span:nth-child(3) { animation-delay: 300ms; }
+
+.controls .stop {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chat-text-strong);
+  color: var(--chat-bg);
+  box-shadow: none;
+  overflow: visible;
+}
+
+.controls .stop:hover { background: var(--chat-text); }
+.controls .stop:focus-visible {
+  outline: 2px solid var(--chat-text-strong);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+.controls .stop svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+@keyframes running-dot-pulse {
+  0%, 100% { opacity: 0.65; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots > span { animation: none; }
+  .controls .stop { transition: none; }
+}

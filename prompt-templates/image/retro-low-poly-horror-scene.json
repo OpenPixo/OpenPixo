@@ -1,0 +1,23 @@
+{
+  "id": "retro-low-poly-horror-scene",
+  "surface": "image",
+  "title": "Retro 32-Bit Low-Poly Horror Scene",
+  "summary": "An atmospheric late-90s console style horror frame: low polygon geometry, warped unfiltered textures, heavy distance fog, dithered colour and a 320x240 look, with a single light source and an unsettling hint of a threat. Slots for location, light source and threat.",
+  "category": "Illustration",
+  "tags": [
+    "horror",
+    "low-poly",
+    "retro-3d",
+    "32-bit",
+    "atmosphere",
+    "environment"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "4:3",
+  "prompt": "A single in-game frame from a low-poly survival horror game rendered to look exactly like a late-1990s home console title, output as if captured at 320x240 and upscaled with nearest-neighbour pixels.\n\nLocation: {argument name=\"location\" default=\"a narrow corridor in an abandoned roadside motel at night, doors on both sides, one door ajar\"}.\nLight source: {argument name=\"light_source\" default=\"the player character flashlight, a hard cone of yellowish light\"}.\nThreat: {argument name=\"threat\" default=\"a tall, thin silhouette standing motionless at the far end of the corridor, barely visible in the fog\"}.\n\n# Retro 3D rendering rules\n- Very low polygon counts: visibly faceted walls, door frames and props; characters built from a few hundred triangles.\n- Low-resolution textures around 64x64, unfiltered (no bilinear smoothing), with affine texture warping visible on large floor and wall polygons.\n- Slight vertex jitter look: edges not perfectly straight, small gaps where polygons meet.\n- Thick distance fog fading geometry to {argument name=\"fog_colour\" default=\"murky dark green-grey\"} within a short draw distance.\n- 15-bit colour with visible ordered dithering in the gradients; no smooth modern gradients.\n\n# Composition and camera\n- Fixed, slightly high camera angle looking down the corridor, as in classic fixed-camera horror games, with the player character visible from behind in the lower third.\n- The flashlight cone is the brightest area; the threat sits just at the edge of the light, readable only as a silhouette.\n- Lots of negative space and darkness; one red or warm accent ({argument name=\"accent\" default=\"a flickering exit sign\"}) to draw the eye.\n\n# Mood\nQuiet dread, not gore. Lonely, humid, wrong.\n\n# Avoid\nModern PBR materials, high-resolution textures, ray-traced reflections, depth of field, film-grain noise instead of dithering, blood or gore, UI, text, watermarks, any recognisable existing game character or monster.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

@@ -1,0 +1,85 @@
+.shell { position: relative; }
+
+/* Entry owns the headerless layout of its outer shell. Keep the existing
+   account-action portal host available for the updater without a chrome row. */
+:global(.workspace-shell):has(> :global(.workspace-shell__body) > .shell) {
+  grid-template-rows: 0 minmax(0, 1fr);
+}
+
+:global(.workspace-shell):has(.shell) > :global(.workspace-tabs-chrome.app-chrome-header) {
+  position: relative;
+  z-index: 40;
+  height: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+:global(.workspace-shell):has(.shell) > :global(.workspace-tabs-chrome) > :not(:global(.workspace-chrome-account-actions)) {
+  display: none;
+}
+
+:global(.workspace-shell):has(.shell) :global(.workspace-chrome-account-actions) {
+  position: absolute;
+  top: 12px;
+  /* Left of the Windows caption buttons (window-titlebar.css). */
+  right: calc(var(--pixo-window-controls-inset, 0px) + 12px);
+  -webkit-app-region: no-drag;
+}
+
+.dragStrip {
+  position: absolute;
+  z-index: 35;
+  inset: 0 0 auto;
+  height: 12px;
+  -webkit-app-region: drag;
+}
+
+:global(.entry-shell--no-header) .layout:global(.entry) {
+  grid-template-columns: 52px minmax(0, 1fr);
+  transition: grid-template-columns 140ms var(--ease-out);
+}
+
+:global(.entry-shell--no-header) .layout:global(.entry):global(.entry--rail-open) {
+  grid-template-columns: min(var(--entry-rail-width, 244px), 50vw) minmax(0, 1fr);
+  transition: grid-template-columns 200ms var(--ease-out);
+}
+
+.layout:global(.entry) > :global(.entry-nav-rail) { pointer-events: auto; }
+.layout:global(.entry) > :global(.entry-main--scroll) { margin-left: 0; }
+
+.homeScroll {
+  /* Home keeps native wheel, touch and keyboard scrolling without a gutter. */
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+}
+
+.homeScroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.projectListError {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  gap: 16px;
+  text-align: center;
+}
+
+.projectListError p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.entry-shell--no-header) .layout:global(.entry),
+  :global(.entry-shell--no-header) .layout:global(.entry):global(.entry--rail-open) {
+    transition: none;
+  }
+}

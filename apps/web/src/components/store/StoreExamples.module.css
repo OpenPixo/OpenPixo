@@ -1,0 +1,9 @@
+/* Runnable Workshop examples (toolkit spotlight and item pages). */
+.examples { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+.examples h2 { margin: 0; color: var(--ink); font: 650 18px var(--sans); letter-spacing: -.015em; }
+.examples h3 { margin: 0 0 6px; color: var(--ink); font: 600 15px var(--sans); }
+.examples ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.example { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; height: 100%; padding: 16px; border-radius: var(--radius-card); background: var(--bg); box-shadow: 0 0 0 1px var(--line), var(--sh-1); }
+.example > div { min-width: 0; }
+.example > button { align-self: flex-start; }
+.examples p { margin: 0; color: var(--text-muted); font-size: 14.5px; line-height: 1.6; overflow-wrap: anywhere; }

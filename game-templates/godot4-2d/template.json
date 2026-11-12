@@ -1,0 +1,8 @@
+{
+  "id": "godot4-2d",
+  "name": "Godot 4 · 2D",
+  "nameZhCN": "Godot 4 · 2D",
+  "engine": "godot",
+  "description": "A 2D character with a title screen, settings, gamepad support, key rebinding, saves and a string table. GDScript.",
+  "descriptionZhCN": "使用 GDScript 编写的 2D 角色，自带标题画面、设置、手柄与改键、存档和多语言字符串表。"
+}

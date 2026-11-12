@@ -1,0 +1,3 @@
+/* The light itself. `offset-anchor` defaults to the blob's own centre, so
+   the path runs through the middle of the glow rather than its corner;
+   `offset-rotate: 0deg` keeps it from spinning as it turns each corner. */

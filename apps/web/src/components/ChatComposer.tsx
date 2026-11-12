@@ -1,0 +1,4243 @@
+'use client';
+
+import { PixelAssetImage } from './assets/PixelAssetImage';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
+import { createPortal } from 'react-dom';
+import { Button } from '@openpixo/components';
+
+import { useI18n } from '../i18n';
+import type { AgentCapabilitiesResponse } from '@openpixo/contracts';
+import { fetchAgentCapabilities } from '../providers/agent-capabilities';
+import styles from './ChatComposer.module.css';
+import { localizePluginDescription, localizePluginTitle } from './plugins-home/localization';
+import type { Dict } from '../i18n/types';
+import {
+  localizeSkillDescription,
+  localizeSkillName,
+} from '../i18n/content';
+import { useAnalytics } from '../analytics/provider';
+import {
+  trackChatPanelClick,
+  trackComposerBarClick,
+  trackContextLinkResult,
+
+  trackFileUploadResult,
+  trackProjectReferenceModalSurfaceView,
+} from '../analytics/events';
+import type {
+  ComposerBarClickProps,
+} from '@openpixo/contracts/analytics';
+import { deriveUploadCohort } from '../analytics/upload-tracking';
+import { notifyCompletionFeedbackGesture } from '../utils/notifications';
+import { projectRawUrl, uploadProjectFiles, openFolderDialog, fetchRecentLinkedDirs, pushRecentLinkedDir, dirExists } from "../providers/registry";
+import {
+  duplicatePluginAsProject,
+  patchProject,
+} from "../state/projects";
+import { navigate } from '../router';
+import { fetchMcpServers } from "../state/mcp";
+import type { McpServerConfig } from "../state/mcp";
+import { listPlugins } from "../state/projects";
+import type { AppConfig, ChatAttachment, Project, ProjectFile, ProjectMetadata, SkillSummary } from "../types";
+import type { ContextItem, AppliedPluginSnapshot, ChatAnalyticsEntryFrom, ChatSessionMode, InstalledPluginRecord, ResearchOptions, RunContextSelection, WorkspaceContextItem } from '@openpixo/contracts';
+import { Icon, type IconName } from "./Icon";
+import { ChatCloseIcon, ChatFileIcon } from "./chat/primitives/icons";
+import { ComposerPlusMenu, PLUS_SUBMENU_RESOURCE_KIND, type PlusMenuSubmenu } from './ComposerPlusMenu';
+import {
+  ProjectReferenceModal,
+  type ProjectReferenceSelection,
+} from './ProjectReferenceModal';
+import { PluginDetailsModal } from "./PluginDetailsModal";
+import { SkillDetailsModal } from './SkillDetailsModal';
+import { PluginsSection, type PluginsSectionHandle } from "./PluginsSection";
+import {
+  inlineMentionToken,
+  mentionTokenPresent,
+  type InlineMentionEntity,
+} from '../utils/inlineMentions';
+import { workspaceContextLinkedDir, workspaceContextLinkedDirs } from './workspace-context';
+
+import {
+  LexicalComposerInput,
+  type LexicalComposerInputHandle,
+  type CaretRect,
+} from './composer/LexicalComposerInput';
+import { CaretFloatingLayer } from './composer/CaretFloatingLayer';
+import { ComposerRunningDots, RunStopControl } from './composer/RunStopControl';
+import { ApprovalModePicker } from './composer/ApprovalModePicker';
+import {
+  formatAttachmentSize,
+  middleTruncateFileName,
+  splitFileName,
+} from '../runtime/chat/attachment';
+import {
+  attachmentNavDelta,
+  attachmentNavState,
+  type AttachmentNavState,
+} from '../runtime/chat/attachment-nav';
+import {
+  buildStagedAttachmentCards,
+  looksLikeImageName,
+  runWithConcurrency,
+  STAGED_UPLOAD_CONCURRENCY,
+  type PendingUpload,
+  type StagedAttachmentCard,
+} from '../runtime/chat/staged-attachment';
+
+import {
+  decodeProjectFileDrag,
+  PROJECT_FILE_DRAG_MIME,
+  STAGE_ATTACHMENT_EVENT,
+  type StageAttachmentEventDetail,
+} from '../runtime/chat/project-file-reference';
+
+// Window event for staging attachments that are ALREADY in the project; see
+// `runtime/chat/project-file-reference.ts` (File Browser, asset grid, viewer).
+export { STAGE_ATTACHMENT_EVENT, type StageAttachmentEventDetail };
+import { PlaceholderCarousel } from './home-hero/PlaceholderCarousel';
+import type { PlaceholderScenario } from './home-hero/placeholderScenarios';
+import { quotePromptPrefix, splitQuotedPrompt, type ChatQuote } from '../runtime/chat/quote-selection';
+import {
+  loadComposerDraftExtras,
+  sanitizeQuotes,
+  saveComposerDraftExtras,
+  type ComposerDraftContext,
+} from '../runtime/chat/composer-draft';
+import { QuotedRefs } from './chat/QuotedRefs';
+
+type TranslateFn = (key: keyof Dict, vars?: Record<string, string | number>) => string;
+
+interface TrackedWorkspaceLinkedDir {
+  dir: string;
+  previousLinkedDirs: string[];
+}
+
+/**
+ * 一批 id 落到当前已加载的列表上:能对上的变成对象,对不上的原样退回来。
+ *
+ * 两条恢复路径共用它 —— 队列里点「编辑」和刷新之后重建,拿的是同一套判据,
+ * 不会出现「队列那边认得这个技能、刷新这边不认」这种分叉。
+ *
+ * 「对不上」有两种截然不同的原因,这个函数**不区分**,由调用方决定怎么办:
+ *   · 真的没了(技能卸了 / MCP 删了)—— 该丢
+ *   · 列表还没拉回来(输入框的插件 / MCP / 连接器是**懒加载**的,首屏就是空的)
+ *     —— 这时候丢等于把用户挂上去的绑定无声吞掉,所以刷新那条路径要留着重试
+ */
+function resolveStagedById<T extends { id: string }>(
+  ids: string[] | undefined,
+  pool: T[],
+): { resolved: T[]; unresolved: string[] } {
+  const resolved: T[] = [];
+  const unresolved: string[] = [];
+  for (const id of ids ?? []) {
+    const hit = pool.find((item) => item.id === id);
+    if (hit) resolved.push(hit);
+    else unresolved.push(id);
+  }
+  return { resolved, unresolved };
+}
+
+/** 按 id 合并进已挂的一批,已经在里面的不重复添加(用户手动挂的优先保留)。 */
+function mergeStagedById<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+  if (incoming.length === 0) return current;
+  const seen = new Set(current.map((item) => item.id));
+  const additions = incoming.filter((item) => !seen.has(item.id));
+  return additions.length > 0 ? [...current, ...additions] : current;
+}
+
+function dedupeWorkspaceContextItems(items: WorkspaceContextItem[]): WorkspaceContextItem[] {
+  const out: WorkspaceContextItem[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = `${item.kind}:${item.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function trackedWorkspaceLinkedDirsForContexts(
+  items: WorkspaceContextItem[],
+  linkedDirs: string[],
+): Record<string, TrackedWorkspaceLinkedDir> {
+  const out: Record<string, TrackedWorkspaceLinkedDir> = {};
+  for (const item of items) {
+    const dir = workspaceContextLinkedDir(item) ?? '';
+    if (!dir || !linkedDirs.includes(dir)) continue;
+    out[item.id] = {
+      dir,
+      previousLinkedDirs: linkedDirs.filter((linkedDir) => linkedDir !== dir),
+    };
+  }
+  return out;
+}
+
+
+type MentionTab = 'all' | 'tabs' | 'files' | 'plugins' | 'skills' | 'mcp';
+
+
+interface SlashCommand {
+  id: string;
+  // Visible label, e.g. `/search`. Shown in the popover row.
+  label: string;
+  // Text inserted into the draft when the user picks the entry. The
+  // cursor is positioned at the end of `insert`, so a trailing space
+  // is the difference between a "ready for argument" command and a
+  // "submit immediately" one.
+  insert: string;
+  // i18n key of the short description shown next to the label.
+  descKey: keyof Dict;
+  // Optional argument hint shown after the description.
+  argHint?: string;
+  // Icon glyph from the project Icon set.
+  icon: IconName;
+  // An action command: picking it runs this instead of inserting text.
+  run?: () => void;
+}
+
+/**
+ * A slash command the host runs when picked (`/new`, `/model`, `/undo`,
+ * `/run`, `/verify`, `/playtest`). The typed `/…` is removed and nothing is
+ * sent to the agent. The host lists only the commands that can run now.
+ */
+export interface ComposerSlashAction {
+  id: string;
+  label: string;
+  descKey: keyof Dict;
+  icon: IconName;
+  run: () => void;
+}
+
+export type ChatSendOutcome = void | 'restore-draft';
+
+/** Committed composer content other than the editor text, mirrored for stale send closures. */
+interface ComposerContent {
+  staged: ChatAttachment[];
+  stagedSkills: SkillSummary[];
+  stagedMcpServers: McpServerConfig[];
+  stagedWorkspaceContexts: WorkspaceContextItem[];
+  activeAppliedPlugin: AppliedPluginSnapshot | null;
+  quotes: ChatQuote[];
+}
+
+/** Everything `reset()` clears, captured at submit so a handed-back send can be restored. */
+interface ComposerSendSnapshot {
+  draft: string;
+  staged: ChatAttachment[];
+  nextAttachmentOrder: number;
+  stagedSkills: SkillSummary[];
+  stagedMcpServers: McpServerConfig[];
+  stagedWorkspaceContexts: WorkspaceContextItem[];
+  workspaceLinkedDirAdds: Record<string, TrackedWorkspaceLinkedDir>;
+  promotedWorkspaceContextDir: string | null;
+  activeAppliedPlugin: AppliedPluginSnapshot | null;
+  inlineBackedPlugin: { id: string; label: string } | null;
+  quotes: ChatQuote[];
+}
+
+interface Props {
+  agentId?: string | null;
+  /**
+   * 正文取词(设计稿组件 23)攒下的引用。输入框上方那枚「N 条注释」芯片就是它,
+   * 发送时作为引文前缀带给 agent。
+   */
+  quotes?: ChatQuote[];
+  onClearQuotes?: () => void;
+  /**
+   * 刷新之后把落盘的引用还给宿主。引用的 state 在宿主(ChatPane)那儿,但**生命周期
+   * 一直由输入框驱动**:发送时就是输入框调 `onClearQuotes` 清掉的。恢复走同一个方向,
+   * 才不会出现「谁负责把它捞回来」这种两边都以为对方管的空档。
+   */
+  onRestoreQuotes?: (quotes: ChatQuote[]) => void;
+  projectId: string | null;
+  projectFiles: ProjectFile[];
+  streaming: boolean;
+  /**
+   * The conversation is waiting on an unanswered `<question-form>` above.
+   * The composer stays usable (a typed reply is a valid answer); only its
+   * placeholder changes so the user knows the question is there.
+   */
+  questionPending?: boolean;
+  sessionMode?: ChatSessionMode;
+  sendDisabled?: boolean;
+  /** The user's earlier prompts in this conversation, oldest first, for ↑ / ↓ in an empty box. */
+  promptHistory?: readonly string[];
+  /** Host-run slash commands, listed before the built-in ones. */
+  slashActions?: readonly ComposerSlashAction[];
+  // Read-only viewer of a team-shared project: makes the Lexical editor
+  // non-editable (in addition to `sendDisabled` blocking the send action) so
+  // the user cannot type into the composer at all.
+  inputDisabled?: boolean;
+  initialDraft?: string;
+  /**
+   * 别人家的「在传中」卡片,借这个托盘画一下。
+   *
+   * 目前只有一个来源:首页挑好文件按下发送,项目页已经开出来了、文件还在传的
+   * 那几秒(`state/home-attachment-handoff.ts`)。这些卡的**字节、object URL、
+   * 生命周期都不归 composer 管** —— composer 只是把它们和自己的那几张排在同一
+   * 排里,顺序仍按 `order`。它们不进 `staged`,所以也不影响「这一发有没有东西
+   * 可发」的判断。
+   */
+  externalPendingUploads?: readonly PendingUpload[];
+  /** 人把上面那种卡「×」掉了。谁给的卡谁负责撤。 */
+  onRemoveExternalPendingUpload?: (pendingId: string) => void;
+  composerPlaceholder?: string;
+  placeholderScenarios?: ReadonlyArray<PlaceholderScenario>;
+  draftStorageKey?: string;
+  // Lazy ensure — the composer calls this before its first upload, so the
+  // project folder exists on disk before files land in it. Returns the
+  // project id when ready.
+  onEnsureProject: () => Promise<string | null>;
+  onRemoveCommentAttachment?: (id: string) => void;
+  // Available skills the user can compose into a turn via @<skill>. The
+  // chat layer already filters out disabled skills before passing them in
+  // here, so the picker can render the list as-is. Keep this optional so
+  // the composer still works on surfaces that don't show a skills picker
+  // (e.g. tests, screenshot harnesses).
+  skills?: SkillSummary[];
+  onSend: (
+    prompt: string,
+    attachments: ChatAttachment[],
+    meta?: ChatSendMeta,
+  ) => ChatSendOutcome | Promise<ChatSendOutcome>;
+  onStop: () => void;
+  // Opens the global settings dialog (CLI / model / agent picker). The
+  // composer's leading gear icon routes here so users can switch models
+  // without leaving the chat.
+  onOpenSettings?: () => void;
+  // Opens settings on the External MCP tab. Wired from ChatPane → App.
+  // The composer's `/mcp` slash command and the MCP picker button route here.
+  onOpenMcpSettings?: () => void;
+  // The "+" menu's "add plugin" / "add connector" rows route to the home
+  // surfaces (plugin registry / connector integrations). Wired from
+  // ChatPane → ProjectView → App. Omitted → the add rows are hidden.
+  onBrowsePlugins?: () => void;
+  researchAvailable?: boolean;
+  projectMetadata?: ProjectMetadata;
+  // Fired after the daemon accepts a metadata PATCH, with the authoritative
+  // post-patch project (fresh `updatedAt` included). Callers must replace
+  // their whole project copy with it: forwarding only the metadata onto a
+  // stale copy lets an older detail snapshot win recency comparisons and
+  // shadow the change (e.g. the working-dir label never updating).
+  onProjectMetadataChange?: (updated: Project) => void;
+  activeWorkspaceContext?: WorkspaceContextItem | null;
+  initialWorkspaceContexts?: WorkspaceContextItem[];
+  workspaceContexts?: WorkspaceContextItem[];
+  // BYOK image-model picker shown above the textarea for protocols that
+  // inject the daemon-side generate_image tool (SenseAudio, AIHubMix).
+  // Hidden for every other BYOK tab so the composer stays clean. The
+  // state owner is ProjectView (per-session, reset on refresh);
+  // ChatComposer is a fully controlled select.
+  byokApiProtocol?: AppConfig['apiProtocol'];
+  byokImageModel?: string;
+  onChangeByokImageModel?: (model: string) => void;
+  byokVideoModel?: string;
+  onChangeByokVideoModel?: (model: string) => void;
+  byokSpeechModel?: string;
+  onChangeByokSpeechModel?: (model: string) => void;
+  byokSpeechVoice?: string;
+  onChangeByokSpeechVoice?: (voice: string) => void;
+  currentSkillId?: string | null;
+  onProjectSkillChange?: (skillId: string | null) => void;
+  // Set when the project was created with a plugin already pinned
+  // (PluginLoopHome on Home). When provided, the in-composer plugin
+  // rail collapses to the single pinned plugin so the user can see
+  // which plugin is active without being offered every other installed
+  // plugin (the user reported "选了 new-generation, 结果 composer 显
+  // 示了多个 plugin"). The active plugin still appears as an
+  // ActivePluginChip on each user message (see UserMessage in
+  // ChatPane). Pass `null` (or omit) to render the full rail.
+  pinnedPluginId?: string | null;
+  footerAccessory?: ReactNode;
+  // Slot rendered in the composer's bottom toolbar, immediately right of the
+  // "+" menu. Hosts the working-directory pill so the folder selector sits by
+  // the composer (mirroring the home input) instead of the file-panel header.
+  leadingAccessory?: ReactNode;
+  // Optional transient banner sink. The composer emits one short message
+  // here when a mid-chat design-system switch lands (or fails) so the user
+  // has explicit confirmation without re-opening the picker.
+  onShowToast?: (message: string) => void;
+}
+
+// Imperative handle so ancestors (e.g. example chips in ChatPane) can
+// push text into the composer without owning its draft state.
+export interface ChatComposerDraftOptions {
+  entryFrom?: ChatAnalyticsEntryFrom;
+  sessionMode?: ChatSessionMode;
+}
+
+export interface ChatComposerHandle {
+  setDraft: (text: string, options?: ChatComposerDraftOptions) => void;
+  restoreDraft: (draft: {
+    /**
+     * 队列里存的正文 —— 里面**可能已经折着**一段 `> 原文` 的引文前缀。
+     * 传 `quotes` 进来,restoreDraft 会把那段拆掉;不传就原样进输入框。
+     */
+    text: string;
+    attachments?: ChatAttachment[];
+    /**
+     * 这一条排队时带着的引用。给了它,芯片才会变回芯片(并从正文里拆掉)——
+     * 正文里那份是散文,拆不出结构。省略等同于「这一条没有引用」,
+     * 于是宿主当前的芯片会被清空,而不是漏给下一发。
+     */
+    quotes?: ChatQuote[];
+    /**
+     * The queued turn's meta. When present, restoreDraft rebuilds the staged
+     * plugin / connector / skill / MCP context (and re-shows their chips) so
+     * editing a queued item keeps its bindings instead of silently dropping
+     * them.
+     */
+    meta?: ChatSendMeta;
+  }) => void;
+  focus: () => void;
+  /**
+   * Open the composer "+" menu from outside, optionally landing on a specific
+   * flyout.
+   */
+  openPlusMenu: (submenu?: PlusMenuOpenTarget) => void;
+}
+
+/** Flyouts an external open request may land on; see `openPlusMenu`. */
+export type PlusMenuOpenTarget = PlusMenuSubmenu;
+
+export interface ChatSendMeta {
+  /** Stable identity for one confirmed user submission. Queueing and the
+   *  eventual daemon run reuse it so retries of the same UI action are
+   *  idempotent without collapsing separate sends that share the same text. */
+  clientRequestId?: string;
+  queueOnly?: boolean;
+  research?: ResearchOptions;
+  context?: RunContextSelection;
+  appliedPluginSnapshot?: AppliedPluginSnapshot;
+  appliedPluginSnapshotId?: string;
+  inlineAppliedPlugin?: {
+    pluginId: string;
+    label: string;
+  };
+  // Per-turn skill ids picked via the @-mention popover. The chat layer
+  // forwards these to the daemon's `skillIds` field so the system prompt
+  // for this run only is composed with the extra skill bodies, without
+  // touching the project's persistent `skillId`.
+  skillIds?: string[];
+  /** Overrides the run_created / run_finished `entry_from` analytics prop for
+   *  this send (e.g. 'mark' when the turn is sent from the Mark draw overlay).
+   *  Behavior never depends on it; it only shapes PostHog props. */
+  entryFrom?: ChatAnalyticsEntryFrom;
+  /** One-shot run mode override for seeded follow-ups before parent state catches up. */
+  sessionMode?: ChatSessionMode;
+  /**
+   * 这一发带上的引用,**结构形态**。
+   *
+   * 正文里已经有一份折进去的 `> 原文`(见 `submit()`),但那是给 agent 读的散文,
+   * 拆不回芯片。排队的那一条要是只剩散文,用户点「编辑」取回来就只能是散文 ——
+   * 这正是它存在的理由。
+   *
+   * 纯 UI 字段:daemon 的请求体是白名单(`providers/daemon.ts` 里逐个字段列出来的),
+   * 所以它到不了后端;但它**会**跟着队列进 localStorage,所以写进来之前必须过
+   * `sanitizeQuotes` 的上限。
+   */
+  quotes?: ChatQuote[];
+}
+
+type DataTransferItemWithFileSystemEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => { isDirectory?: boolean } | null;
+};
+
+function dataTransferContainsDirectory(dataTransfer: DataTransfer): boolean {
+  for (const item of Array.from(dataTransfer.items ?? [])) {
+    if (item.kind !== 'file') continue;
+    const entry = (item as DataTransferItemWithFileSystemEntry).webkitGetAsEntry?.();
+    if (entry?.isDirectory === true) return true;
+  }
+  return false;
+}
+
+/**
+ * The chat composer: textarea + paste/drop/attach buttons + @-mention
+ * picker. Attachments are uploaded into the active project's folder so
+ * the agent can reference them by relative path on its next turn.
+ *
+ * `@` typed at a word boundary opens a popover listing project files.
+ * Selecting one inserts `@<path>` into the prompt and stages it as an
+ * attachment so the daemon also includes it explicitly.
+ */
+export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
+  function ChatComposer(
+    {
+      agentId,
+      projectId,
+      projectFiles,
+      streaming,
+      questionPending = false,
+      sessionMode = 'design',
+      sendDisabled = false,
+      promptHistory,
+      slashActions,
+      inputDisabled = false,
+      initialDraft,
+      externalPendingUploads,
+      onRemoveExternalPendingUpload,
+      composerPlaceholder,
+      placeholderScenarios = [],
+      draftStorageKey,
+      onEnsureProject,
+      onRemoveCommentAttachment,
+      skills = [],
+      onSend,
+      onStop,
+      onOpenMcpSettings,
+      onBrowsePlugins,
+      researchAvailable = false,
+      projectMetadata,
+      onProjectMetadataChange,
+      activeWorkspaceContext = null,
+      initialWorkspaceContexts = [],
+      workspaceContexts = [],
+      byokApiProtocol,
+      byokImageModel,
+      onChangeByokImageModel,
+      byokVideoModel,
+      onChangeByokVideoModel,
+      byokSpeechModel,
+      onChangeByokSpeechModel,
+      byokSpeechVoice,
+      onChangeByokSpeechVoice,
+      currentSkillId = null,
+      onProjectSkillChange,
+      pinnedPluginId = null,
+      footerAccessory,
+      leadingAccessory,
+      onShowToast,
+      quotes,
+      onClearQuotes,
+      onRestoreQuotes,
+    },
+    ref
+  ) {
+    const { locale, t } = useI18n();
+    const sendHintId = useId();
+    const analytics = useAnalytics();
+
+    const [runtimeCapabilities, setRuntimeCapabilities] = useState<AgentCapabilitiesResponse | null>(null);
+    useEffect(() => {
+      if (!agentId) return;
+      let cancelled = false;
+      void fetchAgentCapabilities().then((data) => {
+        if (!cancelled) setRuntimeCapabilities(data);
+      }, () => {});
+      return () => { cancelled = true; };
+    }, [agentId]);
+    const noApproval = agentId
+      ? runtimeCapabilities?.matrix[agentId]?.approvals.state === 'unsupported'
+      : false;
+    const [draft, setDraft] = useState(() => initialDraft ?? loadComposerDraft(draftStorageKey) ?? "");
+    /*
+     * 刷新之后要回来的**整份**负载。读一次就够 —— 会话一换,`ProjectView` 会拿
+     * `${project.id}:${activeConversationId}` 当 key 把整棵 ChatPane 重挂,
+     * 这个 useRef 跟着重建,所以「按会话隔离」是挂载边界保证的,不靠这里判。
+     */
+    const restoredExtrasRef = useRef(loadComposerDraftExtras(draftStorageKey));
+    const [placeholderScenario, setPlaceholderScenario] = useState<PlaceholderScenario | null>(null);
+    const composerRootRef = useRef<HTMLDivElement | null>(null);
+    const pendingSessionModeRef = useRef<ChatSessionMode | null>(null);
+    // Synchronous mirror of `draft`. Event handlers that mutate the draft off
+    // a captured render closure (notably the annotation listener, where two
+    // uploads can resolve concurrently) read/write this ref so their edits
+    // compose instead of clobbering one another. Kept in lockstep with `draft`
+    // by handleEditorChange (the editor is the single source for typing) and by
+    // the programmatic-set paths below.
+    const draftRef = useRef(draft);
+    // Submission admission can cross asynchronous gates after the composer
+    // has already cleared (OPEND-3392). Keep a synchronous latch so a second
+    // Enter/click in that window cannot start another send before the host
+    // decides whether the first one is kept or handed back.
+    const composedSendPendingRef = useRef(false);
+    // The latch above prevents duplicates, but a ref alone leaves the UI
+    // completely unchanged while submission is pending. Mirror it in state so Send turns
+    // into an immediate, non-interactive "Preparing..." pill instead of
+    // looking like the click was lost.
+    const [composedSendPending, setComposedSendPending] = useState(false);
+    const previousSessionModeRef = useRef(sessionMode);
+
+    useEffect(() => {
+      if (previousSessionModeRef.current === sessionMode) return;
+      if (pendingSessionModeRef.current && pendingSessionModeRef.current !== sessionMode) {
+        pendingSessionModeRef.current = null;
+      }
+      previousSessionModeRef.current = sessionMode;
+    }, [sessionMode]);
+
+    // chat_panel page_view fires from ProjectView (which outlives
+    // conversation switches) so the event measures real chat-panel
+    // entries rather than ChatComposer remounts. See PR #2285 review
+    // 2026-05-20 04:08 for the rationale.
+    // 附件存的是**项目里的相对路径**,不是文件本身 —— 刷新之后原样成立,直接回来。
+    const [staged, setStaged] = useState<ChatAttachment[]>(
+      () => normalizeChatAttachmentOrders(restoredExtrasRef.current.attachments),
+    );
+    // Manual editor height set by dragging the shell's gray backdrop up/down.
+    // null = the default auto-grow min/max behavior.
+    const [manualEditorHeight, setManualEditorHeight] = useState<number | null>(null);
+    const nextAttachmentOrderRef = useRef(nextChatAttachmentOrder(restoredExtrasRef.current.attachments));
+    const [projectReferenceOpen, setProjectReferenceOpen] = useState(false);
+    // Skills the user has @-mentioned for this turn. We dedupe on id and
+    // strip the chip when the user removes the corresponding `@<skill>`
+    // token from the draft, keeping draft and chips in sync.
+    const [stagedSkills, setStagedSkills] = useState<SkillSummary[]>([]);
+    // External "+"-menu open request — nonce-keyed so every request re-opens
+    // even after the menu was dismissed.
+    const [plusMenuOpenRequest, setPlusMenuOpenRequest] = useState<
+      { nonce: number; submenu?: PlusMenuOpenTarget } | null
+    >(null);
+    const [stagedMcpServers, setStagedMcpServers] = useState<McpServerConfig[]>([]);
+    const linkedDirs = projectMetadata?.linkedDirs ?? [];
+    // 工作区上下文条目是自包含的(id / kind / label / path),存下来直接还原,
+    // 和宿主本轮给的 `initialWorkspaceContexts` 合并去重。
+    const [stagedWorkspaceContexts, setStagedWorkspaceContexts] = useState<WorkspaceContextItem[]>(
+      () => dedupeWorkspaceContextItems([
+        ...initialWorkspaceContexts,
+        ...restoredExtrasRef.current.context.workspaceItems,
+      ]),
+    );
+    const [workspaceLinkedDirAdds, setWorkspaceLinkedDirAdds] = useState<Record<string, TrackedWorkspaceLinkedDir>>(
+      () => trackedWorkspaceLinkedDirsForContexts(initialWorkspaceContexts, linkedDirs),
+    );
+    const [promotedWorkspaceContextDir, setPromotedWorkspaceContextDir] = useState<string | null>(null);
+    /*
+     * Workspace items the user attached with the "Attach current file" button.
+     *
+     * Owner decision (2026-11-10): nothing from the open tab rides along with a
+     * message unless the user chooses it. Viewing a file or an image only
+     * changes which item the button offers; it never stages anything. A chosen
+     * item lives in `stagedWorkspaceContexts` like an @-mentioned one, but it has
+     * no `@token` in the text, so it is listed here to keep the text-driven
+     * prune in `handleEditorChange` from dropping it. Items the host hands in
+     * (picked on Home) and restored draft items with no token in the restored
+     * text were chosen the same way, so they are seeded here.
+     */
+    const [chosenWorkspaceContextIds, setChosenWorkspaceContextIds] = useState<ReadonlySet<string>>(
+      () => new Set([
+        ...initialWorkspaceContexts.map((item) => item.id),
+        ...restoredExtrasRef.current.context.workspaceItems
+          .filter((item) => !mentionTokenPresent(draft, item.label))
+          .map((item) => item.id),
+      ]),
+    );
+    const activeWorkspaceContextId = activeWorkspaceContext?.id ?? null;
+    const previousWorkspaceContextIdRef = useRef<string | null>(activeWorkspaceContextId);
+    const [dragActive, setDragActive] = useState(false);
+    // Lexical owns the caret, so the mention/slash trigger state only carries
+    // the typed query — no cursor offset.
+    const [mention, setMention] = useState<{ q: string } | null>(null);
+    // Active-row index for the @-popover's visible union (files → tabs →
+    // plugins → skills → mcp → connectors). Resets to 0 whenever the query
+    // identity or tab changes; drives the visual highlight + Enter/Tab target.
+    const [mentionIndex, setMentionIndex] = useState(0);
+    const [mentionTab, setMentionTab] = useState<MentionTab>('all');
+    // Viewport caret box the floating popover anchors against. Sampled by the
+    // editor at trigger-detection time; null when no trigger is live.
+    const [caretRect, setCaretRect] = useState<CaretRect | null>(null);
+    // Slash-command popover state — when the draft starts with `/` and the
+    // cursor is still inside that token (no space committed yet), we show a
+    // small palette of supported commands. The query is the text after `/`
+    // so the user can type-to-filter.
+    const [slash, setSlash] = useState<{ q: string } | null>(null);
+    const [slashIndex, setSlashIndex] = useState(0);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    /* 待发送托盘里【还没传完 / 传失败】的那几张卡(设计稿 #61 / #63)。
+       它们不进 `staged` —— `staged` 是「能跟着这条消息发出去的附件」,而这几张
+       还没有服务端路径。两条列表在渲染时才合并(`buildStagedAttachmentCards`)。 */
+    const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+    /* 本地 `File` 留在 ref 里,不进 state:重试要能只重发那一个文件,而 `File`
+       本身不参与渲染,放进 state 只会让每次上传都多一轮无谓的 diff。
+       `previewUrl` 一并记着,移除 / 传完时要 revoke,不然长会话里会漏一串 blob。 */
+    const pendingFilesRef = useRef<Map<string, { file: File; previewUrl: string | null }>>(new Map());
+    const pendingSeqRef = useRef(0);
+    // 组件被卸掉时(切项目 / 关面板)把还没 revoke 的本地缩略图一次收干净。
+    useEffect(() => {
+      const files = pendingFilesRef.current;
+      return () => {
+        if (typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') return;
+        for (const entry of files.values()) {
+          if (entry.previewUrl) {
+            try {
+              URL.revokeObjectURL(entry.previewUrl);
+            } catch {
+              /* 撤不掉不影响功能 */
+            }
+          }
+        }
+        files.clear();
+      };
+    }, []);
+    // External MCP servers configured by the user. Fetched lazily on mount;
+    // shown in the slash-command palette so `/mcp <id>` inserts a hint into
+    // the prompt that nudges the model to use that server's tools.
+    const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
+    // Installed plugins, fetched lazily for the tools-menu Plugins tab and
+    // the @-mention picker. Both surfaces share the same list so applying
+    // a plugin from either path lands on the same project context.
+    const [installedPlugins, setInstalledPlugins] = useState<InstalledPluginRecord[]>([]);
+    // Detail modal — opened from a context chip click (kind === 'plugin')
+    // or from the tools-menu "Details" affordance.
+    const [detailsRecord, setDetailsRecord] = useState<InstalledPluginRecord | null>(null);
+    const [detailsSkill, setDetailsSkill] = useState<{
+      id: string;
+      summary?: SkillSummary | null;
+    } | null>(null);
+    const [activeAppliedPlugin, setActiveAppliedPlugin] =
+      useState<AppliedPluginSnapshot | null>(null);
+    const pluginsSectionRef = useRef<PluginsSectionHandle | null>(null);
+    const inlineBackedPluginRef = useRef<{ id: string; label: string } | null>(null);
+    async function duplicateDetailsPlugin(record: InstalledPluginRecord) {
+      try {
+        const result = await duplicatePluginAsProject(record.id, {
+          name: localizePluginTitle(locale, record),
+        });
+        setDetailsRecord(null);
+        navigate({
+          kind: 'project',
+          projectId: result.projectId,
+          conversationId: result.conversationId,
+          fileName: result.relPath,
+        });
+      } catch {
+        onShowToast?.(t('pluginCard.duplicateFailed'));
+      }
+    }
+    // Consolidated "tools" popover — a single dropdown anchored to the
+    // leading sliders icon that hosts project context, MCP, Import actions,
+    // and a shortcut to open the full Settings dialog. Replaces the previous
+    // row of three standalone buttons (which overflowed in narrow chats).
+    // The "+" menu (ComposerPlusMenu) owns its own open / submenu state.
+    // Defer the (large) plugin / MCP / connector fetches until the composer is
+    // actually used — first focus, the tools popover opening, an @/slash
+    // trigger, or a pre-seeded draft. An untouched empty composer (e.g. a home
+    // surface the user bounces off, or a background chat) never pays for the
+    // full plugin-manifest list. Latches once true and never resets.
+    const [composerEngaged, setComposerEngaged] = useState(
+      () => (draft ?? '').trim().length > 0
+        || restoredExtrasRef.current.context.skillIds.length > 0
+        || restoredExtrasRef.current.context.mcpServerIds.length > 0,
+    );
+    // Match HomeHero's empty-editor behavior: once the user places the real
+    // caret in this composer, hide/pause the decorative typewriter overlay so
+    // CSS no longer suppresses the native blinking caret. Blur resumes the
+    // animation only while the composer is still genuinely empty.
+    const [composerFocused, setComposerFocused] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    // The Lexical editor handle — drives text/mention/clear/focus from the
+    // host. Replaces the old textareaRef + manual selection plumbing. IME
+    // composition guarding now lives inside the editor's command handlers.
+    const editorRef = useRef<LexicalComposerInputHandle | null>(null);
+    // Best-effort entry_from carried from a guided Next-step action: the card
+    // only seeds the composer, so the tag is stashed here and consumed by the
+    // next `sendComposedTurn` (then cleared). An explicit meta.entryFrom always
+    // wins over this pending value.
+    const pendingEntryFromRef = useRef<ChatAnalyticsEntryFrom | null>(null);
+    const [recentDirs, setRecentDirs] = useState<string[]>([]);
+    useEffect(() => {
+      let cancelled = false;
+      void fetchRecentLinkedDirs().then((dirs) => {
+        if (!cancelled) setRecentDirs(dirs);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+    const rememberRecentDir = useCallback(async (dir: string) => {
+      setRecentDirs((prev) => [dir, ...prev.filter((d) => d !== dir)].slice(0, 5));
+      const persisted = await pushRecentLinkedDir(dir);
+      setRecentDirs(persisted);
+    }, []);
+    // What gets sent is only what the user staged; the open tab is never added
+    // on its own (see `chosenWorkspaceContextIds`).
+    const selectedWorkspaceContexts = useMemo(
+      () => dedupeWorkspaceContextItems(stagedWorkspaceContexts),
+      [stagedWorkspaceContexts],
+    );
+    // The open tab the "Attach current …" button offers, when it is something
+    // that can be attached and is not attached already.
+    const offeredWorkspaceContext =
+      activeWorkspaceContext
+        && attachableCurrentWorkspaceContext(activeWorkspaceContext)
+        && !selectedWorkspaceContexts.some((item) => item.id === activeWorkspaceContext.id)
+        ? activeWorkspaceContext
+        : null;
+    const selectedWorkspaceContextDirs = useMemo<string[]>(
+      () => workspaceContextLinkedDirs(selectedWorkspaceContexts),
+      [selectedWorkspaceContexts],
+    );
+    const workspaceContextMetadataLinkedDirList = useMemo<string[]>(
+      () =>
+        Array.from(new Set([
+          ...Object.values(workspaceLinkedDirAdds).map((tracked) => tracked.dir),
+          ...selectedWorkspaceContextDirs,
+        ])),
+      [selectedWorkspaceContextDirs, workspaceLinkedDirAdds],
+    );
+    const workspaceContextLinkedDirList = useMemo<string[]>(
+      () =>
+        workspaceContextMetadataLinkedDirList.filter((dir) => dir !== promotedWorkspaceContextDir),
+      [promotedWorkspaceContextDir, workspaceContextMetadataLinkedDirList],
+    );
+    const workspaceContextLinkedDirSet = useMemo<Set<string>>(
+      () => new Set(workspaceContextLinkedDirList),
+      [workspaceContextLinkedDirList],
+    );
+    // The project's working directory: the local folder the agent can read
+    // (via `linkedDirs` → `--add-dir`). Shown in the WorkingDirPicker below
+    // the input, mirroring Home. Context-only folders are still linked for
+    // agent read access, but they should not become the displayed primary dir.
+    const workingDir = linkedDirs.find((dir) => !workspaceContextLinkedDirSet.has(dir)) ?? null;
+    // Live-check whether the selected working directory still exists, so a
+    // folder deleted from disk turns the picker red without a page reload.
+    // Re-checked when the dir changes, when the window/tab regains focus
+    // (e.g. after deleting it in Finder), and when the picker is opened.
+    const [workingDirMissing, setWorkingDirMissing] = useState(false);
+    const checkWorkingDir = useCallback(async () => {
+      if (!workingDir) {
+        setWorkingDirMissing(false);
+        return;
+      }
+      const ok = await dirExists(workingDir);
+      setWorkingDirMissing(!ok);
+    }, [workingDir]);
+    useEffect(() => {
+      void checkWorkingDir();
+      const onFocus = () => void checkWorkingDir();
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') void checkWorkingDir();
+      };
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+        window.removeEventListener('focus', onFocus);
+        document.removeEventListener('visibilitychange', onVisible);
+      };
+    }, [checkWorkingDir]);
+    // initialDraft is only honored on the first non-empty value the parent
+    // hands us. After we seed once, the composer is fully under user control
+    // — re-renders that pass the same prompt back must not reseed. If the
+    // initial useState above already consumed a non-empty initialDraft we
+    // mark it seeded immediately, so an early clear by the user (typing or
+    // backspace before the parent stops passing initialDraft) does not get
+    // overwritten by the effect.
+    const seededRef = useRef(Boolean(initialDraft));
+
+    useEffect(() => {
+      if (seededRef.current) return;
+      if (initialDraft && initialDraft !== draft) {
+        setDraft(initialDraft);
+        seededRef.current = true;
+      } else if (initialDraft === undefined) {
+        seededRef.current = true;
+      }
+    }, [initialDraft, draft]);
+
+    useEffect(() => {
+      saveComposerDraft(draftStorageKey, draft);
+    }, [draftStorageKey, draft]);
+
+    /*
+     * ── 刷新之后把整份草稿写回去 ──────────────────────────────────────────
+     *
+     * 正文、附件、标注、工作区条目在 `useState` 初值里就已经回来了(它们自包含,
+     * 不需要问任何人)。这里处理剩下两件**需要等**的事。
+     */
+
+    /** 还没落到芯片上的绑定 id。列表回来一批就消一批,始终对不上的就此丢掉。 */
+    const pendingRestoredContextRef = useRef<ComposerDraftContext | null>(
+      restoredExtrasRef.current.context.skillIds.length > 0
+        || restoredExtrasRef.current.context.mcpServerIds.length > 0
+        ? restoredExtrasRef.current.context
+        : null,
+    );
+
+    /*
+     * 技能 / MCP / 连接器只存了 id(存完整对象等于把 `McpServerConfig.env` 里的
+     * 用户 API key 写进 localStorage),所以要等对应的列表拉回来才能变成芯片。
+     * 这几份列表是**懒加载**的:首屏一律是空数组。要是在挂载那一下就解析,
+     * 用户挂上去的每一枚 MCP / 连接器芯片都会被无声吞掉 —— 看起来像「存了个寂寞」。
+     * 所以这里跟着列表变化重试,解析掉的从待办里划掉,划不掉的留着等下一批。
+     */
+    useEffect(() => {
+      const pending = pendingRestoredContextRef.current;
+      if (!pending) return;
+      const nextSkills = resolveStagedById(pending.skillIds, skills);
+      const nextMcp = resolveStagedById(pending.mcpServerIds, mcpServers);
+      if (nextSkills.resolved.length > 0) {
+        setStagedSkills((current) => mergeStagedById(current, nextSkills.resolved));
+      }
+      if (nextMcp.resolved.length > 0) {
+        setStagedMcpServers((current) => mergeStagedById(current, nextMcp.resolved));
+      }
+      pendingRestoredContextRef.current =
+        nextSkills.unresolved.length + nextMcp.unresolved.length > 0
+          ? {
+              skillIds: nextSkills.unresolved,
+              mcpServerIds: nextMcp.unresolved,
+              workspaceItems: [],
+            }
+          : null;
+    }, [skills, mcpServers,]);
+
+    /*
+     * 引用的 state 住在宿主那儿,所以只能还回去。挂载一次就够 ——
+     * 之后是用户在操作,再塞回去会把人家刚清掉的东西又变出来。
+     */
+    const restoredQuotesHandedBackRef = useRef(false);
+    useEffect(() => {
+      if (restoredQuotesHandedBackRef.current) return;
+      restoredQuotesHandedBackRef.current = true;
+      const restored = restoredExtrasRef.current.quotes;
+      if (restored.length === 0) return;
+      onRestoreQuotes?.(restored);
+    }, [onRestoreQuotes]);
+
+    /*
+     * 攒上去的东西跟着写下去。`reset()` 把这几样清空之后,这里写出的是空负载 ——
+     * 空负载不落盘,于是「发出去了」和「草稿没了」是同一件事,不需要单独去 remove。
+     */
+    useEffect(() => {
+      saveComposerDraftExtras(draftStorageKey, {
+        attachments: staged,
+        quotes: quotes ?? [],
+        context: {
+          skillIds: stagedSkills.map((item) => item.id),
+          mcpServerIds: stagedMcpServers.map((item) => item.id),
+          // 只存**用户自己挂上去的**那几条(@ 提到的,或点「附带当前文件」选的)。
+          // 打开着的那个标签页本身从来不算。
+          workspaceItems: stagedWorkspaceContexts,
+        },
+      });
+    }, [
+      draftStorageKey,
+      staged,
+      quotes,
+      stagedSkills,
+      stagedMcpServers,
+      stagedWorkspaceContexts,
+    ]);
+
+    useEffect(() => {
+      if (previousWorkspaceContextIdRef.current === activeWorkspaceContextId) return;
+      previousWorkspaceContextIdRef.current = activeWorkspaceContextId;
+      setPromotedWorkspaceContextDir(null);
+    }, [activeWorkspaceContextId]);
+
+    // Latch `composerEngaged` true on the first real interaction so the
+    // deferred fetches below run exactly once, when they are actually needed.
+    useEffect(() => {
+      if (composerEngaged) return;
+      if (draft.trim().length > 0 || mention || slash) {
+        setComposerEngaged(true);
+      }
+    }, [composerEngaged, draft, mention, slash]);
+
+    // Lazy-fetch the user's external MCP servers list (once engaged) so the
+    // `/mcp …` slash palette and the composer's MCP button popover have
+    // something to render. We deliberately do not reactively re-fetch when
+    // the user toggles servers from Settings — the dialog refreshes itself,
+    // and the chat composer rehydrates next time the user re-opens it. A
+    // background poll would be cheap but unnecessary for the typical
+    // edit-once-then-chat workflow.
+    useEffect(() => {
+      if (!composerEngaged) return;
+      let cancelled = false;
+      void (async () => {
+        const data = await fetchMcpServers();
+        if (cancelled || !data) return;
+        setMcpServers(data.servers);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [composerEngaged]);
+
+    // Skills now come from the parent (App.tsx → ProjectView → ChatPane → ChatComposer)
+    // pre-filtered by enabled/disabled state. We no longer fetch a fresh list
+    // here to avoid showing skills the user has disabled via Settings.
+
+    // Lazy-fetch installed plugins once on mount; the tools-menu Plugins
+    // tab and the @-mention picker both consume this list.
+    useEffect(() => {
+      if (!projectId || !composerEngaged) return;
+      let cancelled = false;
+      void listPlugins().then((rows) => {
+        if (cancelled) return;
+        setInstalledPlugins(rows);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [projectId, composerEngaged]);
+
+    useEffect(() => {
+      const inlinePlugin = inlineBackedPluginRef.current;
+      if (!activeAppliedPlugin || inlinePlugin?.id !== activeAppliedPlugin.pluginId) return;
+      if (mentionTokenPresent(draft, inlinePlugin.label)) return;
+      inlineBackedPluginRef.current = null;
+      pluginsSectionRef.current?.clear();
+    }, [activeAppliedPlugin, draft]);
+
+    // Composer-side plugin list: hide bundled atoms (pipeline-only). Keep
+    // the full installed list available even when the project was created
+    // from a pinned plugin, so users can switch or layer different plugin
+    // context from the tools menu and @ picker.
+    const pluginsForComposer = useMemo<InstalledPluginRecord[]>(() => {
+      const allowedKinds = new Set(['skill', 'scenario', 'bundle']);
+      return installedPlugins.filter((p) => {
+        const k = p.manifest?.pixo?.kind;
+        return !k || allowedKinds.has(k);
+      });
+    }, [installedPlugins]);
+
+    const enabledMcpServers = useMemo(
+      () => mcpServers.filter((s) => s.enabled),
+      [mcpServers],
+    );
+
+    function inlineBackedPluginFromRestoredDraft(
+      text: string,
+      appliedPlugin: AppliedPluginSnapshot | null | undefined,
+      meta: ChatSendMeta | undefined,
+    ): { id: string; label: string } | null {
+      if (!appliedPlugin) return null;
+      const restoredInline = meta?.inlineAppliedPlugin;
+      if (restoredInline?.pluginId !== appliedPlugin.pluginId) return null;
+      return mentionTokenPresent(text, restoredInline.label)
+        ? { id: appliedPlugin.pluginId, label: restoredInline.label }
+        : null;
+    }
+
+    const composerMentionEntities = useMemo(
+      () =>
+        buildComposerMentionEntities({
+          files: projectFiles,
+          mcpServers: enabledMcpServers,
+          plugins: pluginsForComposer,
+          skills,
+          staged,
+          workspaceContexts: selectedWorkspaceContexts,
+        }),
+      [, enabledMcpServers, pluginsForComposer, projectFiles, selectedWorkspaceContexts, skills, staged],
+    );
+    // Resolve which tabs to surface in the consolidated tools popover.
+    // Plugins is always visible while a project is active so users can
+    // apply context without leaving the composer. MCP shows when wired by
+    // Catalog of supported slash commands. Each entry shows up in the
+    // popover when the user types `/` in the composer. The `insert`
+    // value is what we drop into the draft when the user picks the
+    // entry — usually the canonical command form with a trailing space
+    // ready for an argument.
+    const slashCommands = useMemo<SlashCommand[]>(() => {
+      const list: SlashCommand[] = (slashActions ?? []).map((action) => ({
+        id: action.id,
+        label: action.label,
+        insert: '',
+        descKey: action.descKey,
+        icon: action.icon,
+        run: action.run,
+      }));
+      // External MCP servers — `/mcp` opens settings, `/mcp <id>` inserts a
+      // prompt-side hint nudging the model to use that server's tools. The
+      // hint flows through to the agent verbatim; the daemon already wired
+      // the MCP config into the agent's launch so the tools are callable.
+      if (onOpenMcpSettings) {
+        list.push({
+          id: 'mcp',
+          label: '/mcp',
+          insert: '/mcp ',
+          descKey: 'composer.slashMcp',
+          icon: 'sliders',
+          argHint: 'open settings · <server-id> to insert hint',
+        });
+      }
+      for (const s of enabledMcpServers) {
+        list.push({
+          id: `mcp-${s.id}`,
+          label: `/mcp ${s.id}`,
+          insert: `Use the \`${s.id}\` MCP server tools. `,
+          descKey: 'composer.slashMcp',
+          icon: 'sparkles',
+          argHint: s.label || s.transport,
+        });
+      }
+      if (researchAvailable) {
+        list.push({
+          id: 'search',
+          label: '/search',
+          insert: '/search ',
+          descKey: 'composer.slashSearch',
+          icon: 'sparkles',
+          argHint: t('composer.slashSearchArg'),
+        });
+      }
+      return list;
+    }, [researchAvailable, t, enabledMcpServers, onOpenMcpSettings, slashActions]);
+
+    const filteredSlash = useMemo(() => {
+      if (!slash) return [] as SlashCommand[];
+      const q = slash.q.toLowerCase();
+      if (!q) return slashCommands;
+      return slashCommands.filter((c) => c.label.toLowerCase().includes(q));
+    }, [slash, slashCommands]);
+
+    function pickSlash(cmd: SlashCommand) {
+      if (!slash) return;
+      if (cmd.run) {
+        editorRef.current?.replaceActiveTrigger('');
+        setSlash(null);
+        cmd.run();
+        return;
+      }
+      // Replace the in-flight `/<query>` trigger with the picked command's
+      // canonical insertion text. Lexical owns the caret afterwards.
+      editorRef.current?.replaceActiveTrigger(cmd.insert);
+      editorRef.current?.focus();
+      setSlash(null);
+    }
+
+    // `/mcp` (no arg) opens settings on the External MCP tab — pure UX hook,
+    // never sent to the agent. `/mcp <id>` is intentionally NOT intercepted
+    // here: the slash palette already replaces it with a natural-language
+    // hint sentence ("Use the `<id>` MCP server tools."), and the user is
+    // expected to keep typing the rest of the prompt before sending.
+    function tryHandleMcpSlash(): boolean {
+      if (!onOpenMcpSettings) return false;
+      const trimmed = draft.trim();
+      if (!/^\/mcp\s*$/i.test(trimmed)) return false;
+      onOpenMcpSettings();
+      setDraft('');
+      editorRef.current?.clear();
+      return true;
+    }
+
+    function expandSearchCommand(input: string): { prompt: string; query: string } | null {
+      const m = /^\/search(?:\s+([\s\S]*))?$/i.exec(input.trim());
+      if (!m) return null;
+      const query = m[1]?.trim() ?? '';
+      if (!query) return null;
+      return {
+        query,
+        prompt: [
+          `Search for: ${query}`,
+          '',
+          'Before answering, your first tool action must be the OD research command for your shell.',
+          'POSIX: "$PIXO_NODE_BIN" "$PIXO_BIN" research search --query "<search query>" --max-sources 5',
+          'PowerShell: & $env:PIXO_NODE_BIN $env:PIXO_BIN research search --query "<search query>" --max-sources 5',
+          'cmd.exe: "%PIXO_NODE_BIN%" "%PIXO_BIN%" research search --query "<search query>" --max-sources 5',
+          'Use the canonical query below as the exact search query, with safe quoting for your shell.',
+          '',
+          'Canonical query:',
+          '',
+          '```text',
+          query.replace(/```/g, '`\u200b`\u200b`'),
+          '```',
+          "If the OD command fails, keep the stderr / exit status in the tool trace and daemon logs, then use your own search capability as fallback. Label the fallback clearly in your answer — the user asked for a search, so they are owed the fact that these results did not come from the research command, but not the provider name or the error text.",
+          'After the command returns JSON or fallback search results, write a reusable Markdown report into Files at `research/<safe-query-slug>.md` or another fresh project-relative path.',
+          'The report must include the query, fetched time, short summary, key findings, source list with [1], [2] citations, and a note that source content is external untrusted evidence.',
+          'Then summarize the findings with citations by source index and mention the Markdown report path.',
+        ].join('\n'),
+      };
+    }
+
+    function prefillComposerDraft(text: string, options?: ChatComposerDraftOptions) {
+      pendingEntryFromRef.current = options?.entryFrom ?? null;
+      pendingSessionModeRef.current = options?.sessionMode ?? null;
+      setDraft(text);
+      editorRef.current?.setText(text);
+      editorRef.current?.focus();
+      seededRef.current = true;
+    }
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        setDraft: prefillComposerDraft,
+        restoreDraft: ({ text, attachments = [], quotes: restoredQuotes = [], meta }) => {
+          /*
+           * 引用是发送时**折进正文**的(`submit()` 里那个 `> 原文` 前缀),所以
+           * 取回来要做两件事,缺一不可:把芯片还给宿主,并把正文里那段引文拆掉。
+           * 只做前一件,引文会在屏幕上出现两遍(芯片一遍、正文一遍);
+           * 只做后一件,就是今天这个 bug 反过来——正文被啃掉一截还没有芯片。
+           *
+           * 拆不干净就不拆(`splitQuotedPrompt` 只在前缀完全对得上时动手),
+           * 老队列里没有 `meta.quotes` 的那些于是原样退回今天的行为。
+           */
+          const body = splitQuotedPrompt(text, restoredQuotes);
+          setDraft(body);
+          // 引用的 state 住在宿主那儿,只能还回去 —— 和刷新恢复走的是同一条路。
+          // 无条件调用:取回一条**没有**引用的队列项时,必须把上一条留下的芯片清掉,
+          // 否则它们会被折进下一发的正文里。
+          onRestoreQuotes?.(restoredQuotes);
+          const orderedAttachments = normalizeChatAttachmentOrders(attachments);
+          setStaged(orderedAttachments);
+          nextAttachmentOrderRef.current = nextChatAttachmentOrder(orderedAttachments);
+          // Rebuild staged context from the queued turn's meta so the
+          // plugin / connector / skill / MCP / workspace-tab bindings (and their chips) come
+          // back for editing instead of being dropped. Ids resolve against the
+          // currently-loaded lists; ids that no longer resolve (uninstalled
+          // since queueing) are skipped rather than crashing. The applied
+          // plugin is restored from its full snapshot, so it needs no lookup.
+          const ctx = meta?.context;
+          // 队列这条路径是**一次性**解析:点「编辑」时懒加载的列表早就回来了,
+          // 对不上就是真的没了。刷新那条路径首屏列表还是空的,处理方式不同 ——
+          // 见 `pendingRestoredContextRef`。
+          setStagedSkills(resolveStagedById(ctx?.skillIds, skills).resolved);
+          setStagedMcpServers(resolveStagedById(ctx?.mcpServerIds, mcpServers).resolved);
+          pendingRestoredContextRef.current = null;
+          setStagedWorkspaceContexts(ctx?.workspaceItems ?? []);
+          const restoredAppliedPlugin = meta?.appliedPluginSnapshot ?? null;
+          setActiveAppliedPlugin(restoredAppliedPlugin);
+          inlineBackedPluginRef.current = inlineBackedPluginFromRestoredDraft(
+            text,
+            restoredAppliedPlugin,
+            meta,
+          );
+          setUploadError(null);
+          setMention(null);
+          setSlash(null);
+          editorRef.current?.setText(body);
+          editorRef.current?.focus();
+          seededRef.current = true;
+        },
+        focus: () => {
+          editorRef.current?.focus();
+        },
+        openPlusMenu: (submenu?: PlusMenuOpenTarget) => {
+          setComposerEngaged(true);
+          setPlusMenuOpenRequest((prev) => ({
+            nonce: (prev?.nonce ?? 0) + 1,
+            ...(submenu ? { submenu } : {}),
+          }));
+        },
+      }),
+      [, mcpServers, pluginsForComposer, skills]
+    );
+
+    /** Clears everything sendable; returns the linked workspace contexts it deliberately keeps. */
+    function reset(): WorkspaceContextItem[] {
+      pendingEntryFromRef.current = null;
+      pendingSessionModeRef.current = null;
+      const linkedWorkspaceContexts = stagedWorkspaceContexts.filter((item) => (
+        Boolean(item.absolutePath?.trim()) && Boolean(workspaceLinkedDirAdds[item.id])
+      ));
+      const linkedWorkspaceContextIds = new Set(linkedWorkspaceContexts.map((item) => item.id));
+      const nextWorkspaceLinkedDirAdds = Object.fromEntries(
+        Object.entries(workspaceLinkedDirAdds).filter(([id]) => linkedWorkspaceContextIds.has(id)),
+      );
+      setDraft("");
+      setStaged([]);
+      nextAttachmentOrderRef.current = 0;
+      setStagedSkills([]);
+      setStagedMcpServers([]);
+      setStagedWorkspaceContexts(linkedWorkspaceContexts);
+      setWorkspaceLinkedDirAdds(nextWorkspaceLinkedDirAdds);
+      if (
+        promotedWorkspaceContextDir &&
+        !linkedWorkspaceContexts.some((item) => item.absolutePath?.trim() === promotedWorkspaceContextDir)
+      ) {
+        setPromotedWorkspaceContextDir(null);
+      }
+      pluginsSectionRef.current?.clear();
+      inlineBackedPluginRef.current = null;
+      setActiveAppliedPlugin(null);
+      setUploadError(null);
+      setMention(null);
+      setMentionTab('all');
+      setSlash(null);
+      editorRef.current?.clear();
+      return linkedWorkspaceContexts;
+    }
+
+    function currentRunContextMeta(): ChatSendMeta | undefined {
+      const skillIds = stagedSkills.map((s) => s.id);
+      const pluginIds = activeAppliedPlugin ? [activeAppliedPlugin.pluginId] : [];
+      const mcpServerIds = stagedMcpServers.map((s) => s.id);
+      const workspaceItems = selectedWorkspaceContexts;
+      const context: RunContextSelection = {
+        ...(skillIds.length > 0 ? { skillIds } : {}),
+        ...(pluginIds.length > 0 ? { pluginIds } : {}),
+        ...(mcpServerIds.length > 0 ? { mcpServerIds } : {}),
+        ...(workspaceItems.length > 0 ? { workspaceItems } : {}),
+      };
+      const meta: ChatSendMeta = {
+        ...(skillIds.length > 0 ? { skillIds } : {}),
+        ...(activeAppliedPlugin
+          ? {
+              appliedPluginSnapshot: activeAppliedPlugin,
+              appliedPluginSnapshotId: activeAppliedPlugin.snapshotId,
+              ...(inlineBackedPluginRef.current?.id === activeAppliedPlugin.pluginId
+                ? {
+                    inlineAppliedPlugin: {
+                      pluginId: activeAppliedPlugin.pluginId,
+                      label: inlineBackedPluginRef.current.label,
+                    },
+                  }
+                : {}),
+            }
+          : {}),
+        ...(Object.keys(context).length > 0 ? { context } : {}),
+      };
+      return Object.keys(meta).length > 0 ? meta : undefined;
+    }
+
+    // Committed composer content, readable from the send promise's stale
+    // closure: a handed-back send must see what the user staged after reset().
+    const latestComposerContentRef = useRef<ComposerContent | null>(null);
+    useLayoutEffect(() => {
+      latestComposerContentRef.current = {
+        staged,
+        stagedSkills,
+        stagedMcpServers,
+        stagedWorkspaceContexts,
+        activeAppliedPlugin,
+        quotes: quotes ?? [],
+      };
+    });
+
+    /**
+     * 清空之后输入框里有没有**任何**新东西 —— 不只是字。
+     *
+     * 等待期间输入框照常可用:用户可能没打字,只是加了附件、技能、插件、引用,
+     * 或者换了工作区上下文。这些同样是下一条的草稿,还原旧快照会把它们盖掉。
+     * 基线就是 `reset()` 之后的样子:全部为空,只留下它有意保留的已关联目录。
+     */
+    function composerChangedSinceReset(
+      snapshot: ComposerSendSnapshot,
+      keptWorkspaceContextIds: ReadonlySet<string>,
+    ): boolean {
+      const text = editorRef.current?.getText() ?? draftRef.current;
+      if (text.trim()) return true;
+      const current = latestComposerContentRef.current;
+      if (!current) return false;
+      return (
+        current.staged.length > 0
+        || current.stagedSkills.length > 0
+        || current.stagedMcpServers.length > 0
+        || current.activeAppliedPlugin !== null
+        // Quotes live on the host, which may not have committed the clear yet:
+        // only a quote that was not part of the sent turn counts as new.
+        || current.quotes.some((quote) => !snapshot.quotes.some((sent) => sent.id === quote.id))
+        || current.stagedWorkspaceContexts.length !== keptWorkspaceContextIds.size
+        || current.stagedWorkspaceContexts.some((item) => !keptWorkspaceContextIds.has(item.id))
+      );
+    }
+
+    /**
+     * 输入框在「点发送」那一刻的全部可发内容 —— `reset()` 清掉的每一样都在这里。
+     *
+     * 宿主的 `onSend` 可能要等一道异步闸门(OpenPixo Cloud 的余额预检是两次
+     * HTTP 往返)才落定,而那一轮在闸门之前就已经上屏、会话已经是 Working。
+     * 输入框要是等到落定才清,用户就会看着已经发出去的正文在输入框里再躺
+     * 一两秒,以为没发出去(OPEND-3392)。所以提交即清空,只有宿主把这一发
+     * 退回来(`'restore-draft'` 或抛错)时,才凭这份快照原样还回去。
+     */
+    function captureSendSnapshot(): ComposerSendSnapshot {
+      return {
+        draft: draftRef.current,
+        staged,
+        nextAttachmentOrder: nextAttachmentOrderRef.current,
+        stagedSkills,
+        stagedMcpServers,
+        stagedWorkspaceContexts,
+        workspaceLinkedDirAdds,
+        promotedWorkspaceContextDir,
+        activeAppliedPlugin,
+        inlineBackedPlugin: inlineBackedPluginRef.current,
+        quotes: quotes ?? [],
+      };
+    }
+
+    /**
+     * 把退回来的那一发还给输入框。
+     *
+     * 等待期间用户已经开始准备下一条的话**不还原**(见 `composerChangedSinceReset`):
+     * 此刻输入框里的是新内容,拿旧快照盖上去等于吞掉用户刚做的事。
+     */
+    function restoreSendSnapshot(
+      snapshot: ComposerSendSnapshot,
+      keptWorkspaceContextIds: ReadonlySet<string>,
+    ) {
+      if (composerChangedSinceReset(snapshot, keptWorkspaceContextIds)) return;
+      replaceEditorDraft(snapshot.draft);
+      setStaged(snapshot.staged);
+      nextAttachmentOrderRef.current = snapshot.nextAttachmentOrder;
+      setStagedSkills(snapshot.stagedSkills);
+      setStagedMcpServers(snapshot.stagedMcpServers);
+      setStagedWorkspaceContexts(snapshot.stagedWorkspaceContexts);
+      setWorkspaceLinkedDirAdds(snapshot.workspaceLinkedDirAdds);
+      setPromotedWorkspaceContextDir(snapshot.promotedWorkspaceContextDir);
+      setActiveAppliedPlugin(snapshot.activeAppliedPlugin);
+      inlineBackedPluginRef.current = snapshot.inlineBackedPlugin;
+      if (snapshot.quotes.length > 0) onRestoreQuotes?.(snapshot.quotes);
+    }
+
+    function finishComposedSend(
+      outcome: ChatSendOutcome | Promise<ChatSendOutcome>,
+      snapshot: ComposerSendSnapshot,
+      keptWorkspaceContextIds: ReadonlySet<string>,
+      pendingMetadata?: { entryFrom: ChatSendMeta['entryFrom'] | null; sessionMode: ChatSessionMode | null },
+    ) {
+      const handBack = () => {
+        restoreSendSnapshot(snapshot, keptWorkspaceContextIds);
+        if (pendingMetadata?.entryFrom && !pendingEntryFromRef.current) {
+          pendingEntryFromRef.current = pendingMetadata.entryFrom;
+        }
+        if (pendingMetadata?.sessionMode && !pendingSessionModeRef.current) {
+          pendingSessionModeRef.current = pendingMetadata.sessionMode;
+        }
+      };
+      void Promise.resolve(outcome).then(
+        (result) => {
+          if (result === 'restore-draft') handBack();
+        },
+        handBack,
+      ).finally(() => {
+        composedSendPendingRef.current = false;
+        setComposedSendPending(false);
+      });
+    }
+
+    function beginComposedSend(
+      send: () => ChatSendOutcome | Promise<ChatSendOutcome>,
+      pendingMetadata?: { entryFrom: ChatSendMeta['entryFrom'] | null; sessionMode: ChatSessionMode | null },
+    ): boolean {
+      if (composedSendPendingRef.current) return false;
+      composedSendPendingRef.current = true;
+      setComposedSendPending(true);
+      const snapshot = captureSendSnapshot();
+      let outcome: ChatSendOutcome | Promise<ChatSendOutcome>;
+      try {
+        outcome = send();
+      } catch (error) {
+        composedSendPendingRef.current = false;
+        setComposedSendPending(false);
+        throw error;
+      }
+      const keptWorkspaceContextIds = new Set(reset().map((item) => item.id));
+      finishComposedSend(outcome, snapshot, keptWorkspaceContextIds, pendingMetadata);
+      return true;
+    }
+
+    /**
+     * 这一发**真正带走**的正文。
+     *
+     * 正文取词攒下的引用是折进正文发给 agent 的(`> 原文` 前缀,设计稿组件 23):
+     * 用 markdown 的引用块,agent 一眼分得清「这是我上一轮说的话」和「这是新指令」。
+     * 前缀由 `quotePromptPrefix` 独家定义 —— 取回编辑时的 `splitQuotedPrompt`
+     * 拆的就是它,两边共用一个函数才不会一边改了另一边没跟上。
+     *
+     * 折这一步必须只有这一个出处:输入框有**四条**送信路(回车 / 点击、
+     * 标注面板直接发、标注面板排队、流式期间的延迟发)。原来只有 `submit()`
+     * 折了前缀,另外三条各自拼 `[draft, note]` —— 于是从标注面板发出去的那一发:
+     * 芯片被清掉了、`meta.quotes` 也挂上了,唯独 agent 一个字都没收到。
+     * 清空芯片必须意味着「已经带走」(OPEND-2551 同一族)。
+     */
+    function composeOutgoingPrompt(body: string): string {
+      return `${quotePromptPrefix(quotes ?? [])}${body}`.trim();
+    }
+
+    function sendComposedTurn(
+      prompt: string,
+      attachments: ChatAttachment[],
+      meta?: ChatSendMeta,
+    ): boolean {
+      if (!prompt && attachments.length === 0) return false;
+      // Only what the user attached goes out; the file open on the right is
+      // never added on its own (owner decision 2026-11-10).
+      const nextAttachments = attachments;
+      // Apply pending Next-step metadata if the caller didn't set its own
+      // fields, then clear it so it only colors the immediate next send.
+      const pendingEntryFrom = pendingEntryFromRef.current;
+      const pendingSessionMode = pendingSessionModeRef.current;
+      pendingEntryFromRef.current = null;
+      pendingSessionModeRef.current = null;
+      // 引用同时走两条路:折进正文给 agent 读,和**原样**挂在 meta 上给队列存。
+      // 后者是「点编辑取回来还是芯片」的唯一依据 —— 正文那份拆不出结构。
+      // 过一道 sanitize 是因为队列会原样落进 localStorage,那一层不设防。
+      const outgoingQuotes = sanitizeQuotes(quotes ?? []);
+      const effectiveMetaShape: ChatSendMeta = {
+        ...(meta ?? {}),
+        ...(pendingEntryFrom && !meta?.entryFrom ? { entryFrom: pendingEntryFrom } : {}),
+        ...(pendingSessionMode && !meta?.sessionMode ? { sessionMode: pendingSessionMode } : {}),
+        ...(outgoingQuotes.length > 0 ? { quotes: outgoingQuotes } : {}),
+      };
+      const effectiveMeta =
+        Object.keys(effectiveMetaShape).length > 0 ? effectiveMetaShape : undefined;
+      // 引用是这一条消息的上下文,发出去就该清掉 —— 它不是长期状态
+      onClearQuotes?.();
+      return beginComposedSend(
+        () => onSend(prompt, nextAttachments, effectiveMeta),
+        { entryFrom: pendingEntryFrom, sessionMode: pendingSessionMode },
+      );
+    }
+
+    function reserveAttachmentOrders(count: number): number {
+      const orderStart = Math.max(nextAttachmentOrderRef.current, nextChatAttachmentOrder(staged));
+      nextAttachmentOrderRef.current = orderStart + count;
+      return orderStart;
+    }
+
+    function appendOrderedStagedAttachments(attachments: ChatAttachment[]) {
+      if (attachments.length === 0) return;
+      setStaged((current) => {
+        const knownPaths = new Set(current.map((attachment) => attachment.path));
+        const nextAttachments = attachments.filter((attachment) => !knownPaths.has(attachment.path));
+        if (nextAttachments.length === 0) return current;
+        const next = sortChatAttachmentsByOrder([...current, ...nextAttachments]);
+        nextAttachmentOrderRef.current = Math.max(
+          nextAttachmentOrderRef.current,
+          nextChatAttachmentOrder(next),
+        );
+        return next;
+      });
+    }
+
+    function appendContextAttachment(filePath: string) {
+      setStaged((current) => {
+        if (current.some((item) => item.path === filePath)) return current;
+        const order = Math.max(nextAttachmentOrderRef.current, nextChatAttachmentOrder(current));
+        nextAttachmentOrderRef.current = order + 1;
+        return sortChatAttachmentsByOrder([
+          ...current,
+          {
+            path: filePath,
+            name: filePath.split("/").pop() || filePath,
+            kind: looksLikeImage(filePath) ? "image" : "file",
+            order,
+          },
+        ]);
+      });
+    }
+
+    function replaceEditorDraft(text: string) {
+      draftRef.current = text;
+      setDraft(text);
+      editorRef.current?.setText(text);
+    }
+
+    function insertInlineMentionSeparator() {
+      const current = editorRef.current?.getText() ?? draftRef.current;
+      if (current.trim() && !/\s$/.test(current)) {
+        editorRef.current?.insertText(' ');
+      }
+    }
+
+    function appendWorkspacePrompt(item: WorkspaceContextItem) {
+      setStagedWorkspaceContexts((current) =>
+        current.some((candidate) => candidate.id === item.id)
+          ? current
+          : [...current, item],
+      );
+      insertInlineMentionSeparator();
+      editorRef.current?.insertMention({
+        token: inlineMentionToken(item.label),
+        entity: { id: item.id, kind: 'workspace', label: item.label },
+      });
+      setMention(null);
+      setSlash(null);
+      setComposerEngaged(true);
+    }
+
+    async function addLinkedDirs(dirs: string[]): Promise<Map<string, TrackedWorkspaceLinkedDir | null> | false> {
+      if (!projectId) return false;
+      const trimmedDirs = Array.from(new Set(dirs.map((dir) => dir.trim()).filter(Boolean)));
+      if (trimmedDirs.length === 0) return new Map();
+      const base = projectMetadata ?? { kind: 'prototype' as const };
+      const existing = base.linkedDirs ?? [];
+      const nextLinkedDirs = [...existing];
+      const trackedByDir = new Map<string, TrackedWorkspaceLinkedDir | null>();
+      let changed = false;
+      for (const trimmed of trimmedDirs) {
+        if (nextLinkedDirs.includes(trimmed)) {
+          const ownedByWorkspaceContext = Object.values(workspaceLinkedDirAdds).some(
+            (tracked) => tracked.dir === trimmed,
+          );
+          trackedByDir.set(trimmed, ownedByWorkspaceContext ? { dir: trimmed, previousLinkedDirs: existing } : null);
+          continue;
+        }
+        nextLinkedDirs.push(trimmed);
+        trackedByDir.set(trimmed, { dir: trimmed, previousLinkedDirs: existing });
+        changed = true;
+      }
+      if (changed) {
+        const metadata: ProjectMetadata = { ...base, linkedDirs: nextLinkedDirs };
+        const result = await patchProject(projectId, { metadata });
+        if (!result?.metadata) {
+          onShowToast?.(t('homeWorkingDir.applyFailed'));
+          return false;
+        }
+        onProjectMetadataChange?.(result);
+        for (const trimmed of trimmedDirs) void rememberRecentDir(trimmed);
+      }
+      return trackedByDir;
+    }
+
+    async function addLinkedDir(dir: string): Promise<TrackedWorkspaceLinkedDir | null | false> {
+      const trackedByDir = await addLinkedDirs([dir]);
+      if (trackedByDir === false) return false;
+      return trackedByDir.get(dir.trim()) ?? null;
+    }
+
+    async function handleReferenceProjects(selections: ProjectReferenceSelection[]) {
+      const items = selections.map(({ project, resolvedDir }) => {
+        const path = resolvedDir.trim();
+        return {
+          id: `project:${project.id}`,
+          kind: 'project',
+          label: project.name || project.id,
+          title: project.name || project.id,
+          path: project.id,
+          ...(path ? { absolutePath: path } : {}),
+        } satisfies WorkspaceContextItem;
+      });
+      const trackedByDir = await addLinkedDirs(items.map((item) => workspaceContextLinkedDir(item) ?? ''));
+      if (trackedByDir === false) {
+        trackContextLinkResult(analytics.track, {
+          page_name: 'chat_panel',
+          area: 'chat_composer',
+          context_kind: 'project',
+          result: 'failed',
+          count: items.length,
+          ...(projectId ? { project_id: projectId } : {}),
+        });
+        return;
+      }
+      for (const item of items) {
+        appendWorkspacePrompt(item);
+      }
+      setProjectReferenceOpen(false);
+      trackContextLinkResult(analytics.track, {
+        page_name: 'chat_panel',
+        area: 'chat_composer',
+        context_kind: 'project',
+        result: 'success',
+        count: items.length,
+        ...(projectId ? { project_id: projectId } : {}),
+      });
+      const trackedAdds: Record<string, TrackedWorkspaceLinkedDir> = {};
+      for (const item of items) {
+        const path = workspaceContextLinkedDir(item);
+        const trackedLinkedDir = path ? trackedByDir.get(path) ?? null : null;
+        if (trackedLinkedDir) trackedAdds[item.id] = trackedLinkedDir;
+      }
+      if (Object.keys(trackedAdds).length > 0) {
+        setWorkspaceLinkedDirAdds((current) => ({ ...current, ...trackedAdds }));
+      }
+    }
+
+    async function handleLinkLocalCodeContext() {
+      const selected = await openFolderDialog();
+      if (!selected) {
+        trackContextLinkResult(analytics.track, {
+          page_name: 'chat_panel',
+          area: 'chat_composer',
+          context_kind: 'local_code',
+          result: 'cancelled',
+          ...(projectId ? { project_id: projectId } : {}),
+        });
+        return;
+      }
+      const trackedLinkedDir = await addLinkedDir(selected);
+      if (trackedLinkedDir === false) {
+        trackContextLinkResult(analytics.track, {
+          page_name: 'chat_panel',
+          area: 'chat_composer',
+          context_kind: 'local_code',
+          result: 'failed',
+          ...(projectId ? { project_id: projectId } : {}),
+        });
+        return;
+      }
+      const label = selected.split(/[/\\]/).filter(Boolean).pop() || selected;
+      const item: WorkspaceContextItem = {
+        id: `local-code:${selected}`,
+        kind: 'local-code',
+        label,
+        title: label,
+        absolutePath: selected,
+      };
+      appendWorkspacePrompt(item);
+      if (trackedLinkedDir) {
+        setWorkspaceLinkedDirAdds((current) => ({ ...current, [item.id]: trackedLinkedDir }));
+      }
+      trackContextLinkResult(analytics.track, {
+        page_name: 'chat_panel',
+        area: 'chat_composer',
+        context_kind: 'local_code',
+        result: 'success',
+        count: 1,
+        ...(projectId ? { project_id: projectId } : {}),
+      });
+    }
+
+    async function insertSkillMention(skill: SkillSummary) {
+      // `@` picks a skill for this message only (owner decision 2026-11-07). It
+      // used to be written into the project too, so its full text rode every
+      // later turn with no way to take it off.
+      // Stage the skill so it rides this turn's skillIds, then insert an
+      // atomic `@<name>` pill carrying the skill's real id. The onChange
+      // prune keys on `skill:<id>` being present in the editor text, so the
+      // chip survives until the user deletes the pill.
+      setStagedSkills((prev) =>
+        prev.some((s) => s.id === skill.id) ? prev : [...prev, skill],
+      );
+      editorRef.current?.insertMention({
+        token: inlineMentionToken(skill.name),
+        entity: { id: skill.id, kind: 'skill', label: skill.name },
+      });
+      setMention(null);
+    }
+
+    // Fills the fixed page/area/project context for the rest of the composer
+    // bottom bar (plus menu, design-system / working-dir switch, agent
+    // selector, context-chip removal).
+    const trackComposerBar = (
+      fields: Omit<ComposerBarClickProps, 'page_name' | 'area' | 'project_id'>,
+    ) => {
+      trackComposerBarClick(analytics.track, {
+        page_name: 'chat_panel',
+        area: 'chat_composer',
+        ...(projectId ? { project_id: projectId } : {}),
+        ...fields,
+      });
+    };
+
+    function removeStagedSkill(id: string) {
+      trackComposerBar({ element: 'context_remove', resource_kind: 'skill', resource_id: id });
+      const skill = stagedSkills.find((s) => s.id === id) ?? null;
+      setStagedSkills((prev) => prev.filter((s) => s.id !== id));
+      const labels = [id, skill?.name ?? ''];
+      replaceEditorDraft(stripInlineMentionLabels(draft, labels));
+    }
+
+    function removeStagedMcpServer(id: string) {
+      trackComposerBar({ element: 'context_remove', resource_kind: 'mcp', resource_id: id });
+      const server = stagedMcpServers.find((item) => item.id === id) ?? null;
+      setStagedMcpServers((prev) => prev.filter((item) => item.id !== id));
+      replaceEditorDraft(stripInlineMentionLabels(draft, [
+        id,
+        server?.label ?? '',
+      ]));
+    }
+
+    function workspaceContextDirStillReferenced(id: string, dir: string): boolean {
+      return Object.entries(workspaceLinkedDirAdds).some(
+        ([candidateId, candidate]) => candidateId !== id && candidate.dir === dir,
+      ) || selectedWorkspaceContexts.some((item) => (
+        item.id !== id && workspaceContextLinkedDir(item) === dir
+      )) || workingDir === dir;
+    }
+
+    async function removeTrackedWorkspaceLinkedDir(
+      id: string,
+      tracked: TrackedWorkspaceLinkedDir,
+    ): Promise<boolean> {
+      if (!projectId) return true;
+      if (workspaceContextDirStillReferenced(id, tracked.dir)) {
+        setWorkspaceLinkedDirAdds((current) => {
+          const { [id]: _removed, ...rest } = current;
+          return rest;
+        });
+        return true;
+      }
+      const base = projectMetadata ?? { kind: 'prototype' as const };
+      const currentLinkedDirs = base.linkedDirs ?? [...tracked.previousLinkedDirs, tracked.dir];
+      const nextLinkedDirs = currentLinkedDirs.filter((dir) => dir !== tracked.dir);
+      const metadata: ProjectMetadata = { ...base, linkedDirs: nextLinkedDirs };
+      const result = await patchProject(projectId, { metadata });
+      if (!result?.metadata) {
+        onShowToast?.(t('homeWorkingDir.applyFailed'));
+        return false;
+      }
+      onProjectMetadataChange?.(result);
+      setWorkspaceLinkedDirAdds((current) => {
+        const { [id]: _removed, ...rest } = current;
+        return rest;
+      });
+      return true;
+    }
+
+    async function removeWorkspaceContext(id: string) {
+      trackComposerBar({ element: 'context_remove', resource_kind: 'workspace', resource_id: id });
+      const workspaceItem = selectedWorkspaceContexts.find((item) => item.id === id) ?? null;
+      const trackedLinkedDir = workspaceLinkedDirAdds[id] ?? null;
+      if (trackedLinkedDir && !(await removeTrackedWorkspaceLinkedDir(id, trackedLinkedDir))) {
+        return;
+      }
+      setChosenWorkspaceContextIds((current) => {
+        if (!current.has(id)) return current;
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setStagedWorkspaceContexts((prev) => prev.filter((item) => item.id !== id));
+      if (!trackedLinkedDir) {
+        setWorkspaceLinkedDirAdds((current) => {
+          const { [id]: _removed, ...rest } = current;
+          return rest;
+        });
+      }
+      if (workspaceItem) {
+        replaceEditorDraft(stripInlineMentionLabels(draftRef.current, [
+          workspaceItem.label,
+          workspaceItem.id,
+          workspaceItem.title ?? '',
+          workspaceItem.path ?? '',
+          workspaceItem.absolutePath ?? '',
+          workspaceItem.url ?? '',
+        ]));
+      }
+    }
+
+    async function ensureProject(): Promise<string | null> {
+      if (projectId) return projectId;
+      return onEnsureProject();
+    }
+
+    /* ── 逐文件上传(设计稿 #61 / #63)────────────────────────────────
+     *
+     * 原来这里是**原子**的:一次 `uploadProjectFiles(id, files)` 打包发,成功之后
+     * 芯片才出现。于是上传的那几秒界面上一张卡都没有,失败也只有一行全局提示 ——
+     * 哪个文件没传上去、能不能只重发那一个,都说不出来。
+     *
+     * 现在**一个文件一个请求**。`uploadProjectFiles` 本来就收 `File[]`,给它一个
+     * 长度为 1 的数组走的是同一个端点、同一份契约 —— 后端和 `packages/contracts`
+     * 都不用动,换来的是失败能落到具体那张卡上(原来只有 `failed[].name`,
+     * 同名文件根本对不回去)。
+     *
+     * 代价是请求数从 ⌈N/12⌉ 变成 N,所以并发限到 `STAGED_UPLOAD_CONCURRENCY`。
+     */
+    function stageOnePendingUpload(file: File, order: number): PendingUpload {
+      pendingSeqRef.current += 1;
+      const id = `pu-${pendingSeqRef.current}`;
+      const kind = looksLikeImageName(file.name, file.type) ? 'image' as const : 'file' as const;
+      // 本地缩略图只为上传的那几秒服务;拿不到(jsdom / 老浏览器)就退回灰底占位。
+      let previewUrl: string | null = null;
+      if (kind === 'image' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        try {
+          previewUrl = URL.createObjectURL(file);
+        } catch {
+          previewUrl = null;
+        }
+      }
+      pendingFilesRef.current.set(id, { file, previewUrl });
+      return {
+        id,
+        name: file.name,
+        kind,
+        ...(Number.isFinite(file.size) ? { size: file.size } : {}),
+        order,
+        state: 'uploading',
+        ...(previewUrl ? { previewUrl } : {}),
+      };
+    }
+
+    function releasePendingUpload(id: string) {
+      const entry = pendingFilesRef.current.get(id);
+      if (entry?.previewUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        try {
+          URL.revokeObjectURL(entry.previewUrl);
+        } catch {
+          /* 已经撤过或环境不支持 —— 撤不掉不影响功能 */
+        }
+      }
+      pendingFilesRef.current.delete(id);
+    }
+
+    function dropPendingUpload(id: string) {
+      releasePendingUpload(id);
+      setPendingUploads((current) => current.filter((item) => item.id !== id));
+    }
+
+    /**
+     * 传一个文件。传成功就把占位卡换成真附件(**同一个 `order`**,所以它落回
+     * 用户当初挑的那个位置,不因为先传完而插队);失败就把卡留在托盘里标红,
+     * 等人点重试或者「×」。
+     */
+    async function runOnePendingUpload(
+      projectIdForUpload: string,
+      entry: PendingUpload,
+    ): Promise<{ ok: boolean; error?: string }> {
+      const local = pendingFilesRef.current.get(entry.id);
+      // 人在这一轮里已经把卡「×」掉了 —— 别再把结果塞回托盘。
+      if (!local) return { ok: true };
+      try {
+        const result = await uploadProjectFiles(
+          projectIdForUpload,
+          [local.file],
+          undefined
+        );
+        const uploaded = result.uploaded[0];
+        // 人在等结果的这几秒里把卡撤了,结果就地丢掉(文件本身已经落到项目里,
+        // 和「传完再点×」是同一个语义 —— 不进待发列表,也不回删)。
+        if (!pendingFilesRef.current.has(entry.id)) return { ok: Boolean(uploaded) };
+        if (uploaded) {
+          appendOrderedStagedAttachments([{ ...uploaded, order: entry.order }]);
+          dropPendingUpload(entry.id);
+          return { ok: true };
+        }
+        const detail = result.error ?? result.failed[0]?.error;
+        setPendingUploads((current) =>
+          current.map((item) => (item.id === entry.id ? { ...item, state: 'failed' } : item)),
+        );
+        return { ok: false, ...(detail ? { error: detail } : {}) };
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        if (pendingFilesRef.current.has(entry.id)) {
+          setPendingUploads((current) =>
+            current.map((item) => (item.id === entry.id ? { ...item, state: 'failed' } : item)),
+          );
+        }
+        return { ok: false, error: detail };
+      }
+    }
+
+    /** 只重发这一个文件。本地 `File` 还在 `pendingFilesRef` 里,失败时没有清掉。 */
+    async function retryPendingUpload(pendingId: string) {
+      const target = pendingUploads.find((item) => item.id === pendingId);
+      if (!target || !pendingFilesRef.current.has(pendingId)) return;
+      const id = await ensureProject();
+      if (!id) return;
+      setUploadError(null);
+      setPendingUploads((current) =>
+        current.map((item) => (item.id === pendingId ? { ...item, state: 'uploading' } : item)),
+      );
+      await runOnePendingUpload(id, { ...target, state: 'uploading' });
+    }
+
+    async function uploadFiles(files: File[]) {
+      if (files.length === 0) return;
+      const id = await ensureProject();
+      if (!id) return;
+      setUploading(true);
+      setUploadError(null);
+      // Cohort math is identical to the Files Upload button; see
+      // `analytics/upload-tracking.ts`. v2 doc fires one
+      // file_upload_result per surface so this path reports
+      // `page_name='chat_panel'` / `area='chat_composer'`.
+      const cohort = deriveUploadCohort(files);
+      const orderStart = reserveAttachmentOrders(files.length);
+      try {
+        const entries = files.map((file, index) => stageOnePendingUpload(file, orderStart + index));
+        setPendingUploads((current) => [...current, ...entries]);
+        const outcomes = await runWithConcurrency(
+          entries,
+          STAGED_UPLOAD_CONCURRENCY,
+          (entry) => runOnePendingUpload(id, entry),
+        );
+        const failures = outcomes.filter((outcome) => !outcome.ok);
+        const partial = failures.length > 0;
+        if (partial) {
+          // 全局那一行提示【保留】。稿子里没有它 —— 稿子把失败全交给卡片上的
+          // 「重试」,可那一格只画了图卡(S13:文档宽卡的失败态没画,「重试」放哪
+          // 没说)。在设计补上那一态之前,文档卡失败就只剩这一行能说话,
+          // 收掉它等于让「.txt 传失败」变成完全无声。
+          const failedCount = failures.length;
+          const uploadedCount = outcomes.length - failedCount;
+          const firstFailure = failures.find((outcome) => outcome.error)?.error;
+          const detail = firstFailure ? ` (${firstFailure})` : '';
+          setUploadError(
+            uploadedCount > 0
+              ? t('questions.uploadPartialFailed', { uploaded: uploadedCount, failed: failedCount }) + detail
+              : t('questions.uploadFailed', { failed: failedCount }) + detail,
+          );
+          console.warn('Some attachments failed to upload', failures);
+        }
+        // 埋点仍然是**一次挑文件一条事件**(v2 文档的口径),不随请求数变成 N 条。
+        const firstError = failures.find((outcome) => outcome.error)?.error;
+        trackFileUploadResult(analytics.track, {
+          page_name: 'chat_panel',
+          area: 'chat_composer',
+          project_id: id,
+          ...cohort,
+          result: partial ? 'failed' : 'success',
+          ...(partial && firstError ? { error_code: firstError } : {}),
+        });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        setUploadError(`${t('chat.annotationUploadFailed')} (${detail})`);
+        trackFileUploadResult(analytics.track, {
+          page_name: 'chat_panel',
+          area: 'chat_composer',
+          project_id: id,
+          ...cohort,
+          result: 'failed',
+          error_code: detail,
+        });
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    async function uploadClipboardImagesFromAsyncClipboard() {
+      if (!navigator.clipboard?.read) return false;
+      try {
+        const items = await navigator.clipboard.read();
+        const files: File[] = [];
+        const stamp = Date.now();
+        for (const item of items) {
+          const imageType = item.types.find((type) => type.startsWith('image/'));
+          if (!imageType) continue;
+          const blob = await item.getType(imageType);
+          const extension = imageType.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+          files.push(new File([blob], `clipboard-screenshot-${stamp}.${extension}`, { type: imageType }));
+        }
+        if (files.length === 0) return false;
+        await uploadFiles(files);
+        return true;
+      } catch (err) {
+        console.warn('Could not read image from clipboard', err);
+        return false;
+      }
+    }
+
+    // Stages attachments that a surface already uploaded to the project itself
+    // (ChatAttachment shape, not File) — e.g. the design browser's hover
+    // "添加到对话" capture, which writes the PNG via writeProjectBase64File
+    // before notifying the composer. Mirrors ANNOTATION_EVENT's pattern above.
+    useEffect(() => {
+      function onStageAttachment(e: Event) {
+        const detail = (e as CustomEvent<StageAttachmentEventDetail>).detail;
+        const attachments = detail?.attachments?.filter(
+          (item): item is ChatAttachment => Boolean(item && item.path && item.name),
+        );
+        if (!attachments || attachments.length === 0) return;
+        // Tells the sender a chat took the files (dispatchEvent returns false).
+        e.preventDefault();
+        const orderStart = reserveAttachmentOrders(attachments.length);
+        appendOrderedStagedAttachments(assignChatAttachmentOrders(attachments, orderStart));
+        editorRef.current?.focus();
+      }
+      window.addEventListener(STAGE_ATTACHMENT_EVENT, onStageAttachment);
+      return () => window.removeEventListener(STAGE_ATTACHMENT_EVENT, onStageAttachment);
+    }, [staged]);
+
+    // Paste handler invoked by the editor's PastePlugin. `files` are the items
+    // the clipboard exposed synchronously; when empty we fall back to the
+    // async Clipboard API to recover pasted screenshots that some browsers
+    // only surface through `navigator.clipboard.read()`.
+    function handlePasteFiles(files: File[]) {
+      if (files.length > 0) {
+        void uploadFiles(files);
+        return;
+      }
+      void uploadClipboardImagesFromAsyncClipboard();
+    }
+
+    function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+      setDragActive(false);
+      const projectFileData = e.dataTransfer.getData?.(PROJECT_FILE_DRAG_MIME);
+      const files = Array.from(e.dataTransfer.files ?? []);
+      const containsDirectory = dataTransferContainsDirectory(e.dataTransfer);
+      if (!projectFileData && files.length === 0 && !containsDirectory) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (projectFileData) {
+        // Malformed, foreign-project or stale drags decode to nothing and
+        // leave the draft untouched.
+        const dropped = decodeProjectFileDrag(projectFileData, projectId)
+          .map((path) => projectFiles.find((item) => item.name === path || item.path === path))
+          .filter((file): file is ProjectFile => Boolean(file));
+        for (const [index, file] of dropped.entries()) {
+          if (index > 0) insertInlineMentionSeparator();
+          insertMention(file.name);
+        }
+        if (dropped.length > 0) editorRef.current?.focus();
+        return;
+      }
+      // Chromium exposes dropped directories as zero-byte `File` objects in
+      // `dataTransfer.files`. Appending one to FormData makes Electron try to
+      // read the directory as a file, which raises EISDIR in the main process
+      // before the renderer's fetch promise can report a normal upload error.
+      // Inspect the richer item entry first and never hand a directory to the
+      // multipart stack.
+      if (containsDirectory) {
+        setUploadError(t('chat.attachmentFolderUnsupported'));
+        return;
+      }
+      if (files.length > 0) void uploadFiles(files);
+    }
+
+    // Dragging the shell's gray backdrop (not its children) vertically
+    // resizes the editor: up = taller. Dragging back at/below the default
+    // height clears the override and returns to auto-grow.
+    function handleShellResizeMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+      if (e.target !== e.currentTarget) return;
+      if (e.button !== 0) return;
+      const editorEl = e.currentTarget.querySelector<HTMLElement>('.composer-input-editor');
+      if (!editorEl) return;
+      e.preventDefault();
+      const startY = e.clientY;
+      const startHeight = editorEl.getBoundingClientRect().height;
+      const DEFAULT_MIN = 72;
+      const onMove = (ev: MouseEvent) => {
+        const delta = startY - ev.clientY;
+        const max = Math.round(window.innerHeight * 0.6);
+        const next = Math.min(max, Math.max(DEFAULT_MIN, Math.round(startHeight + delta)));
+        setManualEditorHeight(next <= DEFAULT_MIN + 4 ? null : next);
+      };
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        document.body.style.removeProperty('cursor');
+        document.body.style.removeProperty('user-select');
+      };
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    }
+
+    // Lexical drives every text change through this callback. `present` is the
+    // entity list the editor's text currently references (MentionNodes plus
+    // plain `@token`s matched against composerMentionEntities, deduped by
+    // kind:id). We prune the staged skill/mcp/connector chips to whatever the
+    // text still references — generalizing the old skill-only regex prune so a
+    // hand-deleted token also drops its chip and never leaks into the run
+    // context. Workspace contexts that added linked dirs are kept visible until
+    // the chip remove button clears the matching metadata access. `staged`
+    // (files) is intentionally NOT pruned: users attach files via the upload
+    // button without leaving an `@<path>` token.
+    function handleEditorChange(text: string, present: InlineMentionEntity[]) {
+      draftRef.current = text;
+      setDraft(text);
+      const set = new Set(present.map((e) => `${e.kind}:${e.id}`));
+      if (
+        activeAppliedPlugin
+        && inlineBackedPluginRef.current?.id === activeAppliedPlugin.pluginId
+        && !set.has(`plugin:${activeAppliedPlugin.pluginId}`)
+        && !mentionTokenPresent(text, inlineBackedPluginRef.current.label)
+      ) {
+        inlineBackedPluginRef.current = null;
+        pluginsSectionRef.current?.clear();
+      }
+      setStagedSkills((prev) => prev.filter((s) => set.has(`skill:${s.id}`)));
+      setStagedMcpServers((prev) => prev.filter((m) => set.has(`mcp:${m.id}`)));
+      setStagedWorkspaceContexts((prev) =>
+        prev.filter((item) => (
+          set.has(`workspace:${item.id}`)
+          || Boolean(workspaceLinkedDirAdds[item.id])
+          || chosenWorkspaceContextIds.has(item.id)
+        )),
+      );
+    }
+
+    /** "Attach current file": the user's explicit choice to send the open tab. */
+    function attachOfferedWorkspaceContext() {
+      const item = offeredWorkspaceContext;
+      if (!item) return;
+      trackComposerBar({ element: 'plus_pick', resource_kind: 'workspace', resource_id: 'current-tab' });
+      setChosenWorkspaceContextIds((current) => new Set(current).add(item.id));
+      setStagedWorkspaceContexts((current) =>
+        current.some((candidate) => candidate.id === item.id) ? current : [...current, item],
+      );
+    }
+
+    // Lexical reports the active @/slash trigger derived from the caret. The
+    // mention popover state collapses to `{ q }`; the slash state replicates
+    // the old detection effect (reset the keyboard index on open). IME
+    // suppression already happened in the editor (it bails while composing).
+    function handleEditorTrigger({
+      mention: nextMention,
+      slash: nextSlash,
+      anchorRect,
+    }: {
+      mention: { q: string } | null;
+      slash: { q: string } | null;
+      anchorRect: CaretRect | null;
+    }) {
+      setCaretRect(anchorRect);
+      if (nextMention && !mention) {
+        setMentionTab('all');
+      } else if (!nextMention) {
+        setMentionTab('all');
+      }
+      setMention((prev) => {
+        // Reset the active row only when the query identity changes (mirror of
+        // the slash reset) so re-renders from unrelated state don't snap it.
+        if (nextMention && (!prev || prev.q !== nextMention.q)) setMentionIndex(0);
+        return nextMention;
+      });
+      if (nextSlash) {
+        setSlash(nextSlash);
+        setSlashIndex(0);
+      } else {
+        setSlash(null);
+      }
+    }
+
+    // Routes popover navigation keys lifted verbatim from the old textarea
+    // onKeyDown. Returns true when the key was consumed so the editor can
+    // preventDefault; false lets the editor handle it normally (e.g. plain
+    // arrow keys when no popover is open).
+    function handlePopoverKey(
+      key: 'ArrowDown' | 'ArrowUp' | 'Tab' | 'Enter' | 'Escape',
+    ): boolean {
+      if (slash && filteredSlash.length > 0) {
+        if (key === 'ArrowDown') {
+          setSlashIndex((i) => (i + 1) % filteredSlash.length);
+          return true;
+        }
+        if (key === 'ArrowUp') {
+          setSlashIndex(
+            (i) => (i - 1 + filteredSlash.length) % filteredSlash.length,
+          );
+          return true;
+        }
+        if (key === 'Tab' || key === 'Enter') {
+          const safe = Math.min(slashIndex, filteredSlash.length - 1);
+          pickSlash(filteredSlash[safe]!);
+          return true;
+        }
+        if (key === 'Escape') {
+          setSlash(null);
+          return true;
+        }
+      }
+      if (mention && key === 'Escape') {
+        setMention(null);
+        return true;
+      }
+      if (mention) {
+        // Drive a single index over the visible section union. MentionPopover
+        // renders the same files-first section order and highlights the
+        // matching row from activeIndex.
+        const showFiles = mentionTab === 'all' || mentionTab === 'files';
+        const showTabs = mentionTab === 'all' || mentionTab === 'tabs';
+        const showPlugins = mentionTab === 'all' || mentionTab === 'plugins';
+        const showSkills = mentionTab === 'all' || mentionTab === 'skills';
+        const showMcp = mentionTab === 'all' || mentionTab === 'mcp';
+        const total =
+          (showFiles ? filteredFiles.length : 0) +
+          (showTabs ? filteredWorkspaceContexts.length : 0) +
+          (showPlugins ? filteredPlugins.length : 0) +
+          (showSkills ? filteredSkills.length : 0) +
+          (showMcp ? filteredMcpServers.length : 0);
+        if (total > 0) {
+          if (key === 'ArrowDown') {
+            setMentionIndex((i) => (i + 1) % total);
+            return true;
+          }
+          if (key === 'ArrowUp') {
+            setMentionIndex((i) => (i - 1 + total) % total);
+            return true;
+          }
+          if (key === 'Tab' || key === 'Enter') {
+            pickMentionByFlatIndex(Math.min(mentionIndex, total - 1));
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Which earlier prompt ↑ last put in the box, counted from the newest; null when none.
+    const recalledPromptRef = useRef<number | null>(null);
+
+    /*
+     * The keys a terminal user reaches for, when no popover is open:
+     * Escape stops the running turn (as in Codex and Claude Code), and ↑ in an
+     * empty box brings back the last prompt, again for the one before, with ↓
+     * going forward and finally back to an empty box. Once the recalled text is
+     * edited the arrows move the caret again.
+     */
+    function handlePlainKey(key: 'ArrowDown' | 'ArrowUp' | 'Escape'): boolean {
+      if (key === 'Escape') {
+        if (!streaming || inputDisabled) return false;
+        onStop();
+        return true;
+      }
+      const history = promptHistory ?? [];
+      const text = editorRef.current?.getText() ?? '';
+      const recalled = recalledPromptRef.current;
+      const showing = recalled !== null && history[history.length - 1 - recalled] === text;
+      if (!showing) recalledPromptRef.current = null;
+      if (key === 'ArrowUp') {
+        if (!showing && text.trim() !== '') return false;
+        const next = showing ? recalled + 1 : 0;
+        if (next >= history.length) return showing;
+        recalledPromptRef.current = next;
+        editorRef.current?.setText(history[history.length - 1 - next]!);
+        return true;
+      }
+      if (!showing) return false;
+      if (recalled === 0) {
+        recalledPromptRef.current = null;
+        editorRef.current?.clear();
+      } else {
+        recalledPromptRef.current = recalled - 1;
+        editorRef.current?.setText(history[history.length - recalled]!);
+      }
+      return true;
+    }
+
+    // Resolve a flat visible-section index to the right insert call. Section
+    // order MUST match MentionPopover's render order (files→tabs→plugins
+    // →skills→mcp→connectors); the activeIndex highlight and Enter target stay in
+    // lockstep across "All" and individual tabs.
+    function pickMentionByFlatIndex(flat: number) {
+      let i = flat;
+      if (mentionTab === 'all' || mentionTab === 'files') {
+        if (i < filteredFiles.length) {
+          insertMention(filteredFiles[i]!.path ?? filteredFiles[i]!.name);
+          return;
+        }
+        i -= filteredFiles.length;
+      }
+      if (mentionTab === 'all' || mentionTab === 'tabs') {
+        if (i < filteredWorkspaceContexts.length) {
+          insertWorkspaceMention(filteredWorkspaceContexts[i]!);
+          return;
+        }
+        i -= filteredWorkspaceContexts.length;
+      }
+      if (mentionTab === 'all' || mentionTab === 'plugins') {
+        if (i < filteredPlugins.length) {
+          void insertPluginMention(filteredPlugins[i]!);
+          return;
+        }
+        i -= filteredPlugins.length;
+      }
+      if (mentionTab === 'all' || mentionTab === 'skills') {
+        if (i < filteredSkills.length) {
+          void insertSkillMention(filteredSkills[i]!);
+          return;
+        }
+        i -= filteredSkills.length;
+      }
+      if (mentionTab === 'all' || mentionTab === 'mcp') {
+        if (i < filteredMcpServers.length) {
+          insertMcpMention(filteredMcpServers[i]!);
+          return;
+        }
+        i -= filteredMcpServers.length;
+      }
+    }
+
+    function insertMention(filePath: string) {
+      editorRef.current?.insertMention({
+        token: inlineMentionToken(filePath),
+        entity: { id: filePath, kind: 'file', label: filePath },
+      });
+      if (!staged.some((s) => s.path === filePath)) {
+        appendContextAttachment(filePath);
+      }
+      setMention(null);
+    }
+
+    async function insertPluginMention(record: InstalledPluginRecord) {
+      editorRef.current?.insertMention({
+        token: inlineMentionToken(record.title),
+        entity: { id: record.id, kind: 'plugin', label: record.title },
+      });
+      setMention(null);
+      inlineBackedPluginRef.current = { id: record.id, label: record.title };
+      await pluginsSectionRef.current?.applyById(record.id, record);
+    }
+
+    function insertMcpMention(server: McpServerConfig) {
+      setStagedMcpServers((current) => (
+        current.some((item) => item.id === server.id) ? current : [...current, server]
+      ));
+      editorRef.current?.insertMention({
+        token: inlineMentionToken(server.label || server.id),
+        entity: { id: server.id, kind: 'mcp', label: server.label || server.id },
+      });
+      setMention(null);
+    }
+
+    function insertWorkspaceMention(item: WorkspaceContextItem) {
+      setStagedWorkspaceContexts((current) =>
+        current.some((candidate) => candidate.id === item.id)
+          ? current
+          : [...current, item],
+      );
+      editorRef.current?.insertMention({
+        token: inlineMentionToken(item.label),
+        entity: { id: item.id, kind: 'workspace', label: item.label },
+      });
+      setMention(null);
+    }
+
+    /** Takes the project's own skill off, so it no longer rides every message. */
+    async function removeProjectSkill(): Promise<void> {
+      if (!projectId || !currentSkillId) return;
+      trackComposerBar({ element: 'context_remove', resource_kind: 'skill', resource_id: currentSkillId });
+      const result = await patchProject(projectId, { skillId: null });
+      if (!result) return;
+      onProjectSkillChange?.(null);
+    }
+
+    function removeStaged(p: string) {
+      trackComposerBar({ element: 'context_remove', resource_kind: 'attachment', resource_id: p });
+      setStaged((s) => s.filter((a) => a.path !== p));
+      // Strip the `@<path>` token from the draft and push the result back into
+      // the editor so the pill disappears in lockstep with the chip.
+      replaceEditorDraft(stripInlineMentionToken(draft, p));
+    }
+
+    async function submit() {
+      const prompt = composeOutgoingPrompt(draft.trim());
+      // 「这一发能不能走」只问 `canSend` 这一处 —— 见它的注释(OPEND-2551)。
+      // 位置在最前面是有意的:下面的 `/search` 支路会绕过后续流程,
+      // 判据留在它们后面的话,这条支路等于又多了一套自己的答案。
+      if (!canSend) return;
+      // Intercept `/mcp` before sending so the slash command
+      // never hits the agent — this is a local settings shortcut.
+      if (tryHandleMcpSlash()) return;
+      const contextMeta = currentRunContextMeta();
+      const search = researchAvailable ? expandSearchCommand(prompt) : null;
+      if (search) {
+        if (streaming) return;
+        notifyCompletionFeedbackGesture();
+        beginComposedSend(
+          () => onSend(search.prompt, staged, {
+            ...contextMeta,
+            research: { enabled: true, query: search.query },
+          }),
+        );
+        return;
+      }
+      notifyCompletionFeedbackGesture();
+      sendComposedTurn(prompt, staged, contextMeta);
+    }
+
+    // The @-picker offers a unified search across context surfaces:
+    // workspace tabs first, then project files, plugins, skills, active MCP
+    // servers, and connectors. Picked
+    // entities keep an inline @ token for orientation while richer
+    // context is still applied behind the scenes when available.
+    const mentionQuery = mention ? mention.q.toLowerCase() : '';
+    // The suggestion lists below only matter while the @-popover is open
+    // (each is `[]` otherwise). Memoize them on `[mention, mentionQuery,
+    // <source>]` so the filter/sort passes run only when the query or the
+    // backing list actually changes — not on every unrelated composer render
+    // (streaming flips, draft typing routed through Lexical, staged-chip churn).
+    // `mention` is in the deps (not just `mentionQuery`) so the open/close gate
+    // re-evaluates: a null→{q:''} transition keeps the query '' but must flip
+    // the list from `[]` to live results.
+    const filteredWorkspaceContexts = useMemo(
+      () =>
+        mention
+          ? workspaceContexts
+              .filter((item) => {
+                if (!mentionQuery) return true;
+                return workspaceContextSearchText(item).toLowerCase().includes(mentionQuery);
+              })
+              .slice(0, 12)
+          : [],
+      [mention, mentionQuery, workspaceContexts],
+    );
+    const filteredFiles = useMemo(
+      () =>
+        mention
+          ? projectFiles
+              .filter((f) => f.type === undefined || f.type === "file")
+              .filter((f) => {
+                const key = f.path ?? f.name;
+                return key.toLowerCase().includes(mentionQuery);
+              })
+              .slice(0, 12)
+          : [],
+      [mention, mentionQuery, projectFiles],
+    );
+    const filteredPlugins = useMemo(
+      () =>
+        mention
+          ? pluginsForComposer
+              .filter((p) => {
+                if (!mentionQuery) return true;
+                return (
+                  p.title.toLowerCase().includes(mentionQuery) ||
+                  p.id.toLowerCase().includes(mentionQuery) ||
+                  (p.manifest?.description ?? '').toLowerCase().includes(mentionQuery) ||
+                  (p.manifest?.tags ?? []).join(' ').toLowerCase().includes(mentionQuery)
+                );
+              })
+              .slice(0, 8)
+          : [],
+      [mention, mentionQuery, pluginsForComposer],
+    );
+    const filteredMcpServers = useMemo(
+      () =>
+        mention
+          ? enabledMcpServers
+              .filter((s) => {
+                if (!mentionQuery) return true;
+                return [
+                  s.id,
+                  s.label ?? '',
+                  s.transport,
+                  s.url ?? '',
+                  s.command ?? '',
+                ]
+                  .join(' ')
+                  .toLowerCase()
+                  .includes(mentionQuery);
+              })
+              .slice(0, 8)
+          : [],
+      [mention, mentionQuery, enabledMcpServers],
+    );
+    // Already-staged skills drop out of the suggestion list (carried over
+    // from main) so the @-popover keeps moving forward as the user picks.
+    const filteredSkills = useMemo(() => {
+      if (!mention) return [];
+      const stagedSkillIds = new Set(stagedSkills.map((s) => s.id));
+      return skills
+        .filter((s) => !stagedSkillIds.has(s.id))
+        .filter((s) => skillMatchesQuery(s, mentionQuery))
+        .sort((a, b) => skillMentionRank(a, mentionQuery) - skillMentionRank(b, mentionQuery));
+    }, [mention, mentionQuery, skills, stagedSkills]);
+    const placeholderCarouselActive =
+      !streaming
+      && !sendDisabled
+      && !questionPending
+      && placeholderScenarios.length > 0
+      && draft.trim().length === 0
+      && staged.length === 0
+      && !mention
+      && !slash;
+    // Deliberately does NOT include the placeholder carousel's rotating
+    // scenario text: that ghost text stands in for the editor's own
+    // placeholder while the composer is genuinely empty, and must never make
+    // Send (or Enter) submittable on its own — see the emptiness guard in
+    // `submit()` above (recvqaj7eKpxH6).
+    const hasComposerPayload =
+      draft.trim().length > 0
+      || staged.length > 0
+      || sanitizeQuotes(quotes ?? []).length > 0;
+    /**
+     * 「这一发能不能走」的**唯一**判据。
+     *
+     * 发送按钮的 disabled、回车走的 `submit()`,读的都必须是它。
+     * OPEND-2551 报的就是这件事被问出了两个答案:芯片(输入框上方那排「N 条注释」)
+     * 已经挂着、输入框本身是空的,按钮灰着 —— 可回车发得出去。当时按钮问的是
+     * `hasComposerPayload`(它不数引用),而 `submit()` 问的是「折好的正文空不空」,
+     * 而引用**是折进正文的**,所以同一时刻它非空。同一个问题、两处各算各的,
+     * 早晚会分叉;分叉之后症状出现在离原因最远的地方(用户看到的是「按钮坏了」)。
+     */
+    const canSend = !sendDisabled && hasComposerPayload;
+    // The transcript can enter streaming before the send's admission completes.
+    const showAdmissionPendingButton = composedSendPending;
+    const showStopButton = streaming && !showAdmissionPendingButton;
+    const showSendButton = (!streaming || hasComposerPayload) && !showAdmissionPendingButton;
+    /* 托盘里要摆的那一排卡:已传好的 `staged` 与还在传 / 传失败的 `pendingUploads`
+       合成一排,顺序按用户当初挑文件的顺序(合并规则是纯函数,单测在
+       `tests/runtime/chat/staged-attachment.test.ts`)。
+       ⚠️ **只有 `state === 'ready'` 的卡进得了 `hasComposerPayload`** —— 上面那个
+       判断读的是 `staged`,没读这里,所以「在传的文件算不算 payload」的语义没被这次
+       改动动过(那条已知 bug 属于另一个 PR,见规格 §4-A 末尾)。 */
+    const stagedAttachmentCards = useMemo(
+      () => buildStagedAttachmentCards(
+        staged,
+        externalPendingUploads && externalPendingUploads.length > 0
+          ? [...externalPendingUploads, ...pendingUploads]
+          : pendingUploads,
+      ),
+      [staged, pendingUploads, externalPendingUploads],
+    );
+    /** 「×」按卡的归属分流:自己的走本地,别人寄放的还给它的主人。 */
+    const removePendingCard = (pendingId: string) => {
+      if (pendingFilesRef.current.has(pendingId)) {
+        dropPendingUpload(pendingId);
+        return;
+      }
+      onRemoveExternalPendingUpload?.(pendingId);
+    };
+
+    // A skill the project carries rides every message; show it so it can be taken off.
+    const projectSkillChip = projectId && currentSkillId && !stagedSkills.some((staged) => staged.id === currentSkillId)
+      ? { id: currentSkillId, name: skills.find((skill) => skill.id === currentSkillId)?.name ?? currentSkillId }
+      : null;
+
+    const exampleSkills = skills.filter((skill) =>
+      (skill.id === currentSkillId || stagedSkills.some((staged) => staged.id === skill.id))
+      && Boolean(skill.examples?.length),
+    );
+
+    return (
+      <div
+        className={[
+          'composer',
+          dragActive ? 'drag-active' : '',
+          inputDisabled ? 'composer-readonly' : '',
+        ].filter(Boolean).join(' ')}
+        data-testid="chat-composer"
+        ref={composerRootRef}
+        onDragOver={(e) => {
+          if (inputDisabled) return;
+          e.preventDefault();
+          setDragActive(true);
+        }}
+        onDragLeave={() => setDragActive(false)}
+        onDropCapture={inputDisabled ? undefined : handleDrop}
+      >
+        <div
+          className={`composer-shell${manualEditorHeight != null ? ' composer-shell--manual-height' : ''}`}
+          style={
+            manualEditorHeight != null
+              ? ({ '--composer-manual-h': `${manualEditorHeight}px` } as React.CSSProperties)
+              : undefined
+          }
+          onMouseDown={handleShellResizeMouseDown}
+        >
+          {/*
+            Spec §8.4 — context bar above the composer input. The
+            section now behaves as a pure context bar: it renders the
+            active plugin's chips + inputs form when one is applied,
+            but never the always-on rail. Plugins are picked from the
+            tools-menu Plugins tab or the @-mention popover so the
+            composer chrome stays out of the way until the user wants
+            to attach context.
+          */}
+          {projectId ? (
+            <PluginsSection
+              ref={pluginsSectionRef}
+              projectId={projectId}
+              showRail={false}
+              renderActiveChip={false}
+              onApplied={(brief, applied) => {
+                setActiveAppliedPlugin(applied.appliedPlugin);
+                // Use functional setState so stale closures from the @-mention
+                // flow (which awaits applyById after setDraft) still see the
+                // latest draft value before deciding whether to seed.
+                if (typeof brief === 'string' && brief.length > 0) {
+                  setDraft((cur) => (cur.trim().length === 0 ? brief : cur));
+                }
+              }}
+              onCleared={() => {
+                inlineBackedPluginRef.current = null;
+                setActiveAppliedPlugin(null);
+              }}
+              onChipDetails={(item: ContextItem) => {
+                if (item.kind === 'plugin') {
+                  const record = installedPlugins.find((p) => p.id === item.id);
+                  if (record) setDetailsRecord(record);
+                  return;
+                }
+                if (item.kind === 'skill') {
+                  setDetailsSkill({
+                    id: item.id,
+                    summary: skills.find((skill) => skill.id === item.id) ?? null,
+                  });
+                }
+              }}
+            />
+          ) : null}
+          {selectedWorkspaceContexts.length > 0 || stagedSkills.length > 0 || stagedMcpServers.length > 0 || activeAppliedPlugin || projectSkillChip ? (
+            <StagedRunContexts
+              workspaceItems={selectedWorkspaceContexts}
+              projectSkill={projectSkillChip}
+              onRemoveProjectSkill={() => { void removeProjectSkill(); }}
+              skills={stagedSkills}
+              mcpServers={stagedMcpServers}
+              pluginChip={
+                activeAppliedPlugin
+                  ? {
+                      id: activeAppliedPlugin.pluginId,
+                      title: activeAppliedPlugin.pluginTitle ?? activeAppliedPlugin.pluginId,
+                    }
+                  : null
+              }
+              onRemoveWorkspace={removeWorkspaceContext}
+              onRemoveSkill={removeStagedSkill}
+              onRemoveMcp={removeStagedMcpServer}
+              onRemovePlugin={() => {
+                pluginsSectionRef.current?.clear();
+                setActiveAppliedPlugin(null);
+              }}
+              onPluginDetails={(id) => {
+                const record = installedPlugins.find((plugin) => plugin.id === id);
+                if (record) setDetailsRecord(record);
+              }}
+              onSkillDetails={(id) => {
+                setDetailsSkill({
+                  id,
+                  summary: stagedSkills.find((skill) => skill.id === id)
+                    ?? skills.find((skill) => skill.id === id)
+                    ?? null,
+                });
+              }}
+              t={t}
+            />
+          ) : null}
+          {/* 待发送附件自己占一个托盘,不和 plugin / skill / MCP 芯片挤在同一行:
+              稿子的 `.composer > .tray` 只装附件(盘点 #60 第 5 条)。 */}
+          <div
+            className={styles.skillExamples}
+            role="group"
+            aria-label={t('chat.skillExamples')}
+            hidden={exampleSkills.length === 0}
+          >
+            <span className={styles.skillExamplesLabel}>{t('chat.skillExamples')}</span>
+            <div className={styles.skillExamplesList}>
+              {exampleSkills.flatMap((skill) => (skill.examples ?? []).map((example, index) => {
+                const title = locale === 'zh-CN'
+                  ? example.title_i18n?.['zh-CN'] ?? example.title
+                  : example.title;
+                const prompt = locale === 'zh-CN'
+                  ? example.prompt_i18n?.['zh-CN'] ?? example.prompt
+                  : example.prompt;
+                return (
+                  <Button
+                    key={`${skill.id}:${index}`}
+                    variant="secondary"
+                    size="sm"
+                    className={styles.skillExample}
+                    disabled={inputDisabled}
+                    aria-label={`${localizeSkillName(locale, skill)}: ${title}`}
+                    title={prompt}
+                    onClick={() => {
+                      // Retain attached skills when replacing their inline draft.
+                      const skillTokens = stagedSkills.map((item) => inlineMentionToken(item.name));
+                      prefillComposerDraft([...skillTokens, prompt].join(' '));
+                    }}
+                  >
+                    {title}
+                  </Button>
+                );
+              }))}
+            </div>
+          </div>
+          {stagedAttachmentCards.length > 0 ? (
+            <StagedAttachmentTray
+              cards={stagedAttachmentCards}
+              projectId={projectId}
+              onRemoveStaged={removeStaged}
+              onRemovePending={removePendingCard}
+              onRetryPending={(id) => void retryPendingUpload(id)}
+              t={t}
+            />
+          ) : null}
+          {offeredWorkspaceContext && !inputDisabled ? (
+            <div className={styles.attachCurrentRow}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={styles.attachCurrent}
+                data-testid="composer-attach-current"
+                title={t('chat.attachCurrentHint', { name: offeredWorkspaceContext.label })}
+                onClick={attachOfferedWorkspaceContext}
+              >
+                <Icon name="plus" size={12} />
+                <span className={styles.attachCurrentLabel}>
+                  {t(
+                    offeredWorkspaceContext.kind === 'file'
+                      ? 'chat.attachCurrentFile'
+                      : 'chat.attachCurrentFolder',
+                    { name: offeredWorkspaceContext.label },
+                  )}
+                </span>
+              </Button>
+            </div>
+          ) : null}
+
+          {/* The inline BYOK media-model pickers (image / video / speech +
+              voice) were removed pending a unified model-selection surface.
+              The selected models still flow into the run from the project's
+              creation-time pick (see ProjectView byok*ModelOverride → submit);
+              this only drops the per-composer override UI. The byok* props and
+              handlers are intentionally retained as the plumbing the unified
+              picker will reuse. */}
+          {/* 稿子第 67 格:引用芯片在输入框**上方**,不占写字的地方 */}
+          {quotes && quotes.length > 0 ? (
+            <QuotedRefs quotes={quotes} onClear={() => onClearQuotes?.()} />
+          ) : null}
+          {noApproval ? <p className={styles.runtimeHint}>{t('chat.runtimeHint.noApproval')}</p> : null}
+          <div
+            className="composer-input-wrap"
+            onFocus={() => {
+              setComposerEngaged(true);
+              setComposerFocused(true);
+            }}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+              setComposerFocused(false);
+            }}
+          >
+            <LexicalComposerInput
+              ref={editorRef}
+              draft={draft}
+              inputDisabled={inputDisabled}
+              placeholder={
+                questionPending
+                  ? t('chat.questionPendingPlaceholder')
+                  : placeholderCarouselActive
+                    ? ''
+                    : composerPlaceholder ?? t('chat.composerPlaceholder')
+              }
+              title={
+                questionPending
+                  ? t('chat.questionPendingPlaceholder')
+                  : composerPlaceholder ?? t('chat.composerPlaceholder')
+              }
+              descriptionId={!inputDisabled && !sendDisabled && !showAdmissionPendingButton ? sendHintId : undefined}
+              knownEntities={composerMentionEntities}
+              onChange={handleEditorChange}
+              onTrigger={handleEditorTrigger}
+              onEnterSend={() => void submit()}
+              onPasteFiles={handlePasteFiles}
+              popoverOpen={Boolean(mention) || Boolean(slash && filteredSlash.length > 0)}
+              onPopoverKey={handlePopoverKey}
+              onPlainKey={handlePlainKey}
+              comboboxAria={{
+                expanded: Boolean(mention),
+                activeId: mention ? `mention-opt-${mentionIndex}` : null,
+              }}
+            />
+            {placeholderScenarios.length > 0 ? (
+              <PlaceholderCarousel
+                scenarios={placeholderScenarios}
+                active={placeholderCarouselActive}
+                paused={composerFocused}
+                onScenarioChange={setPlaceholderScenario}
+              />
+            ) : null}
+          </div>
+          <CaretFloatingLayer
+            caret={caretRect}
+            open={Boolean(mention)}
+            boundaryRef={composerRootRef}
+          >
+            <MentionPopover
+              files={filteredFiles}
+              workspaceContexts={filteredWorkspaceContexts}
+              plugins={filteredPlugins}
+              skills={filteredSkills}
+              mcpServers={filteredMcpServers}
+              query={mention?.q ?? ''}
+              tab={mentionTab}
+              onTabChange={(nextTab) => {
+                setMentionTab(nextTab);
+                setMentionIndex(0);
+              }}
+              activeIndex={mentionIndex}
+              stagedSkillIds={new Set(stagedSkills.map((skill) => skill.id))}
+              onPickFile={insertMention}
+              onPickWorkspaceContext={insertWorkspaceMention}
+              onPickPlugin={(record) => void insertPluginMention(record)}
+              onPickSkill={(skill) => void insertSkillMention(skill)}
+              onPickMcp={insertMcpMention}
+            />
+          </CaretFloatingLayer>
+          <CaretFloatingLayer
+            caret={caretRect}
+            open={Boolean(slash && filteredSlash.length > 0)}
+            boundaryRef={composerRootRef}
+          >
+            <SlashPopover
+              commands={filteredSlash}
+              activeIndex={Math.min(slashIndex, filteredSlash.length - 1)}
+              onPick={pickSlash}
+              onHover={(i) => setSlashIndex(i)}
+              t={t}
+            />
+          </CaretFloatingLayer>
+          <div className="composer-row">
+            <input
+              ref={fileInputRef}
+              data-testid="chat-file-input"
+              type="file"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                void uploadFiles(files);
+                e.target.value = '';
+              }}
+            />
+            <ComposerPlusMenu
+
+              triggerTestId="chat-plus-trigger"
+              placementPreference="up"
+              openRequest={plusMenuOpenRequest ? {
+                nonce: plusMenuOpenRequest.nonce,
+                submenu: plusMenuOpenRequest.submenu,
+              } : null}
+              onOpen={() => {
+                trackComposerBar({ element: 'plus_menu_open' });
+                setComposerEngaged(true);
+              }}
+              onSubmenuOpen={(submenu) => {
+                // The working-dir flyout carries actions, not a resource list.
+                if (submenu === 'workingDir') return;
+                trackComposerBar({
+                  element: 'plus_submenu_open',
+                  resource_kind: PLUS_SUBMENU_RESOURCE_KIND[submenu],
+                });
+              }}
+              onSearchUsed={(submenu) => {
+                trackComposerBar({
+                  element: 'plus_search',
+                  resource_kind: PLUS_SUBMENU_RESOURCE_KIND[submenu],
+                });
+              }}
+              plugins={pluginsForComposer}
+              onPickPlugin={(record) => {
+                trackComposerBar({
+                  element: 'plus_pick',
+                  resource_kind: 'plugin',
+                  resource_id: record.id,
+                });
+                void insertPluginMention(record);
+              }}
+              onAddPlugin={onBrowsePlugins ? () => {
+                trackComposerBar({ element: 'plus_add', resource_kind: 'plugin' });
+                onBrowsePlugins();
+              } : undefined}
+              skills={skills}
+              onPickSkill={(skill) => {
+                trackComposerBar({
+                  element: 'plus_pick',
+                  resource_kind: 'skill',
+                  resource_id: skill.id,
+                });
+                void insertSkillMention(skill);
+              }}
+              mcpServers={enabledMcpServers}
+              onPickMcp={(server) => {
+                trackComposerBar({
+                  element: 'plus_pick',
+                  resource_kind: 'mcp',
+                  resource_id: server.id,
+                });
+                insertMcpMention(server);
+              }}
+              onAddMcp={onOpenMcpSettings ? () => {
+                trackComposerBar({ element: 'plus_add', resource_kind: 'mcp' });
+                onOpenMcpSettings();
+              } : undefined}
+              onAttachFiles={() => {
+                trackChatPanelClick(analytics.track, {
+                  page_name: 'chat_panel',
+                  area: 'chat_panel',
+                  element: 'attachment',
+                });
+                fileInputRef.current?.click();
+              }}
+              onReferenceProject={() => {
+                trackComposerBar({ element: 'plus_pick', resource_kind: 'workspace', resource_id: 'reference-project' });
+                trackProjectReferenceModalSurfaceView(analytics.track, {
+                  page_name: 'chat_panel',
+                  area: 'project_reference_modal',
+                  ...(projectId ? { project_id: projectId } : {}),
+                });
+                setProjectReferenceOpen(true);
+              }}
+              onLinkLocalCode={() => {
+                trackComposerBar({ element: 'plus_pick', resource_kind: 'workspace', resource_id: 'local-code' });
+                void handleLinkLocalCodeContext();
+              }}
+              attachLoading={uploading}
+            />
+            {leadingAccessory}
+            <span className="composer-spacer" />
+            {/* No mode picker in the composer (2026-08-19, product): the row
+                carried a 规划/设计/提问 chooser that every run defaulted past.
+                `sessionMode` still flows through this component — a
+                conversation keeps its stored mode and next-step actions still
+                switch it (ChatPane.handleNextStepPromptAction) — it just is
+                not chosen from here any more. */}
+            {footerAccessory}
+            {projectId ? <ApprovalModePicker agentId={agentId} unsupported={noApproval} /> : null}
+            {showAdmissionPendingButton ? (
+              <button
+                type="button"
+                className="composer-send stop admission-pending"
+                data-testid="chat-send-pending"
+                disabled
+                aria-busy="true"
+                aria-label={t('assistant.statusPreparing')}
+              >
+                {/* 预检那一档是本分支独有的(main 没有 admission-pending)。
+                    合并 main 时几何取了它的 32px 方框,那里装不下文字,所以这里
+                    只留球 —— 「正在准备」仍然由 `aria-label` + `aria-busy` 说给
+                    读屏,视觉上和运行态一样靠球表达「有事在发生」。按钮本身保留:
+                    它要挡住预检期间的第二次点击。 */}
+                <ComposerRunningDots />
+              </button>
+            ) : null}
+            {showStopButton ? (
+              <RunStopControl
+                onStop={onStop}
+                stopLabel={t('chat.stop')}
+                runningLabel={t('chat.record.running')}
+              />
+            ) : null}
+            {showSendButton ? (
+              <button
+                type="button"
+                className="composer-send pixo-tooltip"
+                data-testid="chat-send"
+                onClick={() => {
+                  trackChatPanelClick(analytics.track, {
+                    page_name: 'chat_panel',
+                    area: 'chat_panel',
+                    element: 'send',
+                  });
+                  void submit();
+                }}
+                disabled={!canSend}
+                aria-label={t('chat.send')}
+                title={t('chat.send')}
+                data-tooltip={t('chat.send')}
+              >
+                {/* Home's send mark: the glyph fills half of its own box, so
+                    it renders at the button's full 32px rather than inset.
+
+                    合并 main 时产品拍板取这一版(2026-09-05):本分支 09-04 曾按
+                    交付稿 `729fa43ce7` 把它改成「盒子 28 / 图标 16」,而 main 的
+                    `2e4c1a753b`(#7635 / OPEND-2553)在 7 小时后带着自己那份设计
+                    上线,明确覆盖了项目输入区。两份设计撞在同一颗控件上,取已上线
+                    的那份 —— 在合并里悄悄撤销别人已上线的工作,不该由做合并的人
+                    代劳。稿子那一格的 28/16 就此作废。
+
+                    2026-09-07 再次合并 main 时这里又冲突了一次:main 把 #7635 的
+                    首页改版整体 revert 掉了(#7843),等 `feat/home-entry-refresh`
+                    整期做完再回来,于是 main 侧回到了 `arrow-up` / 18。**这一格仍
+                    然保 32**——项目输入区(聊天面板)不许回退是这次合并的红线,
+                    判据是 `w134-composer-send-geometry.test.tsx`:它把两张样式表按
+                    index.css 的顺序装进 jsdom,量出这颗按钮必须是 32×32、无描边、
+                    无阴影。首页那一侧的对应改动照 revert 走,两边就此分开。 */}
+                <Icon name="arrow-up-fill" size={32} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {!inputDisabled && !sendDisabled && !showAdmissionPendingButton ? (
+          <p id={sendHintId} className={styles.sendHint} data-testid="chat-send-hint">
+            {t(streaming ? 'chat.sendHintRunning' : 'chat.sendHint')}
+          </p>
+        ) : null}
+        {/* #5517 renders no working-dir row inside a project — its ChatComposer
+            imports WorkingDirPicker but never mounts it. Product chose full
+            alignment (2026-07-21) over keeping this as the only mid-project
+            re-bind entry. Home still picks a working directory for NEW projects. */}
+        {uploadError ? <span className="composer-hint">{uploadError}</span> : null}
+        {detailsRecord ? (
+          <PluginDetailsModal
+            record={detailsRecord}
+
+            onClose={() => setDetailsRecord(null)}
+            onUse={async (record) => {
+              inlineBackedPluginRef.current = null;
+              await pluginsSectionRef.current?.applyById(record.id, record);
+              setDetailsRecord(null);
+            }}
+            onDuplicate={(record) => void duplicateDetailsPlugin(record)}
+            hideUseAction
+          />
+        ) : null}
+        {detailsSkill ? (
+          <SkillDetailsModal
+            skillId={detailsSkill.id}
+            summary={detailsSkill.summary}
+            onClose={() => setDetailsSkill(null)}
+          />
+        ) : null}
+        {projectReferenceOpen ? (
+          <ProjectReferenceModal
+            currentProjectId={projectId}
+
+            onClose={() => {
+              // Only the dismiss paths (X / backdrop / Escape / Cancel) land
+              // here — a confirmed pick closes via handleReferenceProjects,
+              // which reports 'success' / 'failed'.
+              trackContextLinkResult(analytics.track, {
+                page_name: 'chat_panel',
+                area: 'chat_composer',
+                context_kind: 'project',
+                result: 'cancelled',
+                ...(projectId ? { project_id: projectId } : {}),
+              });
+              setProjectReferenceOpen(false);
+            }}
+            onSelect={(items) => void handleReferenceProjects(items)}
+          />
+        ) : null}
+      </div>
+    );
+  }
+);
+
+function buildComposerMentionEntities({
+  files,
+  mcpServers,
+  plugins,
+  skills,
+  staged,
+  workspaceContexts,
+}: {
+  files: ProjectFile[];
+  mcpServers: McpServerConfig[];
+  plugins: InstalledPluginRecord[];
+  skills: SkillSummary[];
+  staged: ChatAttachment[];
+  workspaceContexts: WorkspaceContextItem[];
+}): InlineMentionEntity[] {
+  const entities: InlineMentionEntity[] = [];
+  const workspaceSeen = new Set<string>();
+  for (const item of workspaceContexts) {
+    if (!item.id || !item.label) continue;
+    const key = `workspace:${item.id}`;
+    if (workspaceSeen.has(key)) continue;
+    workspaceSeen.add(key);
+    entities.push({
+      id: item.id,
+      kind: 'workspace',
+      label: item.label,
+      token: inlineMentionToken(item.label),
+      title: `Workspace: ${item.label}`,
+    });
+  }
+  for (const plugin of plugins) {
+    entities.push({
+      id: plugin.id,
+      kind: 'plugin',
+      label: plugin.title,
+      token: inlineMentionToken(plugin.title),
+      title: `Plugin: ${plugin.title}`,
+    });
+  }
+  for (const skill of skills) {
+    entities.push({
+      id: skill.id,
+      kind: 'skill',
+      label: skill.name,
+      token: inlineMentionToken(skill.name),
+      title: `Skill: ${skill.name}`,
+    });
+    if (skill.id !== skill.name) {
+      entities.push({
+        id: skill.id,
+        kind: 'skill',
+        label: skill.id,
+        token: inlineMentionToken(skill.id),
+        title: `Skill: ${skill.name}`,
+      });
+    }
+  }
+  for (const server of mcpServers) {
+    const label = server.label || server.id;
+    entities.push({
+      id: server.id,
+      kind: 'mcp',
+      label,
+      token: inlineMentionToken(label),
+      title: `MCP: ${label}`,
+    });
+    if (server.id !== label) {
+      entities.push({
+        id: server.id,
+        kind: 'mcp',
+        label: server.id,
+        token: inlineMentionToken(server.id),
+        title: `MCP: ${label}`,
+      });
+    }
+  }
+  const filePaths = new Set<string>();
+  for (const file of files) {
+    const path = file.path ?? file.name;
+    if (!path || filePaths.has(path)) continue;
+    filePaths.add(path);
+    entities.push({
+      id: path,
+      kind: 'file',
+      label: path,
+      token: inlineMentionToken(path),
+      title: `File: ${path}`,
+    });
+  }
+  for (const attachment of staged) {
+    if (!attachment.path || filePaths.has(attachment.path)) continue;
+    filePaths.add(attachment.path);
+    entities.push({
+      id: attachment.path,
+      kind: 'file',
+      label: attachment.path,
+      token: inlineMentionToken(attachment.path),
+      title: `File: ${attachment.path}`,
+    });
+  }
+  return entities;
+}
+
+function isFiniteAttachmentOrder(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function normalizeChatAttachmentOrders(attachments: ChatAttachment[]): ChatAttachment[] {
+  let fallbackOrder = 0;
+  return attachments.map((attachment) => {
+    if (isFiniteAttachmentOrder(attachment.order)) {
+      fallbackOrder = Math.max(fallbackOrder, Math.floor(attachment.order) + 1);
+      return { ...attachment, order: Math.floor(attachment.order) };
+    }
+    const order = fallbackOrder;
+    fallbackOrder += 1;
+    return { ...attachment, order };
+  });
+}
+
+function assignChatAttachmentOrders(
+  attachments: ChatAttachment[],
+  orderStart: number,
+): ChatAttachment[] {
+  return attachments.map((attachment, index) => ({
+    ...attachment,
+    order: orderStart + index,
+  }));
+}
+
+function nextChatAttachmentOrder(attachments: ChatAttachment[]): number {
+  return attachments.reduce(
+    (max, attachment, index) =>
+      Math.max(max, isFiniteAttachmentOrder(attachment.order) ? Math.floor(attachment.order) + 1 : index + 1),
+    0,
+  );
+}
+
+function sortChatAttachmentsByOrder(attachments: ChatAttachment[]): ChatAttachment[] {
+  return attachments
+    .map((attachment, index) => ({ attachment, index }))
+    .sort((a, b) => {
+      const aOrder = isFiniteAttachmentOrder(a.attachment.order) ? a.attachment.order : a.index;
+      const bOrder = isFiniteAttachmentOrder(b.attachment.order) ? b.attachment.order : b.index;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.attachment);
+}
+
+function workspaceContextIcon(item: WorkspaceContextItem): IconName {
+  if (item.kind === 'browser') return 'globe';
+  if (item.kind === 'folder' || item.kind === 'design-files') return 'folder';
+  if (item.kind === 'project') return 'folder';
+  if (item.kind === 'local-code') return 'terminal';
+  if (item.kind === 'terminal') return 'terminal';
+  if (item.kind === 'side-chat') return 'comment';
+  if (item.kind === 'design-system') return 'blocks';
+  return 'file';
+}
+
+function workspaceContextTitle(item: WorkspaceContextItem, t: TranslateFn): string {
+  return [
+    workspaceContextKindLabel(item.kind, t),
+    item.path ? `path: ${item.path}` : null,
+    item.absolutePath ? `absolute: ${item.absolutePath}` : null,
+    item.url ? `url: ${item.url}` : null,
+    item.title ? `title: ${item.title}` : null,
+  ].filter(Boolean).join(' | ');
+}
+
+function workspaceContextDescription(item: WorkspaceContextItem, t: TranslateFn): string {
+  if (item.kind === 'design-files') return item.path || t('chat.context.projectFiles');
+  if (item.kind === 'project') return item.absolutePath || item.path || item.title || item.id;
+  if (item.kind === 'local-code') return item.absolutePath || item.path || item.title || item.id;
+  if (item.kind === 'terminal') return item.title || t('chat.context.terminal');
+  return item.url || item.path || item.absolutePath || item.title || item.tabId || item.id;
+}
+
+function lastPathSegment(path: string): string {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
+  return normalized.split('/').filter(Boolean).pop() || path;
+}
+
+function projectFileMentionTitle(file: ProjectFile, fallback: string): string {
+  return file.name || lastPathSegment(fallback);
+}
+
+function projectFileMentionDescription(file: ProjectFile, fallback: string): string {
+  const label = projectFileMentionTitle(file, fallback);
+  if (fallback && fallback !== label) return fallback;
+  return [file.kind, file.mime].filter(Boolean).join(' · ');
+}
+
+function workspaceContextSearchText(item: WorkspaceContextItem): string {
+  return [
+    item.id,
+    item.kind,
+    item.label,
+    item.tabId ?? '',
+    item.path ?? '',
+    item.absolutePath ?? '',
+    item.url ?? '',
+    item.title ?? '',
+  ].join(' ');
+}
+
+function workspaceContextKindLabel(kind: WorkspaceContextItem['kind'], t: TranslateFn): string {
+  switch (kind) {
+    case 'browser':
+      return t('chat.context.browser');
+    case 'design-files':
+      return t('chat.context.projectFiles');
+    case 'folder':
+      return t('chat.context.folder');
+    case 'project':
+      return t('workspaceTabs.project');
+    case 'local-code':
+      return t('dsCreate.localCodeLabel');
+    case 'terminal':
+      return t('chat.context.terminal');
+    case 'side-chat':
+      return t('chat.context.sideChat');
+    case 'file':
+    default:
+      return t('chat.context.file');
+  }
+}
+
+/**
+ * Whether the open workspace tab can be offered as "Attach current …".
+ * Files and folders are content the agent can read; a terminal or a side chat
+ * tab is not something a beginner means by "this", so it is not offered.
+ */
+function attachableCurrentWorkspaceContext(item: WorkspaceContextItem): boolean {
+  return item.kind === 'file' || item.kind === 'folder' || item.kind === 'design-files';
+}
+
+function StagedRunContexts({
+  workspaceItems,
+  projectSkill = null,
+  onRemoveProjectSkill,
+  skills,
+  mcpServers,
+  pluginChip,
+  onRemoveWorkspace,
+  onRemoveSkill,
+  onRemoveMcp,
+  onRemovePlugin,
+  onPluginDetails,
+  onSkillDetails,
+  t,
+}: {
+  workspaceItems: WorkspaceContextItem[];
+  /** The project's own skill, sent with every message until removed. */
+  projectSkill?: { id: string; name: string } | null;
+  onRemoveProjectSkill?: () => void;
+  skills: SkillSummary[];
+  mcpServers: McpServerConfig[];
+  pluginChip?: { id: string; title: string } | null;
+  onRemoveWorkspace: (id: string) => void;
+  onRemoveSkill: (id: string) => void;
+  onRemoveMcp: (id: string) => void;
+  onRemovePlugin?: () => void;
+  onPluginDetails?: (id: string) => void;
+  onSkillDetails?: (id: string) => void;
+  t: TranslateFn;
+}) {
+
+  return (
+    <div
+      className="staged-row staged-context-row"
+      data-testid="staged-contexts"
+    >
+
+      {pluginChip ? (
+        <div className="staged-chip staged-context staged-context--plugin" data-staged-kind="plugin">
+          {/* Two sibling controls — a details button (icon + name) and the
+              remove button — rather than a role=button wrapper containing the
+              remove button. Nested interactive controls break focus order and
+              assistive-tech announcements. */}
+          <button
+            type="button"
+            className="staged-context-open"
+            onClick={() => onPluginDetails?.(pluginChip.id)}
+            title={pluginChip.title}
+            aria-label={pluginChip.title}
+          >
+            <span className="staged-icon" aria-hidden>
+              <Icon name="sparkles" size={12} />
+            </span>
+            <span className="staged-name">{pluginChip.title}</span>
+          </button>
+          <button
+            type="button"
+            className="staged-remove pixo-tooltip"
+            onClick={() => onRemovePlugin?.()}
+            title={t('common.delete')}
+            data-tooltip={t('common.delete')}
+            aria-label={t('chat.removeAria', { name: pluginChip.title })}
+          >
+            <Icon name="close" size={11} />
+          </button>
+        </div>
+      ) : null}
+      {workspaceItems.map((workspaceItem) => {
+        const kindLabel = workspaceContextKindLabel(workspaceItem.kind, t);
+        return (
+          <div
+            key={workspaceItem.id}
+            className={`staged-chip staged-context staged-context--workspace staged-context--workspace-${workspaceItem.kind}`}
+          >
+            <span className="staged-icon" aria-hidden>
+              <Icon name={workspaceContextIcon(workspaceItem)} size={12} />
+            </span>
+            <span className="staged-name" title={workspaceContextTitle(workspaceItem, t)}>
+              <span className="staged-context-kind">{kindLabel}</span>
+              {workspaceItem.label}
+            </span>
+            <button
+              type="button"
+              className="staged-remove pixo-tooltip"
+              onClick={() => onRemoveWorkspace(workspaceItem.id)}
+              title={t('common.delete')}
+              data-tooltip={t('common.delete')}
+              aria-label={t('chat.removeAria', { name: workspaceItem.label })}
+            >
+              <Icon name="close" size={11} />
+            </button>
+          </div>
+        );
+      })}
+      {projectSkill ? (
+        <div className="staged-chip staged-context staged-context--skill" data-testid="project-skill-chip">
+          <button
+            type="button"
+            className="staged-context-open"
+            onClick={() => onSkillDetails?.(projectSkill.id)}
+            title={t('chat.projectSkillHint')}
+            aria-label={projectSkill.name}
+          >
+            <span className="staged-name">
+              <span className="staged-context-kind">{t('chat.projectSkillKind')}</span>
+              @{projectSkill.name}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="staged-remove pixo-tooltip"
+            onClick={() => onRemoveProjectSkill?.()}
+            title={t('chat.projectSkillRemove')}
+            data-tooltip={t('chat.projectSkillRemove')}
+            aria-label={t('chat.removeAria', { name: projectSkill.name })}
+          >
+            <Icon name="close" size={11} />
+          </button>
+        </div>
+      ) : null}
+      {skills.map((s) => (
+        <div
+          key={s.id}
+          className={`staged-chip staged-context staged-context--skill staged-skill-${s.source ?? 'built-in'}`}
+        >
+          <button
+            type="button"
+            className="staged-context-open"
+            onClick={() => onSkillDetails?.(s.id)}
+            title={s.description || s.name}
+            aria-label={s.name}
+          >
+            <span className="staged-name">@{s.name}</span>
+          </button>
+          <button
+            type="button"
+            className="staged-remove pixo-tooltip"
+            onClick={() => onRemoveSkill(s.id)}
+            title={t('common.delete')}
+            data-tooltip={t('common.delete')}
+            aria-label={t('chat.removeAria', { name: s.name })}
+          >
+            <Icon name="close" size={11} />
+          </button>
+        </div>
+      ))}
+      {mcpServers.map((server) => {
+        const label = server.label || server.id;
+        return (
+          <div
+            key={server.id}
+            className="staged-chip staged-context staged-context--mcp"
+          >
+            <span className="staged-icon" aria-hidden>
+              <Icon name="link" size={12} />
+            </span>
+            <span className="staged-name" title={server.command || server.url || server.id}>
+              @{label}
+            </span>
+            <button
+              type="button"
+              className="staged-remove pixo-tooltip"
+              onClick={() => onRemoveMcp(server.id)}
+              title={t('common.delete')}
+              data-tooltip={t('common.delete')}
+              aria-label={t('chat.removeAria', { name: label })}
+            >
+              <Icon name="close" size={11} />
+            </button>
+          </div>
+        );
+      })}
+
+    </div>
+  );
+}
+
+/* ── 待发送附件托盘(设计稿组件 21,第 60–64 格)──────────────────────────
+ *
+ * 与「已发送」那一侧(`ChatPane.tsx` 的 `UserAttachmentRow`)**共用同一张卡**:
+ * 同样 57px 方卡 / 180px 文档卡、同样的主名中间省略 + 后缀保留,靠 CSS 里
+ * `.composer-att` 与 `.msg.user` 共写一份选择器落实,不另抄一套模板。
+ * 稿子这条是有来历的:两侧长得不一样时,同一批文件在按下发送的那一瞬会整个
+ * 跳一下形状,而两套模板还会各自漂移 —— 线上那版就是这么裂的。
+ *
+ * 托盘只多两样东西:右上角一枚 hover 才出的「×」,和上传中 / 失败的叠加物。
+ * 托盘靠左(已发送那一侧要贴右,因为它压在用户气泡上方)。
+ */
+export function StagedAttachmentTray({
+  cards,
+  projectId,
+  onRemoveStaged,
+  onRemovePending,
+  onRetryPending,
+  t,
+}: {
+  cards: StagedAttachmentCard[];
+  projectId: string | null;
+  onRemoveStaged: (path: string) => void;
+  onRemovePending: (pendingId: string) => void;
+  onRetryPending: (pendingId: string) => void;
+  t: TranslateFn;
+}) {
+
+  const rowRef = useRef<HTMLDivElement>(null);
+  const { prev, next, page } = useStagedTrayNav(rowRef, cards.length);
+  // 点缩略图看大图 —— 这是产品**已有**的能力,稿子那一格把卡画成了不可点的
+  // `<span>`。删掉一个人已经在用的入口要产品拍板,所以这里保留(报告里记着)。
+  const [preview, setPreview] = useState<StagedAttachmentCard | null>(null);
+  const previewUrl = preview
+    ? preview.previewUrl
+      ?? (preview.path && projectId ? projectRawUrl(projectId, preview.path) : null)
+    : null;
+  useEffect(() => {
+    if (!preview) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setPreview(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [preview]);
+  const removeCard = (card: StagedAttachmentCard) => {
+    if (card.pendingId) onRemovePending(card.pendingId);
+    else if (card.path) onRemoveStaged(card.path);
+  };
+  return (
+    <>
+      {/* 壳子只为箭头存在:箭头要绝对定位压在这一行的两端,而滚动容器自己
+          不能 `position: relative` —— 那样绝对定位的孩子会跟着内容一起滚走。 */}
+      <div className={`composer-att-wrap${prev ? ' is-prev' : ''}${next ? ' is-next' : ''}`}>
+        <div className="composer-att" data-testid="staged-attachments" ref={rowRef}>
+          {cards.map((card) => {
+            const removeLabel = card.state === 'uploading'
+              ? t('chat.att.cancelUpload', { name: card.name })
+              : t('chat.removeAria', { name: card.name });
+            const del = (
+              <button
+                type="button"
+                className="msg-att-del"
+                onClick={() => removeCard(card)}
+                aria-label={removeLabel}
+              >
+                <ChatCloseIcon size={10} />
+              </button>
+            );
+            const stateClass = card.state === 'uploading'
+              ? ' is-up'
+              : card.state === 'failed' ? ' is-fail' : '';
+            if (card.kind === 'file') {
+              return (
+                <StagedTrayDocCard
+                  key={card.key}
+                  card={card}
+                  stateClass={stateClass}
+                  del={del}
+                />
+              );
+            }
+            const thumbUrl = card.previewUrl
+              ?? (card.path && projectId ? projectRawUrl(projectId, card.path) : null);
+            return (
+              <span key={card.key} className={`msg-att-img${stateClass}`} data-testid="staged-attachment-image">
+                <span className="msg-att-ph">
+                  {card.state === 'failed' ? (
+                    /* 失败卡里「重试」铺满整块缩略图 —— 57px 见方的卡横着放不下
+                       「↻ 重试」,竖排两行才落得进方块里。
+                       失败卡不描红框:红只留给【可以点的那一下】,不是「这张卡出事了」。 */
+                    <button
+                      type="button"
+                      className="msg-att-rt"
+                      data-testid="staged-att-retry"
+                      onClick={() => card.pendingId && onRetryPending(card.pendingId)}
+                      title={card.name}
+                    >
+                      <Icon name="refresh" size={14} />
+                      <span>{t('chat.att.retry')}</span>
+                    </button>
+                  ) : card.state === 'ready' && thumbUrl ? (
+                    <button
+                      type="button"
+                      className="msg-att-mini-btn"
+                      onClick={() => setPreview(card)}
+                      title={card.name}
+                      aria-label={t('chat.attachments.preview', { name: card.name })}
+                    >
+                      <PixelAssetImage className="msg-att-mini" source={thumbUrl} name="" maxHeight={160} fitLarge compact />
+                    </button>
+                  ) : thumbUrl ? (
+                    /* 上传中:缩略图压暗(`.is-up .msg-att-mini { opacity: .45 }`),
+                       这几秒它不是一个可点的东西。 */
+                    <PixelAssetImage className="msg-att-mini" source={thumbUrl} name="" maxHeight={160} fitLarge compact />
+                  ) : (
+                    <span className="msg-att-mini" aria-hidden />
+                  )}
+                </span>
+                {del}
+              </span>
+            );
+          })}
+        </div>
+        {/* 一枚朝下的箭头转 ±90 度当左右用,判据与已发送那一行同一份纯函数。
+            两颗**常驻**,出没交给壳上的 `is-prev` / `is-next`(稿子 `.att-wrap.is-prev > .att-nav.mod-prev`
+            就是这么写的);这也是本仓的约定 —— 条件显示的元素保持挂载、用 CSS 切,
+            React 卸载会把退场过渡整个跳过。 */}
+        <button
+          type="button"
+          className="msg-att-nav mod-prev"
+          data-testid="staged-att-nav-prev"
+          aria-label={t('chat.attachments.scrollPrev')}
+          onClick={() => page('prev')}
+        >
+          <i>
+            <Icon name="chevron-down" size={14} />
+          </i>
+        </button>
+        <button
+          type="button"
+          className="msg-att-nav mpixo-next"
+          data-testid="staged-att-nav-next"
+          aria-label={t('chat.attachments.scrollNext')}
+          onClick={() => page('next')}
+        >
+          <i>
+            <Icon name="chevron-down" size={14} />
+          </i>
+        </button>
+      </div>
+      {preview && previewUrl ? createPortal(
+        <div
+          className="staged-preview-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={preview.name}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setPreview(null);
+          }}
+        >
+          <div className="staged-preview-card" data-testid="staged-preview-card">
+            <div className="staged-preview-head" data-testid="staged-preview-head">
+              <span title={preview.path ?? preview.name}>{preview.name}</span>
+              <button
+                type="button"
+                className="icon-only pixo-tooltip"
+                onClick={() => setPreview(null)}
+                aria-label={t('common.close')}
+                title={t('common.close')}
+                data-tooltip={t('common.close')}
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <img src={previewUrl} alt={preview.name} />
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * 文档卡(#62)。名字是它唯一的身份,所以反过来【必须】挂名字;
+ * 主名中间省略、后缀永远完整,量法与已发送那一侧同一份纯函数。
+ *
+ * 托盘里它额外吃 `padding-inline-end: 28px` 给右上角的「×」让位,
+ * 而「×」自己的偏移是 5px(图卡是 4px)—— 两张卡的边框 / 内边距不同,
+ * 稿子给的就是两个值,别统一成一个。
+ */
+function StagedTrayDocCard({
+  card,
+  stateClass,
+  del,
+}: {
+  card: StagedAttachmentCard;
+  stateClass: string;
+  del: ReactNode;
+}) {
+  const { base, ext } = splitFileName(card.name);
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const displayBase = useTrayTruncatedName(nameRef, base, ext);
+  const size = formatAttachmentSize(card.size);
+  return (
+    <span className={`msg-att-doc${stateClass}`} title={card.name}>
+      <ChatFileIcon size={15} className="msg-att-fi" />
+      <span className="msg-att-tx">
+        <span className="msg-att-nm" ref={nameRef}>
+          <span className="msg-att-base">{displayBase}</span>
+          {ext ? <span className="msg-att-ext">{ext}</span> : null}
+        </span>
+        {/* 拿不到体积就空着这一行,不写 `0 B` —— 但位置留着,
+            否则同一行里有体积和没体积的卡会差一行高。 */}
+        <span className="msg-att-meta">{size ?? ''}</span>
+      </span>
+      {del}
+    </span>
+  );
+}
+
+/** 量文字宽度用的离屏 canvas。一份就够,反复建会在长会话里堆出几百个。 */
+let trayMeasureCtx: CanvasRenderingContext2D | null | undefined;
+
+function trayTextMeasurerFor(el: HTMLElement | null): ((text: string) => number) | null {
+  if (!el || typeof document === 'undefined') return null;
+  if (trayMeasureCtx === undefined) {
+    try {
+      trayMeasureCtx = document.createElement('canvas').getContext('2d');
+    } catch {
+      // jsdom / 没有 canvas 的运行环境:量不到就不截,由 CSS overflow 兜底。
+      trayMeasureCtx = null;
+    }
+  }
+  const ctx = trayMeasureCtx;
+  if (!ctx) return null;
+  const cs = window.getComputedStyle(el);
+  if (!cs.fontSize) return null;
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  return (text: string) => ctx.measureText(text).width;
+}
+
+/**
+ * 文件名中间省略(#59 的量法,#62 复用)。
+ *
+ * 量的是 `.msg-att-nm` 自己的可用宽度,而它在一张定宽 180px 的卡里、且被
+ * `.msg-att-tx { flex: 1 }` 钉住 —— 所以这个宽度是常量,不随名字长短变。
+ * 这是绕开「越截越短」棘轮的关键:**不能拿截过的名字再去量**。
+ */
+function useTrayTruncatedName(
+  ref: MutableRefObject<HTMLSpanElement | null>,
+  base: string,
+  ext: string,
+): string {
+  const [avail, setAvail] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let alive = true;
+    const measure = () => {
+      const node = ref.current;
+      if (!alive || !node) return;
+      if (!node.clientWidth) {
+        setAvail(0);
+        return;
+      }
+      const measurer = trayTextMeasurerFor(node);
+      const extWidth = measurer && ext ? measurer(ext) : 0;
+      setAvail(node.clientWidth - extWidth);
+    };
+    measure();
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(measure);
+      observer.observe(el);
+    }
+    const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
+    fonts?.ready?.then(measure).catch(() => {});
+    return () => {
+      alive = false;
+      observer?.disconnect();
+    };
+  }, [ref, ext]);
+  return useMemo(
+    () => (avail > 0 ? middleTruncateFileName(base, avail, trayTextMeasurerFor(ref.current)) : base),
+    [ref, base, avail],
+  );
+}
+
+/**
+ * 托盘的翻页箭头(#64)。判据与已发送那一行**同一份纯函数**
+ * (`runtime/chat/attachment-nav.ts`),稿子里两处底色相同,所以渐变和箭头也共用。
+ *
+ * 四路重算,少一路就会看见错的箭头:`scroll`(滚动中两端的结论一直在翻)、
+ * `ResizeObserver`(面板宽度变了)、`resize`(容器定宽时窗口缩放不触发容器自身的
+ * resize)、`document.fonts.ready`(文档卡里的文字宽度要等字体到位才定下来)。
+ */
+function useStagedTrayNav(
+  ref: MutableRefObject<HTMLDivElement | null>,
+  count: number,
+): AttachmentNavState & { page: (direction: 'prev' | 'next') => void } {
+  const [state, setState] = useState<AttachmentNavState>({ prev: false, next: false });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let alive = true;
+    const sync = () => {
+      const node = ref.current;
+      if (!alive || !node) return;
+      const measured = attachmentNavState(node);
+      setState((current) =>
+        current.prev === measured.prev && current.next === measured.next ? current : measured,
+      );
+    };
+    sync();
+    el.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(sync);
+      observer.observe(el);
+    }
+    const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
+    fonts?.ready?.then(sync).catch(() => {});
+    return () => {
+      alive = false;
+      el.removeEventListener('scroll', sync);
+      window.removeEventListener('resize', sync);
+      observer?.disconnect();
+    };
+  }, [ref, count]);
+
+  const page = useCallback(
+    (direction: 'prev' | 'next') => {
+      const node = ref.current;
+      if (!node) return;
+      const rtl =
+        typeof window !== 'undefined' && window.getComputedStyle(node).direction === 'rtl';
+      const left = attachmentNavDelta(direction, node.clientWidth, rtl);
+      if (typeof node.scrollBy === 'function') node.scrollBy({ left, behavior: 'smooth' });
+      else node.scrollLeft += left;
+    },
+    [ref],
+  );
+
+  return { ...state, page };
+}
+
+function skillMatchesQuery(skill: SkillSummary, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [skill.id, skill.name, skill.description, skill.mode, skill.surface ?? '', ...skill.triggers]
+    .join(' ')
+    .toLowerCase()
+    .includes(q);
+}
+
+function skillMentionRank(skill: SkillSummary, query: string): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 1;
+  const id = skill.id.toLowerCase();
+  const name = skill.name.toLowerCase();
+  if (id.startsWith(q) || name.startsWith(q)) return 0;
+  return 1;
+}
+
+
+function pluginSourceLabel(plugin: InstalledPluginRecord, t: TranslateFn): string {
+  return plugin.sourceKind === 'bundled' ? t('chat.mentionPluginOfficial') : t('chat.mentionPluginMine');
+}
+
+
+function SlashPopover({
+  commands,
+  activeIndex,
+  onPick,
+  onHover,
+  t,
+}: {
+  commands: SlashCommand[];
+  activeIndex: number;
+  onPick: (cmd: SlashCommand) => void;
+  onHover: (index: number) => void;
+  t: TranslateFn;
+}) {
+  return (
+    <div className="slash-popover" data-testid="slash-popover">
+      <div className="slash-popover-head">
+        <span>{t('composer.slashPopoverTitle')}</span>
+        <span className="slash-popover-hint">{t('composer.slashPopoverHint')}</span>
+      </div>
+      {/* The rows live in their own scroll port, not directly in the
+          height-capped popover column — see `.slash-popover-list`. Carrying
+          `role="listbox"` down here also keeps the header out of the
+          listbox, whose only children may be options. */}
+      <div
+        className="slash-popover-list"
+        role="listbox"
+        aria-label={t('composer.slashPopoverAria')}
+      >
+        {commands.map((cmd, idx) => {
+          const active = idx === activeIndex;
+          return (
+            <button
+              key={cmd.id}
+              id={`slash-opt-${idx}`}
+              type="button"
+              role="option"
+              aria-selected={active}
+              className={`slash-item${active ? ' active' : ''}`}
+              onMouseDown={(e) => {
+                // Prevent the textarea from losing focus before the click
+                // handler fires — otherwise selectionStart resets and the
+                // pick replacement targets the wrong substring.
+                e.preventDefault();
+              }}
+              onMouseEnter={() => onHover(idx)}
+              onClick={() => onPick(cmd)}
+            >
+              <span className="slash-item-icon" aria-hidden>
+                <Icon name={cmd.icon} size={13} />
+              </span>
+              <span className="slash-item-body">
+                <span className="slash-item-row">
+                  <code className="slash-item-label">{cmd.label}</code>
+                  {cmd.argHint ? (
+                    <span className="slash-item-arg">{cmd.argHint}</span>
+                  ) : null}
+                </span>
+                <span className="slash-item-desc">{t(cmd.descKey)}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MentionPopover({
+  files,
+  workspaceContexts,
+  plugins,
+  skills,
+  mcpServers,
+  query,
+  tab,
+  onTabChange,
+  activeIndex,
+  stagedSkillIds,
+  onPickFile,
+  onPickWorkspaceContext,
+  onPickPlugin,
+  onPickSkill,
+  onPickMcp,
+}: {
+  files: ProjectFile[];
+  workspaceContexts: WorkspaceContextItem[];
+  plugins: InstalledPluginRecord[];
+  skills: SkillSummary[];
+  mcpServers: McpServerConfig[];
+  query: string;
+  tab: MentionTab;
+  onTabChange: (tab: MentionTab) => void;
+  activeIndex: number;
+  stagedSkillIds: Set<string>;
+  onPickFile: (path: string) => void;
+  onPickWorkspaceContext: (item: WorkspaceContextItem) => void;
+  onPickPlugin: (record: InstalledPluginRecord) => void;
+  onPickSkill: (skill: SkillSummary) => void;
+  onPickMcp: (server: McpServerConfig) => void;
+}) {
+  const { locale, t } = useI18n();
+  const ref = useRef<HTMLDivElement | null>(null);
+  const tabs: Array<{ id: MentionTab; label: string }> = [
+    { id: 'all', label: t('chat.mentionTabAll') },
+    { id: 'files', label: t('chat.mentionTabFiles') },
+    { id: 'tabs', label: t('chat.mentionTabTabs') },
+    { id: 'plugins', label: t('chat.mentionTabPlugins') },
+    { id: 'skills', label: t('chat.mentionTabSkills') },
+    { id: 'mcp', label: t('chat.mentionTabMcp') },
+  ];
+  const showTabs = tab === 'all' || tab === 'tabs';
+  const showFiles = tab === 'all' || tab === 'files';
+  const showPlugins = tab === 'all' || tab === 'plugins';
+  const showSkills = tab === 'all' || tab === 'skills';
+  const showMcp = tab === 'all' || tab === 'mcp';
+  const hasVisibleResults =
+    (showFiles && files.length > 0) ||
+    (showTabs && workspaceContexts.length > 0) ||
+    (showPlugins && plugins.length > 0) ||
+    (showSkills && skills.length > 0) ||
+    (showMcp && mcpServers.length > 0);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0;
+  }, [, files, plugins, skills, mcpServers, tab, workspaceContexts]);
+  let optionIndex = 0;
+  return (
+    <div className="mention-popover" data-testid="mention-popover">
+      <div className="mention-tabs" role="tablist" aria-label={t('chat.mentionTabsAria')}>
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            className={`mention-tab${tab === item.id ? ' active' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onTabChange(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className="mention-results" ref={ref} role="listbox" id="mention-listbox">
+        {!hasVisibleResults ? (
+          <div className="mention-empty">
+            {query ? (
+              <>{t('chat.mentionNoResults', { query })}</>
+            ) : (
+              <>{t('chat.mentionSearchPrompt')}</>
+            )}
+          </div>
+        ) : null}
+        {showFiles && files.length > 0 ? (
+          <>
+            <div className="mention-section-label" data-testid="mention-section-label">{t('chat.mentionSectionFiles')}</div>
+            {files.map((f) => {
+              const key = f.path ?? f.name;
+              const flat = optionIndex;
+              optionIndex += 1;
+              const active = flat === activeIndex;
+              return (
+                <button
+                  key={`file-${key}`}
+                  id={`mention-opt-${flat}`}
+                  role="option"
+                  aria-selected={active}
+                  className={`mention-item${active ? ' is-active' : ''}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onPickFile(key)}
+                >
+                  <Icon name="file" size={12} />
+                  <span className="mention-item-body">
+                    <strong data-testid="mention-item-name">{projectFileMentionTitle(f, key)}</strong>
+                    <span className="mention-meta mention-meta--desc mention-meta--path">
+                      {projectFileMentionDescription(f, key)}
+                    </span>
+                  </span>
+                  {f.size != null ? (
+                    <span className="mention-meta mention-item-kind">{prettySize(f.size)}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </>
+        ) : null}
+        {showTabs && workspaceContexts.length > 0 ? (
+          <>
+            <div className="mention-section-label" data-testid="mention-section-label">{t('chat.mentionSectionTabs')}</div>
+            {workspaceContexts.map((item) => {
+              const flat = optionIndex;
+              optionIndex += 1;
+              const active = flat === activeIndex;
+              return (
+                <button
+                  key={`workspace-${item.kind}-${item.id}`}
+                  id={`mention-opt-${flat}`}
+                  role="option"
+                  aria-selected={active}
+                  className={`mention-item mention-item--workspace${active ? ' is-active' : ''}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onPickWorkspaceContext(item)}
+                  title={workspaceContextTitle(item, t)}
+                >
+                  <Icon name={workspaceContextIcon(item)} size={12} />
+                  <span className="mention-item-body">
+                    <strong data-testid="mention-item-name">{item.label}</strong>
+                    <span className="mention-meta mention-meta--desc">
+                      {workspaceContextDescription(item, t)}
+                    </span>
+                  </span>
+                  <span className="mention-meta mention-item-kind">{workspaceContextKindLabel(item.kind, t)}</span>
+                </button>
+              );
+            })}
+          </>
+        ) : null}
+        {showPlugins && plugins.length > 0 ? (
+          <>
+            <div className="mention-section-label" data-testid="mention-section-label">{t('chat.mentionSectionPlugins')}</div>
+            {plugins.map((p) => {
+              const flat = optionIndex;
+              optionIndex += 1;
+              const active = flat === activeIndex;
+              const pluginTitle = localizePluginTitle(locale, p);
+              const pluginDescription = localizePluginDescription(locale, p);
+              return (
+                <button
+                  key={`plugin-${p.id}`}
+                  id={`mention-opt-${flat}`}
+                  role="option"
+                  aria-selected={active}
+                  className={`mention-item mention-item--plugin${active ? ' is-active' : ''}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onPickPlugin(p)}
+                  title={pluginDescription || pluginTitle}
+                >
+                  <Icon name="sparkles" size={12} />
+                  <span className="mention-item-body">
+                    <strong data-testid="mention-item-name">{pluginTitle}</strong>
+                    <span className="mention-meta mention-meta--desc">
+                      {pluginDescription || p.id}
+                    </span>
+                  </span>
+                  <span className="mention-meta mention-item-kind">{pluginSourceLabel(p, t)}</span>
+                </button>
+              );
+            })}
+          </>
+        ) : null}
+        {showSkills && skills.length > 0 ? (
+          <>
+            <div className="mention-section-label" data-testid="mention-section-label">{t('chat.mentionSectionSkills')}</div>
+            {skills.map((skill) => {
+              const flat = optionIndex;
+              optionIndex += 1;
+              const rowActive = flat === activeIndex;
+              const isStaged = stagedSkillIds.has(skill.id);
+              return (
+                <button
+                  key={`skill-${skill.id}`}
+                  id={`mention-opt-${flat}`}
+                  role="option"
+                  aria-selected={rowActive}
+                  className={`mention-item${rowActive ? ' is-active' : ''}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onPickSkill(skill)}
+                  title={localizeSkillDescription(locale, skill)}
+                >
+                  <Icon name={isStaged ? 'check' : 'file'} size={12} />
+                  <span className="mention-item-body">
+                    <strong data-testid="mention-item-name">{localizeSkillName(locale, skill)}</strong>
+                    <span className="mention-meta mention-meta--desc">
+                      {localizeSkillDescription(locale, skill) || skill.id}
+                    </span>
+                  </span>
+                  <span className="mention-meta mention-item-kind">{isStaged ? t('chat.mentionActiveSkill') : skill.mode}</span>
+                </button>
+              );
+            })}
+          </>
+        ) : null}
+        {showMcp && mcpServers.length > 0 ? (
+          <>
+            <div className="mention-section-label" data-testid="mention-section-label">{t('chat.mentionSectionMcp')}</div>
+            {mcpServers.map((server) => {
+              const flat = optionIndex;
+              optionIndex += 1;
+              const active = flat === activeIndex;
+              return (
+                <button
+                  key={`mcp-${server.id}`}
+                  id={`mention-opt-${flat}`}
+                  role="option"
+                  aria-selected={active}
+                  className={`mention-item${active ? ' is-active' : ''}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onPickMcp(server)}
+                  title={t('chat.mentionUseMcpTitle', { name: server.label || server.id })}
+                >
+                  <Icon name="link" size={12} />
+                  <span className="mention-item-body">
+                    <strong data-testid="mention-item-name">{server.label || server.id}</strong>
+                    <span className="mention-meta mention-meta--desc">
+                      {server.url || server.command || server.id}
+                    </span>
+                  </span>
+                  <span className="mention-meta mention-item-kind">{server.transport}</span>
+                </button>
+              );
+            })}
+          </>
+        ) : null}
+        {null}
+      </div>
+    </div>
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripInlineMentionToken(text: string, label: string): string {
+  const token = inlineMentionToken(label);
+  return text.replace(
+    new RegExp(`(^|[\\s([{"'])${escapeRegExp(token)}(?=$|\\s|[.,;:!?)}\\]"'])([^\\S\\r\\n])?`, 'g'),
+    '$1',
+  );
+}
+
+function stripInlineMentionLabels(text: string, labels: string[]): string {
+  const uniqueLabels = Array.from(new Set(labels.map((label) => label.trim()).filter(Boolean)));
+  return uniqueLabels.reduce(
+    (current, label) => stripInlineMentionToken(current, label),
+    text,
+  );
+}
+
+function loadComposerDraft(key?: string): string | null {
+  if (!key || typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function saveComposerDraft(key: string | undefined, draft: string) {
+  if (!key || typeof window === 'undefined') return;
+  try {
+    if (draft) {
+      window.localStorage.setItem(key, draft);
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage can be unavailable in privacy modes; the composer should still work.
+  }
+}
+
+function looksLikeImage(name: string): boolean {
+  return /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i.test(name);
+}
+
+function prettySize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+}

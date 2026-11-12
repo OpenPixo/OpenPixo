@@ -1,0 +1,40 @@
+/* Inline verification in the 游戏 view (specs/current/openpixo-game-panel.md §4). */
+.notice {
+  display: grid;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px var(--shell-gutter);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel);
+  font-size: 14px;
+  line-height: 20px;
+}
+.notice[data-tone='danger'] { box-shadow: inset 2px 0 0 var(--danger); }
+.notice p { margin: 0; overflow-wrap: anywhere; }
+.notice a { color: var(--accent); }
+.missing { display: grid; gap: 6px; justify-items: start; }
+.muted { color: var(--text-muted); font-size: 13px; }
+
+.body { display: grid; gap: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+
+.step { border-top: 1px solid var(--line); padding: 8px 0; }
+.step summary { cursor: pointer; display: flex; justify-content: space-between; gap: 16px; font-size: 14px; }
+.step summary span { color: var(--text-muted); }
+.step p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; }
+.step pre {
+  margin: 6px 0 0;
+  max-height: 280px;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: var(--shell-radius);
+  background: var(--bg-fill-tertiary);
+  font: 400 13px/18px var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.command { display: block; margin-top: 6px; font: 400 13px/18px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+
+.screenshots { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding-top: 8px; }
+.screenshots img { display: block; width: 100%; height: auto; border-radius: var(--shell-radius); box-shadow: 0 0 0 1px var(--line); }
+.screenshots p { margin: 0; color: var(--text-muted); font-size: 13px; }

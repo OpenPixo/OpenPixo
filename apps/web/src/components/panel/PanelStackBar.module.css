@@ -1,0 +1,46 @@
+/* `← <name>` toolbar of a view showing an opened item (spec §3). */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: var(--shell-subheader-height);
+  min-height: var(--shell-subheader-height);
+  padding: 0 calc(var(--shell-gutter) - 4px) 0 calc(var(--shell-gutter) - 8px);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel);
+}
+.bar[hidden] {
+  display: none;
+}
+
+:global(.app) .back {
+  flex-shrink: 0;
+  width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--shell-radius);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+:global(.app) .back:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-strong);
+}
+
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font: var(--shell-meta-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions:global(.ws-tabs-actions) {
+  margin-inline-start: 0;
+}

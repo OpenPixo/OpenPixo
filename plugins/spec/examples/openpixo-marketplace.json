@@ -1,0 +1,115 @@
+{
+  "$schema": "urn:openpixo:marketplace:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo-spec-examples",
+  "version": "0.1.0",
+  "owner": {
+    "name": "OpenPixo Spec Examples"
+  },
+  "metadata": {
+    "description": "Example plugin spec catalog for authoring and PR workflows.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "import-screenshot-to-prototype",
+      "source": "./import-screenshot-to-prototype",
+      "version": "0.1.0",
+      "tags": [
+        "import",
+        "screenshot",
+        "prototype"
+      ]
+    },
+    {
+      "name": "create-prototype-dashboard",
+      "source": "./create-prototype-dashboard",
+      "version": "0.1.0",
+      "tags": [
+        "create",
+        "prototype",
+        "dashboard"
+      ]
+    },
+    {
+      "name": "create-slides-pitch",
+      "source": "./create-slides-pitch",
+      "version": "0.1.0",
+      "tags": [
+        "create",
+        "deck",
+        "slides"
+      ]
+    },
+    {
+      "name": "create-image-campaign",
+      "source": "./create-image-campaign",
+      "version": "0.1.0",
+      "tags": [
+        "create",
+        "image",
+        "campaign"
+      ]
+    },
+    {
+      "name": "create-video-storyboard",
+      "source": "./create-video-storyboard",
+      "version": "0.1.0",
+      "tags": [
+        "create",
+        "video",
+        "storyboard"
+      ]
+    },
+    {
+      "name": "create-hyperframes-launch",
+      "source": "./create-hyperframes-launch",
+      "version": "0.1.0",
+      "tags": [
+        "create",
+        "video",
+        "hyperframes"
+      ]
+    },
+    {
+      "name": "export-nextjs-handoff",
+      "source": "./export-nextjs-handoff",
+      "version": "0.1.0",
+      "tags": [
+        "export",
+        "nextjs",
+        "handoff"
+      ]
+    },
+    {
+      "name": "share-github-pr",
+      "source": "./share-github-pr",
+      "version": "0.1.0",
+      "tags": [
+        "share",
+        "github-pr",
+        "pull-request"
+      ]
+    },
+    {
+      "name": "refine-critique-loop",
+      "source": "./refine-critique-loop",
+      "version": "0.1.0",
+      "tags": [
+        "refine",
+        "critique",
+        "patch-edit"
+      ]
+    },
+    {
+      "name": "extend-plugin-author",
+      "source": "./extend-plugin-author",
+      "version": "0.1.0",
+      "tags": [
+        "extend",
+        "plugin-authoring",
+        "spec-plugin"
+      ]
+    }
+  ]
+}

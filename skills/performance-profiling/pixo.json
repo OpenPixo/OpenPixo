@@ -1,0 +1,77 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo/performance-profiling",
+  "version": "0.1.0",
+  "title": "Game performance profiling",
+  "title_i18n": {
+    "en": "Game performance profiling",
+    "zh-CN": "游戏性能分析"
+  },
+  "description": "Measure frame time, rendering, physics, memory and asset weight, then compare a targeted optimization under the same workload.",
+  "description_i18n": {
+    "en": "Measure frame time, rendering, physics, memory and asset weight, then compare a targeted optimization under the same workload.",
+    "zh-CN": "测量帧耗时、渲染、物理、内存与资源体积，在相同负载下对比针对性的优化结果。"
+  },
+  "author": {
+    "name": "OpenPixo"
+  },
+  "license": "Apache-2.0",
+  "engines": [
+    "godot",
+    "unity",
+    "phaser"
+  ],
+  "tags": [
+    "game-development",
+    "first-party",
+    "openpixo",
+    "godot",
+    "unity",
+    "phaser",
+    "performance"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Profile a busy Godot room",
+      "title_i18n": {
+        "zh-CN": "分析 Godot 高负载房间"
+      },
+      "prompt": "Make a disposable 200-pickup stress scene from my Godot 2D project. Measure script, physics and draw-call cost, optimize one demonstrated bottleneck, and save a before/after report without adding the stress scene to normal startup.",
+      "prompt_i18n": {
+        "zh-CN": "基于我的 Godot 2D 项目创建一个临时的 200 拾取物压力场景，测量脚本、物理和绘制调用开销，优化一个已证实的瓶颈，并保存优化前后报告，保持正常启动场景不变。"
+      }
+    },
+    {
+      "title": "Check memory after repeated restarts",
+      "title_i18n": {
+        "zh-CN": "检查反复重开后的内存"
+      },
+      "prompt": "Profile the bundled Phaser platformer across 20 win-and-restart cycles. Look for retained scenes, input listeners and timers, fix a confirmed leak if present, and compare memory and callback counts after the same 20 cycles.",
+      "prompt_i18n": {
+        "zh-CN": "分析内置 Phaser 平台游戏连续 20 次获胜并重开后的内存，检查残留场景、输入监听器和计时器，修复确认存在的泄漏，再用相同 20 次循环对比内存与回调数量。"
+      }
+    },
+    {
+      "title": "Reduce an oversized browser build",
+      "title_i18n": {
+        "zh-CN": "缩小过大的浏览器构建"
+      },
+      "prompt": "Inspect my game's ten largest exported assets, identify one oversized texture that can be reduced safely, and compare build bytes and cold-load time while preserving pixel-art readability. Verify the game after the change.",
+      "prompt_i18n": {
+        "zh-CN": "检查游戏导出后最大的十个资源，找出一张可安全缩小的过大纹理，在保持像素画清晰度的前提下比较构建体积和首次加载时间，并验证修改后的游戏。"
+      }
+    }
+  ]
+}

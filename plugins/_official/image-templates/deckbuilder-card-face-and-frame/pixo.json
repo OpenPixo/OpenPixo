@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-deckbuilder-card-face-and-frame",
+  "title": "Deckbuilder Card Face and Frame",
+  "title_i18n": {
+    "en": "Deckbuilder Card Face and Frame",
+    "zh-CN": "卡牌构筑游戏卡面与卡框"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A single playing card for a card roguelite / deckbuilder: cost gem, name banner, framed illustration, type line, rules box and rarity accent, laid out so the art and frame colour read at in-hand size. Slots for card name, type, cost, rules text, art subject and frame style.",
+  "description_i18n": {
+    "en": "A single playing card for a card roguelite / deckbuilder: cost gem, name banner, framed illustration, type line, rules box and rarity accent, laid out so the art and frame colour read at in-hand size. Slots for card name, type, cost, rules text, art subject and frame style.",
+    "zh-CN": "为卡牌肉鸽 / 卡牌构筑游戏生成单张卡牌：费用宝石、名称横幅、带框插画、类型行、规则文字框与稀有度点缀，排版保证在手牌尺寸下插画和卡框颜色依然可读。可填写卡名、类型、费用、规则文字、插画主体和卡框风格。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "game-ui",
+    "deckbuilder",
+    "card-game",
+    "roguelite",
+    "card-frame",
+    "illustration"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A single card for a card roguelite (deckbuilder), shown flat and front-on, centred on a plain neutral dark-grey background with even margin all around so it can be cropped out cleanly. Card proportions 5:7, slightly rounded corners.\n\nCard: name \"{argument name=\"card_name\" default=\"Ember Lash\"}\", type {argument name=\"card_type\" default=\"Attack\"}, energy cost {argument name=\"cost\" default=\"1\"}, rarity {argument name=\"rarity\" default=\"uncommon\"}.\nRules text (exact, short): {argument name=\"rules_text\" default=\"Deal 7 damage. Apply 2 Burn.\"}\nIllustration subject: {argument name=\"art_subject\" default=\"a whip of living fire cracking across a dark stone arena, sparks frozen mid-air\"}.\nFrame style: {argument name=\"frame_style\" default=\"hand-inked fantasy frame, aged brass trim with a crimson enamel fill for attack cards\"}.\n\n# Layout (top to bottom)\n1. Cost gem overlapping the top-left corner, with the number large and bold.\n2. Name banner across the top, centred, one clean display font.\n3. Illustration window taking about 55% of the card height, art bleeding to a thin inner bevel.\n4. Thin type line under the art showing the card type, with a small rarity gem on the right.\n5. Rules box in the lower third on a light parchment panel, with the rules text centred, two lines maximum, keywords like Burn in bold.\n\n# Art direction\n- One clear subject in the illustration with a strong silhouette and a bright focal point; it must read when the whole card is only 180 pixels tall in the player's hand.\n- Frame colour codes the card type so a player can tell attack from skill without reading.\n- Lighting inside the art: one warm key light, dark falloff toward the frame.\n- Palette: {argument name=\"palette\" default=\"crimson, brass and charcoal, with orange-white fire as the brightest value\"}.\n\n# Avoid\nMisspelled or extra text, gibberish glyphs, more than two lines of rules, perspective or tilted cards, hands holding the card, table surfaces, drop shadows bleeding into the margin, watermarks, real trading-card brand frames or logos.",
+        "zh-CN": "A single card for a card roguelite (deckbuilder), shown flat and front-on, centred on a plain neutral dark-grey background with even margin all around so it can be cropped out cleanly. Card proportions 5:7, slightly rounded corners.\n\nCard: name \"{argument name=\"card_name\" default=\"Ember Lash\"}\", type {argument name=\"card_type\" default=\"Attack\"}, energy cost {argument name=\"cost\" default=\"1\"}, rarity {argument name=\"rarity\" default=\"uncommon\"}.\nRules text (exact, short): {argument name=\"rules_text\" default=\"Deal 7 damage. Apply 2 Burn.\"}\nIllustration subject: {argument name=\"art_subject\" default=\"a whip of living fire cracking across a dark stone arena, sparks frozen mid-air\"}.\nFrame style: {argument name=\"frame_style\" default=\"hand-inked fantasy frame, aged brass trim with a crimson enamel fill for attack cards\"}.\n\n# Layout (top to bottom)\n1. Cost gem overlapping the top-left corner, with the number large and bold.\n2. Name banner across the top, centred, one clean display font.\n3. Illustration window taking about 55% of the card height, art bleeding to a thin inner bevel.\n4. Thin type line under the art showing the card type, with a small rarity gem on the right.\n5. Rules box in the lower third on a light parchment panel, with the rules text centred, two lines maximum, keywords like Burn in bold.\n\n# Art direction\n- One clear subject in the illustration with a strong silhouette and a bright focal point; it must read when the whole card is only 180 pixels tall in the player's hand.\n- Frame colour codes the card type so a player can tell attack from skill without reading.\n- Lighting inside the art: one warm key light, dark falloff toward the frame.\n- Palette: {argument name=\"palette\" default=\"crimson, brass and charcoal, with orange-white fire as the brightest value\"}.\n\n# Avoid\nMisspelled or extra text, gibberish glyphs, more than two lines of rules, perspective or tilted cards, hands holding the card, table surfaces, drop shadows bleeding into the margin, watermarks, real trading-card brand frames or logos."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "3:4"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

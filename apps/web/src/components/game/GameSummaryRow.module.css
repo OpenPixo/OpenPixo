@@ -1,0 +1,80 @@
+/* 上次验证 / 上次试玩 rows in the 游戏 view (specs/current/openpixo-game-panel.md §4). */
+.row {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: var(--shell-subheader-height);
+  min-height: var(--shell-subheader-height);
+  padding: 0 var(--shell-gutter);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  font: var(--shell-meta-font);
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+}
+.toggle:hover { background: var(--bg-fill-tertiary); color: var(--text-strong); }
+.toggle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 140ms var(--ease-out);
+}
+.toggle[aria-expanded='true'] .chevron { transform: rotate(90deg); transition-duration: 200ms; }
+
+.label { flex-shrink: 0; color: var(--text-strong); }
+
+.status { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: var(--text-muted); }
+.statusText { font-size: 13px; font-weight: 500; }
+.status[data-status='passed'] { color: var(--success); }
+.status[data-status='failed'] { color: var(--danger); }
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.time { flex-shrink: 0; color: var(--text-faint); font-size: 13px; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--bg-fill-tertiary);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.pill[data-status='passed'] svg { color: var(--success); }
+.pill[data-status='failed'] { color: var(--danger); }
+
+.body { padding: 0 var(--shell-gutter) 12px; }
+
+.spinner { animation: summary-spin 1s linear infinite; }
+@keyframes summary-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron { transition: none; }
+  .spinner { animation: none; }
+}

@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/dark-gothic",
+    "title":  "Dark gothic",
+    "title_i18n":  {
+                       "en":  "Dark gothic",
+                       "zh-CN":  "暗黑哥特"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Weathered stone, candlelit metal and disciplined silhouettes for somber fantasy.",
+    "description_i18n":  {
+                             "en":  "Weathered stone, candlelit metal and disciplined silhouettes for somber fantasy.",
+                             "zh-CN":  "用风化石材、烛光金属与克制轮廓，塑造肃静的暗色奇幻世界。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "painterly",
+                 "gothic"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Bell tower entrance",
+                         "title_i18n":  {
+                                            "zh-CN":  "钟楼入口"
+                                        },
+                         "prompt":  "Generate an abandoned bell tower entrance using the dark-gothic art style, with worn stone stairs, a narrow iron gate and one candlelit alcove. Keep the entrance shape readable from game-camera distance.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 dark-gothic 美术风格生成废弃钟楼入口：磨损石阶、狭窄铁门和一处烛光壁龛。确保从游戏镜头距离也能看清入口形状。"
+                                         }
+                     },
+                     {
+                         "title":  "Relic inventory icons",
+                         "title_i18n":  {
+                                            "zh-CN":  "遗物背包图标"
+                                        },
+                         "prompt":  "Create four matching relic icons using the dark-gothic art style: tarnished censer, cracked bell, wax-sealed key and bone-handled lantern. Use cool shadows and small candlelight accents.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 dark-gothic 美术风格制作四枚配套遗物图标：失光香炉、裂纹铃铛、蜡封钥匙和骨柄灯笼。统一冷色阴影与少量烛光点色。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "dark-gothic",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "painterly",
+                                              "gothic"
+                                          ],
+                               "prompt":  "Dark gothic fantasy game artwork with weathered stone, oxidized metal, heavy cloth and restrained pointed architectural motifs. Deep blue-gray shadow masses, pale bone highlights and small warm candlelight accents from the shared palette. Sculpt forms through controlled chiaroscuro, preserve a readable outer silhouette and reserve fine detail for a single focal area.",
+                               "negativePrompt":  "bright candy palette, neon glow, excessive ornament, muddy unreadable shadows, photographic gore, modern machinery, glossy plastic, overexposed bloom, text, logo, watermark",
+                               "palette":  [
+                                               "#171E2A",
+                                               "#303746",
+                                               "#545466",
+                                               "#817A82",
+                                               "#B7AEA1",
+                                               "#E0D3B5",
+                                               "#A77C51",
+                                               "#74494F"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Value-defined silhouette with restrained sharp edge accents.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

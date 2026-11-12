@@ -1,0 +1,23 @@
+{
+  "id": "cozy-farming-sim-scene",
+  "surface": "image",
+  "title": "Cozy Farming Sim Scene",
+  "summary": "A warm top-down pixel-art farm scene for a cozy life sim: tilled crop plots, a farmhouse, animals, a winding path and a small player character, built on a consistent tile grid with soft seasonal lighting. Slots for season, time of day, crops and buildings.",
+  "category": "Illustration",
+  "tags": [
+    "cozy",
+    "farming-sim",
+    "life-sim",
+    "pixel-art",
+    "top-down",
+    "environment"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "A gameplay-accurate scene from a cozy farming life sim, top-down three-quarter view, in {argument name=\"art_style\" default=\"soft 16-bit pixel art on a 16x16 tile grid, gentle dark-brown outlines, no harsh black\"}.\n\nSeason and time: {argument name=\"season\" default=\"early autumn\"}, {argument name=\"time_of_day\" default=\"late afternoon golden hour\"}.\n\n# Scene contents\n- A small wooden farmhouse with a smoking chimney in the upper-left, a porch with a rocking chair and a mailbox.\n- Neat rows of tilled soil plots in the centre growing {argument name=\"crops\" default=\"pumpkins, sunflowers and young wheat\"}, a few freshly watered tiles slightly darker.\n- {argument name=\"buildings\" default=\"a red barn with an open door, a chicken coop and a small greenhouse\"} along the right side.\n- Animals: {argument name=\"animals\" default=\"two chickens pecking near the coop and a sleepy cat on a fence post\"}.\n- The player character, {argument name=\"player\" default=\"a farmer in overalls and a straw hat holding a watering can\"}, small in frame on the dirt path beside the crops.\n- A winding dirt path leading off the bottom edge, a pond with lily pads, fruit trees and a wooden fence line framing the farm.\n\n# Composition and readability\n- Read the scene as a real game screen: every object sits on the tile grid, walkable paths clearly lighter than grass, interactable objects (crops, mailbox, door) with slightly stronger outlines.\n- Leave a calm band along the bottom for a toolbar UI to sit over later, but draw no UI.\n- Characters and animals two to three tiles tall at most, consistent scale.\n\n# Lighting and palette\n- Warm low sun from the left, long soft shadows to the right, a faint warm haze.\n- Palette: {argument name=\"palette\" default=\"warm ochres, sage greens, brick red and cream, limited to about 32 colours\"}.\n- Cozy, safe, inviting mood: rounded shapes, nothing threatening.\n\n# Avoid\nMixed pixel sizes, blurry or anti-aliased upscaling, isometric 3D rendering, UI, text, watermarks, real game logos, photographic textures.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

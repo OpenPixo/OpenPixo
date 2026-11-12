@@ -1,0 +1,6 @@
+/* Arrow-key focus has to be visible; the shared popover only styles hover. */
+.menu button:focus-visible {
+  outline: none;
+  background: var(--bg-subtle);
+  box-shadow: inset 0 0 0 1.5px var(--violet);
+}

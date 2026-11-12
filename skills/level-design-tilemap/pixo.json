@@ -1,0 +1,78 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/level-design-tilemap",
+  "title": "2D level and tilemap design",
+  "title_i18n": {
+    "en": "2D level and tilemap design",
+    "zh-CN": "2D 关卡与瓦片地图设计"
+  },
+  "version": "0.1.0",
+  "description": "Build readable 2D levels with Godot TileMapLayer, Tiled or LDtk data, measured jump distances, collision layers, safe introductions and deliberate difficulty ramps.",
+  "description_i18n": {
+    "en": "Build readable 2D levels with Godot TileMapLayer, Tiled or LDtk data, measured jump distances, collision layers, safe introductions and deliberate difficulty ramps.",
+    "zh-CN": "用 Godot TileMapLayer、Tiled 或 LDtk 数据构建易读的 2D 关卡，量化跳跃距离，设置碰撞层、安全教学段和难度递进。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "game-development",
+    "first-party",
+    "openpixo",
+    "godot",
+    "unity",
+    "phaser",
+    "level-design"
+  ],
+  "engines": [
+    "godot",
+    "unity",
+    "phaser"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Build a three-beat platforming level",
+      "title_i18n": {
+        "zh-CN": "构建三个教学段的平台跳跃关卡"
+      },
+      "prompt": "Extend this Phaser sample platformer's level into a short route that teaches a low jump, repeats it with a wider landing, then offers an optional coin detour before the flag. Budget gaps from the current controller, keep a safe first landing, and verify check/build/run with a screenshot.",
+      "prompt_i18n": {
+        "zh-CN": "把这个 Phaser 示例平台跳跃关卡扩展为一条短路线：先教低跳，再用更宽的落点重复练习，最后在旗帜前提供可选金币支路。根据当前控制器量化间隙，保留安全的第一个落点，并执行 check/build/run 验证和截图。"
+      }
+    },
+    {
+      "title": "Add a Godot tilemap room",
+      "title_i18n": {
+        "zh-CN": "添加 Godot 瓦片地图房间"
+      },
+      "prompt": "In this Godot 2D project, build one readable room with a solid TileMapLayer, a separate decoration layer, a safe spawn and an exit. Reuse the existing tiles if available; otherwise use a small consistent placeholder tileset. Check collision masks and verify the room loads before testing the route.",
+      "prompt_i18n": {
+        "zh-CN": "在这个 Godot 2D 项目中构建一个易读的房间，包含实体 TileMapLayer、独立装饰层、安全出生点和出口。优先复用已有瓦片，否则使用风格一致的小型占位瓦片集。检查碰撞掩码，先验证房间能加载，再试玩路线。"
+      }
+    },
+    {
+      "title": "Repair a map import",
+      "title_i18n": {
+        "zh-CN": "修复地图导入问题"
+      },
+      "prompt": "Inspect this project's Tiled or LDtk map and its existing loader. Fix misaligned spawn objects and missing solid-tile collisions without changing the authoring format. Document the tile size, layer offsets and entity anchors, then verify and play the route from spawn to exit.",
+      "prompt_i18n": {
+        "zh-CN": "检查项目中的 Tiled 或 LDtk 地图及现有加载器。保持创作格式不变，修复出生对象错位和实体瓦片碰撞缺失的问题。记录瓦片大小、层偏移和实体锚点，然后验证并从出生点试玩到出口。"
+      }
+    }
+  ]
+}

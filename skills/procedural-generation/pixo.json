@@ -1,0 +1,78 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/procedural-generation",
+  "title": "Seeded procedural game generation",
+  "title_i18n": {
+    "en": "Seeded procedural game generation",
+    "zh-CN": "带种子的游戏程序生成"
+  },
+  "version": "0.1.0",
+  "description": "Build reproducible rooms, dungeons or noise terrain with isolated seeded randomness, bounded generation, connectivity checks and recorded failing seeds.",
+  "description_i18n": {
+    "en": "Build reproducible rooms, dungeons or noise terrain with isolated seeded randomness, bounded generation, connectivity checks and recorded failing seeds.",
+    "zh-CN": "用独立的带种子随机数、有界生成、连通性检查和失败种子记录，构建可复现的房间、地牢或噪声地形。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "game-development",
+    "first-party",
+    "openpixo",
+    "godot",
+    "unity",
+    "phaser",
+    "procedural-generation"
+  ],
+  "engines": [
+    "godot",
+    "unity",
+    "phaser"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Generate connected dungeon rooms",
+      "title_i18n": {
+        "zh-CN": "生成连通的地牢房间"
+      },
+      "prompt": "In this Godot 2D project, add a seeded six-room dungeon generator that keeps map data separate from TileMapLayer rendering. Connect every room, place a reachable spawn and exit, show the seed, and validate a fixed seed corpus plus a bounded sweep before running pixo game verify.",
+      "prompt_i18n": {
+        "zh-CN": "在这个 Godot 2D 项目中添加带种子的六房间地牢生成器，将地图数据与 TileMapLayer 渲染分开。连接所有房间，放置相互可达的出生点和出口，显示种子，并先验证固定种子集和有界种子遍历，再运行 pixo game verify。"
+      }
+    },
+    {
+      "title": "Reproduce a broken generated level",
+      "title_i18n": {
+        "zh-CN": "复现生成关卡的故障"
+      },
+      "prompt": "Find why this project's recorded failing seed creates an unreachable exit. Reproduce it without changing the seed, add the smallest connectivity or placement fix, preserve the seed as a regression case, and verify generation plus a manual route through the repaired map.",
+      "prompt_i18n": {
+        "zh-CN": "找出项目中记录的失败种子为何生成了无法到达的出口。保持种子不变进行复现，用最小的连通性或放置修复解决问题，将该种子保留为回归用例，并验证生成结果和修复后的手动通关路线。"
+      }
+    },
+    {
+      "title": "Keep terrain deterministic",
+      "title_i18n": {
+        "zh-CN": "保持地形生成的确定性"
+      },
+      "prompt": "Refactor this Phaser project's existing terrain generator to use its own seeded random stream. Make repeated generation with the same seed produce the same sorted cell data, prevent cosmetic randomness from changing the map, and validate spawn clearance and exit reachability before rendering.",
+      "prompt_i18n": {
+        "zh-CN": "重构这个 Phaser 项目现有的地形生成器，使其使用独立的带种子随机流。同一种子重复生成时应得到相同的排序后格子数据，特效随机数不能影响地图，并在渲染前验证出生点空间和出口可达性。"
+      }
+    }
+  ]
+}

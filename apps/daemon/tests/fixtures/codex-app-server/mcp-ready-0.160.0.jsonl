@@ -1,0 +1,2 @@
+{"method":"mcpServer/startupStatus/updated","params":{"threadId":"01a17170-b115-77f2-81c3-97fc10bfe6f1","name":"openpixo_feedback_probe","status":"starting","error":null,"failureReason":null},"emittedAtMs":1792904573239}
+{"method":"mcpServer/startupStatus/updated","params":{"threadId":"01a17170-b115-77f2-81c3-97fc10bfe6f1","name":"openpixo_feedback_probe","status":"ready","error":null,"failureReason":null},"emittedAtMs":1792904573313}

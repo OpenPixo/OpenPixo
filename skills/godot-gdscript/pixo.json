@@ -1,0 +1,74 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/godot-gdscript",
+  "title": "Godot 4 GDScript craft",
+  "title_i18n": {
+    "en": "Godot 4 GDScript craft",
+    "zh-CN": "Godot 4 GDScript 开发规范"
+  },
+  "version": "0.1.0",
+  "description": "Write engine-correct Godot 4.x GDScript in an OpenPixo game project — scene composition, signals, typed code, autoload state, input actions with gamepad, CharacterBody2D movement, resources, AnimatedSprite2D with packed SpriteFrames, user:// saves — and verify with `pixo game verify`.",
+  "description_i18n": {
+    "en": "Write engine-correct Godot 4.x GDScript in an OpenPixo game project — scene composition, signals, typed code, autoload state, input actions with gamepad, CharacterBody2D movement, resources, AnimatedSprite2D with packed SpriteFrames, user:// saves — and verify with `pixo game verify`.",
+    "zh-CN": "在 OpenPixo 游戏项目里编写符合 Godot 4.x 规范的 GDScript：场景组合、信号、类型标注、autoload 全局状态、含手柄的输入动作、CharacterBody2D 移动、资源文件、配合打包 SpriteFrames 的 AnimatedSprite2D、user:// 存档，并用 `pixo game verify` 验证。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "engines": [
+    "godot"
+  ],
+  "tags": [
+    "skill",
+    "first-party",
+    "openpixo",
+    "game-development",
+    "godot"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Add a gamepad dash",
+      "title_i18n": {
+        "zh-CN": "加入手柄冲刺"
+      },
+      "prompt": "In this Godot 2D project, add a short horizontal dash with a 0.6-second cooldown. Bind it to Shift and the gamepad shoulder button, expose tuning values, and run pixo game verify.",
+      "prompt_i18n": {
+        "zh-CN": "在这个 Godot 2D 项目里加入短距离横向冲刺，冷却 0.6 秒。绑定 Shift 和手柄肩键，暴露调节参数，并运行 pixo game verify。"
+      }
+    },
+    {
+      "title": "Connect pickups to the HUD",
+      "title_i18n": {
+        "zh-CN": "把拾取物连接到 HUD"
+      },
+      "prompt": "Add three simple pickups to the Godot 2D template using Area2D. Emit a collected signal, show the count in a CanvasLayer HUD, and verify restarting the scene does not duplicate connections.",
+      "prompt_i18n": {
+        "zh-CN": "用 Area2D 给 Godot 2D 模板加入三个简单拾取物。发出 collected 信号，在 CanvasLayer HUD 显示数量，并验证重开场景不会重复连接信号。"
+      }
+    },
+    {
+      "title": "Extract player tuning data",
+      "title_i18n": {
+        "zh-CN": "提取玩家调节数据"
+      },
+      "prompt": "Move this Godot player's speed, acceleration and jump tuning into a typed Resource. Create two presets without sharing mutable runtime state, keep the current preset as the default, and verify the project parses.",
+      "prompt_i18n": {
+        "zh-CN": "把这个 Godot 玩家的速度、加速度和跳跃参数移到带类型的 Resource。创建两套预设，避免共享可变运行时状态，保留当前预设为默认，并验证项目解析通过。"
+      }
+    }
+  ]
+}

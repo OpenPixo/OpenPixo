@@ -1,0 +1,65 @@
+.group { min-width: 0; }
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  min-height: 36px;
+  border-radius: 9px;
+  transition: background 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+.header:hover, .header:has(:focus-visible) { background: var(--sidebar-hover); transition-duration: 200ms; }
+.group[data-active="true"] > .header { background: var(--bg-muted); }
+.project { flex: 1; min-width: 0; }
+.header .action { flex: none; width: 24px; min-width: 0; height: 28px; padding: 0; border-radius: 6px; color: var(--ink-2); }
+.header .action:hover:not(:disabled) { color: var(--violet); background: var(--sidebar-hover); }
+.header .expand { width: 16px; margin-left: 2px; color: var(--text-muted); }
+/* The "+" always shows on the open project and on any project whose
+   conversations are listed, where a new conversation is what people look for.
+   On other rows it takes no width at rest, so the name keeps it; hover,
+   keyboard focus or a pending create reveal it beside the row's own ⋮. */
+.header .add { width: 0; min-width: 0; opacity: 0; transition: width 140ms var(--ease-out), opacity 140ms var(--ease-out), color 140ms var(--ease-out); }
+.header:hover .add, .header:focus-within .add, .header .add[aria-busy='true'],
+.group[data-active="true"] > .header .add, .group[data-expanded="true"] > .header .add { width: 24px; opacity: 1; transition-duration: 200ms; }
+.conversations { padding: 4px 0 8px 18px; }
+.list { list-style: none; padding: 0 0 0 10px; margin: 0; border-left: 1px solid var(--line); }
+.list li + li { margin-top: 2px; }
+.list .conversation {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 140ms var(--ease-out), color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+.conversation > svg { flex: none; color: var(--text-muted); }
+.conversation > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .conversation:hover:not(:disabled) { color: var(--ink); background: var(--sidebar-hover); transition-duration: 200ms; }
+.list .conversation:focus-visible { outline: none; box-shadow: var(--focus-shadow); }
+.list .conversation[aria-current="page"]:not(:focus-visible) { box-shadow: none; }
+.list .conversation[aria-current="page"] { padding-right: 26px; color: var(--ink); background: var(--bg-muted); font-weight: 600; }
+.conversation[aria-current="page"] > svg { color: var(--violet); }
+.conversation[aria-current="page"]::after { content: ""; position: absolute; right: 10px; width: 6px; height: 6px; background: var(--lime);}
+.notice { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 4px 0; padding: 4px 10px; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+/* Row status marks, most urgent first: needs the user (orange), working
+   (green), a reply finished while the user was elsewhere (blue). A soft halo
+   in the mark's own colour keeps an 8px dot visible on the tinted rail. */
+.running, .newReply, .needsInput {
+  width: 8px; height: 8px; margin-left: auto; flex: none; border-radius: 50%;
+  background: var(--dot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 22%, transparent);
+}
+.running { --dot: var(--green); }
+.newReply { --dot: var(--blue); }
+.needsInput { --dot: var(--amber); }
+
+@media (prefers-reduced-motion: reduce) {
+  .header, .header .add, .list .conversation { transition: none; }
+}

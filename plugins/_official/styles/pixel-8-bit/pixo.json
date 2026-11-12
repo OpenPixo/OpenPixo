@@ -1,0 +1,90 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/pixel-8-bit",
+  "title": "Retro pixel · 8-bit",
+  "title_i18n": {
+    "en": "Retro pixel · 8-bit",
+    "zh-CN": "复古像素 · 8 位"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-30T15:28:43+09:00",
+  "description": "The strict tier of the retro pixel family: four colors per sprite, chunky clusters and early-console charm, down to two-tone 1-bit art.",
+  "description_i18n": {
+    "en": "The strict tier of the retro pixel family: four colors per sprite, chunky clusters and early-console charm, down to two-tone 1-bit art.",
+    "zh-CN": "复古像素家族中最严格的一档：每个精灵四色、紧凑像素块和早期主机韵味，也可进一步收紧为双色 1 位画面。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "2d",
+    "pixel"
+  ],
+  "examples": [
+    {
+      "title": "Tiny adventurer",
+      "title_i18n": {
+        "zh-CN": "迷你冒险家"
+      },
+      "prompt": "Generate a 16x16 adventurer idle sprite using the pixel-8-bit art style. Give the character a blue cap and a lantern, use at most four colors, and export the native transparent sprite plus an enlarged preview.",
+      "prompt_i18n": {
+        "zh-CN": "使用 pixel-8-bit 美术风格生成一张 16x16 冒险家待机精灵。角色戴蓝帽、提灯笼，最多使用四种颜色，导出原生透明精灵和放大预览。"
+      }
+    },
+    {
+      "title": "Dungeon tile family",
+      "title_i18n": {
+        "zh-CN": "地牢地块组"
+      },
+      "prompt": "Create a matching 16x16 dungeon tile family using the pixel-8-bit art style: stone floor, solid wall, doorway and stair entrance. Keep colors limited and edges ready for grid placement.",
+      "prompt_i18n": {
+        "zh-CN": "使用 pixel-8-bit 美术风格制作一组配套的 16x16 地牢地块：石地板、实心墙、门洞和楼梯入口。限制色数，确保边缘适合网格拼接。"
+      }
+    },
+    {
+      "title": "Two-tone 1-bit raven",
+      "title_i18n": {
+        "zh-CN": "双色 1 位乌鸦"
+      },
+      "prompt": "Generate a 32x32 raven companion sprite using the pixel-8-bit art style in strict 1-bit mode: use only #14243A and #F2E7BA with no intermediate tones, sparse ordered hatching for feathers and an open silhouette around the beak and feet.",
+      "prompt_i18n": {
+        "zh-CN": "使用 pixel-8-bit 美术风格的严格 1 位模式生成一张 32x32 乌鸦伙伴精灵：只使用 #14243A 和 #F2E7BA 两色，不要中间色；羽毛用稀疏的有序排线表现，喙和脚周围保留开放的负空间。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "pixel-8-bit",
+      "dimension": [
+        "2d"
+      ],
+      "medium": [
+        "pixel"
+      ],
+      "prompt": "Early 8-bit console pixel art built from bold square-pixel clusters. Use no more than four visible colors per sprite, including its darkest contour, drawn from the shared palette. Compact silhouettes, flat color regions, sparse single-pixel highlights and clean tile-friendly geometry. Prefer readable shape changes over extra shading; use nearest-neighbor scaling.",
+      "negativePrompt": "photorealism, anti-aliasing, soft shadows, gradients, high-color shading, fine texture, painterly strokes, mixed pixel sizes, glossy 3D rendering, text, watermark",
+      "palette": [
+        "#14243A",
+        "#2B4D9A",
+        "#4E8FC4",
+        "#A9DAE5",
+        "#F2E7BA",
+        "#E9A04A",
+        "#B54D46",
+        "#4B724D"
+      ],
+      "constraints": {
+        "colorCount": 4,
+        "outline": "Single native-pixel contour with no soft edge.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

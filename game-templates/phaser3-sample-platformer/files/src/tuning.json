@@ -1,0 +1,7 @@
+{
+  "playerSpeed": {"value": 220, "min": 0, "max": 600, "step": 10, "label": "Move speed", "group": "Player", "label_i18n": {"zh-CN": "移动速度"}, "group_i18n": {"zh-CN": "角色"}},
+  "jumpVelocity": {"value": -460, "min": -800, "max": -100, "step": 10, "label": "Jump velocity", "group": "Player", "label_i18n": {"zh-CN": "跳跃速度"}, "group_i18n": {"zh-CN": "角色"}},
+  "gravity": {"value": 1000, "min": 100, "max": 2400, "step": 50, "label": "Gravity", "group": "World", "label_i18n": {"zh-CN": "重力"}, "group_i18n": {"zh-CN": "世界"}},
+  "coinCount": {"value": 4, "min": 0, "max": 4, "step": 1, "label": "Coin count", "group": "World", "label_i18n": {"zh-CN": "金币数量"}, "group_i18n": {"zh-CN": "世界"}},
+  "soundVolume": {"value": 0.35, "min": 0, "max": 1, "step": 0.05, "label": "Sound volume", "group": "Feedback", "label_i18n": {"zh-CN": "音效音量"}, "group_i18n": {"zh-CN": "反馈"}}
+}

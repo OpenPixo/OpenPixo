@@ -1,0 +1,36 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-localization",
+  "title": "Game localization",
+  "title_i18n": { "en": "Game localization", "zh-CN": "游戏本地化" },
+  "version": "0.1.0",
+  "description": "Localize Godot and Phaser UI with string tables, runtime language switching, CJK fonts and layout checks.",
+  "description_i18n": { "en": "Localize Godot and Phaser UI with string tables, runtime language switching, CJK fonts and layout checks.", "zh-CN": "通过字符串表、运行时语言切换、中文字体与布局检查，为 Godot 和 Phaser 游戏界面加入本地化。" },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "engines": ["godot", "unity", "phaser"],
+  "tags": ["skill", "first-party", "openpixo", "game-development", "godot", "unity", "phaser", "localization"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    {
+      "title": "Translate the platformer HUD",
+      "title_i18n": { "zh-CN": "翻译平台游戏 HUD" },
+      "prompt": "Add English and Simplified Chinese string tables for the Phaser sample platformer's score HUD and restart instructions. Include a language control, save the preference, handle 1 coin versus 12 coins, and run pixo game verify.",
+      "prompt_i18n": { "zh-CN": "给 Phaser 示例平台游戏的分数 HUD 和重开提示加入英文与简体中文字符串表。加入语言切换控件并保存偏好，处理 1 枚与 12 枚金币的文案，然后运行 pixo game verify。" }
+    },
+    {
+      "title": "Add a bilingual Godot pause menu",
+      "title_i18n": { "zh-CN": "加入双语 Godot 暂停菜单" },
+      "prompt": "In the Godot 2D template, add a pause menu with Resume and language buttons in English and Simplified Chinese. Switch languages without resetting the level, preserve keyboard focus, save the preference, and verify the project.",
+      "prompt_i18n": { "zh-CN": "在 Godot 2D 模板中加入包含继续游戏和语言按钮的中英文暂停菜单。切换语言时保留关卡进度与键盘焦点，保存语言偏好，并验证项目。" }
+    },
+    {
+      "title": "Repair CJK fonts and cramped labels",
+      "title_i18n": { "zh-CN": "修复中文字体和拥挤文案" },
+      "prompt": "Inspect this game's English and Simplified Chinese menus for missing glyphs and clipped text. Use an available redistributable CJK font, preserve readable text size, fix wrapping at the project's narrowest supported resolution, and verify both languages in the exported game.",
+      "prompt_i18n": { "zh-CN": "检查这个游戏的英文与简体中文菜单是否缺字或裁切文字。使用已有的可再分发中文字体，保持文字清晰可读，修复最窄支持分辨率下的换行，并在导出游戏中验证两种语言。" }
+    }
+  ]
+}

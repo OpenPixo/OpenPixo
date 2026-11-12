@@ -1,0 +1,23 @@
+{
+  "id": "steam-next-fest-demo-teaser",
+  "surface": "video",
+  "title": "Steam Next Fest Demo Teaser (15s)",
+  "summary": "A 15-second teaser that tells festival browsers a playable demo exists: a two-second gameplay hook, a quick look at what the demo contains, a cliffhanger tease of what lies beyond it, and a clean end hold for Play the demo text. Built for autoplay on a store page with the sound off.",
+  "category": "Marketing",
+  "tags": [
+    "steam",
+    "next-fest",
+    "demo",
+    "teaser",
+    "trailer",
+    "marketing"
+  ],
+  "model": "doubao-seedance-2-0-260128",
+  "aspect": "16:9",
+  "prompt": "A 15-second teaser for the playable demo of an indie game, designed to autoplay muted on a store page during a demo festival. Every second must read without sound.\n\nGame: {argument name=\"game_pitch\" default=\"a cozy-creepy fishing adventure where you sail a tiny boat across a foggy archipelago and catch strange creatures\"}.\nArt style: {argument name=\"art_style\" default=\"low-poly 3D with soft flat shading, chunky outlines and painterly skies\"}.\nCamera: {argument name=\"camera\" default=\"the game camera, a three-quarter chase view behind the boat\"}, steady and readable.\n\n# Timeline\n- 0-2s HOOK: open mid-action on the most surprising thing in the demo: {argument name=\"hook_moment\" default=\"the fishing line goes taut and something enormous with glowing eyes surfaces right beside the boat\"}.\n- 2-9s WHAT YOU CAN PLAY: three fast, clear beats of the demo content: {argument name=\"demo_beats\" default=\"casting the line at sunset, upgrading the boat at a lantern-lit dock, and logging a weird fish in a hand-drawn journal\"}. Each beat holds long enough to understand.\n- 9-12s BEYOND THE DEMO: a short tease of something the demo does not include: {argument name=\"tease\" default=\"a vast silhouette of a sunken city glimpsed under the fog, the boat turning toward it\"}, ending on a hard cut to black.\n- 12-15s END HOLD: a calm, slowly drifting frame of {argument name=\"end_frame\" default=\"the little boat bobbing on calm water under a big moon\"}, with a clean empty band in the lower third for the text Play the demo now, added in the editor.\n\n# Readability\n- High contrast subject, minimal HUD, no tiny details carrying meaning. Assume viewers see it at 600 pixels wide.\n- Palette: {argument name=\"palette\" default=\"misty teal and lavender with warm lantern orange accents\"}.\n\n# Avoid\nGenerated text, festival or store logos, platform badges, age-rating icons, flickering geometry, inconsistent boat design between beats, watermarks.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

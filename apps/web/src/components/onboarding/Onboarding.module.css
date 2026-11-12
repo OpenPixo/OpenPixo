@@ -1,0 +1,467 @@
+/* First-run setup. Component-owned; the shared
+   dropdown it embeds keeps its global `.onboarding-view__select-*` contract in
+   styles/home/entry-layout.css. */
+
+/* ---- Shell: one centred column, like a mainstream desktop app's first run ---- */
+.shellMount { width: 100%; height: 100%; min-height: 0; overflow: auto; background: var(--bg); }
+.page { display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; color: var(--ink); font-family: var(--sans); }
+.column { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.topBar { display: flex; align-items: center; padding: 20px 28px; }
+.flow { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: clamp(24px, 9vh, 96px) 24px 64px; box-sizing: border-box; }
+.flow[data-stage='tools'] { padding-top: clamp(16px, 4vh, 40px); }
+.flowContent { display: flex; flex-direction: column; align-items: stretch; width: min(380px, 100%); min-width: 0; overflow-wrap: anywhere; animation: onb-enter 200ms var(--ease-out) both; }
+.setupContent { width: min(460px, 100%); }
+.flowTitle { margin: 0; text-align: center; font: 600 26px/1.2 var(--sans); letter-spacing: -.025em; color: var(--text-strong); outline: none; }
+/* The title takes focus only so screen readers announce the new step. */
+.flowTitle:focus, .flowTitle:focus-visible { outline: none; box-shadow: none; }
+.flowSubtitle { margin: 8px 0 28px; text-align: center; color: var(--text-muted); font-size: 15px; line-height: 1.6; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.wide { width: 100%; }
+.altLine { margin: 6px 0 0; text-align: center; font-size: 14px; color: var(--text-muted); }
+.textLink { height: auto; min-height: 0; padding: 2px 4px; gap: 4px; color: var(--violet-strong); font-size: 14px; font-weight: 500; }
+.footerLinks { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+.footerLinks .textLink { color: var(--text-muted); }
+.signIn { display: flex; flex-direction: column; }
+.skipLink { height: auto; padding: 2px 4px; color: var(--text-muted); font-size: 14px; font-weight: 400; }
+.creditsCard { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--violet-soft); }
+.creditsCard p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-muted); }
+.creditsRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-muted); }
+.creditsRow strong { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+
+/* Welcome: the form on the left, the picture of the product on the right. */
+.page[data-stage='welcome'] { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); height: 100%; min-height: 560px; }
+.page[data-stage='welcome'] .topBar { padding-top: 10px; }
+.page[data-stage='welcome'] .flow { align-items: center; padding: 0 clamp(24px, 4vw, 64px) 24px; }
+.page[data-stage='welcome'] .flowContent { width: min(clamp(392px, 22vw, 460px), 100%); }
+.page[data-stage='welcome'] .flowTitle { text-align: left; font-size: clamp(34px, 3.4vw, 58px); font-weight: 600; line-height: 1.1; letter-spacing: -.03em; white-space: pre-line; }
+.page[data-stage='welcome'] .flowTitle::after { content: ''; display: inline-block; width: .2em; height: .2em; margin-left: .12em; background: var(--lime); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
+.page[data-stage='welcome'] .flowSubtitle { margin: 12px 0 24px; text-align: left; font-size: 15px; line-height: 1.55; }
+.page[data-stage='welcome'] .stack p { text-align: left; }
+
+.readyCheck { display: grid; place-items: center; align-self: center; width: 48px; height: 48px; margin-bottom: 18px; border-radius: 50%; color: var(--green); background: var(--green-bg); }
+
+/* ---- Choose your AI: one list of rows ---- */
+.agentSetup { display: grid; gap: 14px; min-width: 0; }
+.aiList { display: grid; gap: 8px; }
+/* Rows are <button>s: undo the global button height and nowrap. */
+.aiRow { display: flex; align-items: center; gap: 12px; width: 100%; height: auto; min-height: 56px; padding: 10px 14px; box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg); color: var(--text); text-align: left; white-space: normal; line-height: 1.4; cursor: pointer; animation: onb-enter 200ms var(--ease-out) both; transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out); }
+.aiRow:hover { border-color: var(--border-strong, var(--line-2)); }
+.aiRow:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+.aiRow[aria-checked='true'] { border-color: var(--violet); background: var(--violet-soft); }
+.aiCopy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; }
+.aiCopy strong { font-size: 15px; font-weight: 600; color: var(--text-strong); }
+.aiCopy small { font-size: 13px; font-weight: 400; color: var(--text-muted); }
+.aiKeyIcon { display: grid; place-items: center; width: 22px; height: 22px; flex: none; color: var(--text-muted); }
+.aiRadio { width: 16px; height: 16px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow 140ms var(--ease-out); }
+.aiRow[aria-checked='true'] .aiRadio { box-shadow: inset 0 0 0 5px var(--violet); }
+.aiScanning { display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px; font-size: 14px; color: var(--text-muted); }
+.details:empty { display: none; }
+.rescan { align-self: flex-start; height: auto; padding: 2px 4px; color: var(--text-muted); font-size: 13px; }
+
+@media (max-width: 920px) {
+  .page[data-stage='welcome'] { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .page[data-stage='welcome'] .flow { padding-block: 8px 32px; }
+}
+@media (max-width: 480px) {
+  .topBar { padding: 16px 20px; }
+  .flow { padding-inline: 20px; }
+  .flowTitle { font-size: 23px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flowContent, .aiRow { animation: none; }
+}
+
+.agentSetup, .agentSetup .command {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* ---- Details under the selected row ------------------------------------ */
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-14, 14px);
+}
+
+.panelHint {
+  margin: var(--spacing-4) 0 0;
+  font-size: var(--font-size-14);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.panelHint[data-tone='error'] {
+  color: var(--red);
+}
+
+.warnTag {
+  flex: 0 0 auto;
+  padding: 2px var(--spacing-6);
+  border-radius: var(--radius-pill);
+  background: var(--amber-bg);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.callout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  padding: var(--spacing-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.callout[data-tone='warn'] {
+  border-color: color-mix(in srgb, var(--amber) 32%, var(--border));
+  background: var(--amber-bg);
+}
+
+.callout p {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ---- Missing agents ---------------------------------------------------- */
+
+.missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+}
+
+.missingTitle {
+  margin: 0;
+  font-size: var(--font-size-15);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.guideList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Name and buttons ("Copy for your AI", a vendor link) on top, the command full width under them. */
+.guideRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--spacing-10);
+  padding: var(--spacing-8) var(--spacing-10);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.guideName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+  font-size: var(--font-size-14);
+  color: var(--text-strong);
+}
+
+.guideRow > .command {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+
+/* ---- Commands and links ------------------------------------------------ */
+
+.command {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  min-width: 0;
+  padding: 2px 2px 2px var(--spacing-10);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+}
+
+.command code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: var(--font-size-13);
+  color: var(--text-strong);
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.copyButton,
+.linkButton {
+  flex: 0 0 auto;
+  gap: var(--spacing-4);
+  font-size: var(--font-size-13);
+}
+
+.linkButton {
+  color: var(--text-muted);
+}
+
+/* "Copy for your AI": hands the setup to an AI app the user already has. */
+.askAi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-6) var(--spacing-8);
+  font-size: var(--font-size-13);
+  color: var(--text-muted);
+}
+
+.askAiButton {
+  flex: 0 0 auto;
+  gap: var(--spacing-4);
+  font-size: var(--font-size-13);
+  white-space: nowrap;
+}
+
+/* ---- BYOK fields ------------------------------------------------------- */
+
+.protocolStrip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.protocolTab {
+  height: 28px;
+  padding: 0 var(--spacing-12);
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-14);
+  font-weight: 500;
+  transition: background-color 200ms var(--ease-out), color 200ms var(--ease-out);
+}
+
+.protocolTab:hover {
+  background: transparent;
+  color: var(--text-strong);
+}
+
+.protocolTab[aria-selected='true'] {
+  background: var(--bg);
+  color: var(--text-strong);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: var(--font-size-13);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.input {
+  height: 36px;
+  background: var(--bg);
+}
+
+.fieldHint {
+  font-size: var(--font-size-13);
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.modelsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-8);
+  margin-top: calc(-1 * var(--spacing-6));
+}
+
+.inlineStatus {
+  margin: 0;
+  font-size: var(--font-size-13);
+  color: var(--text-muted);
+}
+
+.inlineStatus[data-tone='success'] { color: var(--green); }
+.inlineStatus[data-tone='warn'] { color: var(--amber); }
+.inlineStatus[data-tone='error'] { color: var(--red); }
+
+/* ---- Footer: verification + actions ------------------------------------ */
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+}
+
+.verifyNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-8);
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.verifyNote svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.verify {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-10);
+  padding: var(--spacing-12) var(--spacing-14, 14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  font-size: var(--font-size-14);
+  line-height: 1.5;
+  animation: onb-enter 200ms var(--ease-out) both;
+}
+
+.verify > svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.verify[data-state='success'] {
+  border-color: var(--green-border);
+  background: var(--green-bg);
+  color: var(--text-strong);
+}
+
+.verify[data-state='success'] > svg { color: var(--green); }
+
+.verify[data-state='warn'] {
+  border-color: color-mix(in srgb, var(--amber) 32%, var(--border));
+  background: var(--amber-bg);
+}
+
+.verify[data-state='error'] {
+  border-color: var(--red-border);
+  background: var(--red-bg);
+}
+
+.verify[data-state='error'] > svg { color: var(--red); }
+
+.verifyCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--spacing-6);
+  min-width: 0;
+}
+
+.verifyCopy p {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.verifyTitle {
+  font-weight: 600;
+  color: var(--text-strong) !important;
+}
+
+.verifySub {
+  color: var(--text-muted) !important;
+}
+
+.elapsed {
+  margin-left: var(--spacing-8);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+
+.fix {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-6);
+  margin: 0;
+  color: var(--text);
+}
+
+.fix > .command {
+  align-self: stretch;
+}
+
+/* Primary on top at full width, "skip check" as a quiet line under it. */
+.actions {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: var(--spacing-6);
+}
+
+.primaryAction {
+  width: 100%;
+  justify-content: center;
+}
+
+.primaryAction[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondaryAction {
+  align-self: center;
+  color: var(--text-muted);
+}
+
+@keyframes onb-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .guideRow {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .guideRow > .command {
+    grid-row: auto;
+    justify-self: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verify {
+    animation: none;
+  }
+}

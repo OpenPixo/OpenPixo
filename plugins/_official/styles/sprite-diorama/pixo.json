@@ -1,0 +1,83 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-diorama",
+  "title": "Sprite diorama 2.5D",
+  "title_i18n": {
+    "en": "Sprite diorama 2.5D",
+    "zh-CN": "像素立体透景 2.5D"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:41:23Z",
+  "description": "Crisp pixel sprites standing in a miniature 3D set with tilt-shift depth of field, bloom and warm dynamic light.",
+  "description_i18n": {
+    "en": "Crisp pixel sprites standing in a miniature 3D set with tilt-shift depth of field, bloom and warm dynamic light.",
+    "zh-CN": "清晰的像素精灵置身于微缩 3D 场景中，配合移轴景深、泛光和温暖的动态光照。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "2d",
+    "3d",
+    "2.5d",
+    "diorama"
+  ],
+  "examples": [
+    {
+      "title": "Harbor town square",
+      "title_i18n": {
+        "zh-CN": "港口小镇广场"
+      },
+      "prompt": "Generate a harbor town square scene using the sprite-diorama art style: a pixel-art traveler sprite beside a stone fountain, lantern-lit shopfronts built from pixel-textured blocks and a glimpse of moored boats. Blur the near foreground and far background with tilt-shift depth of field.",
+      "prompt_i18n": {
+        "zh-CN": "使用 sprite-diorama 美术风格生成港口小镇广场场景：像素旅人精灵站在石砌喷泉旁，像素贴图方块搭成的店铺亮着灯笼，远处可见停泊的小船。用移轴景深虚化前景和远景。"
+      }
+    },
+    {
+      "title": "Party sprite lineup",
+      "title_i18n": {
+        "zh-CN": "队伍角色精灵"
+      },
+      "prompt": "Create four matching 48x48 party member sprites using the sprite-diorama art style: swordswoman, scholar, hunter and cleric, each in a calm idle pose. Keep hard nearest-neighbor pixel edges on every sprite and export transparent PNGs at native size.",
+      "prompt_i18n": {
+        "zh-CN": "使用 sprite-diorama 美术风格制作四个配套的 48x48 队伍角色精灵：女剑士、学者、猎人和神官，均为平静待机姿势。所有精灵保持最近邻硬边像素，导出原生尺寸透明 PNG。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "sprite-diorama",
+      "dimension": [
+        "2d",
+        "3d"
+      ],
+      "medium": [
+        "2.5d",
+        "diorama"
+      ],
+      "prompt": "2.5D sprite-diorama game scene: crisp hand-placed pixel-art character and prop sprites standing as flat billboards inside a miniature 3D environment built from pixel-textured blocks and simple geometry. Tilt-shift depth of field softens the near foreground and far background, soft bloom haloes light sources, warm volumetric light shafts and dynamic point lights cast real shadows, with gentle ambient occlusion. Elevated three-quarter camera and toy-model scale; sprites keep hard nearest-neighbor edges while blur and glow live only in the 3D layer.",
+      "negativePrompt": "blurred or smoothed sprites, anti-aliased sprite edges, mixed sprite pixel scales, fully 3D modeled characters, photorealism, flat unlit scene, bloom that hides the subject, heavy chromatic aberration, extreme fisheye, text, logo, watermark",
+      "palette": [
+        "#1A1F33",
+        "#2F4858",
+        "#4F7A6F",
+        "#A3B18A",
+        "#F4E3B1",
+        "#F2A65A",
+        "#C8553D",
+        "#6B3E5E"
+      ],
+      "constraints": {
+        "outline": "Sprites keep a one-native-pixel dark contour; 3D set pieces have no ink outline.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

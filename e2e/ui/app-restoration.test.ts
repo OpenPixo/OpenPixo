@@ -1,0 +1,2862 @@
+import {
+  panelFileLabel,
+  openPanelFile,
+  selectPanelView,
+  clickDeckNextSlide,
+  clickDeckPreviousSlide,
+  expectAllProjectFilesActive,
+  expectAllProjectFilesInactive,
+  openAllProjectFiles,
+  answerDeleteConfirm,
+} from '@/playwright/workspace';
+import { expect, test } from '@/playwright/suite';
+import { ACTIVE_ARTIFACT_PREVIEW_SELECTOR } from '@/playwright/artifact-preview';
+import { ensureRailOpen } from '@/playwright/rail';
+import { runErrorCard } from '@/playwright/chat';
+import type { Dialog, Locator, Page, Request, Response } from '@playwright/test';
+import { automatedUiScenarios } from '@/playwright/resources';
+import type { UiScenario } from '@/playwright/resources';
+import { T } from '@/timeouts';
+import { expectStableCount } from '../lib/playwright/assertions.js';
+import {
+  createProjectViaApi,
+  gotoProject,
+} from '@/playwright/local-project';
+import {
+  applyStandardMocks,
+  failedRunEventBody,
+  routeAgents,
+  routeMockAgents,
+  routeRunSequence,
+  routeSuccessfulRuns,
+  successfulRunEventBody,
+} from '@/playwright/mock-factory';
+
+const STORAGE_KEY = 'pixo:config';
+test.describe.configure({ timeout: process.env.CI ? 90_000 : 60_000 });
+
+function artifactPreview(page: Page) {
+  return page.locator(ACTIVE_ARTIFACT_PREVIEW_SELECTOR).first();
+}
+
+function artifactPreviewFrame(page: Page) {
+  return page.frameLocator(ACTIVE_ARTIFACT_PREVIEW_SELECTOR);
+}
+
+function stagedAttachmentName(page: Page, name: string): Locator {
+  // Document cards deliberately middle-truncate the rendered basename and
+  // split the extension into a sibling span. The full, stable identity stays
+  // on the card's title attribute, so assert that contract instead of the
+  // presentation text.
+  return page.getByTestId('staged-attachments').getByTitle(name, { exact: true });
+}
+
+async function expectFriendlyGenericRunFailure(page: Page): Promise<void> {
+  const card = runErrorCard(page);
+  await expect(card).toContainText('The task could not be completed');
+  await expect(card.getByTestId('chat-run-error-description')).toHaveText(
+    'This task failed to run. Please retry. If it fails again, please contact support.',
+  );
+  // Raw daemon/provider details belong in exported logs, not on the recovery
+  // card. The surrounding cases still prove the friendly failure survives.
+  await expect(card).not.toContainText('connection refused');
+}
+
+function isDesignFileUploadResponse(response: Response): boolean {
+  const url = new URL(response.url());
+  return (
+    response.request().method() === 'POST'
+    && url.pathname.startsWith('/api/projects/')
+    && url.pathname.endsWith('/upload')
+  );
+}
+
+test.beforeEach(async ({ page }) => {
+  await applyStandardMocks(page);
+});
+
+async function routeSimpleSuccessfulRun(page: Page, runIdPrefix: string): Promise<void> {
+  await routeSuccessfulRuns(page, {
+    runIdPrefix,
+    eventBody: successfulRunEventBody([
+      'event: start',
+      'data: {"bin":"mock-agent"}',
+      '',
+    ]),
+  });
+}
+
+function artifactRunEventBody(identifier: string, title: string, html: string): string {
+  const artifact =
+    `<artifact identifier="${identifier}" type="text/html" title="${title}">` +
+    html +
+    '</artifact>';
+  return successfulRunEventBody([
+    'event: start',
+    'data: {"bin":"mock-agent"}',
+    '',
+    'event: stdout',
+    `data: ${JSON.stringify({ chunk: artifact })}`,
+    '',
+  ]);
+}
+
+function questionFormContent(required: boolean): string {
+  return [
+    '<question-form id="discovery" title="Quick brief">',
+    JSON.stringify(
+      {
+        description: 'Answer these before generation continues.',
+        questions: [
+          {
+            id: 'audience',
+            label: 'Audience',
+            type: 'text',
+            required,
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    '</question-form>',
+  ].join('\n');
+}
+
+test('[P0] @critical panel restores the last manually selected file after reload instead of jumping back to the generated artifact', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await page.route('**/api/runs', async (route) => {
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: '{"runId":"mock-run"}',
+    });
+  });
+
+  await page.route('**/api/runs/*/events', async (route) => {
+    const artifact =
+      '<artifact identifier="workspace-artifact" type="text/html" title="Workspace Artifact">' +
+      '<!doctype html><html><body><main><h1>Workspace Artifact</h1></main></body></html>' +
+      '</artifact>';
+    const body = [
+      'event: start',
+      'data: {"bin":"mock-agent"}',
+      '',
+      'event: stdout',
+      `data: ${JSON.stringify({ chunk: artifact })}`,
+      '',
+      'event: end',
+      'data: {"code":0,"status":"succeeded"}',
+      '',
+      '',
+    ].join('\n');
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+      },
+      body,
+    });
+  });
+
+  const projectId = await createEmptyProject(page, 'Workspace active tab restore');
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'Create a workspace persistence artifact');
+  await expect(page.getByText('workspace-artifact.html', { exact: true }).first()).toBeVisible();
+
+  const uploadResponse = page.waitForResponse(isDesignFileUploadResponse, {
+    timeout: T.short,
+  });
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'manual-reference.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  await expect((await uploadResponse).ok()).toBeTruthy();
+
+  await expect(panelFileLabel(page, 'manual-reference.png')).toBeVisible();
+  await expect(page.getByTestId('panel-stack-back')).toBeVisible();
+  await expect(panelFileLabel(page, 'workspace-artifact.html')).toBeHidden();
+
+  await page.reload();
+  await expectWorkspaceReady(page);
+  await expect(panelFileLabel(page, 'manual-reference.png')).toBeVisible();
+  await expect(panelFileLabel(page, 'workspace-artifact.html')).toBeHidden();
+  await openPanelFile(page, 'workspace-artifact.html');
+  await expect(artifactPreviewFrame(page).getByRole('heading', { name: 'Workspace Artifact' })).toBeVisible();
+  await page.getByTestId('panel-stack-back').click();
+  await expect(panelFileLabel(page, 'manual-reference.png')).toBeVisible();
+  await page.getByTestId('panel-stack-back').press('Escape');
+  await expectAllProjectFilesActive(page);
+});
+
+test('[P0] switching between projects restores each project panel to its last active file', async ({ page }) => {
+  await routeMockAgents(page);
+
+  const pngBytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+    'base64',
+  );
+  const alphaName = `Workspace Alpha ${Date.now()}`;
+  const betaName = `Workspace Beta ${Date.now()}`;
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, alphaName);
+  await expectWorkspaceReady(page);
+  const { projectId: alphaProjectId } = await getCurrentProjectContext(page);
+
+  const alphaPrimaryUpload = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'alpha-primary.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect((await alphaPrimaryUpload).ok()).toBeTruthy();
+  await expect(panelFileLabel(page, 'alpha-primary.png')).toBeVisible();
+  const alphaSecondaryUpload = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'alpha-secondary.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect((await alphaSecondaryUpload).ok()).toBeTruthy();
+
+  await openPanelFile(page, 'alpha-primary.png');
+  await expect(panelFileLabel(page, 'alpha-primary.png')).toBeVisible();
+  await expect(panelFileLabel(page, 'alpha-secondary.png')).toBeHidden();
+
+  await leaveProjectForEntry(page);
+  await expectProjectsView(page);
+
+  await createPrototypeProject(page, betaName);
+  await expectWorkspaceReady(page);
+  const { projectId: betaProjectId } = await getCurrentProjectContext(page);
+
+  const betaPrimaryUpload = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'beta-primary.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect((await betaPrimaryUpload).ok()).toBeTruthy();
+  await expect(panelFileLabel(page, 'beta-primary.png')).toBeVisible();
+  const betaSecondaryUpload = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'beta-secondary.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect((await betaSecondaryUpload).ok()).toBeTruthy();
+
+  await openPanelFile(page, 'beta-primary.png');
+  await expect(panelFileLabel(page, 'beta-primary.png')).toBeVisible();
+  await expect(panelFileLabel(page, 'beta-secondary.png')).toBeHidden();
+
+  // Revisit by project id (not chrome tab name). createPrototypeProject hard-navs
+  // to /projects and can drop earlier chrome tabs from localStorage restore; this
+  // case owns per-project active-item restore, not multi-project strip durability.
+  await gotoProjectRoute(page, `/projects/${alphaProjectId}`);
+  await expectWorkspaceReady(page);
+  expect((await getCurrentProjectContext(page)).projectId).toBe(alphaProjectId);
+  await expect(panelFileLabel(page, 'alpha-primary.png')).toBeVisible();
+  await expect(panelFileLabel(page, 'alpha-secondary.png')).toBeHidden();
+
+  await gotoProjectRoute(page, `/projects/${betaProjectId}`);
+  await expectWorkspaceReady(page);
+  expect((await getCurrentProjectContext(page)).projectId).toBe(betaProjectId);
+  await expect(panelFileLabel(page, 'beta-primary.png')).toBeVisible();
+  await expect(panelFileLabel(page, 'beta-secondary.png')).toBeHidden();
+});
+
+test('[P0] @critical visiting an uploaded design file route restores its Library stack and file viewer', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Uploaded file deep link');
+  await expectWorkspaceReady(page);
+
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'deep-linked-reference.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  const fileItem = panelFileLabel(page, 'deep-linked-reference.png');
+  await expect(fileItem).toBeVisible();
+  const uploadedName = await fileItem.getAttribute('title');
+  expect(uploadedName).toBeTruthy();
+
+  // Park on the Files panel with the uploaded file listed. #5517
+  // deleted the preview pane, so a row click would open the file and leave
+  // the panel — which is the very transition the deep link below must make.
+  await openAllProjectFiles(page);
+  await expectAllProjectFilesActive(page);
+  await expect(page.getByTestId(`design-file-row-${uploadedName}`)).toBeVisible();
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+
+  await gotoProjectRoute(page, `/projects/${projectId}/files/${encodeURIComponent(uploadedName!)}`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(fileItem).toBeVisible();
+  await expectAllProjectFilesInactive(page);
+});
+
+test('[P0] returning from an uploaded design file route to the project root keeps the uploaded file active in the stack', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Uploaded file root route restore');
+  await expectWorkspaceReady(page);
+
+  const uploadResponse = page.waitForResponse(isDesignFileUploadResponse, {
+    timeout: T.short,
+  });
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'root-design-reference.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  await expect((await uploadResponse).ok()).toBeTruthy();
+  const fileItem = panelFileLabel(page, 'root-design-reference.png');
+  await expect(fileItem).toBeVisible();
+  const uploadedName = await fileItem.getAttribute('title');
+  expect(uploadedName).toBeTruthy();
+
+  await openAllProjectFiles(page);
+  const fileRow = page.getByTestId('design-file-row-root-design-reference.png');
+  await expect(fileRow).toBeVisible();
+  await fileRow.getByRole('button').first().click();
+  await expect(page.getByRole('img', { name: 'root-design-reference.png' })).toBeVisible();
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+
+  await gotoProjectRoute(page, `/projects/${projectId}/files/${encodeURIComponent(uploadedName!)}`);
+  await expect(fileItem).toBeVisible();
+  await navigateProjectRouteInApp(page, `/projects/${projectId}`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(fileItem).toBeVisible();
+});
+
+test('[P0] returning from an artifact file route to the project root keeps the artifact active in the stack', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSuccessfulRuns(page, {
+    runId: 'artifact-root-run',
+    eventBody: artifactRunEventBody(
+      'root-restored-artifact',
+      'Root Restored Artifact',
+      '<!doctype html><html><body><main><h1>Root Restored Artifact</h1></main></body></html>',
+    ),
+  });
+
+  await createEmptyProject(page, 'Artifact root route restore');
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'Create the artifact that should survive a root-route hop');
+  const artifactItem = panelFileLabel(page, /root-restored-artifact\.html/i);
+  await expect(artifactItem).toBeVisible();
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+
+  await navigateProjectRouteInApp(page, `/projects/${projectId}`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(artifactItem).toBeVisible();
+});
+
+test('[P0] @critical returning from an older conversation route to the project root keeps the composer available while the route is selected', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-root-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation root route restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'First conversation should stay selected';
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+
+  const secondPrompt = 'Second conversation should not replace the deep-linked one';
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+  expect(secondContext.conversationId).not.toBe(firstContext.conversationId);
+
+  await gotoProjectRoute(page, `/projects/${firstContext.projectId}/conversations/${firstContext.conversationId}`);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await page.getByTestId('conversation-history-trigger').click();
+  const routeHistoryList = page.getByTestId('conversation-list');
+  await expect(routeHistoryList).toBeVisible();
+  await expect(routeHistoryList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+
+  await navigateProjectRouteInApp(page, `/projects/${firstContext.projectId}`);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+});
+
+test('[P0] @critical switching between conversations keeps the composer usable while navigating history', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-draft-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation draft restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'First conversation anchor';
+  const secondPrompt = 'Second conversation anchor';
+  const firstDraft = 'First conversation unsent draft';
+  const secondDraft = 'Second conversation unsent draft';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+
+  const composerInput = page.getByTestId('chat-composer-input');
+  await composerInput.fill(secondDraft);
+  await expect(composerInput).toHaveText(secondDraft);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList.getByTestId(`conversation-select-${firstContext.conversationId}`).click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${firstContext.projectId}/conversations/${firstContext.conversationId}$`));
+
+  await composerInput.fill(firstDraft);
+  await expect(composerInput).toHaveText(firstDraft);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: secondPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${secondContext.projectId}/conversations/${secondContext.conversationId}$`));
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: firstPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${firstContext.projectId}/conversations/${firstContext.conversationId}$`));
+
+  await reloadCurrentRoute(page);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${firstContext.projectId}/conversations/${firstContext.conversationId}$`));
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+});
+
+test('[P0] @critical reloading an older conversation route keeps the composer visible on that route', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-reload-draft-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation reload draft restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Reloaded conversation anchor';
+  const secondPrompt = 'Latest conversation anchor';
+  const restoredDraft = 'Draft that should survive a reload on the older conversation';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+
+  await gotoProjectRoute(page, `/projects/${firstContext.projectId}/conversations/${firstContext.conversationId}`);
+  const composerInput = page.getByTestId('chat-composer-input');
+  await page.getByTestId('conversation-history-trigger').click();
+  const routeHistoryList = page.getByTestId('conversation-list');
+  await expect(routeHistoryList).toBeVisible();
+  await expect(routeHistoryList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+
+  await composerInput.fill(restoredDraft);
+  await expect(composerInput).toHaveText(restoredDraft);
+
+  await reloadCurrentRoute(page);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await page.getByTestId('conversation-history-trigger').click();
+  const reloadedHistoryList = page.getByTestId('conversation-list');
+  await expect(reloadedHistoryList).toBeVisible();
+  await expect(reloadedHistoryList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+});
+
+test('[P0] @critical switching between conversations keeps staged attachments UI available', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-attachment-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation attachment restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Attachment conversation one';
+  const secondPrompt = 'Attachment conversation two';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+
+  const firstUploadResponse = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('chat-file-input').setInputFiles({
+    name: 'first-draft-attachment.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('First conversation staged attachment.\n', 'utf8'),
+  });
+  await expect((await firstUploadResponse).ok()).toBeTruthy();
+  await expect(stagedAttachmentName(page, 'first-draft-attachment.txt')).toBeVisible();
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  await expect(stagedAttachmentName(page, 'first-draft-attachment.txt')).toHaveCount(0);
+
+  const secondUploadResponse = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('chat-file-input').setInputFiles({
+    name: 'second-draft-attachment.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Second conversation staged attachment.\n', 'utf8'),
+  });
+  await expect((await secondUploadResponse).ok()).toBeTruthy();
+  await expect(stagedAttachmentName(page, 'second-draft-attachment.txt')).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: firstPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: secondPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+});
+
+test('[P0] @critical reloading an older conversation route keeps the composer available after staging attachments', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-attachment-reload-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation attachment reload restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Attachment reload conversation one';
+  const secondPrompt = 'Attachment reload conversation two';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+
+  await gotoProjectRoute(page, `/projects/${firstContext.projectId}/conversations/${firstContext.conversationId}`);
+  await page.getByTestId('conversation-history-trigger').click();
+  const routeHistoryList = page.getByTestId('conversation-list');
+  await expect(routeHistoryList).toBeVisible();
+  await expect(routeHistoryList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+
+  const uploadResponse = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('chat-file-input').setInputFiles({
+    name: 'reload-staged-attachment.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Attachment that should survive a reload.\n', 'utf8'),
+  });
+  await expect((await uploadResponse).ok()).toBeTruthy();
+  await expect(stagedAttachmentName(page, 'reload-staged-attachment.txt')).toBeVisible();
+
+  await reloadCurrentRoute(page);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+});
+
+test('[P0] @critical reloading the project keeps the latest conversation selected in history', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-history-reload-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation history reload selection');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'History selection first conversation';
+  const secondPrompt = 'History selection second conversation';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+  expect(secondContext.conversationId).not.toBe(firstContext.conversationId);
+
+  await page.reload();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt })).toHaveCount(0);
+  const reloadedContext = await getCurrentProjectContext(page);
+  expect(reloadedContext.conversationId).toBe(secondContext.conversationId);
+
+  const conversations = await listConversationsFromApi(page, secondContext.projectId);
+  expect(conversations.map((conversation) => conversation.id)).toEqual(
+    expect.arrayContaining([firstContext.conversationId, secondContext.conversationId]),
+  );
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  const activeRow = historyList.getByTestId(`conversation-item-${secondContext.conversationId}`);
+  await expect(activeRow).toHaveClass(/active/);
+  await expect(historyList.locator('.chat-conv-item')).toHaveCount(2);
+});
+
+test('[P1] a reload that beats the first save keeps the message the user sent', async ({ page }) => {
+  await routeSuccessfulRuns(page, { runIdPrefix: 'reload-beats-save', events: 'pending' });
+  // Hold the PUT past the reload, as a busy daemon or proxy would.
+  await page.route('**/api/projects/*/conversations/*/messages/*', async (route) => {
+    const request = route.request();
+    const body = request.method() === 'PUT' ? request.postDataJSON() as { role?: string } : null;
+    if (body?.role === 'user') await new Promise((resolve) => setTimeout(resolve, 8_000));
+    await route.fallback().catch(() => {});
+  });
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Reload beats the first save');
+  await expectWorkspaceReady(page);
+
+  const prompt = 'Keep this message across a reload';
+  await sendPrompt(page, prompt);
+  const sent = page.locator('.msg.user .user-text').filter({ hasText: prompt }).first();
+  await expect(sent).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(sent).toBeVisible();
+});
+
+test('[P1] a reload that beats the first save keeps a prompt too long for keepalive', async ({ page }) => {
+  await routeSuccessfulRuns(page, { runIdPrefix: 'reload-beats-long-save', events: 'pending' });
+  // The page's own save carries no keepalive at this size, so a reload kills it.
+  let ownSaveLeftThePage = false;
+  let releaseOwnSave!: () => void;
+  const reloaded = new Promise<void>((resolve) => { releaseOwnSave = resolve; });
+  await page.route('**/api/projects/*/conversations/*/messages/*', async (route) => {
+    const request = route.request();
+    const body = request.method() === 'PUT'
+      ? request.postDataJSON() as { role?: string; createOnly?: boolean }
+      : null;
+    if (body?.role === 'user' && !body.createOnly) {
+      ownSaveLeftThePage = true;
+      await reloaded;
+      await route.abort().catch(() => {});
+      return;
+    }
+    await route.fallback().catch(() => {});
+  });
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Reload beats a long save');
+  await expectWorkspaceReady(page);
+
+  // 90 KB once encoded, past the 64 KiB a keepalive request may carry.
+  const marker = 'Long prompt that must survive a reload';
+  const prompt = `${marker} ${'长'.repeat(30_000)}`;
+  await sendPrompt(page, prompt);
+  const sent = page.locator('.msg.user .user-text').filter({ hasText: marker });
+  await expect(sent).toHaveCount(1);
+  await expect.poll(() => ownSaveLeftThePage, {
+    message: 'a body over the keepalive limit must still be sent',
+  }).toBe(true);
+
+  await page.reload();
+  releaseOwnSave();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(sent).toHaveCount(1);
+
+  const { projectId, conversationId } = await getCurrentProjectContext(page);
+  await expect.poll(async () => {
+    const response = await page.request.get(
+      `/api/projects/${projectId}/conversations/${conversationId}/messages`,
+    );
+    if (!response.ok()) return null;
+    const { messages } = (await response.json()) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    return messages.find((message) => message.role === 'user')?.content.length ?? null;
+  }, { message: 'the daemon must end up with the whole prompt', timeout: T.long }).toBe(prompt.length);
+
+  // Now served by the daemon alone: one bubble, still ahead of its reply.
+  await page.reload();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(sent).toHaveCount(1);
+  await expect(page.locator('.msg').first()).toHaveClass(/\buser\b/);
+});
+
+// Parked (OPEND-3087, Demo #8113): the history dropdown no longer carries a
+// per-row delete button, so this flow has no UI entry point. The steps are kept
+// verbatim so it can be re-enabled once a delete entry point returns.
+test.skip('[P0] @critical deleting the active conversation selects the remaining conversation in history', async ({ page }) => {
+  page.on('dialog', async (dialog: Dialog) => {
+    await dialog.accept();
+  });
+
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-history-delete-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation history delete selection');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Delete selection first conversation';
+  const secondPrompt = 'Delete selection second conversation';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+  expect(secondContext.conversationId).not.toBe(firstContext.conversationId);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  const activeRow = historyList.getByTestId(`conversation-item-${secondContext.conversationId}`);
+  await expect(activeRow).toHaveClass(/active/);
+  await activeRow.getByTestId(/conversation-delete-/).click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+  const restoredContext = await getCurrentProjectContext(page);
+  expect(restoredContext.conversationId).toBe(firstContext.conversationId);
+
+  const remainingConversations = await listConversationsFromApi(page, firstContext.projectId);
+  expect(remainingConversations.map((conversation) => conversation.id)).toEqual([firstContext.conversationId]);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await expect(historyList.locator('.chat-conv-item')).toHaveCount(1);
+  await expect(historyList.getByTestId(`conversation-item-${firstContext.conversationId}`)).toHaveClass(/active/);
+});
+
+test('[P0] returning from workspace surfaces keeps the older conversation reachable from history', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-history-surface-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation history surface restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Surface restore first conversation';
+  const secondPrompt = 'Surface restore second conversation';
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'surface-restore.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  await expect(panelFileLabel(page, 'surface-restore.png')).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: firstPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+
+  await openAllProjectFiles(page);
+  await expectAllProjectFilesActive(page);
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+  await navigateProjectRouteInApp(page, `/projects/${projectId}`);
+
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await expect(historyList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+});
+
+test('[P0] reloading the project root keeps conversation history accessible', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-root-reload-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation root reload preserve selection');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Root reload first conversation';
+  const secondPrompt = 'Root reload second conversation';
+
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: firstPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await expect(historyList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+});
+
+test('[P0] opening an uploaded file route keeps the older conversation present in history', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-file-surface-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation file surface selection');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'File surface first conversation';
+  const secondPrompt = 'File surface second conversation';
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'conversation-surface-reference.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  const uploadedFileItem = panelFileLabel(page, 'conversation-surface-reference.png');
+  await expect(uploadedFileItem).toBeVisible();
+  const uploadedName = await uploadedFileItem.getAttribute('title');
+  expect(uploadedName).toBeTruthy();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: firstPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+  await gotoProjectRoute(page, `/projects/${projectId}/files/${encodeURIComponent(uploadedName!)}`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(uploadedFileItem).toBeVisible();
+  await expectAllProjectFilesInactive(page);
+  await expectProjectFilesToIncludeSuffixes(page, projectId, ['conversation-surface-reference.png']);
+  const persistedConversations = await listConversationsFromApi(page, projectId);
+  expect(persistedConversations.map((conversation) => conversation.id)).toEqual(
+    expect.arrayContaining([firstContext.conversationId, secondContext.conversationId]),
+  );
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await expect(historyList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+});
+
+test('[P0] opening an artifact file route keeps the older conversation present in history', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSuccessfulRuns(page, {
+    runIdPrefix: 'conversation-artifact-surface-run',
+    eventBody: artifactRunEventBody(
+      'conversation-surface-artifact',
+      'Conversation Surface Artifact',
+      '<!doctype html><html><body><main><h1>Conversation Surface Artifact</h1></main></body></html>',
+    ),
+  });
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation artifact surface selection');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'Artifact surface first conversation';
+  const secondPrompt = 'Artifact surface second conversation';
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const firstContext = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+  const secondContext = await getCurrentProjectContext(page);
+
+  const artifactItem = panelFileLabel(page, /conversation-surface-artifact\.html/i);
+  await expect(artifactItem).toBeVisible();
+  await expect(artifactPreview(page)).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: firstPrompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+  await gotoProjectRoute(page, `/projects/${projectId}/files/conversation-surface-artifact.html`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(artifactItem).toBeVisible();
+  await expect(artifactPreview(page)).toBeVisible();
+  await expect(
+    artifactPreviewFrame(page).getByRole('heading', {
+      name: 'Conversation Surface Artifact',
+    }),
+  ).toBeVisible();
+  await expectProjectFilesToIncludeSuffixes(page, projectId, ['conversation-surface-artifact.html']);
+  const persistedConversations = await listConversationsFromApi(page, projectId);
+  expect(persistedConversations.map((conversation) => conversation.id)).toEqual(
+    expect.arrayContaining([firstContext.conversationId, secondContext.conversationId]),
+  );
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(historyList).toBeVisible();
+  await expect(historyList.locator('.chat-conv-item').filter({ hasText: firstPrompt }).first()).toBeVisible();
+});
+
+test('[P0] returning from a file deep-link to the project root keeps the chosen file active in the stack', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeSimpleSuccessfulRun(page, 'conversation-file-root-run');
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Conversation file surface root restore');
+  await expectWorkspaceReady(page);
+
+  const firstPrompt = 'First conversation should survive file root restore';
+  const secondPrompt = 'Second conversation should stay inactive during file root restore';
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, firstPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  const { projectId, conversationId: firstConversationId } = await getCurrentProjectContext(page);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await sendPrompt(page, secondPrompt);
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt }).first()).toBeVisible();
+
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'conversation-root-file.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  const uploadedFileItem = panelFileLabel(page, 'conversation-root-file.png');
+  await expect(uploadedFileItem).toBeVisible();
+  const uploadedName = await uploadedFileItem.getAttribute('title');
+  expect(uploadedName).toBeTruthy();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await historyList.getByTestId(`conversation-select-${firstConversationId}`).click();
+
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: firstPrompt }).first()).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: secondPrompt })).toHaveCount(0);
+
+  await gotoProjectRoute(page, `/projects/${projectId}/files/${encodeURIComponent(uploadedName!)}`);
+
+  const fileItem = panelFileLabel(page, 'conversation-root-file.png');
+  await expect(fileItem).toBeVisible();
+  await expectAllProjectFilesInactive(page);
+
+  await navigateProjectRouteInApp(page, `/projects/${projectId}`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(fileItem).toBeVisible();
+  await expectAllProjectFilesInactive(page);
+});
+
+test('[P0] returning from an artifact deep-link to the project root keeps the artifact reachable in the Library stack', async ({ page }) => {
+  const projectId = await createEmptyProject(page, 'Artifact surface root restore');
+  await seedHtmlArtifact(
+    page,
+    projectId,
+    'conversation-root-artifact.html',
+    '<!doctype html><html><body><main><h1>Conversation Root Artifact</h1></main></body></html>',
+  );
+  await expectProjectFilesToIncludeSuffixes(page, projectId, ['conversation-root-artifact.html']);
+
+  await gotoProjectRoute(page, `/projects/${projectId}/files/conversation-root-artifact.html`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  const deepLinkedArtifactItem = panelFileLabel(page, /conversation-root-artifact\.html/i);
+  await expect(deepLinkedArtifactItem).toBeVisible();
+  await expect(artifactPreview(page)).toBeVisible();
+  await expect(
+    artifactPreviewFrame(page).getByRole('heading', {
+      name: 'Conversation Root Artifact',
+    }),
+  ).toBeVisible();
+
+  await navigateProjectRouteInApp(page, `/projects/${projectId}`);
+
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+  await expect(panelFileLabel(page, /conversation-root-artifact\.html/i)).toBeVisible();
+});
+
+test('[P0] a later completed run puts the newest artifact on the Library stack', async ({ page }) => {
+  await routeMockAgents(page);
+
+  let eventCount = 0;
+  await routeSuccessfulRuns(page, {
+    runIdPrefix: 'workspace-run',
+    eventBody: () => {
+      eventCount += 1;
+      return eventCount === 1
+        ? artifactRunEventBody(
+          'first-workspace-artifact',
+          'First Workspace Artifact',
+          '<!doctype html><html><body><main><h1>First Workspace Artifact</h1></main></body></html>',
+        )
+        : artifactRunEventBody(
+          'latest-workspace-artifact',
+          'Latest Workspace Artifact',
+          '<!doctype html><html><body><main><h1>Latest Workspace Artifact</h1></main></body></html>',
+        );
+    },
+  });
+
+  await createEmptyProject(page, 'Workspace latest artifact sync');
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'Create the first workspace artifact');
+  const firstArtifactItem = panelFileLabel(page, /first-workspace-artifact\.html/i);
+  await expect(firstArtifactItem).toBeVisible();
+
+  await sendPrompt(page, 'Create the latest workspace artifact');
+  const latestArtifactItem = panelFileLabel(page, /latest-workspace-artifact\.html/i);
+  await expect(latestArtifactItem).toBeVisible();
+  await expect(page.getByTestId('panel-stack-back')).toBeVisible();
+  await expect(latestArtifactItem).toBeVisible();
+  await expect(firstArtifactItem).toBeHidden();
+});
+
+test('[P0] reloading a project keeps the Library root reachable when it was the last active panel surface', async ({ page }) => {
+  const pngBytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+    'base64',
+  );
+
+  await gotoEntryHome(page);
+  await createPrototypeProject(page, 'Workspace design files restore');
+  await expectWorkspaceReady(page);
+
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'restore-me.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect(panelFileLabel(page, 'restore-me.png')).toBeVisible();
+
+  await openAllProjectFiles(page);
+  await expectAllProjectFilesActive(page);
+
+  // #5517 deleted the preview pane, so a row click leaves the panel for the
+  // file's viewer. Making Files the last active surface therefore
+  // means listing the uploaded file without opening it.
+  await expect(rowBySuffix(page, 'restore-me.png')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByTestId('file-workspace')).toBeVisible({ timeout: 20_000 });
+  await expectAllProjectFilesActive(page);
+});
+
+test('[P0] @critical friendly daemon failure guidance persists between failed sends', async ({ page }) => {
+  const entry = automatedUiScenarios().find((scenario) => scenario.id === 'prototype-basic');
+  if (!entry) throw new Error('prototype-basic scenario missing');
+
+  await routeMockAgents(page);
+
+  await routeRunSequence(page, {
+    runIdPrefix: 'error-run',
+    eventBodies: [failedRunEventBody('connection refused')],
+  });
+
+  await gotoEntryHome(page);
+  await createProject(page, entry);
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'first failing prompt');
+  await expectFriendlyGenericRunFailure(page);
+  await expect(page.locator('.msg.user').getByText('first failing prompt', { exact: true })).toBeVisible();
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) throw new Error(`unexpected project route: ${current.pathname}`);
+  await seedHtmlArtifact(
+    page,
+    projectId,
+    'error-cross-tab.html',
+    '<!doctype html><html><body><h1>Error cross tab</h1></body></html>',
+  );
+  // The file is written out-of-band through APIRequestContext, so reload the
+  // real project surface instead of depending on an in-app mutation event or
+  // an eventual catalog poll that this external write cannot emit.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expectWorkspaceReady(page);
+  await expectFriendlyGenericRunFailure(page);
+  await openAllProjectFiles(page);
+  const crossFileRow = page.locator('[data-testid^="design-file-row-"]', {
+    hasText: 'error-cross-tab.html',
+  });
+  const crossFileItem = panelFileLabel(page, /error-cross-tab\.html/i);
+  await expect(async () => {
+    if (await crossFileItem.isVisible()) return;
+
+    const openButton = crossFileRow.getByRole('button').first();
+    if (!await openButton.isVisible()) {
+      throw new Error('seeded artifact is neither listed nor already open');
+    }
+    // #5517: one click on the row opens the file — no preview card in between.
+    // The project-file refresh may also select the new artifact before this
+    // click settles, so retry against the selected tab instead of a stale row.
+    await openButton.click({ timeout: T.short });
+    await expect(crossFileItem).toBeVisible({ timeout: T.short });
+  }).toPass({ timeout: T.medium });
+  await expect(artifactPreviewFrame(page).getByRole('heading', { name: 'Error cross tab' })).toBeVisible();
+
+  await page.goto(`/projects/${projectId}`);
+  await expectWorkspaceReady(page);
+  await expectFriendlyGenericRunFailure(page);
+  await expect(page.locator('.msg.user').getByText('first failing prompt', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+
+  await sendPrompt(page, 'second failing prompt');
+  await expectFriendlyGenericRunFailure(page);
+  await expect(page.locator('.msg.user').getByText('first failing prompt', { exact: true })).toBeVisible();
+  await expect(page.locator('.msg.user').getByText('second failing prompt', { exact: true })).toBeVisible();
+});
+
+test('[P0] a successful retry after a failed send opens a fresh artifact on the Library stack', async ({ page }) => {
+  await routeMockAgents(page);
+
+  await routeRunSequence(page, {
+    runIdPrefix: 'retry-run',
+    eventBodies: [
+      failedRunEventBody('connection refused'),
+      artifactRunEventBody(
+        'retry-success-artifact',
+        'Retry Success Artifact',
+        '<!doctype html><html><body><main><h1>Retry Success Artifact</h1></main></body></html>',
+      ),
+    ],
+  });
+
+  await createEmptyProject(page, 'Retry success preview restore');
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'first failing prompt');
+  await expectFriendlyGenericRunFailure(page);
+
+  await sendPrompt(page, 'retry prompt that succeeds');
+  await expect(page.getByText('retry-success-artifact.html', { exact: true }).first()).toBeVisible();
+  await expect(panelFileLabel(page, /retry-success-artifact\.html/i)).toBeVisible();
+  await expect(page.getByText('retry prompt that succeeds')).toBeVisible();
+});
+
+test('[P0] retrying a failed run does not duplicate the original user message', async ({ page }) => {
+  await routeAgents(page, [{
+    id: 'codex', name: 'Codex', bin: 'codex', available: true,
+    version: 'test', models: [{ id: 'glm-5', label: 'glm-5' }],
+  }]);
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({ json: { config: {
+      onboardingCompleted: true, agentId: 'codex', skillId: null, agentModels: { codex: { model: 'glm-5', reasoning: 'default' } },
+      privacyDecisionAt: 1,
+      telemetry: { metrics: false, content: false, artifactManifest: false },
+    } } });
+  });
+
+  const runs = await routeRunSequence(page, {
+    runIdPrefix: 'retry-run',
+    eventBodies: [
+      failedRunEventBody('connection refused'),
+      artifactRunEventBody(
+        'retry-dedup-artifact',
+        'Retry Dedup Artifact',
+        '<!doctype html><html><body><main><h1>Retry Dedup Artifact</h1></main></body></html>',
+      ),
+    ],
+  });
+
+  const projectId = `retry-dedup-${crypto.randomUUID()}`;
+  await createProjectViaApi(page, projectId, 'Retry dedup restore');
+  await gotoProject(page, projectId);
+  await expect.poll(async () => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw).agentId : null;
+  }, STORAGE_KEY)).toBe('codex');
+
+  const prompt = 'retry dedup prompt';
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, prompt);
+  await expectFriendlyGenericRunFailure(page);
+  await runs.expectCount(1);
+  expect(runs.bodies[0]).toMatchObject({ agentId: 'codex', projectId });
+  const retryButton = runErrorCard(page).getByRole('button', { name: /^Retry$/i });
+  await expect(retryButton).toBeVisible();
+  await expect(page.locator('.msg.user', { hasText: prompt })).toHaveCount(1);
+
+  await Promise.all([
+    page.waitForResponse((resp) => /\/api\/runs$/.test(new URL(resp.url()).pathname) && resp.request().method() === 'POST'),
+    retryButton.click(),
+  ]);
+
+  await expect(panelFileLabel(page, /retry-dedup-artifact\.html/i)).toBeVisible();
+  await runs.expectCount(2);
+  expect(runs.bodies[1]).toMatchObject({ agentId: 'codex', projectId });
+  await expect(page.locator('.msg.user', { hasText: prompt })).toHaveCount(1);
+});
+
+test('[P1] stopping an active run sends cancel, persists canceled state, and leaves no artifact', async ({ page }) => {
+  await routeMockAgents(page);
+  await routeSuccessfulRuns(page, {
+    runId: 'stop-run',
+    events: 'pending',
+  });
+
+  let cancelRequests = 0;
+  await page.route('**/api/runs/*/cancel', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    cancelRequests += 1;
+    await route.fulfill({ json: { ok: true, runId: 'stop-run', status: 'canceled' } });
+  });
+
+  const projectId = await createEmptyProject(page, 'Stop active run');
+  await expectWorkspaceReady(page);
+  await sendPrompt(page, 'Create an artifact that should be canceled');
+  const stopButton = page.getByTestId('chat-composer').getByRole('button', { name: 'Stop' });
+  await expect(stopButton).toBeVisible();
+
+  const cancelResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'POST' && url.pathname.endsWith('/cancel');
+  });
+  await stopButton.click();
+  expect((await cancelResponse).ok()).toBe(true);
+  await expect(stopButton).toHaveCount(0);
+
+  await expect
+    .poll(async () => {
+      const conversationsResponse = await page.request.get(`/api/projects/${projectId}/conversations`);
+      if (!conversationsResponse.ok()) return null;
+      const { conversations } = (await conversationsResponse.json()) as { conversations: Array<{ id: string }> };
+      const conversationId = conversations[0]?.id;
+      if (!conversationId) return null;
+      const messagesResponse = await page.request.get(
+        `/api/projects/${projectId}/conversations/${conversationId}/messages`,
+      );
+      if (!messagesResponse.ok()) return null;
+      const { messages } = (await messagesResponse.json()) as {
+        messages: Array<{ runId?: string; runStatus?: string }>;
+      };
+      return messages.find((message) => message.runId === 'stop-run')?.runStatus ?? null;
+    }, { timeout: T.long })
+    .toBe('canceled');
+
+  expect(await listProjectFilesFromApi(page, projectId)).toEqual([]);
+  await expectStableCount(() => cancelRequests, 1, {
+    message: 'stopping a run should send exactly one cancel request during the settled window',
+  });
+});
+
+test('[P1] chat file links open project files in the Library stack and keep trailing punctuation out of hrefs', async ({ page }) => {
+  await routeMockAgents(page);
+
+  const projectId = await createEmptyProject(page, 'Chat file links stay in workspace');
+  await expectWorkspaceReady(page);
+  await seedHtmlArtifact(
+    page,
+    projectId,
+    'details.html',
+    '<!doctype html><html><body><main><h1>Linked Details</h1></main></body></html>',
+  );
+  const { conversationId } = await getCurrentProjectContext(page);
+  const assistantText =
+    'Open [details.html](details.html). Also see https://example.com/release-notes。 for external notes.';
+  const assistantResponse = await page.request.put(
+    `/api/projects/${projectId}/conversations/${conversationId}/messages/file-link-assistant`,
+    {
+      data: {
+        role: 'assistant',
+        content: assistantText,
+        runStatus: 'succeeded',
+        events: [{ kind: 'text', text: assistantText }],
+        createdAt: Date.now(),
+      },
+    },
+  );
+  expect(assistantResponse.ok(), `seed assistant message: ${await assistantResponse.text()}`).toBeTruthy();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expectWorkspaceReady(page);
+
+  const localLink = page.getByRole('link', { name: 'details.html' }).last();
+  await expect(localLink).toBeVisible();
+  const externalLink = page.getByRole('link', { name: 'https://example.com/release-notes' }).last();
+  await expect(externalLink).toHaveAttribute('href', 'https://example.com/release-notes');
+
+  await localLink.click();
+  await expect(panelFileLabel(page, /details\.html/i)).toBeVisible();
+});
+
+test('[P0] sending another prompt while a run is active queues it and starts it after the first run finishes', async ({ page }) => {
+  await routeMockAgents(page);
+
+  let releaseFirstRun!: () => void;
+  const firstRunReleased = new Promise<void>((resolve) => {
+    releaseFirstRun = resolve;
+  });
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const runRequests = await routeRunSequence(page, {
+    bodies: runBodies,
+    runIdPrefix: 'queued-run',
+    eventBodies: [
+      async () => {
+        await firstRunReleased;
+        return artifactRunEventBody(
+          'first-queued-artifact',
+          'First Queued Artifact',
+          '<!doctype html><html><body><main><h1>First Queued Artifact</h1></main></body></html>',
+        );
+      },
+      artifactRunEventBody(
+        'second-queued-artifact',
+        'Second Queued Artifact',
+        '<!doctype html><html><body><main><h1>Second Queued Artifact</h1></main></body></html>',
+      ),
+    ],
+  });
+
+  await createEmptyProject(page, 'Queued run workspace restore');
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'first queued prompt');
+  await runRequests.expectCount(1);
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+
+  const input = page.getByTestId('chat-composer-input');
+  await input.click();
+  await input.fill('second queued prompt');
+  await page.getByTestId('chat-send').click();
+
+  const queuedStrip = page.getByTestId('chat-queued-send-strip');
+  await expect(queuedStrip).toBeVisible();
+  await expect(queuedStrip).toContainText('second queued prompt');
+  expect(runBodies).toHaveLength(1);
+
+  const release: () => void = releaseFirstRun ?? (() => { throw new Error('first run release handle missing'); });
+  release();
+
+  await runRequests.expectCount(2);
+  await expect(queuedStrip).toHaveCount(0);
+  await expect(panelFileLabel(page, /second-queued-artifact\.html/i)).toBeVisible();
+});
+
+test('[P0] editing a queued prompt updates the next run request before it starts', async ({ page }) => {
+  await routeMockAgents(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  let releaseFirstRun!: () => void;
+  const firstRunReleased = new Promise<void>((resolve) => {
+    releaseFirstRun = resolve;
+  });
+
+  const runRequests = await routeRunSequence(page, {
+    bodies: runBodies,
+    runIdPrefix: 'edited-queued-run',
+    eventBodies: [
+      async () => {
+        await firstRunReleased;
+        return successfulRunEventBody([
+          'event: start',
+          'data: {"bin":"mock-agent"}',
+          '',
+        ]);
+      },
+      artifactRunEventBody(
+        'edited-queued-artifact',
+        'Edited Queued Artifact',
+        '<!doctype html><html><body><main><h1>Edited Queued Artifact</h1></main></body></html>',
+      ),
+    ],
+  });
+
+  await createEmptyProject(page, 'Queued run edit before send');
+  await expectWorkspaceReady(page);
+
+  // Review generated output in Library; background turns never switch views.
+  await selectPanelView(page, 'library');
+  await sendPrompt(page, 'first queued edit prompt');
+  await runRequests.expectCount(1);
+
+  const input = page.getByTestId('chat-composer-input');
+  await input.click();
+  await input.fill('queued prompt before edit');
+  await page.getByTestId('chat-send').click();
+
+  const queuedStrip = page.getByTestId('chat-queued-send-strip');
+  await expect(queuedStrip).toBeVisible();
+  await expect(queuedStrip).toContainText('queued prompt before edit');
+  expect(runBodies).toHaveLength(1);
+
+  await queuedStrip.getByRole('button', { name: /^Edit$/i }).click();
+  await expect(input).toHaveText('queued prompt before edit');
+  await input.fill('queued prompt after edit');
+  await page.getByTestId('chat-send').click();
+
+  await expect(queuedStrip).toContainText('queued prompt after edit');
+  await expect(queuedStrip).not.toContainText('queued prompt before edit');
+  expect(runBodies).toHaveLength(1);
+
+  const release: () => void = releaseFirstRun ?? (() => { throw new Error('first run release handle missing'); });
+  release();
+
+  await runRequests.expectCount(2);
+  expect(runBodies[1]?.message).toContain('queued prompt after edit');
+  expect(runBodies[1]?.message).not.toContain('queued prompt before edit');
+  await expect(queuedStrip).toHaveCount(0);
+  await expect(panelFileLabel(page, /edited-queued-artifact\.html/i)).toBeVisible();
+});
+
+test('[P1] completed hidden-page run sends the configured desktop notification', async ({ page }) => {
+  const notificationConfig = {
+    soundEnabled: false,
+    successSoundId: 'ding',
+    failureSoundId: 'buzz',
+    desktopEnabled: true,
+  };
+  await page.addInitScript(
+    ({ key, notificationsConfig }) => {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          mode: 'daemon',
+          apiKey: '',
+          baseUrl: 'https://api.anthropic.com',
+          model: 'claude-sonnet-4-5',
+          agentId: 'mock',
+          skillId: null,
+          onboardingCompleted: true,
+          agentModels: {},
+          privacyDecisionAt: 1,
+          telemetry: { metrics: false, content: false, artifactManifest: false },
+          notifications: notificationsConfig,
+        }),
+      );
+    },
+    { key: STORAGE_KEY, notificationsConfig: notificationConfig },
+  );
+  await page.addInitScript(() => {
+    const notifications: Array<{ title: string; body?: string }> = [];
+    Object.defineProperty(window, '__pixoTestNotifications', {
+      value: notifications,
+      configurable: true,
+    });
+
+    class FakeNotification {
+      static permission = 'granted';
+
+      title: string;
+      body?: string;
+      onclose: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      constructor(title: string, options?: NotificationOptions) {
+        this.title = title;
+        const body = options?.body;
+        if (body) {
+          this.body = body;
+          notifications.push({ title, body });
+        } else {
+          notifications.push({ title });
+        }
+      }
+
+      close() {
+        this.onclose?.();
+      }
+    }
+
+    Object.defineProperty(window, 'Notification', {
+      value: FakeNotification,
+      configurable: true,
+    });
+    const serviceWorkerRegistration = {
+      showNotification: (title: string, options?: NotificationOptions) => {
+        const body = options?.body;
+        if (body) {
+          notifications.push({ title, body });
+        } else {
+          notifications.push({ title });
+        }
+        return Promise.resolve();
+      },
+    };
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: {
+        register: () => Promise.resolve(serviceWorkerRegistration),
+        ready: Promise.resolve(serviceWorkerRegistration),
+      },
+      configurable: true,
+    });
+    Object.defineProperty(document, 'hidden', {
+      get: () => true,
+      configurable: true,
+    });
+    Object.defineProperty(document, 'hasFocus', {
+      value: () => false,
+      configurable: true,
+    });
+  });
+  await routeMockAgents(page);
+  await routeAppConfig(page, {
+    notifications: notificationConfig,
+  });
+
+  let releaseEvents!: () => void;
+  const eventsReleased = new Promise<void>((resolve) => {
+    releaseEvents = resolve;
+  });
+  await routeSuccessfulRuns(page, {
+    runId: 'notification-run',
+    eventBody: async () => {
+      await eventsReleased;
+      return successfulRunEventBody([
+        'event: start',
+        'data: {"bin":"mock-agent"}',
+        '',
+        'event: stdout',
+        `data: ${JSON.stringify({
+          chunk:
+            'Background completion notification body.\n' +
+            '<artifact identifier="notification-result" type="text/html" title="Notification Result">' +
+            '<!doctype html><html><body><h1>Notification Result</h1></body></html>' +
+            '</artifact>',
+        })}`,
+        '',
+      ]);
+    },
+  });
+
+  await createEmptyProject(page, 'Background notification run');
+  await expectWorkspaceReady(page);
+  await sendPrompt(page, 'Finish and notify me');
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+  releaseEvents();
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => (window as typeof window & {
+        __pixoTestNotifications?: Array<{ title: string; body?: string }>;
+      }).__pixoTestNotifications ?? []),
+    )
+    .toContainEqual(expect.objectContaining({
+      title: 'Task completed',
+      body: expect.stringContaining('Background completion notification body.'),
+    }));
+});
+
+test('[P0] failed foreground run does not send a desktop notification', async ({ page }) => {
+  const notificationConfig = {
+    soundEnabled: false,
+    successSoundId: 'ding',
+    failureSoundId: 'buzz',
+    desktopEnabled: true,
+  };
+  await page.addInitScript(
+    ({ key, notificationsConfig }) => {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          mode: 'daemon',
+          apiKey: '',
+          baseUrl: 'https://api.anthropic.com',
+          model: 'claude-sonnet-4-5',
+          agentId: 'mock',
+          skillId: null,
+          onboardingCompleted: true,
+          agentModels: {},
+          privacyDecisionAt: 1,
+          telemetry: { metrics: false, content: false, artifactManifest: false },
+          notifications: notificationsConfig,
+        }),
+      );
+    },
+    { key: STORAGE_KEY, notificationsConfig: notificationConfig },
+  );
+  await page.addInitScript(() => {
+    const notifications: Array<{ title: string; body?: string }> = [];
+    Object.defineProperty(window, '__pixoTestNotifications', {
+      value: notifications,
+      configurable: true,
+    });
+
+    class FakeNotification {
+      static permission = 'granted';
+
+      title: string;
+      body?: string;
+      onclose: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      constructor(title: string, options?: NotificationOptions) {
+        this.title = title;
+        const body = options?.body;
+        if (body) {
+          this.body = body;
+          notifications.push({ title, body });
+        } else {
+          notifications.push({ title });
+        }
+      }
+
+      close() {
+        this.onclose?.();
+      }
+    }
+
+    Object.defineProperty(window, 'Notification', {
+      value: FakeNotification,
+      configurable: true,
+    });
+    const serviceWorkerRegistration = {
+      showNotification: (title: string, options?: NotificationOptions) => {
+        const body = options?.body;
+        if (body) {
+          notifications.push({ title, body });
+        } else {
+          notifications.push({ title });
+        }
+        return Promise.resolve();
+      },
+    };
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: {
+        register: () => Promise.resolve(serviceWorkerRegistration),
+        ready: Promise.resolve(serviceWorkerRegistration),
+      },
+      configurable: true,
+    });
+    Object.defineProperty(document, 'hidden', {
+      get: () => false,
+      configurable: true,
+    });
+    Object.defineProperty(document, 'hasFocus', {
+      value: () => true,
+      configurable: true,
+    });
+  });
+  await routeMockAgents(page);
+  await routeAppConfig(page, {
+    notifications: notificationConfig,
+  });
+
+  let releaseEvents!: () => void;
+  const eventsReleased = new Promise<void>((resolve) => {
+    releaseEvents = resolve;
+  });
+  await routeSuccessfulRuns(page, {
+    runId: 'notification-failure-run',
+    eventBody: async () => {
+      await eventsReleased;
+      return [
+        'event: start',
+        'data: {"bin":"mock-agent"}',
+        '',
+        'event: stderr',
+        `data: ${JSON.stringify({ chunk: 'Foreground failure notification body.' })}`,
+        '',
+        'event: end',
+        'data: {"code":1,"status":"failed"}',
+        '',
+        '',
+      ].join('\n');
+    },
+  });
+
+  await createEmptyProject(page, 'Foreground failure notification run');
+  await expectWorkspaceReady(page);
+  await sendPrompt(page, 'Fail and notify me');
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+  releaseEvents();
+
+  await expect(runErrorCard(page)).toBeVisible();
+  await expectStableCount(
+    () => page.evaluate(() => (window as typeof window & {
+      __pixoTestNotifications?: Array<{ title: string; body?: string }>;
+    }).__pixoTestNotifications?.length ?? 0),
+    0,
+    {
+      timeout: 750,
+      message: 'a foreground failure must remain silent after the terminal run state renders',
+    },
+  );
+});
+
+test('[P1] inline question form Skip — you decide sends structured skipped answers into the next run request', async ({ page }) => {
+  await routeMockAgents(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const runRequests = await routeSuccessfulRuns(page, {
+    bodies: runBodies,
+    runIdPrefix: 'questions-skip-run',
+  });
+
+  const projectId = await createEmptyProject(page, 'Inline questions skip all');
+  await expectWorkspaceReady(page);
+  await seedAssistantMessage(page, projectId, 'questions-skip-assistant', questionFormContent(false));
+
+  const form = page.locator('.question-form').first();
+  await expect(form).toBeVisible();
+  await expect(form.getByText('Audience')).toBeVisible();
+
+  const skipAll = form.getByRole('button', { name: /Skip — you decide/i });
+  await expect(skipAll).toBeEnabled();
+  await Promise.all([
+    page.waitForResponse(isCreateRunResponse, { timeout: 5_000 }),
+    skipAll.click(),
+  ]);
+
+  await runRequests.expectCount(1);
+  expect(runBodies[0]?.message).toContain('[form answers — discovery]');
+  expect(runBodies[0]?.message).toContain('Audience: (skipped)');
+
+  const conversationsResponse = await page.request.get(`/api/projects/${projectId}/conversations`);
+  expect(conversationsResponse.ok()).toBeTruthy();
+  const { conversations } = (await conversationsResponse.json()) as {
+    conversations: Array<{ id: string }>;
+  };
+  const conversationId = conversations[0]?.id;
+  expect(conversationId).toBeTruthy();
+  const messagesResponse = await page.request.get(
+    `/api/projects/${projectId}/conversations/${conversationId}/messages`,
+  );
+  expect(messagesResponse.ok()).toBeTruthy();
+  const { messages } = (await messagesResponse.json()) as {
+    messages: Array<{ role: string; content: string }>;
+  };
+  expect(
+    messages.some(
+      (message) =>
+        message.role === 'user' &&
+        message.content.includes('[form answers — discovery]') &&
+        message.content.includes('Audience: (skipped)'),
+    ),
+  ).toBe(true);
+});
+
+test('[P1] inline question form submits selected answers into the next run request', async ({ page }) => {
+  await routeMockAgents(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const runRequests = await routeSuccessfulRuns(page, {
+    bodies: runBodies,
+    runIdPrefix: 'questions-continue-run',
+  });
+
+  const projectId = await createEmptyProject(page, 'Inline questions submit run context');
+  await expectWorkspaceReady(page);
+  await seedAssistantMessage(page, projectId, 'questions-submit-assistant', questionFormContent(true));
+
+  const form = page.locator('.question-form').first();
+  await expect(form).toBeVisible();
+  await form.getByTestId('qf-input').fill('Product marketers');
+
+  const submitButton = form.getByRole('button', { name: 'Next' });
+  await expect(submitButton).toBeEnabled();
+  await Promise.all([
+    page.waitForResponse(isCreateRunResponse, { timeout: 5_000 }),
+    submitButton.click(),
+  ]);
+
+  await runRequests.expectCount(1);
+  expect(runBodies[0]?.message).toContain('[form answers — discovery]');
+  expect(runBodies[0]?.message).toContain('Audience: Product marketers');
+  expect(runBodies[0]?.message).not.toContain('(skipped)');
+
+  const conversationsResponse = await page.request.get(`/api/projects/${projectId}/conversations`);
+  expect(conversationsResponse.ok()).toBeTruthy();
+  const { conversations } = (await conversationsResponse.json()) as {
+    conversations: Array<{ id: string }>;
+  };
+  const conversationId = conversations[0]?.id;
+  expect(conversationId).toBeTruthy();
+  const messagesResponse = await page.request.get(
+    `/api/projects/${projectId}/conversations/${conversationId}/messages`,
+  );
+  expect(messagesResponse.ok()).toBeTruthy();
+  const { messages } = (await messagesResponse.json()) as {
+    messages: Array<{ role: string; content: string }>;
+  };
+  expect(
+    messages.some(
+      (message) =>
+        message.role === 'user' &&
+        message.content.includes('[form answers — discovery]') &&
+        message.content.includes('Audience: Product marketers'),
+    ),
+  ).toBe(true);
+});
+
+async function routeAppConfig(page: Page, override: Record<string, unknown>) {
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      json: {
+        config: {
+          onboardingCompleted: true,
+          agentId: 'mock',
+          skillId: null,
+          agentModels: {},
+          privacyDecisionAt: 1,
+          telemetry: { metrics: false, content: false, artifactManifest: false },
+          ...override,
+        },
+      },
+    });
+  });
+}
+
+async function createEmptyProject(page: Page, name: string): Promise<string> {
+  await gotoEntryHome(page);
+  const projectId = `workspace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await createProjectViaApi(page, projectId, name);
+  await gotoProjectRoute(page, `/projects/${projectId}`);
+  return projectId;
+}
+
+async function seedHtmlArtifact(
+  page: Page,
+  projectId: string,
+  fileName: string,
+  content: string,
+  workspaceHeaders?: Readonly<Record<string, string>>,
+) {
+  const resp = await page.request.post(`/api/projects/${projectId}/files`, {
+    ...(workspaceHeaders ? { headers: { ...workspaceHeaders } } : {}),
+    data: {
+      name: fileName,
+      content,
+      artifactManifest: {
+        version: 1,
+        kind: 'html',
+        title: fileName,
+        entry: fileName,
+        renderer: 'html',
+        exports: ['html'],
+      },
+    },
+  });
+  expect(resp.ok()).toBeTruthy();
+}
+
+async function seedAssistantMessage(
+  page: Page,
+  projectId: string,
+  messageId: string,
+  content: string,
+): Promise<void> {
+  const { conversationId } = await getCurrentProjectContext(page);
+  const response = await page.request.put(
+    `/api/projects/${projectId}/conversations/${conversationId}/messages/${messageId}`,
+    {
+      data: {
+        role: 'assistant',
+        content,
+        runStatus: 'succeeded',
+        events: [{ kind: 'text', text: content }],
+        createdAt: Date.now(),
+      },
+    },
+  );
+  expect(response.ok(), `seed assistant message: ${await response.text()}`).toBeTruthy();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expectWorkspaceReady(page);
+}
+
+async function openPixoFile(page: Page, fileName: string) {
+  await openPanelFile(page, fileName);
+}
+
+async function expectFileSource(
+  page: Page,
+  projectId: string,
+  fileName: string,
+  snippets: string[],
+) {
+  await expect
+    .poll(async () => {
+      const resp = await page.request.get(`/api/projects/${projectId}/files/${fileName}`);
+      if (!resp.ok()) return false;
+      const source = await resp.text();
+      return snippets.every((snippet) => source.includes(snippet));
+    })
+    .toBe(true);
+}
+
+function manualEditHtml(): string {
+  return `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Manual Edit</title></head>
+  <body>
+    <main>
+      <section data-pixo-id="hero" data-pixo-label="Hero section">
+        <h1 data-pixo-id="hero-title" data-pixo-label="Hero title">Original Hero</h1>
+        <a data-pixo-id="cta" data-pixo-label="Primary CTA" href="/start">Start now</a>
+        <img data-pixo-id="hero-image" data-pixo-label="Hero image" src="/hero.png" alt="Hero" style="width:64px;height:64px;">
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
+function deckHtml(): string {
+  return `<!doctype html>
+<html>
+  <body>
+    <section class="slide" data-pixo-id="slide-1"><h1>Slide One</h1></section>
+    <section class="slide" data-pixo-id="slide-2" hidden><h1>Slide Two</h1></section>
+    <script>
+      let active = 0;
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      function render() { slides.forEach((slide, index) => { slide.hidden = index !== active; }); }
+      window.addEventListener('message', (event) => {
+        if (!event.data || event.data.type !== 'pixo:slide') return;
+        if (event.data.action === 'next') active = Math.min(slides.length - 1, active + 1);
+        if (event.data.action === 'prev') active = Math.max(0, active - 1);
+        render();
+        window.parent.postMessage({ type: 'pixo:slide-state', active, count: slides.length }, '*');
+      });
+      render();
+      window.parent.postMessage({ type: 'pixo:slide-state', active, count: slides.length }, '*');
+    </script>
+  </body>
+</html>`;
+}
+
+async function createProject(
+  page: Page,
+  entry: UiScenario,
+) {
+  await createEmptyProject(page, entry.create.projectName);
+}
+
+async function expectWorkspaceReady(page: Page) {
+  await waitForLoadingToClear(page);
+  await expect(page).toHaveURL(/\/projects\//);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page.locator('.chat-loading-state')).toHaveCount(0, { timeout: T.medium });
+  await expect(page.getByTestId('chat-composer-input')).toBeEditable({ timeout: T.medium });
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+}
+
+async function sendPrompt(page: Page, prompt: string) {
+  const input = page.getByTestId('chat-composer-input');
+  const sendButton = page.getByTestId('chat-send');
+  await expect(input).toBeEditable({ timeout: T.short });
+  await input.click();
+  await input.fill(prompt);
+  await expect(input).toHaveText(prompt, { timeout: T.short });
+  await expect(sendButton).toBeEnabled({ timeout: T.medium });
+  const createRunResponse = page.waitForResponse(isCreateRunResponse, {
+    timeout: T.medium,
+  });
+  await sendButton.click();
+  await expect((await createRunResponse).ok()).toBeTruthy();
+}
+
+async function startNewConversation(page: Page) {
+  const previousPath = new URL(page.url()).pathname;
+  // Open the history dropdown first: creating a conversation must also dismiss
+  // it, and the `toHaveCount(0)` below only means something if it was open.
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+  // The single "new conversation" control sits inside the history dropdown,
+  // beside the search field (OPEND-3087); creating dismisses the dropdown.
+  await page.getByTestId('conversation-history-menu').getByTestId('chat-new-conversation').click();
+  await expect(page.getByTestId('conversation-list')).toHaveCount(0);
+  await expect
+    .poll(() => new URL(page.url()).pathname, { timeout: 10_000 })
+    .not.toBe(previousPath);
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/conversations\/[^/]+(?:\/files\/[^/]+)?$/);
+}
+
+
+// Uploaded files can land under a deduplicated name, and #5517 image cards
+// render no filename text, so match Files rows on the `data-testid`
+// suffix rather than on rendered text.
+function rowBySuffix(page: Page, name: string): Locator {
+  return page.locator(`[data-testid^="design-file-row-"][data-testid$="${name}"]`).first();
+}
+
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Leave the open project through the UI and land back on the entry surface.
+ *
+ * This used to be `getByRole('button', { name: /back to projects/i })`, which
+ * no longer resolves to anything on a project surface. #5517 (884ed1085) gave
+ * ChatPane's top-left slot to the pane-collapse control — `onCollapse` wins
+ * over `onBack` there, and ProjectView passes both — and the standalone
+ * `AppChromeHeader` that owned the `app-chrome-back` "Back to projects" button
+ * is no longer mounted anywhere (only its portal-id constants are still
+ * imported). The single remaining "Back to projects" label lives inside the
+ * avatar menu's popover, which is closed by default, so the old locator just
+ * hung until the test timed out.
+ *
+ * The surviving way out of a project is the pinned entry tab in the workspace
+ * tabs bar: `WorkspaceTabsBar.openTab` always sends that tab home, whatever
+ * entry section it last showed. Coverage is unchanged — the project-switching
+ * journey still leaves through real chrome rather than a URL jump.
+ */
+async function leaveProjectForEntry(page: Page) {
+  // In docked project mode the state-bearing pinned tab remains mounted in
+  // the hidden dock strip while `workspace-home-chrome` is its visible,
+  // interactive stand-in in the top chrome.
+  const dockedHome = page.getByTestId('workspace-home-chrome');
+  if (await dockedHome.isVisible().catch(() => false)) {
+    await dockedHome.click();
+    await expect(page.getByTestId('file-workspace')).toHaveCount(0);
+    return;
+  }
+  const pinnedEntryTab = page.locator('.workspace-tab.is-pinned');
+  await expect(pinnedEntryTab).toBeVisible();
+  await pinnedEntryTab.locator('.workspace-tab__main').click();
+  await expect(page.getByTestId('file-workspace')).toHaveCount(0);
+}
+
+function isCreateRunResponse(resp: Response): boolean {
+  const url = new URL(resp.url());
+  return url.pathname === '/api/runs' && resp.request().method() === 'POST';
+}
+
+function isCreateRunRequest(request: Request): boolean {
+  const url = new URL(request.url());
+  return url.pathname === '/api/runs' && request.method() === 'POST';
+}
+
+async function runExampleUsePromptFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  await page.getByTestId('entry-tab-examples').click();
+  await expect(page.getByTestId('example-card-warm-utility-example')).toBeVisible();
+  await page.getByTestId('example-use-prompt-warm-utility-example').click();
+
+  await expect(page).toHaveURL(/\/projects\//);
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText(entry.prompt);
+  // The project is named once, in the switcher docked above the chat card
+  // (OPEND-3128); the card itself carries no title row.
+  await expect(page.getByTestId('workspace-tabs-dropdown-trigger')).toContainText('Warm Utility Example');
+}
+
+async function runGenerationDoesNotCreateExtraFileFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  await sendPrompt(page, entry.prompt);
+  await expectArtifactVisible(page, entry);
+
+  const { projectId } = await getCurrentProjectContext(page);
+  const initialFiles = await listProjectFilesFromApi(page, projectId);
+  expect(initialFiles.map((file) => file.name)).toContain(entry.mockArtifact!.fileName);
+
+  await page.reload();
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+
+  const reloadedFiles = await listProjectFilesFromApi(page, projectId);
+  expect(reloadedFiles.map((file) => file.name)).toEqual(initialFiles.map((file) => file.name));
+  await expect(page.getByText(entry.mockArtifact!.fileName, { exact: true })).toBeVisible();
+}
+
+async function runCommentAttachmentFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  await sendPrompt(page, entry.prompt);
+  await expectArtifactVisible(page, entry);
+
+  await page.getByTestId('board-mode-toggle').click();
+  await page.getByTestId('comment-mode-toggle').click();
+  const frame = artifactPreviewFrame(page);
+  await frame.locator('[data-pixo-id="hero-title"]').click();
+  await expect(page.getByTestId('comment-popover')).toBeVisible();
+  await page.getByTestId('comment-popover-input').fill('Make the headline more specific.');
+  await page.getByTestId('comment-popover').getByRole('button', { name: 'Save comment' }).click();
+
+  await expect(page.getByTestId('comment-saved-marker-hero-title')).toBeVisible();
+  await expect(page.getByTestId('staged-comment-attachments')).toHaveCount(0);
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+  await expect(page.getByTestId('chat-send')).toBeDisabled();
+  await page.getByTestId('comment-popover').getByRole('button', { name: 'Close' }).click();
+
+  await frame.locator('[data-pixo-id="hero-copy"]').hover();
+  await expect(page.getByTestId('comment-target-overlay')).toBeVisible();
+  await expect(page.getByTestId('comment-target-overlay')).toContainText('hero-copy');
+
+  await page.getByTestId('comment-saved-marker-hero-title').getByRole('button').click();
+  await expect(page.getByTestId('comment-popover')).toBeVisible();
+  await expect(page.getByTestId('comment-popover-input')).toHaveValue('Make the headline more specific.');
+  await page.getByTestId('comment-popover').getByRole('button', { name: 'Close' }).click();
+
+  await page.getByRole('tab', { name: 'Comments' }).click();
+  await expect(page.getByTestId('comments-panel')).toBeVisible();
+  await expect(page.getByTestId('comments-panel').getByRole('heading', { name: 'Saved comments' })).toBeVisible();
+  await page.getByTestId('comments-panel')
+    .locator('[data-testid="comment-card-hero-title"]')
+    .getByRole('button', { name: 'Add' })
+    .click();
+  await page.getByRole('tab', { name: 'Chat' }).click();
+  await expect(page.getByTestId('staged-comment-attachments')).toBeVisible();
+  await expect(page.getByTestId('staged-comment-attachments')).toContainText('hero-title');
+  await expect(page.getByTestId('staged-comment-attachments')).toContainText('Make the headline more specific.');
+
+  await page.getByRole('tab', { name: 'Comments' }).click();
+  await expect(page.getByTestId('comments-panel').getByRole('heading', { name: 'Attached to chat' })).toBeVisible();
+  await page.getByTestId('comments-panel')
+    .locator('[data-testid="comment-card-hero-title"]')
+    .getByRole('button', { name: 'Remove' })
+    .click();
+  await page.getByRole('tab', { name: 'Chat' }).click();
+  await expect(page.getByTestId('staged-comment-attachments')).toHaveCount(0);
+  await expect(page.getByTestId('chat-send')).toBeDisabled();
+
+  await page.getByRole('tab', { name: 'Comments' }).click();
+  await page.getByTestId('comments-panel')
+    .locator('[data-testid="comment-card-hero-title"]')
+    .getByRole('button', { name: 'Add' })
+    .click();
+  await page.getByRole('tab', { name: 'Chat' }).click();
+  await expect(page.getByTestId('staged-comment-attachments')).toContainText('hero-title');
+
+  const runRequest = page.waitForRequest(
+    isCreateRunRequest,
+  );
+  await page.getByTestId('chat-send').click();
+  const request = await runRequest;
+  const body = request.postDataJSON() as {
+    message?: string;
+    commentAttachments?: Array<{ elementId?: string; comment?: string; filePath?: string }>;
+  };
+
+  expect(body.message).toMatch(/\n\n## user\n$/);
+  expect(body.message).not.toContain('Apply selected preview comments');
+  expect(body.commentAttachments).toEqual([
+    expect.objectContaining({
+      elementId: 'hero-title',
+      comment: 'Make the headline more specific.',
+      filePath: 'commentable-artifact.html',
+    }),
+  ]);
+}
+
+async function runDeckPaginationNextPrevCorrectnessFlow(page: Page) {
+  const { projectId } = await getCurrentProjectContext(page);
+  await seedDeckArtifact(page, projectId, 'pagination.html', 'Pagination Deck', ['Slide One', 'Slide Two', 'Slide Three']);
+  await page.reload();
+  await openPixoFile(page, 'pagination.html');
+
+  const frame = artifactPreviewFrame(page);
+  await expect(frame.getByText('Slide One')).toBeVisible();
+  await clickDeckNextSlide(page);
+  await expect(frame.getByText('Slide Two')).toBeVisible();
+  await clickDeckNextSlide(page);
+  await expect(frame.getByText('Slide Three')).toBeVisible();
+  await clickDeckPreviousSlide(page);
+  await expect(frame.getByText('Slide Two')).toBeVisible();
+}
+
+async function runDeckPaginationPerFileIsolatedFlow(page: Page) {
+  const { projectId } = await getCurrentProjectContext(page);
+  await seedDeckArtifact(page, projectId, 'deck-alpha.html', 'Deck Alpha', ['Alpha One', 'Alpha Two']);
+  await seedDeckArtifact(page, projectId, 'deck-beta.html', 'Deck Beta', ['Beta One', 'Beta Two']);
+  await page.reload();
+
+  await openPixoFile(page, 'deck-alpha.html');
+  const frame = artifactPreviewFrame(page);
+  await expect(frame.getByText('Alpha One')).toBeVisible();
+  await clickDeckNextSlide(page);
+  await expect(frame.getByText('Alpha Two')).toBeVisible();
+
+  await openAllProjectFiles(page);
+  await openPixoFile(page, 'deck-beta.html');
+  await expect(frame.getByText('Beta One')).toBeVisible();
+  await clickDeckNextSlide(page);
+  await expect(frame.getByText('Beta Two')).toBeVisible();
+
+  await openPanelFile(page, 'deck-alpha.html');
+  await expect(frame.getByText('Alpha Two')).toBeVisible();
+  await openPanelFile(page, 'deck-beta.html');
+  await expect(frame.getByText('Beta Two')).toBeVisible();
+}
+
+async function runUploadedImageRendersInPreviewFlow(page: Page) {
+  const { projectId } = await getCurrentProjectContext(page);
+  const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=';
+  await seedProjectFile(page, projectId, 'brand.png', pngBase64, 'base64');
+  await seedHtmlArtifact(
+    page,
+    projectId,
+    'image-preview.html',
+    '<!doctype html><html><body><main><h1>Image Preview</h1><img alt="Brand logo" src="brand.png"></main></body></html>',
+  );
+  await page.reload();
+  await openPixoFile(page, 'image-preview.html');
+
+  const image = artifactPreviewFrame(page).getByRole('img', { name: 'Brand logo' });
+  await expect(image).toBeVisible();
+  await expect
+    .poll(async () => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0))
+    .toBe(true);
+}
+
+async function runPythonSourcePreviewFlow(page: Page) {
+  const { projectId } = await getCurrentProjectContext(page);
+  await seedProjectFile(page, projectId, 'app.py', 'def greet():\n    return "hello from python"\n');
+  await page.reload();
+  await openPixoFile(page, 'app.py');
+
+  await expect(page.locator('.code-viewer')).toContainText('def greet');
+  await expect(page.locator('.code-viewer')).toContainText('hello from python');
+}
+
+async function seedDeckArtifact(
+  page: Page,
+  projectId: string,
+  fileName: string,
+  title: string,
+  slides: string[],
+) {
+  const slideHtml = slides
+    .map((slide, index) => `<section class="slide" data-pixo-id="slide-${index + 1}"${index === 0 ? '' : ' hidden'}><h1>${slide}</h1></section>`)
+    .join('\n');
+  await seedProjectFile(
+    page,
+    projectId,
+    fileName,
+    `<!doctype html><html><body>${slideHtml}</body></html>`,
+    undefined,
+    {
+      version: 1,
+      kind: 'deck',
+      title,
+      entry: fileName,
+      renderer: 'deck-html',
+      exports: ['html', 'pdf'],
+    },
+  );
+}
+
+async function seedProjectFile(
+  page: Page,
+  projectId: string,
+  name: string,
+  content: string,
+  encoding?: 'base64',
+  artifactManifest?: Record<string, unknown>,
+) {
+  const response = await page.request.post(`/api/projects/${projectId}/files`, {
+    data: {
+      name,
+      content,
+      ...(encoding ? { encoding } : {}),
+      ...(artifactManifest ? { artifactManifest } : {}),
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
+async function gotoEntryHome(page: Page) {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await waitForLoadingToClear(page);
+  const privacyDialog = page.getByRole('dialog').filter({ hasText: 'Help us improve OpenPixo' });
+  if (await privacyDialog.isVisible()) {
+    await privacyDialog.getByRole('button', { name: /I get it|not now|got it|don't share/i }).click();
+    await expect(privacyDialog).toHaveCount(0);
+  }
+  await expect(page.getByTestId('home-hero')).toBeVisible();
+  await expect(page.getByTestId('home-hero-input')).toBeVisible();
+}
+
+async function gotoProjectRoute(page: Page, path: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await waitForLoadingToClear(page);
+}
+
+async function navigateProjectRouteInApp(page: Page, path: string) {
+  await page.evaluate((target) => {
+    window.history.pushState(null, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(path)}$`));
+}
+
+async function reloadCurrentRoute(page: Page) {
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForLoadingToClear(page);
+}
+
+async function createPrototypeProject(page: Page, projectName: string) {
+  await createEmptyProject(page, uniqueProjectName(projectName));
+}
+
+function uniqueProjectName(base: string): string {
+  return `${base} ${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Assert we are on a surface that lists the workspace's projects.
+ *
+ * Home lists the catalogue in the rail's 最近项目 section on both branches
+ * (OPEND-2683 / OPEND-3140), and the rail's 全部项目 item opens the browsable
+ * page (OPEND-3108: 最近浏览过 / 个人项目 / 团队项目 tabs on one page).
+ */
+async function expectProjectsView(page: Page) {
+  const legacyProjectsToolbar = page.locator('.tab-panel-toolbar');
+  if (await legacyProjectsToolbar.isVisible().catch(() => false)) return;
+
+  await ensureRailOpen(page);
+  await expect(page.getByTestId('entry-nav-recent-toggle')).toBeVisible();
+  // One 全部项目 entry in every workspace (OPEND-3108); a team workspace
+  // reaches its shared projects through the page's 团队项目 tab.
+  await page.getByTestId('entry-nav-drafts').click();
+  await expect(page.getByTestId('recent-projects-strip')).toBeVisible();
+}
+
+async function waitForLoadingToClear(page: Page) {
+  await page.getByText('Loading OpenPixo…').waitFor({ state: 'hidden', timeout: T.long });
+}
+
+async function getCurrentProjectContext(
+  page: Page,
+): Promise<{ projectId: string; conversationId: string }> {
+  const current = new URL(page.url());
+  const [, projects, projectId, maybeConversations, conversationId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+  if (maybeConversations === 'conversations' && conversationId) {
+    return { projectId, conversationId };
+  }
+
+  const response = await page.request.get(`/api/projects/${projectId}/conversations`);
+  expect(response.ok()).toBeTruthy();
+  const { conversations } = (await response.json()) as {
+    conversations: Array<{ id: string; updatedAt: number }>;
+  };
+  const active = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (!active) throw new Error(`no conversations found for project ${projectId}`);
+  return { projectId, conversationId: active.id };
+}
+
+async function listProjectFilesFromApi(
+  page: Page,
+  projectId: string,
+): Promise<Array<{ name: string; kind: string }>> {
+  const response = await page.request.get(`/api/projects/${projectId}/files`);
+  expect(response.ok()).toBeTruthy();
+  const { files } = (await response.json()) as { files: Array<{ name: string; kind: string }> };
+  return files;
+}
+
+async function listConversationsFromApi(
+  page: Page,
+  projectId: string,
+): Promise<Array<{ id: string; updatedAt: number }>> {
+  const response = await page.request.get(`/api/projects/${projectId}/conversations`);
+  expect(response.ok()).toBeTruthy();
+  const { conversations } = (await response.json()) as {
+    conversations: Array<{ id: string; updatedAt: number }>;
+  };
+  return conversations;
+}
+
+async function expectProjectFilesToIncludeSuffixes(
+  page: Page,
+  projectId: string,
+  suffixes: string[],
+) {
+  await expect
+    .poll(async () => {
+      const names = (await listProjectFilesFromApi(page, projectId)).map((file) => file.name);
+      return suffixes.every((suffix) => names.some((name) => name.endsWith(suffix)));
+    })
+    .toBe(true);
+}
+
+async function expectArtifactVisible(
+  page: Page,
+  entry: UiScenario,
+) {
+  const artifact = entry.mockArtifact!;
+  await expect(page.getByText(artifact.fileName, { exact: true })).toBeVisible();
+  await expect(artifactPreview(page)).toBeVisible();
+  const frame = artifactPreviewFrame(page);
+  await expect(frame.getByRole('heading', { name: artifact.heading })).toBeVisible();
+}
+
+async function runConversationPersistenceFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  await sendPrompt(page, entry.prompt);
+  await expect(page.locator('.msg.user').getByText(entry.prompt, { exact: true })).toBeVisible();
+  await expectArtifactVisible(page, entry);
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+
+  const nextPrompt = entry.secondaryPrompt!;
+  await sendPrompt(page, nextPrompt);
+  await expect(page.locator('.msg.user').getByText(nextPrompt, { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page.locator('.msg.user').getByText(nextPrompt, { exact: true })).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const historyList = page.getByTestId('conversation-list');
+  await expect(historyList).toBeVisible();
+  await expect(historyList.locator('.chat-conv-item')).toHaveCount(2);
+  await historyList
+    .locator('.chat-conv-item')
+    .filter({ hasText: entry.prompt })
+    .first()
+    .locator('[data-testid^="conversation-select-"]')
+    .click();
+
+  await expect(page.locator('.msg.user').getByText(entry.prompt, { exact: true })).toBeVisible();
+}
+
+async function runFileMentionFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+
+  const resp = await page.request.post(`/api/projects/${projectId}/files`, {
+    data: {
+      name: 'reference.txt',
+      content: 'Reference content for mention flow.\n',
+    },
+  });
+  expect(resp.ok()).toBeTruthy();
+
+  await page.reload();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page.getByText('reference.txt', { exact: true })).toBeVisible();
+
+  await page.getByTestId('chat-composer-input').click();
+  await page.getByTestId('chat-composer-input').pressSequentially('Review @ref');
+  await expect(page.getByTestId('mention-popover')).toBeVisible();
+  await page.getByTestId('mention-popover').getByRole('button', { name: /reference\.txt/i }).click();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('Review @reference.txt ');
+  await expect(stagedAttachmentName(page, 'reference.txt')).toBeVisible();
+  await expect(page.getByTestId('chat-send')).toBeEnabled();
+}
+
+async function runDeepLinkPreviewFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  await sendPrompt(page, entry.prompt);
+  await expectArtifactVisible(page, entry);
+
+  const fileName = entry.mockArtifact!.fileName;
+  await expect(page).toHaveURL(new RegExp(`/projects/[^/]+/files/${fileName.replace('.', '\\.')}$`));
+
+  const current = new URL(page.url());
+  const [, projects, projectId] = current.pathname.split('/');
+  if (projects !== 'projects' || !projectId) {
+    throw new Error(`unexpected project route: ${current.pathname}`);
+  }
+
+  await gotoProjectRoute(page, `/projects/${projectId}`);
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+
+  await gotoProjectRoute(page, `/projects/${projectId}/files/${fileName}`);
+  await expect(artifactPreview(page)).toBeVisible();
+  const frame = artifactPreviewFrame(page);
+  await expect(frame.getByRole('heading', { name: entry.mockArtifact!.heading })).toBeVisible();
+}
+
+async function runFileUploadSendFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  const uploadResponse = page.waitForResponse(
+    (resp: Response) => resp.url().includes('/upload') && resp.request().method() === 'POST',
+    { timeout: 5000 },
+  );
+  await page.getByTestId('chat-file-input').setInputFiles({
+    name: 'reference.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Reference content for upload flow.\n', 'utf8'),
+  });
+  await expect((await uploadResponse).ok()).toBeTruthy();
+
+  await expect(stagedAttachmentName(page, 'reference.txt')).toBeVisible();
+  await expect(page.getByText('reference.txt', { exact: true })).toBeVisible();
+
+  await sendPrompt(page, entry.prompt);
+  await expect(page.locator('.msg.user').getByText(entry.prompt, { exact: true })).toBeVisible();
+  await expect(page.locator('.user-attachments').getByText('reference.txt', { exact: true })).toBeVisible();
+}
+
+async function runDesignFilesUploadFlow(
+  page: Page,
+) {
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'moodboard.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+
+  await expect(panelFileLabel(page, /moodboard\.png/i)).toBeVisible();
+  await openAllProjectFiles(page);
+  const fileRow = rowBySuffix(page, 'moodboard.png');
+  await expect(fileRow).toBeVisible();
+  // #5517: the card grid IS the preview surface, so a single click on the
+  // row reopens the uploaded file in its Library stack. The old flow clicked
+  // once for a preview card and then double-clicked to open.
+  await fileRow.getByRole('button').first().click();
+  await expect(panelFileLabel(page, /moodboard\.png/i)).toBeVisible();
+}
+
+async function runDesignFilesDeleteFlow(
+  page: Page,
+) {
+
+  const pngBytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+    'base64',
+  );
+
+  // Deleting from the Library root must leave it selected with its sibling
+  // file still available in the browser.
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'keep-me.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect(panelFileLabel(page, /keep-me\.png/i)).toBeVisible();
+
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name: 'trash-me.png',
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+
+  await expect(panelFileLabel(page, /trash-me\.png/i)).toBeVisible();
+  await openAllProjectFiles(page);
+
+  const fileRow = rowBySuffix(page, 'trash-me.png');
+  await expect(fileRow).toBeVisible();
+  await fileRow.hover();
+  await fileRow.locator('[data-testid^="design-file-menu-"]').click();
+  await expect(page.getByTestId('design-file-menu-popover')).toBeVisible();
+  await page.locator('[data-testid^="design-file-delete-"]').click();
+  await answerDeleteConfirm(page, 'delete', /trash-me\.png/i);
+
+  await expect(fileRow).toHaveCount(0);
+  await expect(panelFileLabel(page, /trash-me\.png/i)).toHaveCount(0);
+
+  // Deleting a file must keep Library at its root rather than opening its sibling.
+  await expectAllProjectFilesActive(page);
+  await expect(rowBySuffix(page, 'keep-me.png')).toBeVisible();
+}
+
+async function runPanelStackPersistenceFlow(page: Page) {
+  const pngBytes = Buffer.from(TINY_PNG_FOR_STACK, 'base64');
+  for (const name of ['first-tab.png', 'second-tab.png']) {
+    const uploaded = page.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/upload'));
+    await page.getByTestId('file-list-upload-input').setInputFiles({ name, mimeType: 'image/png', buffer: pngBytes });
+    expect((await uploaded).ok()).toBe(true);
+    await expect(panelFileLabel(page, name)).toBeVisible();
+  }
+  await openPanelFile(page, 'first-tab.png');
+  await selectPanelView(page, 'game');
+  await expect(page.getByTestId('panel-stack-back')).toBeHidden();
+  await selectPanelView(page, 'library');
+  await expect(panelFileLabel(page, 'first-tab.png')).toBeVisible();
+  await page.reload();
+  await expect(panelFileLabel(page, 'first-tab.png')).toBeVisible();
+  await openPanelFile(page, 'second-tab.png');
+  await expect(panelFileLabel(page, 'first-tab.png')).toBeHidden();
+  await page.getByTestId('panel-stack-back').click();
+  await expect(panelFileLabel(page, 'first-tab.png')).toBeVisible();
+  await page.getByTestId('panel-stack-back').press('Escape');
+  await expectAllProjectFilesActive(page);
+  await expect(page.getByTestId('design-file-row-first-tab.png')).toBeVisible();
+  await expect(page.getByTestId('design-file-row-second-tab.png')).toBeVisible();
+}
+
+const TINY_PNG_FOR_STACK = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=';
+
+async function runConversationDeleteRecoveryFlow(
+  page: Page,
+  entry: UiScenario,
+) {
+  page.on('dialog', async (dialog: Dialog) => {
+    await dialog.accept();
+  });
+
+  await sendPrompt(page, entry.prompt);
+  await expect(
+    page.locator('.msg.user .user-text').filter({ hasText: entry.prompt }).first(),
+  ).toBeVisible();
+
+  await startNewConversation(page);
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
+
+  const nextPrompt = entry.secondaryPrompt!;
+  await sendPrompt(page, nextPrompt);
+  await expect(
+    page.locator('.msg.user .user-text').filter({ hasText: nextPrompt }).first(),
+  ).toBeVisible();
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+
+  const activeRow = page
+    .getByTestId('conversation-list')
+    .locator('.chat-conv-item.active')
+    .first();
+  await expect(activeRow).toBeVisible();
+  await activeRow.getByTestId(/conversation-delete-/).click();
+
+  await expect(
+    page.locator('.msg.user .user-text').filter({ hasText: entry.prompt }).first(),
+  ).toBeVisible();
+  await expect(page.locator('.msg.user .user-text').filter({ hasText: nextPrompt })).toHaveCount(0);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(page.getByTestId('conversation-list').locator('.chat-conv-item')).toHaveCount(1);
+}
+
+function homeDesignCard(page: Page, name: string): Locator {
+  return page.locator('.design-card:visible', {
+    has: page.locator('.design-card-name', { hasText: name }),
+  }).first();
+}

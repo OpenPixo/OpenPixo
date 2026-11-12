@@ -1,0 +1,23 @@
+/* Reasoning effort meter: four rising bars, like a signal meter; filled ones are the level. */
+.meter {
+  display: inline-flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.bar {
+  width: 3px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+.bar:nth-child(1) { height: 4px; }
+.bar:nth-child(2) { height: 7px; }
+.bar:nth-child(3) { height: 10px; }
+.bar:nth-child(4) { height: 12px; }
+
+.bar[data-on='true'] {
+  background: var(--violet);
+}

@@ -1,0 +1,23 @@
+{
+  "id": "survivors-like-horde-gameplay-mock",
+  "surface": "image",
+  "title": "Survivors-Like Horde Gameplay Mock",
+  "summary": "A mid-run gameplay mock for a survivors-like / bullet-heaven game: a lone hero in a clear ring surrounded by hundreds of enemies, orbiting auto-attack weapons, XP gems and the genre HUD (run timer, XP bar, weapon slots). Tuned for readability of the player inside visual chaos.",
+  "category": "Game UI",
+  "tags": [
+    "survivors-like",
+    "bullet-heaven",
+    "roguelite",
+    "top-down",
+    "gameplay",
+    "hud"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "An in-game screenshot mock of a survivors-like (bullet heaven) action roguelite, captured {argument name=\"run_minute\" default=\"14 minutes\"} into a run when the screen is at its most chaotic and satisfying.\n\nSetting: {argument name=\"setting\" default=\"a moonlit graveyard field with broken fences and scattered tombstones\"}.\nArt style: {argument name=\"art_style\" default=\"chunky 2D pixel art, 16x16 enemy sprites with dark outlines, top-down three-quarter view\"}.\nPlayer: {argument name=\"player\" default=\"a small hooded alchemist with a glowing satchel\"}, standing at the exact centre of the screen.\n\n# Gameplay layer\n- Hundreds of enemies ({argument name=\"enemy_horde\" default=\"shambling skeletons, bats and a few larger armoured ghouls\"}) pressing in from every side, packed into a dense ring that leaves a clear circle of empty ground around the player.\n- Auto-attack weapons visibly working: {argument name=\"weapons\" default=\"three orbiting potion flasks, a chain-lightning arc jumping between enemies, and a slow pulsing aura\"}.\n- Enemies being destroyed with small pops and white hit-flash frames; a trail of blue and green XP gems scattered on the ground; one treasure chest pickup near the edge of the clear ring.\n- A few small white damage numbers floating up, never covering the player.\n\n# HUD (genre-standard layout)\n- Full-width XP bar along the very top with a level number at its right end.\n- Run timer large and centred just below the XP bar.\n- Weapon and passive item slots as two rows of small square icons in the top-left.\n- Kill counter and gold counter in the top-right. A small health bar directly under the player sprite.\n\n# Readability rules\n- The player is the most saturated, brightest-outlined object on screen and is never overlapped.\n- Enemies share a desaturated, darker value range so the horde reads as one mass; pickups and player effects use saturated, luminous colours.\n- Palette: {argument name=\"palette\" default=\"cool desaturated blues and greys for the field and horde, warm gold and cyan for player effects and pickups\"}.\n- Crisp, consistent pixel size; no blur.\n\n# Avoid\nMuddy overlapping effects that hide the player, mixed pixel resolutions, realistic rendering, gore, menu overlays, watermarks, real game logos or names.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

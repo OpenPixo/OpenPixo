@@ -1,0 +1,184 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/item-icon-set",
+  "title": "Item icon set",
+  "title_i18n": {
+    "en": "Item icon set",
+    "zh-CN": "道具图标组"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "A matching set of inventory icons generated on one sheet, sliced into single icons and resized to a fixed size.",
+  "description_i18n": {
+    "en": "A matching set of inventory icons generated on one sheet, sliced into single icons and resized to a fixed size.",
+    "zh-CN": "在一张图上生成风格统一的道具图标，切成单张并缩放到固定尺寸。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "items"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "items",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "items",
+          "label": "Items, in order (comma separated)",
+          "label_i18n": {
+            "zh-CN": "物品（按顺序，用逗号分隔）"
+          },
+          "type": "text",
+          "required": true,
+          "placeholder": "iron sword, wooden shield, red health potion, brass key",
+          "placeholder_i18n": {
+            "zh-CN": "铁剑，木盾，红色生命药水，黄铜钥匙"
+          }
+        },
+        {
+          "name": "grid",
+          "label": "Sheet grid (columns x rows)",
+          "label_i18n": {
+            "zh-CN": "图集网格（列 × 行）"
+          },
+          "type": "select",
+          "options": [
+            "2x2",
+            "3x3",
+            "4x4"
+          ],
+          "default": "3x3"
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "pixel art",
+            "hand-painted 2D",
+            "clean cartoon with bold outlines",
+            "flat vector"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "pixel art": "像素风",
+              "hand-painted 2D": "2D 手绘",
+              "clean cartoon with bold outlines": "粗描边的简洁卡通",
+              "flat vector": "扁平矢量"
+            }
+          },
+          "default": "pixel art"
+        },
+        {
+          "name": "iconSize",
+          "label": "Icon size (px)",
+          "label_i18n": {
+            "zh-CN": "图标尺寸（像素）"
+          },
+          "type": "select",
+          "options": [
+            "32",
+            "64",
+            "128",
+            "256"
+          ],
+          "default": "64"
+        },
+        {
+          "name": "setName",
+          "label": "Set name (folder, lowercase)",
+          "label_i18n": {
+            "zh-CN": "图标组名称（文件夹名，小写）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "potions"
+        }
+      ],
+      "prompt": "A game inventory icon set on a strict {{grid}} grid (columns x rows) of equal square cells, one item per cell, with no gaps, no visible grid lines and no slot frames. Items in reading order, left to right then top to bottom: {{items}}. Leave a cell empty if the list is shorter than the grid. Each item is centered in its cell, fills about 80 percent of it, and never touches or crosses the cell edge. All icons share one style, one light direction from the top left, one outline weight and the same slight three-quarter angle, so they read as a single set. Bold readable silhouettes and strong value contrast that stay clear at small sizes. Style: {{style}}. Background: one perfectly flat, uniform solid magenta #FF00FF fill from edge to edge, with no gradient, texture, floor, cast shadow or vignette. Do not use magenta, hot pink or purple anywhere on the subject.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, magenta or pink on the subject, slot backgrounds, rarity borders, overlapping icons, items spanning two cells, inconsistent styles, tiny details that vanish at small size, hands holding items",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "1:1"
+      },
+      "postprocess": [
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "#FF00FF",
+            "tolerance": 32
+          }
+        },
+        {
+          "op": "resize",
+          "params": {
+            "width": 960,
+            "height": 960
+          }
+        },
+        {
+          "op": "slice",
+          "params": {
+            "grid": "{{grid}}"
+          }
+        },
+        {
+          "op": "resize",
+          "params": {
+            "width": "{{iconSize}}",
+            "height": "{{iconSize}}"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        },
+        {
+          "check": "dimensions",
+          "params": {
+            "width": "{{iconSize}}",
+            "height": "{{iconSize}}"
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.uiRoot}}/icons/{{setName}}",
+        "name": "{{setName}}"
+      }
+    }
+  }
+}

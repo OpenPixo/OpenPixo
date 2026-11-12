@@ -1,0 +1,172 @@
+[
+  {
+    "path": "AGENTS.md",
+    "reason": "Only the pinned root fork-provenance statement is exempt.",
+    "linePattern": "^- This repository is \\*\\*OpenPixo\\*\\*, .*full hard fork of `n[e]xu-io/open[-]design` at `9724c44142ea0afaee3d207f37901b31c66a44ad` .*"
+  },
+  {
+    "path": "apps/daemon/tests/fixtures/**",
+    "reason": "External CLI recordings, protocol fixtures and their provenance; retained bytes are preserved."
+  },
+  {
+    "path": "apps/daemon/tests/whats-new.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "apps/desktop/tests/main/fork-updater-config.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "apps/web/tests/fixtures/chat/amr-thinking-todo.turn0.json",
+    "reason": "Existing projection of external CLI events; streamed output and paths are evidence."
+  },
+  {
+    "path": "apps/web/tests/fixtures/chat/claude-shop.turn0.json",
+    "reason": "Existing projection of external CLI events; streamed output and paths are evidence."
+  },
+  {
+    "path": "apps/web/tests/fixtures/chat/codex-godot-dash.turn0.json",
+    "reason": "Existing projection of external CLI events; the recorded AGENTS.md read carries the fork provenance line."
+  },
+  {
+    "path": "apps/web/tests/fixtures/chat/codex-parchment.turn0.json",
+    "reason": "Existing external CLI event projection; its source annotation and recorded paths are preserved."
+  },
+  {
+    "path": "apps/web/tests/fixtures/chat/codex-todo.turn0.json",
+    "reason": "Existing projection of external CLI events; streamed output and paths are evidence."
+  },
+  {
+    "path": "apps/web/tests/fixtures/chat/thinking-heavy.turn0.json",
+    "reason": "Existing projection of external CLI events; streamed output and paths are evidence."
+  },
+  {
+    "path": "docs/adr/0005-openpixo-fork.md",
+    "reason": "Historical ADR body; only append-only decision notes may be added."
+  },
+  {
+    "path": "docs/adr/0006-full-hard-fork.md",
+    "reason": "Historical ADR body; only append-only decision notes may be added."
+  },
+  {
+    "path": "docs/adr/0007-skipped-domain-decoupling.md",
+    "reason": "Historical ADR body; only append-only decision notes may be added."
+  },
+  {
+    "path": "docs/adr/0008-cli-binary-pixo.md",
+    "reason": "Historical ADR body; only append-only decision notes may be added."
+  },
+  {
+    "path": "docs/adr/0009-package-scope-openpixo.md",
+    "reason": "Historical ADR body; only append-only decision notes may be added."
+  },
+  {
+    "path": "docs/adr/0010-runtime-identifiers-pixo.md",
+    "reason": "Historical ADR body; only append-only decision notes may be added."
+  },
+  {
+    "path": "docs/adr/0011-remove-upstream-identifiers.md",
+    "reason": "Owner-required closing migration decision and original-to-current naming table."
+  },
+  {
+    "path": "docs/coordination/**",
+    "reason": "Historical coordination/handoff records and classified migration/verification evidence."
+  },
+  {
+    "path": "docs/references.md",
+    "reason": "Required source provenance references."
+  },
+  {
+    "path": "e2e/resources/chat-scroll-recording.ts",
+    "reason": "Recorded event projection; payload lengths and timing are replay evidence."
+  },
+  {
+    "path": "LICENSE",
+    "reason": "Required original Apache license and copyright; unchanged."
+  },
+  {
+    "path": "mocks/**",
+    "reason": "Replay corpus, immutable origin metadata and recording harness; no live provider integration."
+  },
+  {
+    "path": "NOTICE",
+    "reason": "Required upstream attribution and pinned fork lineage; unchanged."
+  },
+  {
+    "path": "packages/contracts/src/upstream-policy.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "packages/contracts/tests/upstream-policy.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "plugins/_official/examples/webgl-depth-gallery/LICENSE",
+    "reason": "Imported component author/source/contact or license attribution retained under Apache obligations."
+  },
+  {
+    "path": "plugins/_official/examples/webgl-distortion-grain/LICENSE",
+    "reason": "Imported component author/source/contact or license attribution retained under Apache obligations."
+  },
+  {
+    "path": "plugins/_official/examples/webgl-horizontal-parallax/LICENSE",
+    "reason": "Imported component author/source/contact or license attribution retained under Apache obligations."
+  },
+  {
+    "path": "plugins/_official/examples/webgl-pixel-reveal-gallery/LICENSE",
+    "reason": "Imported component author/source/contact or license attribution retained under Apache obligations."
+  },
+  {
+    "path": "plugins/_official/video-templates/HYPERFRAMES-ATTRIBUTIONS.md",
+    "reason": "Imported component author/source/contact or license attribution retained under Apache obligations."
+  },
+  {
+    "path": "specs/current/cli-rename-pixo.md",
+    "reason": "Owner-required original executable migration source."
+  },
+  {
+    "path": "specs/current/remove-upstream-traces.md",
+    "reason": "Owner-required original migration source and naming table."
+  },
+  {
+    "path": "e2e/tests/openpixo/release-feed.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "tools/pack/tests/config/update-metadata-url.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "tools/release/tests/openpixo-release.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "tools/release/tests/site.test.ts",
+    "reason": "ADR 0005 upstream-infrastructure rejection policy or its focused unit/integration tests."
+  },
+  {
+    "path": "skills/*/SKILL.md",
+    "reason": "Imported html-video/html-anything component attribution (author, repo, homepage, contact, upstream source); only these metadata lines are exempt.",
+    "linePattern": "n[e]xu-io/html-(video|anything)|\"(author|name)\": \"n[e]xu-io\"|^\\s*author: n[e]xu-io\\s*$|\"contact\": \"open[-]design@n[e]xu\\.io\""
+  },
+  {
+    "path": "plugins/_official/examples/*/SKILL.md",
+    "reason": "Imported html-video/html-anything component attribution (author, repo, homepage, contact, upstream source); only these metadata lines are exempt.",
+    "linePattern": "n[e]xu-io/html-(video|anything)|\"(author|name)\": \"n[e]xu-io\"|^\\s*author: n[e]xu-io\\s*$|\"contact\": \"open[-]design@n[e]xu\\.io\""
+  },
+  {
+    "path": "plugins/_official/video-templates/*/SKILL.md",
+    "reason": "Imported html-video/html-anything component attribution (author, repo, homepage, contact, upstream source); only these metadata lines are exempt.",
+    "linePattern": "n[e]xu-io/html-(video|anything)|\"(author|name)\": \"n[e]xu-io\"|^\\s*author: n[e]xu-io\\s*$|\"contact\": \"open[-]design@n[e]xu\\.io\""
+  },
+  {
+    "path": "plugins/_official/video-templates/*/pixo.json",
+    "reason": "Imported html-video/html-anything component attribution (author, repo, homepage, contact, upstream source); only these metadata lines are exempt.",
+    "linePattern": "n[e]xu-io/html-(video|anything)|\"(author|name)\": \"n[e]xu-io\"|^\\s*author: n[e]xu-io\\s*$|\"contact\": \"open[-]design@n[e]xu\\.io\""
+  },
+  {
+    "path": "plugins/_official/video-templates/*/template.json",
+    "reason": "Imported html-video/html-anything component attribution (author, repo, homepage, contact, upstream source); only these metadata lines are exempt.",
+    "linePattern": "n[e]xu-io/html-(video|anything)|\"(author|name)\": \"n[e]xu-io\"|^\\s*author: n[e]xu-io\\s*$|\"contact\": \"open[-]design@n[e]xu\\.io\""
+  }
+]

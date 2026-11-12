@@ -1,0 +1,35 @@
+.badge {
+  white-space: nowrap;
+  max-width: min(200px, 30vw);
+  padding: 0 8px;
+  border-radius: var(--shell-radius, 8px);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text-muted);
+  font: 500 13px/1 var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dialog {
+  width: min(480px, calc(100vw - 32px));
+  overflow-wrap: anywhere;
+}
+
+.dialog h3 {
+  font-size: 14px;
+  margin: 16px 0 8px;
+}
+
+.dialog p, .dialog li {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.dialog ul {
+  padding-left: 20px;
+}
+
+.actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}

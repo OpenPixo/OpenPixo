@@ -1,0 +1,81 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/painted-cutout",
+  "title": "Paper cutout",
+  "title_i18n": {
+    "en": "Paper cutout",
+    "zh-CN": "纸片手绘"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:41:23Z",
+  "description": "Hand-painted 2D characters and props made of flat cut-out pieces, like a puppet show.",
+  "description_i18n": {
+    "en": "Hand-painted 2D characters and props made of flat cut-out pieces, like a puppet show.",
+    "zh-CN": "手绘的 2D 角色和道具，由一片片平整的纸片拼成，像在演木偶戏。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "2d",
+    "painterly",
+    "skeletal-animation"
+  ],
+  "examples": [
+    {
+      "title": "Lantern keeper rig",
+      "title_i18n": {
+        "zh-CN": "提灯守卫骨骼角色"
+      },
+      "prompt": "Generate an original lantern keeper character using the painted-cutout art style in a neutral front three-quarter pose with slightly spread arms and legs. Paint head, torso, upper and lower arms, hands, legs, cloak and lantern as clearly separated overlapping parts on a transparent background.",
+      "prompt_i18n": {
+        "zh-CN": "使用 painted-cutout 美术风格生成原创提灯守卫角色：正面四分之三中性姿势，手臂和双腿略微张开。头部、躯干、上下臂、双手、双腿、披风和灯笼绘制为清晰分离且互相叠压的部件，透明背景。"
+      }
+    },
+    {
+      "title": "Forest creature parts",
+      "title_i18n": {
+        "zh-CN": "森林生物部件"
+      },
+      "prompt": "Create a small horned forest creature using the painted-cutout art style, then lay out its body, head, jaw, four legs, tail and horns as separate parts with generous overlap at every joint. Keep lighting consistent from the upper left and avoid baked shadows.",
+      "prompt_i18n": {
+        "zh-CN": "使用 painted-cutout 美术风格制作一只带角的小型森林生物，并把身体、头部、下颌、四条腿、尾巴和角拆分为独立部件，每个关节保留充足叠压。光照统一来自左上方，不要烘焙投影。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "painted-cutout",
+      "dimension": [
+        "2d"
+      ],
+      "medium": [
+        "painterly",
+        "cutout"
+      ],
+      "prompt": "Hand-painted 2D game art built for skeletal animation: clean simplified shapes painted with soft-edged brush shading and a light paper-like texture, organized into flat layered parts such as head, torso, upper and lower limbs, hands and accessories with natural overlaps so joints can rotate without gaps. Neutral front or three-quarter pose with limbs slightly apart, soft key light from the upper left, a thin darker color line around each part and characters kept separate from the background.",
+      "negativePrompt": "baked motion blur, strong limb foreshortening, merged or fused parts, limbs hidden behind the body, cast shadows baked into the background, dynamic action pose, photorealism, heavy noise texture, pixel art, 3D render, text, watermark",
+      "palette": [
+        "#2E2A3A",
+        "#4B4E6D",
+        "#6A8D92",
+        "#A9C5A0",
+        "#F1E3C8",
+        "#E3A587",
+        "#C46D5E",
+        "#8C5A7A"
+      ],
+      "constraints": {
+        "outline": "Thin darker color line around each part; no heavy black ink.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

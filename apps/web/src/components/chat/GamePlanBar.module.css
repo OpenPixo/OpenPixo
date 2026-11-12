@@ -1,0 +1,56 @@
+.collapsible {
+  flex: none;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0 8px 8px;
+  padding: 8px 8px 8px 12px;
+  /* The composer slot lets clicks through to the chat log behind it. */
+  pointer-events: auto;
+  border: 1px solid var(--chat-border, var(--border));
+  border-radius: 10px;
+  background: var(--chat-surface, var(--bg-panel));
+}
+
+.notice {
+  flex: 1 1 160px;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--chat-t-mini);
+  color: var(--chat-text-muted);
+}
+
+.budget {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--chat-t-mini);
+  color: var(--chat-text-muted);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.input {
+  width: 72px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: var(--chat-t-mini);
+}
+
+.hint {
+  margin: 0;
+  min-width: 0;
+  color: var(--chat-text-faint);
+}

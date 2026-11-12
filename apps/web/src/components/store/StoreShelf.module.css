@@ -1,0 +1,39 @@
+/* Discover shelf: heading row plus a snapping horizontal rail. */
+.shelf { margin-top: 44px; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.copy { min-width: 0; }
+.copy h2 { display: flex; align-items: baseline; gap: 10px; margin: 0; font: 650 20px/1.2 var(--sans); letter-spacing: -.02em; color: var(--ink); }
+.count { color: var(--faint); font: 400 13px var(--mono); letter-spacing: 0; }
+.copy p { margin: 4px 0 0; color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+.controls { display: flex; align-items: center; gap: 6px; flex: none; }
+.seeAll { height: 30px; color: var(--violet-strong); font-weight: 600; }
+.arrow { width: 30px; height: 30px; border-radius: 50%; }
+
+.rail {
+  --shelf-card: calc((100% - 3 * 16px) / 4);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--shelf-card);
+  gap: 16px;
+  margin: -12px -12px 0;
+  padding: 12px 12px 18px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 12px;
+  scrollbar-width: none;
+  list-style: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+.rail > li { scroll-snap-align: start; }
+.shelf[data-size='feature'] .rail { --shelf-card: calc((100% - 2 * 16px) / 3); }
+
+@media (max-width: 1100px) {
+  .rail { --shelf-card: calc((100% - 2 * 16px) / 3); }
+  .shelf[data-size='feature'] .rail { --shelf-card: calc((100% - 16px) / 2); }
+}
+@media (max-width: 760px) {
+  .rail, .shelf[data-size='feature'] .rail { --shelf-card: min(78%, 300px); }
+  .arrow { display: none; }
+  .head { align-items: flex-start; }
+}

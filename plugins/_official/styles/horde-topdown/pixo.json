@@ -1,0 +1,83 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/horde-topdown",
+  "title": "Horde top-down",
+  "title_i18n": {
+    "en": "Horde top-down",
+    "zh-CN": "割草俯视角"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:41:23Z",
+  "description": "Chunky, color-coded units on a calm ground so players, swarms and pickups stay readable on crowded screens.",
+  "description_i18n": {
+    "en": "Chunky, color-coded units on a calm ground so players, swarms and pickups stay readable on crowded screens.",
+    "zh-CN": "敦实且按颜色区分的单位配合低对比地面，让玩家、怪群和拾取物在满屏混战中依然一眼可辨。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "2d",
+    "illustration",
+    "top-down",
+    "readability"
+  ],
+  "examples": [
+    {
+      "title": "Swarm enemy family",
+      "title_i18n": {
+        "zh-CN": "怪群敌人家族"
+      },
+      "prompt": "Generate five matching top-down swarm enemies using the horde-topdown art style: small bat, slime blob, skeleton grunt, armored beetle and a larger elite brute. Keep them cool-toned and desaturated, each with a thick outline and a soft drop shadow, so they never compete with the player color.",
+      "prompt_i18n": {
+        "zh-CN": "使用 horde-topdown 美术风格生成五个配套的俯视角怪群敌人：小蝙蝠、史莱姆、骷髅小兵、甲壳虫和体型更大的精英蛮兵。统一使用冷色、低饱和配色，粗描边加柔和投影，避免与玩家颜色冲突。"
+      }
+    },
+    {
+      "title": "Pickups and projectiles",
+      "title_i18n": {
+        "zh-CN": "拾取物与弹道"
+      },
+      "prompt": "Create a matching set of pickups and projectiles using the horde-topdown art style: experience gem, gold coin, healing heart, magnet, spinning blade and a glowing orb. Make every item readable at 24 pixels with bright warm or green accents.",
+      "prompt_i18n": {
+        "zh-CN": "使用 horde-topdown 美术风格制作一套配套的拾取物和弹道：经验宝石、金币、回血爱心、磁铁、旋转飞刃和发光法球。所有物件在 24 像素下清晰可辨，使用明亮的暖色或绿色点缀。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "horde-topdown",
+      "dimension": [
+        "2d"
+      ],
+      "medium": [
+        "illustration",
+        "top-down"
+      ],
+      "prompt": "High-readability top-down action game art built for crowded screens: chunky simplified units with a thick dark outline and a bold silhouette per role. Color-code by role: the player warm and bright, enemies cool and desaturated, pickups glowing gold or green. Every unit sits on a small soft drop shadow over a muted low-contrast ground with sparse decoration, so units, projectiles and pickups pop instantly. Overhead three-quarter view; effects are bright but translucent and never hide the player.",
+      "negativePrompt": "busy high-contrast ground texture, tiny details, thin outlines, realistic proportions, enemies sharing the player color, photorealism, explicit gore, dark muddy screen, perspective camera, text, damage numbers, interface, watermark",
+      "palette": [
+        "#2A2B3D",
+        "#4C5262",
+        "#7D8597",
+        "#B8B2A1",
+        "#F5F1E6",
+        "#FFB627",
+        "#FF5E5B",
+        "#7ED957",
+        "#8E7DBE"
+      ],
+      "constraints": {
+        "outline": "Thick dark outline on every unit and pickup; none on ground tiles.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

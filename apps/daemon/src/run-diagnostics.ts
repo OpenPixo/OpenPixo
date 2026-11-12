@@ -1,0 +1,381 @@
+
+import { redactSecrets } from './redact.js';
+
+export interface RunEventForDiagnostics {
+  event: string;
+  data: unknown;
+}
+
+export type RunDiagnosticSource =
+  | 'error_event'
+  | 'stderr'
+  | 'exit_code'
+  | 'signal'
+  | 'unknown';
+
+export type StderrLineCountBucket =
+  | 'none'
+  | '1_5'
+  | '6_20'
+  | '21_100'
+  | 'gt_100';
+
+export type RunCloseReason =
+  | 'exit_0'
+  | 'exit_nonzero'
+  | 'signal'
+  | 'cancel_requested'
+  | 'stream_error'
+  | 'fatal_rpc_error'
+  | 'empty_output'
+  | 'unknown';
+
+export interface RunDiagnosticsAnalytics {
+  diagnostic_source: RunDiagnosticSource;
+  stderr_present: boolean;
+  stderr_line_count_bucket: StderrLineCountBucket;
+  stdout_present: boolean;
+  stdout_line_count_bucket: StderrLineCountBucket;
+  rpc_close_reason: RunCloseReason;
+  first_token_seen: boolean;
+  user_visible_output_seen: boolean;
+  tool_call_seen: boolean;
+  // Legacy name: every tool_use in the terminal attempt has a matching observed
+  // tool_result (by id, or count for idless streams). Known host-synthesized
+  // results are display cleanup, not agent-confirmed completion. Even a real
+  // result only proves observation, not delivery back to the model or run success.
+  tool_result_sent: boolean;
+  // True when the retained runtime requests host approval.
+  approval_requested: boolean;
+  artifact_write_seen: boolean;
+
+
+  // True when this run transparently re-seeded after an upstream session resume
+  // failed (expired/pruned): the dead handle was cleared and the turn was re-run
+  // with a fresh session + full transcript, with no user-facing error. Lets us
+  // monitor how often the resume optimization falls back (should be rare).
+  resume_auto_reseeded: boolean;
+
+
+}
+
+export interface RunToolProgress {
+  toolCallSeen: boolean;
+  toolResultSent: boolean;
+  hasOutstandingTool: boolean;
+}
+
+export interface StreamTailSummary {
+  tail: string;
+  lineCount: number;
+  truncated: boolean;
+}
+
+export type StderrTailSummary = StreamTailSummary;
+export type StdoutTailSummary = StreamTailSummary;
+
+const STDERR_TAIL_MAX_LINES = 20;
+export const STDERR_TAIL_MAX_BYTES = 4 * 1024;
+
+export function summarizeRunToolProgress(
+  events: RunEventForDiagnostics[] = [],
+): RunToolProgress {
+  // Pair normal events by id. Some degraded provider streams omit ids on both
+  // sides, so pair those by count rather than treating every result as global.
+  const outstandingToolUseIds = new Set<string>();
+  let idlessToolUses = 0;
+  let idlessToolResults = 0;
+  let toolCallSeen = false;
+
+  for (const event of events) {
+    if (event.event === 'start') {
+      outstandingToolUseIds.clear();
+      idlessToolUses = 0;
+      idlessToolResults = 0;
+      toolCallSeen = false;
+      continue;
+    }
+    const data = event.data && typeof event.data === 'object'
+      ? event.data as Record<string, unknown>
+      : {};
+    if (data.type === 'tool_use') {
+      toolCallSeen = true;
+      if (typeof data.id === 'string') outstandingToolUseIds.add(data.id);
+      else idlessToolUses += 1;
+    }
+    if (data.type === 'tool_result' && data.hostSynthesized !== true) {
+      if (typeof data.toolUseId === 'string') {
+        outstandingToolUseIds.delete(data.toolUseId);
+      } else {
+        idlessToolResults += 1;
+      }
+    }
+  }
+
+  const hasOutstandingTool =
+    outstandingToolUseIds.size > 0 ||
+    idlessToolResults < idlessToolUses;
+  return {
+    toolCallSeen,
+    toolResultSent: toolCallSeen && !hasOutstandingTool,
+    hasOutstandingTool,
+  };
+}
+
+function readStderrChunk(data: unknown): string | null {
+  if (typeof data === 'string') return data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.chunk === 'string') return obj.chunk;
+  if (typeof obj.text === 'string') return obj.text;
+  return null;
+}
+
+function readStdoutChunk(data: unknown): string | null {
+  if (typeof data === 'string') return data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.chunk === 'string') return obj.chunk;
+  if (typeof obj.text === 'string') return obj.text;
+  return null;
+}
+
+function countLines(text: string): number {
+  if (!text) return 0;
+  return text.split(/\r?\n/).filter((line) => line.length > 0).length;
+}
+
+export function stderrLineCountBucket(count: number): StderrLineCountBucket {
+  if (count <= 0) return 'none';
+  if (count <= 5) return '1_5';
+  if (count <= 20) return '6_20';
+  if (count <= 100) return '21_100';
+  return 'gt_100';
+}
+
+function truncateUtf8(value: string, maxBytes: number): {
+  value: string;
+  truncated: boolean;
+} {
+  const bytes = Buffer.byteLength(value, 'utf8');
+  if (bytes <= maxBytes) return { value, truncated: false };
+  let end = value.length;
+  while (end > 0 && Buffer.byteLength(value.slice(0, end), 'utf8') > maxBytes) {
+    end -= 1;
+  }
+  return { value: value.slice(0, end), truncated: true };
+}
+
+/**
+ * The one bound this repository puts on captured process output before it
+ * leaves the daemon: the last {@link STDERR_TAIL_MAX_LINES} lines, capped at
+ * {@link STDERR_TAIL_MAX_BYTES} UTF-8 bytes, with `redactSecrets` applied.
+ *
+ * Returns `undefined` for an empty stream so every caller renders nothing
+ * rather than an empty section.
+ */
+export function summarizeStreamTailText(streamText: string): StreamTailSummary | undefined {
+  const lineCount = countLines(streamText);
+  if (lineCount <= 0) return undefined;
+
+  const lines = streamText.trimEnd().split(/\r?\n/);
+  const tailLines = lines.slice(-STDERR_TAIL_MAX_LINES);
+  const lineTruncated = lines.length > tailLines.length;
+  const redacted = redactSecrets(tailLines.join('\n'));
+  const byteCapped = truncateUtf8(redacted, STDERR_TAIL_MAX_BYTES);
+
+  return {
+    tail: byteCapped.value,
+    lineCount,
+    truncated: lineTruncated || byteCapped.truncated,
+  };
+}
+
+/** Prefixed onto a tail whose earlier lines were dropped, so a reader knows the
+ *  card is showing an excerpt and that 「Export logs」 holds the whole thing. */
+export const STDERR_TAIL_TRUNCATION_MARKER = '[earlier stderr omitted]';
+
+/**
+ * The stderr a run-failure card is allowed to show: the same bounded, redacted
+ * tail the telemetry exporter uses, plus an explicit marker when earlier output
+ * was dropped.
+ *
+ * The card's copy promises the reader "the original error"; a failure whose
+ * `message` is the daemon's own generic sentence has that original only here.
+ * Bounding and redaction happen daemon-side so the text is already safe by the
+ * time it reaches the SSE stream, the persisted message, or any other consumer.
+ */
+export function failureCardStderrTail(streamText: string): string | undefined {
+  const summary = summarizeStreamTailText(streamText);
+  if (!summary || !summary.tail.trim()) return undefined;
+  return summary.truncated
+    ? `${STDERR_TAIL_TRUNCATION_MARKER}\n${summary.tail}`
+    : summary.tail;
+}
+
+/**
+ * Decorate a run's terminal `error` frame with the stderr that same run already
+ * emitted, so the single payload reaching both the live client and the
+ * persisted assistant message carries the original cause.
+ *
+ * Additive only: `message` / `error.code` are left exactly as the emitter wrote
+ * them, because those are what the failure classifiers and the card mapping
+ * read. Returns `data` untouched for any other event, for a run that wrote no
+ * stderr, and for a payload that already carries a tail.
+ */
+export function withFailureStderrTail(
+  event: string,
+  data: unknown,
+  stderrText: string,
+): unknown {
+  if (event !== 'error') return data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+  const payload = data as Record<string, unknown>;
+  if (typeof payload.stderrTail === 'string') return data;
+  const tail = failureCardStderrTail(stderrText);
+  if (!tail) return data;
+  return { ...payload, stderrTail: tail };
+}
+
+function collectStreamTailSummary(
+  events: RunEventForDiagnostics[] = [],
+  eventName: string,
+  readChunk: (data: unknown) => string | null,
+): StreamTailSummary | undefined {
+  let streamText = '';
+  for (const event of events) {
+    if (event.event !== eventName) continue;
+    const chunk = readChunk(event.data);
+    if (chunk) streamText += chunk;
+  }
+  return summarizeStreamTailText(streamText);
+}
+
+export function collectStderrTailSummary(
+  events: RunEventForDiagnostics[] = [],
+): StderrTailSummary | undefined {
+  return collectStreamTailSummary(events, 'stderr', readStderrChunk);
+}
+
+export function collectStdoutTailSummary(
+  events: RunEventForDiagnostics[] = [],
+): StdoutTailSummary | undefined {
+  return collectStreamTailSummary(events, 'stdout', readStdoutChunk);
+}
+
+export function summarizeRunDiagnosticsForAnalytics(args: {
+  events?: RunEventForDiagnostics[];
+  exitCode?: number | null;
+  signal?: string | null;
+  cancelRequested?: boolean;
+  streamErrorSeen?: boolean;
+  fatalRpcErrorSeen?: boolean;
+  emptyOutputFailure?: boolean;
+  firstTokenSeen?: boolean;
+  artifactWriteSeen?: boolean;
+}): RunDiagnosticsAnalytics {
+  const events = args.events ?? [];
+  const toolProgress = summarizeRunToolProgress(events);
+    let stderr = '';
+  let stdout = '';
+  let userVisibleOutputSeen = false;
+  let approvalRequested = false;
+  let artifactWriteSeen = args.artifactWriteSeen === true;
+  let recordedCloseReason: RunCloseReason | null = null;
+  let resumeAutoReseeded = false;
+  for (const event of events) {
+    if (event.event === 'stderr') {
+      const chunk = readStderrChunk(event.data);
+      if (chunk) stderr += chunk;
+    }
+    if (event.event === 'stdout') {
+      const chunk = readStdoutChunk(event.data);
+      if (chunk) {
+        stdout += chunk;
+        userVisibleOutputSeen = true;
+      }
+    }
+    const data = event.data && typeof event.data === 'object'
+      ? event.data as Record<string, unknown>
+      : {};
+    if (data.type === 'text_delta' || data.type === 'thinking_delta') {
+      const delta = typeof data.delta === 'string' ? data.delta : '';
+      if (delta.length > 0) userVisibleOutputSeen = true;
+    }
+    if (data.type === 'approval_request') {
+      approvalRequested = true;
+    }
+    if (event.event === 'diagnostic' && data.type === 'agent_resume_auto_reseed') {
+      resumeAutoReseeded = true;
+    }
+    if (
+      event.event === 'diagnostic' &&
+      data.type === 'native_session_recovery' &&
+      data.nativeSessionRecovery &&
+      typeof data.nativeSessionRecovery === 'object' &&
+      !Array.isArray(data.nativeSessionRecovery) &&
+      (data.nativeSessionRecovery as Record<string, unknown>).state === 'auto_reseeded'
+    ) {
+      resumeAutoReseeded = true;
+    }
+
+    if (data.type === 'artifact') artifactWriteSeen = true;
+    if (
+      event.event === 'diagnostic' &&
+      data.type === 'runtime_close' &&
+      typeof data.rpc_close_reason === 'string'
+    ) {
+      const reason = data.rpc_close_reason;
+      if (
+        reason === 'exit_0' ||
+        reason === 'exit_nonzero' ||
+        reason === 'signal' ||
+        reason === 'cancel_requested' ||
+        reason === 'stream_error' ||
+        reason === 'fatal_rpc_error' ||
+        reason === 'empty_output' ||
+        reason === 'unknown'
+      ) {
+        recordedCloseReason = reason;
+      }
+    }
+  }
+  const stderrLineCount = countLines(stderr);
+  const stdoutLineCount = countLines(stdout);
+  const hasErrorEvent = events.some((event) => event.event === 'error');
+  const stderrPresent = stderrLineCount > 0;
+  const stdoutPresent = stdoutLineCount > 0;
+
+  let diagnosticSource: RunDiagnosticSource = 'unknown';
+  if (hasErrorEvent) diagnosticSource = 'error_event';
+  else if (stderrPresent) diagnosticSource = 'stderr';
+  else if (args.signal) diagnosticSource = 'signal';
+  else if (typeof args.exitCode === 'number') diagnosticSource = 'exit_code';
+
+  let rpcCloseReason: RunCloseReason = 'unknown';
+  if (recordedCloseReason) rpcCloseReason = recordedCloseReason;
+  else if (args.cancelRequested === true) rpcCloseReason = 'cancel_requested';
+  else if (args.fatalRpcErrorSeen === true) rpcCloseReason = 'fatal_rpc_error';
+  else if (args.streamErrorSeen === true) rpcCloseReason = 'stream_error';
+  else if (args.emptyOutputFailure === true) rpcCloseReason = 'empty_output';
+  else if (args.signal) rpcCloseReason = 'signal';
+  else if (typeof args.exitCode === 'number') {
+    rpcCloseReason = args.exitCode === 0 ? 'exit_0' : 'exit_nonzero';
+  }
+
+  return {
+    diagnostic_source: diagnosticSource,
+    stderr_present: stderrPresent,
+    stderr_line_count_bucket: stderrLineCountBucket(stderrLineCount),
+    stdout_present: stdoutPresent,
+    stdout_line_count_bucket: stderrLineCountBucket(stdoutLineCount),
+    rpc_close_reason: rpcCloseReason,
+    first_token_seen: args.firstTokenSeen === true,
+    user_visible_output_seen: userVisibleOutputSeen,
+    tool_call_seen: toolProgress.toolCallSeen,
+    tool_result_sent: toolProgress.toolResultSent,
+    approval_requested: approvalRequested,
+    artifact_write_seen: artifactWriteSeen,
+    resume_auto_reseeded: resumeAutoReseeded,
+  };
+}

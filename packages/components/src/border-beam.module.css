@@ -1,0 +1,50 @@
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.beam {
+  position: relative;
+  border-radius: var(--radius-card, 16px);
+}
+
+.beam::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  box-sizing: border-box;
+  border: 1px solid var(--line-2, rgba(20, 17, 40, 0.14));
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+@supports (background: conic-gradient(from 0deg, transparent, #6c4bff)) and (mask-composite: exclude) {
+  .beam::before {
+    --angle: 0deg;
+    border: 0;
+    padding: 1.5px;
+    background:
+      conic-gradient(from var(--angle), transparent 0 70%, var(--violet, #6c4bff) 82%, var(--lime, #c4f542) 90%, transparent 100%),
+      linear-gradient(var(--line-2, rgba(20, 17, 40, 0.14)), var(--line-2, rgba(20, 17, 40, 0.14)));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: rotate-beam 5s linear infinite;
+  }
+}
+
+/* Without registered custom-property interpolation, 0deg and 360deg draw the
+   same border, leaving a static highlight instead of a partial animation. */
+@keyframes rotate-beam {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam::before {
+    animation: none;
+  }
+}

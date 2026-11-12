@@ -1,0 +1,29 @@
+keys,en,zh_CN
+LANGUAGE_NAME,English,简体中文
+MENU_CONTINUE,Continue,继续游戏
+MENU_NEW_GAME,New game,新游戏
+MENU_SETTINGS,Settings,设置
+MENU_QUIT_DESKTOP,Quit to desktop,退出到桌面
+MENU_PAUSED,Paused,已暂停
+MENU_RESUME,Resume,返回游戏
+MENU_QUIT_TITLE,Quit to title screen,返回标题画面
+SETTINGS_DISPLAY_MODE,Display mode,显示模式
+SETTINGS_WINDOWED,Windowed,窗口
+SETTINGS_FULLSCREEN,Fullscreen,全屏
+SETTINGS_LANGUAGE,Language,语言
+SETTINGS_LANGUAGE_SYSTEM,System language,跟随系统
+SETTINGS_VOLUME_MASTER,Master volume,总音量
+SETTINGS_VOLUME_MUSIC,Music volume,音乐音量
+SETTINGS_VOLUME_SFX,Sound effects volume,音效音量
+SETTINGS_CONTROLS,Controls,按键设置
+SETTINGS_KEYBOARD,Keyboard,键盘
+SETTINGS_GAMEPAD,Gamepad,手柄
+SETTINGS_PRESS_KEY,Press a key,请按下按键
+SETTINGS_PRESS_BUTTON,Press a button,请按下手柄按键
+SETTINGS_RESET_CONTROLS,Reset controls,恢复默认按键
+SETTINGS_BACK,Back,返回
+ACTION_MOVE_UP,Move up,向上移动
+ACTION_MOVE_DOWN,Move down,向下移动
+ACTION_MOVE_LEFT,Move left,向左移动
+ACTION_MOVE_RIGHT,Move right,向右移动
+GAME_HINT,"Move around, then press Esc or Start for the menu.",四处走走，按 Esc 或手柄 Start 键打开菜单。

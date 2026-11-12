@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/cozy-pastel",
+    "title":  "Cozy pastel",
+    "title_i18n":  {
+                       "en":  "Cozy pastel",
+                       "zh-CN":  "治愈粉彩"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Calm domestic spaces and gentle objects in warm, low-contrast pastel colors.",
+    "description_i18n":  {
+                             "en":  "Calm domestic spaces and gentle objects in warm, low-contrast pastel colors.",
+                             "zh-CN":  "以温暖、低对比的粉彩色调，表现安静的日常空间和柔和物件。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "illustration",
+                 "pastel"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Tea room corner",
+                         "title_i18n":  {
+                                            "zh-CN":  "茶室一角"
+                                        },
+                         "prompt":  "Generate a cozy tea room corner using the cozy-pastel art style, with a low wooden table, two cushions, a teapot and a sunlit plant. Keep the layout uncluttered and the mood calm.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 cozy-pastel 美术风格生成温馨茶室一角：低木桌、两个坐垫、茶壶和阳光下的植物。布局保持简洁，氛围平静。"
+                                         }
+                     },
+                     {
+                         "title":  "Garden tool icons",
+                         "title_i18n":  {
+                                            "zh-CN":  "园艺工具图标"
+                                        },
+                         "prompt":  "Create a matching garden tool icon set using the cozy-pastel art style: watering can, hand rake, seed tin and clay pot. Use matte surfaces and soft sage-and-rose accents.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 cozy-pastel 美术风格制作配套园艺工具图标：浇水壶、手耙、种子铁盒和陶盆。使用哑光材质与柔和的鼠尾草绿、灰玫瑰粉点色。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "cozy-pastel",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "illustration",
+                                              "pastel"
+                                          ],
+                               "prompt":  "Cozy game illustration in a warm pastel palette with rounded simplified forms, matte surfaces and softly textured fills. Gentle diffuse daylight, low-contrast shadows and generous calm negative space. Use cream as a grounding color with sage, dusty rose and pale blue accents. Make objects tactile and welcoming while preserving clear silhouettes.",
+                               "negativePrompt":  "harsh contrast, deep black shadows, neon colors, glossy chrome, photorealism, busy microtexture, dramatic spotlights, sharp threatening shapes, text, watermark",
+                               "palette":  [
+                                               "#F6EBDD",
+                                               "#E7CEBB",
+                                               "#DCAEB0",
+                                               "#B8C8AC",
+                                               "#9CB7B7",
+                                               "#B8C2D9",
+                                               "#A78E91",
+                                               "#6D7672"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Subtle colored contours or edge-defined shapes; no heavy black outline.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

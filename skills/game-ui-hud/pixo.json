@@ -1,0 +1,42 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-ui-hud",
+  "version": "0.1.0",
+  "title": "Game HUD, menus and input focus",
+  "title_i18n": {
+    "en": "Game HUD, menus and input focus",
+    "zh-CN": "游戏 HUD、菜单与输入焦点"
+  },
+  "description": "Build readable HUDs, pause and settings menus with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4 and Phaser 3.",
+  "description_i18n": {
+    "en": "Build readable HUDs, pause and settings menus with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4 and Phaser 3.",
+    "zh-CN": "为 Godot 4 与 Phaser 3 构建清晰的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "engines": ["godot", "unity", "phaser"],
+  "tags": ["game-development", "first-party", "openpixo", "godot", "unity", "phaser", "ui", "hud", "accessibility"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    {
+      "title": "Pause the sample platformer",
+      "title_i18n": { "zh-CN": "暂停示例平台跳跃游戏" },
+      "prompt": "Add a pause overlay to this sample platformer with Resume and Settings. Escape and controller Start should open it, the world should freeze, and all menu actions should work by keyboard or controller. Verify the game and inspect a screenshot.",
+      "prompt_i18n": { "zh-CN": "给这个示例平台跳跃游戏加入包含继续和设置的暂停遮罩。Escape 和手柄 Start 都能打开，世界暂停，所有菜单操作均支持键盘和手柄。验证游戏并检查截图。" }
+    },
+    {
+      "title": "Keep the coin HUD readable",
+      "title_i18n": { "zh-CN": "让金币 HUD 始终清晰" },
+      "prompt": "Move the existing coin counter into a screen-space HUD that stays fixed when the camera follows the player. Keep safe margins at narrow and wide window sizes and update it from the real collection event. Verify the build and preview.",
+      "prompt_i18n": { "zh-CN": "把现有金币计数器移到屏幕空间 HUD，让它在镜头跟随玩家时保持固定。窄窗口和宽窗口都保留安全边距，并由真实拾取事件更新。验证构建和预览。" }
+    },
+    {
+      "title": "Add a focused settings panel",
+      "title_i18n": { "zh-CN": "加入支持焦点导航的设置面板" },
+      "prompt": "Add a Master volume slider to the pause menu, show its current value, and save the choice across restarts. Make controller and keyboard focus visible and return focus to Settings when the panel closes. Check two pause/resume cycles and verify the game.",
+      "prompt_i18n": { "zh-CN": "在暂停菜单加入主音量滑块，显示当前数值并在重启后保留选择。让手柄和键盘焦点清晰可见，关闭面板时把焦点还给设置按钮。检查两次暂停和继续，再验证游戏。" }
+    }
+  ]
+}

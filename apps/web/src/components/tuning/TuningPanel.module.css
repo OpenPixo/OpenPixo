@@ -1,0 +1,150 @@
+/* 调参 (specs/current/openpixo-game-panel.md §4), shown in the 游戏 view's
+   bottom area. Dense on purpose: one line per parameter, so a group of a dozen
+   values fits in the space a few used to take. */
+.root { display: flex; flex-direction: column; gap: 8px; padding: 6px var(--shell-gutter) 12px; min-width: 0; }
+
+.header { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 28px; }
+.header h2 { flex-shrink: 0; margin: 0; color: var(--text-strong); font-size: 13px; font-weight: 600; line-height: 20px; }
+.headerHint {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status { flex-shrink: 0; margin: 0; color: var(--text-muted); font-size: 12px; line-height: 20px; white-space: nowrap; }
+.hint, .description { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+
+.groups { display: flex; flex-direction: column; gap: 8px; }
+.group { min-width: 0; border: 1px solid var(--line); border-radius: var(--shell-radius); overflow: hidden; }
+.groupTitle {
+  margin: 0;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* label | control | actions, on one 32px line. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(64px, 30%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 2px 4px 2px 10px;
+  transition: background-color 140ms var(--ease-out);
+}
+.row + .row { border-top: 1px solid var(--line); }
+.row:hover, .row:focus-within { background: var(--bg-fill-tertiary); transition-duration: 200ms; }
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+.row .slider {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 48px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  accent-color: var(--accent);
+  box-shadow: none;
+  cursor: pointer;
+}
+.row .number,
+.row .text {
+  height: 26px;
+  padding: 2px 6px;
+  font-size: 13px;
+  line-height: 20px;
+}
+.row .number { flex: none; width: 68px; min-width: 0; font-variant-numeric: tabular-nums; }
+.row .text { flex: 1 1 auto; width: auto; min-width: 0; max-width: 360px; }
+.row .toggle { flex: none; width: 16px; height: 16px; padding: 0; accent-color: var(--accent); cursor: pointer; }
+.row .color { flex: none; width: 36px; height: 24px; padding: 2px; cursor: pointer; }
+.row .alpha .number { width: 56px; }
+
+.alpha { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--text-muted); font-size: 12px; }
+.alphaLabel { white-space: nowrap; }
+.live {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font: 400 12px/18px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions { display: flex; align-items: center; gap: 0; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+
+/* Small flat icon actions (reset, open in code, reload): muted until the row is hovered. */
+:global(.app) .iconAction,
+.iconAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text-faint);
+  box-shadow: none;
+  text-decoration: none;
+  transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+.row:hover .iconAction,
+.row:focus-within .iconAction,
+.header .iconAction { color: var(--text-muted); }
+:global(.app) .iconAction:hover:not(:disabled),
+.iconAction:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-strong);
+  transition-duration: 200ms;
+}
+.iconAction:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.iconAction:disabled { opacity: 0.4; cursor: default; }
+
+.empty { padding: 8px 0 4px; max-width: 640px; }
+.empty h3 { margin: 0 0 8px; font-size: 13px; }
+.empty p { margin: 0 0 6px; font-size: 12px; line-height: 1.6; color: var(--text-muted); }
+.error { margin: 0; font-size: 13px; color: var(--danger); line-height: 1.5; }
+.playtest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .row, .iconAction { transition: none; }
+}

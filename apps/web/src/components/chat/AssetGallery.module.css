@@ -1,0 +1,233 @@
+/*
+ * 消息里那排本轮生成的图片。只消费 `--chat-*`(chat/AGENTS.md §2)。
+ * 棋盘格两色是新增的 `--chat-checker-a/b`,亮暗两个作用域都在 ChatRoot.module.css 里定义。
+ */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.head {
+  font-size: var(--chat-t-cap);
+  color: var(--chat-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+  max-width: 480px;
+}
+
+.single {
+  display: flex;
+}
+
+.tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: var(--chat-stroke) solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  background: var(--chat-bg);
+  cursor: zoom-in;
+  transition:
+    border-color var(--chat-dur-quick) var(--chat-ease-out),
+    transform var(--chat-dur-enter) var(--chat-ease-out);
+}
+.tile:hover {
+  border-color: var(--chat-border-strong);
+}
+.tile:active {
+  transform: scale(0.98);
+}
+.tile:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+.large {
+  width: auto;
+  height: 200px;
+  max-width: 320px;
+  aspect-ratio: auto;
+  min-width: 120px;
+}
+.large .media {
+  position: relative;
+  inset: auto;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+/* 文件没了:占同样大的地方,说清楚是哪个文件,不留破图 */
+.tile[data-failed] {
+  cursor: default;
+  background: var(--chat-bg-subtle);
+}
+.tile[data-failed]:active {
+  transform: none;
+}
+.large[data-failed] {
+  width: 200px;
+}
+.checker[hidden] {
+  display: none;
+}
+.missing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px;
+  color: var(--chat-text-muted);
+  font-size: var(--chat-t-cap);
+  line-height: 1.3;
+  text-align: center;
+}
+.missingName {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--chat-text);
+  font-family: var(--chat-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 棋盘底:透明的地方露出它;不透明的贴图把它整个盖住 */
+.checker {
+  position: absolute;
+  inset: 0;
+  background-color: var(--chat-checker-a);
+  background-image:
+    linear-gradient(45deg, var(--chat-checker-b) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--chat-checker-b) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--chat-checker-b) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--chat-checker-b) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+.media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+.media[hidden] {
+  display: none;
+}
+
+/* 像素画放大不糊 */
+.pixel {
+  image-rendering: pixelated;
+}
+.pixel image {
+  image-rendering: pixelated;
+}
+
+.badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: var(--chat-radius-pill);
+  background: var(--chat-overlay-glass);
+  color: var(--chat-overlay-glass-text);
+  font-size: 11px;
+  line-height: 16px;
+  pointer-events: none;
+}
+
+/* ── 大图浮层 ── */
+.viewer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewerHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.viewerTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewerMeta {
+  flex: none;
+  font-size: var(--chat-t-cap);
+  color: var(--chat-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewerBody {
+  padding-top: 4px;
+}
+
+.stage {
+  position: relative;
+  height: min(60vh, 520px);
+  overflow: hidden;
+  border: var(--chat-stroke) solid var(--chat-border);
+  border-radius: var(--chat-radius-lg);
+}
+
+.stageMedia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+.stageMedia[hidden] {
+  display: none;
+}
+
+.stageFailed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  color: var(--chat-text-muted);
+  font-size: var(--chat-t-body);
+  text-align: center;
+}
+
+.viewerFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nav,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

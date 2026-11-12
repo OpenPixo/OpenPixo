@@ -1,0 +1,79 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/painted-fantasy",
+    "title":  "Hand-painted fantasy",
+    "title_i18n":  {
+                       "en":  "Hand-painted fantasy",
+                       "zh-CN":  "手绘奇幻"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Warm brushwork and clear material shapes for story-rich fantasy worlds.",
+    "description_i18n":  {
+                             "en":  "Warm brushwork and clear material shapes for story-rich fantasy worlds.",
+                             "zh-CN":  "用温暖笔触与明确材质形体，构建富有故事感的奇幻世界。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "painterly"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Herbalist cottage",
+                         "title_i18n":  {
+                                            "zh-CN":  "草药师小屋"
+                                        },
+                         "prompt":  "Generate a small herbalist cottage concept using the painted-fantasy art style, with weathered green shutters, hanging herbs and warm window light. Keep the building readable as a game location.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 painted-fantasy 美术风格生成一间草药师小屋概念图：做旧的绿色百叶窗、悬挂草药、温暖窗光。确保建筑作为游戏地点时仍有清晰轮廓。"
+                                         }
+                     },
+                     {
+                         "title":  "Enchanted equipment",
+                         "title_i18n":  {
+                                            "zh-CN":  "附魔装备"
+                                        },
+                         "prompt":  "Create three matching equipment icons using the painted-fantasy art style: a copper lantern, a leaf-carved staff and a worn leather satchel. Share the same warm light and restrained magical glow.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 painted-fantasy 美术风格制作三枚配套装备图标：铜灯笼、刻叶纹的法杖和旧皮挎包。统一暖光，并让魔法辉光保持克制。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "painted-fantasy",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "painterly"
+                                          ],
+                               "prompt":  "Hand-painted fantasy game artwork with opaque brush shapes, textured color edges and carefully grouped values. Warm highlights against cool soft-edged shadows, readable stylized anatomy and distinct wood, stone, cloth and metal materials. Simplify detail toward the silhouette, preserve visible brushwork and use a restrained earthy palette with small luminous accents.",
+                               "negativePrompt":  "photographic realism, plastic surface, hard vector gradients, airbrushed gloss, over-detailed noise, muddy value grouping, oversaturated rainbow colors, text, signature, watermark",
+                               "palette":  [
+                                               "#263E42",
+                                               "#526B59",
+                                               "#8E9B68",
+                                               "#D5C592",
+                                               "#E6C58B",
+                                               "#AF744B",
+                                               "#714D53",
+                                               "#CCD9BE"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Painted edge definition without a uniform ink contour.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

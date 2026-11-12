@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/chibi-cute",
+    "title":  "Chibi cute",
+    "title_i18n":  {
+                       "en":  "Chibi cute",
+                       "zh-CN":  "Q 版可爱"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Rounded, tiny heroes and cheerful props with expressive faces and soft colors.",
+    "description_i18n":  {
+                             "en":  "Rounded, tiny heroes and cheerful props with expressive faces and soft colors.",
+                             "zh-CN":  "用圆润比例、鲜活表情和柔和色彩，塑造迷你英雄与可爱道具。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "illustration",
+                 "cartoon"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Tiny mushroom ranger",
+                         "title_i18n":  {
+                                            "zh-CN":  "蘑菇小巡林员"
+                                        },
+                         "prompt":  "Generate a friendly mushroom ranger mascot using the chibi-cute art style, with a rounded green cape, tiny boots and an oversized acorn pouch. Keep the face expressive and the pose readable.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 chibi-cute 美术风格生成友好的蘑菇巡林员吉祥物：圆润绿披风、小靴子和大橡果腰包。让面部表情鲜明，姿态清晰易读。"
+                                         }
+                     },
+                     {
+                         "title":  "Cozy quest rewards",
+                         "title_i18n":  {
+                                            "zh-CN":  "温馨任务奖励"
+                                        },
+                         "prompt":  "Create six matching quest reward icons using the chibi-cute art style: star cookie, ribbon medal, seed pouch, tiny watering can, heart gem and folded map. Use rounded silhouettes and soft highlights.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 chibi-cute 美术风格制作六枚配套任务奖励图标：星形饼干、缎带奖章、种子袋、小浇水壶、爱心宝石和折叠地图。使用圆润轮廓与柔和高光。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "chibi-cute",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "illustration",
+                                              "cartoon"
+                                          ],
+                               "prompt":  "Cute original chibi game artwork with a two-and-a-half-head body proportion, rounded hands and feet, simple expressive facial features and a large readable head silhouette. Soft candy colors from the shared palette, clean rounded contours, one gentle shadow shape and tiny controlled highlights. Keep accessories oversized enough to read without clutter.",
+                               "negativePrompt":  "realistic anatomy, sharp aggressive proportions, detailed skin pores, complex tiny ornament, heavy dark shading, harsh neon, glossy plastic render, text, watermark",
+                               "palette":  [
+                                               "#514455",
+                                               "#9A758C",
+                                               "#EAA3AC",
+                                               "#F5D6BD",
+                                               "#FFF0CF",
+                                               "#A4D3C1",
+                                               "#A6C6E4",
+                                               "#C4B1DD"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Soft rounded contour in a dark muted palette color.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

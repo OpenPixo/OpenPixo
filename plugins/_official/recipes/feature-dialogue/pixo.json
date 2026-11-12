@@ -1,0 +1,106 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-dialogue",
+  "title": "Dialogue system",
+  "title_i18n": {
+    "en": "Dialogue system",
+    "zh-CN": "对话系统"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Adds data-driven NPC dialogue with a typewriter text box, optional choices and flags, plus one sample conversation.",
+  "description_i18n": {
+    "en": "Adds data-driven NPC dialogue with a typewriter text box, optional choices and flags, plus one sample conversation.",
+    "zh-CN": "加入数据驱动的 NPC 对话：打字机效果文本框、可选分支与标记，并附一段示例对话。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "structure",
+          "label": "Structure",
+          "label_i18n": {
+            "zh-CN": "结构"
+          },
+          "type": "select",
+          "options": [
+            "linear conversations",
+            "branching choices that set and check flags"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "linear conversations": "线性对话",
+              "branching choices that set and check flags": "可设置和检查标记的分支选项"
+            }
+          },
+          "default": "branching choices that set and check flags"
+        },
+        {
+          "name": "presentation",
+          "label": "Presentation",
+          "label_i18n": {
+            "zh-CN": "呈现方式"
+          },
+          "type": "select",
+          "options": [
+            "bottom text box with speaker name and portrait slot",
+            "speech bubbles above characters"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "bottom text box with speaker name and portrait slot": "底部文本框，带说话人姓名和头像位",
+              "speech bubbles above characters": "角色头顶的对话气泡"
+            }
+          },
+          "default": "bottom text box with speaker name and portrait slot"
+        },
+        {
+          "name": "sample",
+          "label": "Sample conversation to write",
+          "label_i18n": {
+            "zh-CN": "要写的示例对话"
+          },
+          "type": "text",
+          "default": "a gatekeeper who lets the player through only after they have found the key",
+          "default_i18n": {
+            "zh-CN": "一位守门人，只有玩家找到钥匙后才放行"
+          }
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add a dialogue system to this {{engine.id}} game. Structure: {{structure}}. Presentation: {{presentation}}.\n\nRequirements:\n- Conversations are data files (JSON under a `dialogue/` folder): nodes with `id`, `speaker`, `text`, optional `choices` (`text`, `next`, optional `requires` and `sets` flags) and an end marker. Writers must be able to edit them without touching code. If the project already has localization, store text keys instead of literal text.\n- A dialogue runner with no UI code walks the graph, evaluates flags and validates that every `next` points to an existing node, reporting broken links at load time.\n- UI: typewriter reveal that completes instantly on the advance input, then advances on the next press; choices selectable with keyboard, mouse and gamepad; player movement paused while dialogue is open.\n- Starting a conversation: an interact action near an NPC (Godot: an `Area2D` on the NPC; Phaser: a distance or overlap check), with a small prompt shown when in range.\n- Godot: a `DialogueManager` autoload and a `CanvasLayer` UI scene. Phaser: a `DialogueScene` launched on top of the game scene with `scene.launch`, pausing game input while open.\n- Write and wire in one sample conversation: {{sample}}.\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

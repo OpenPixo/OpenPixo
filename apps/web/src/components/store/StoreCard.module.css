@@ -1,0 +1,72 @@
+/* Workshop item card: cover art, copy, price and the one action that fits. */
+.slot { min-width: 0; list-style: none; }
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--line), var(--sh-1);
+  transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+.card:hover, .card:focus-within {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 1px var(--line-2), var(--sh-3);
+  transition-duration: 200ms;
+}
+.card:hover .cover > *, .card:focus-within .cover > * { transform: scale(1.05); transition-duration: 200ms; }
+
+.cover { flex: none; }
+.card[data-size='default'] .cover { aspect-ratio: 16 / 9; }
+
+.body { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 14px 16px 16px; min-width: 0; }
+.card[data-size='feature'] .body { padding: 16px 18px 18px; }
+
+.kind { color: var(--faint); font: 500 11px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+
+.titleRow { margin: 0; font: inherit; }
+.title {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  color: var(--ink);
+  background: transparent;
+  font: 600 15px/1.35 var(--sans);
+  letter-spacing: -.012em;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.card[data-size='feature'] .title { font-size: 17px; }
+/* Stretched target: the whole card opens the item; the action button sits above it. */
+.title::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: var(--radius-card); }
+.title:focus-visible { outline: none; }
+.title:focus-visible::after { outline: 2px solid var(--violet); outline-offset: -2px; }
+
+.description {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.footer { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; min-width: 0; }
+.engines { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
+.engines > span { padding: 2px 6px; font-size: 11px; letter-spacing: .03em; }
+.action { position: relative; z-index: 2; flex: none; height: 30px; margin-left: auto; padding: 0 14px; border-radius: 8px; font-size: 13.5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .card:hover, .card:focus-within { transform: none; transition: box-shadow 140ms var(--ease-out); }
+  .card:hover .cover > *, .card:focus-within .cover > * { transform: none; }
+}

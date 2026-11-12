@@ -1,0 +1,39 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sfx-and-music-integration",
+  "version": "0.1.0",
+  "title": "SFX and music integration",
+  "title_i18n": { "en": "SFX and music integration", "zh-CN": "音效与音乐接入" },
+  "description": "Wire existing game audio with voice limits, variation, separate mix preferences, music ducking, clean loops and browser unlock handling.",
+  "description_i18n": {
+    "en": "Wire existing game audio with voice limits, variation, separate mix preferences, music ducking, clean loops and browser unlock handling.",
+    "zh-CN": "接入已有游戏音频，处理声部上限、音色变化、独立混音偏好、音乐闪避、循环接缝与浏览器解锁。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "engines": ["godot", "unity", "phaser"],
+  "tags": ["game-development", "audio", "godot", "unity", "phaser", "first-party", "openpixo"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    {
+      "title": "Improve the platformer's sound effects",
+      "title_i18n": { "zh-CN": "改进平台跳跃游戏的音效" },
+      "prompt": "Reuse the Phaser sample platformer's jump.wav and coin.wav. Add bounded jump pitch variation, an SFX volume control that survives scene restarts, and a voice limit for rapid pickups; verify the build and test browser audio unlock.",
+      "prompt_i18n": { "zh-CN": "复用 Phaser 平台跳跃示例的 jump.wav 和 coin.wav，加入有限的跳跃音高变化、场景重启后保留的音效音量控制，以及快速拾取时的声部上限；验证构建并测试浏览器音频解锁。" }
+    },
+    {
+      "title": "Duck Godot music under effects",
+      "title_i18n": { "zh-CN": "让 Godot 音乐为音效闪避" },
+      "prompt": "Route this Godot project's existing music and effects through Music and SFX buses. Add gentle SFX-sidechain music ducking, keep saved volume and mute independent, then verify and listen through overlapping effects and pause/resume.",
+      "prompt_i18n": { "zh-CN": "将这个 Godot 项目已有的音乐和音效路由到 Music 与 SFX 总线，加入温和的 SFX 侧链音乐闪避，保持已保存的音量与静音独立，然后验证并试听音效叠加和暂停恢复。" }
+    },
+    {
+      "title": "Repair an ambience loop",
+      "title_i18n": { "zh-CN": "修复环境音循环" },
+      "prompt": "Inspect the selected ambience recording, make a new loop-ready copy with a 60ms crossfade using pixo asset audio loop, preserve the original, enable looping in the current engine, and listen across two loop boundaries before reporting the result.",
+      "prompt_i18n": { "zh-CN": "检查选中的环境音录音，用 pixo asset audio loop 制作带 60 毫秒交叉淡化的循环副本，保留原文件，在当前引擎启用循环，并在试听两个循环接点后报告结果。" }
+    }
+  ]
+}

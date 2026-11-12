@@ -1,0 +1,157 @@
+/* ============================================================
+   Integrations route — entry-shell tabbed workspace
+   ============================================================ */
+
+.integrations-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.integrations-view__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 2px;
+}
+
+.integrations-view__kicker {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-strong, var(--accent));
+}
+
+.integrations-view__lede {
+  margin: 8px 0 0;
+  max-width: 660px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.integrations-view__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 13px;
+  box-shadow: var(--shadow-xs);
+  white-space: nowrap;
+}
+
+.integrations-view__badge svg {
+  color: var(--accent);
+}
+
+.integrations-view__tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.integrations-view__tab {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+
+.integrations-view__tab:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.integrations-view__tab.is-active {
+  background: var(--accent-tint);
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  color: var(--accent-strong, var(--accent));
+}
+
+.integrations-view__tab-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.integrations-view__tab.is-active .integrations-view__tab-label {
+  color: var(--accent-strong, var(--accent));
+}
+
+.integrations-view__tab-hint {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.integrations-view__panel {
+  min-width: 0;
+}
+
+.integrations-view__panel > .settings-section {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.integrations-view__panel .settings-section > .section-head:first-child {
+  margin-bottom: 2px;
+}
+
+.integrations-view__use-everywhere {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--shadow-xs);
+}
+
+.integrations-view__use-everywhere .use-everywhere-modal__tabs {
+  padding: 12px 18px 0;
+}
+
+.integrations-view__use-everywhere .use-everywhere-modal__body {
+  max-height: none;
+  padding: 18px;
+}
+
+.integrations-view__use-everywhere .use-everywhere-modal__foot {
+  padding: 14px 18px;
+}
+
+@media (max-width: 760px) {
+  .integrations-view__hero {
+    flex-direction: column;
+  }
+
+  .integrations-view__tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

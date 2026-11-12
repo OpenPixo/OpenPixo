@@ -1,0 +1,79 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/ink-woodcut",
+    "title":  "Ink \u0026 woodcut",
+    "title_i18n":  {
+                       "en":  "Ink \u0026 woodcut",
+                       "zh-CN":  "墨线与木刻"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Carved contours and expressive hatching for tactile folklore-inspired game art.",
+    "description_i18n":  {
+                             "en":  "Carved contours and expressive hatching for tactile folklore-inspired game art.",
+                             "zh-CN":  "以雕刻般的轮廓和富有表现力的排线，呈现质感鲜明的民间传说游戏美术。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "ink",
+                 "woodcut"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Forest guardian emblem",
+                         "title_i18n":  {
+                                            "zh-CN":  "森林守护者徽记"
+                                        },
+                         "prompt":  "Generate an original forest guardian emblem using the ink-woodcut art style: an antlered tree spirit framed by oak leaves. Keep the silhouette bold and use only one muted red accent.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 ink-woodcut 美术风格生成原创森林守护者徽记：一位长鹿角的树灵，周围环绕橡树叶。轮廓保持醒目，仅使用一处暗红点色。"
+                                         }
+                     },
+                     {
+                         "title":  "Folklore item cards",
+                         "title_i18n":  {
+                                            "zh-CN":  "民间传说道具卡面"
+                                        },
+                         "prompt":  "Create three matching item illustrations using the ink-woodcut art style: a carved wooden flute, a knotted rope charm and a lantern with leaf cutouts. Leave clean space around each object without lettering.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 ink-woodcut 美术风格制作三张配套道具插画：雕花木笛、绳结护符和镂空叶纹灯笼。每件物品周围保留干净空间，不添加文字。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "ink-woodcut",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "ink",
+                                              "woodcut"
+                                          ],
+                               "prompt":  "Ink-and-woodcut game illustration with strong carved silhouettes, uneven hand-cut contours and directional hatch marks that follow the form. Dark ink on warm paper tones with a restrained muted red accent. Group shadows into bold connected masses, preserve small open highlights and use visible print-grain texture sparingly so the subject remains readable.",
+                               "negativePrompt":  "photorealism, glossy 3D, smooth airbrushed shading, soft gradients, rainbow color, delicate hairline clutter, clean corporate vector finish, text, signature, watermark",
+                               "palette":  [
+                                               "#242B2B",
+                                               "#51544A",
+                                               "#8E8A70",
+                                               "#C8BDA0",
+                                               "#F0E3C7",
+                                               "#A64B41"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Carved uneven dark contours with directional hatch marks.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

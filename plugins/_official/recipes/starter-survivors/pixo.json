@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-survivors",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a lantern keeper holding back forest spirits",
+          "default_i18n": {
+            "zh-CN": "一位抵挡森林精灵的守灯人"
+          }
+        },
+        {
+          "name": "duration",
+          "label": "Run length",
+          "label_i18n": {
+            "zh-CN": "单局长度"
+          },
+          "type": "select",
+          "default": "three-minute survival",
+          "options": [
+            "three-minute survival",
+            "five-minute survival"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "three-minute survival": "生存三分钟",
+              "five-minute survival": "生存五分钟"
+            }
+          }
+        }
+      ],
+      "engines": [
+        "godot",
+        "phaser"
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable survivors auto-attack game. Theme: {{theme}}. Run length: {{duration}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- The player moves with WASD/arrows while weapons auto-attack the nearest live enemy in range on cooldown. Begin with one projectile weapon and include an unlockable orbit or area weapon. No manual firing is required. Show HP, XP/level, elapsed survival time, kills and controls.\n- Keep enemy archetypes, weapon stats, XP thresholds, upgrade definitions and horde schedule in data with stable ids. At least three enemy archetypes enter from arena edges; count, speed and toughness escalate by elapsed active run time. Clamp spawn rate and active counts so the run remains responsive.\n- Kills drop XP gems. Pickup radius collects each gem once; carry XP overflow across thresholds. Pause simulation when leveling and offer exactly three distinct eligible upgrades with mouse-clickable cards. Include at least six upgrade definitions, with capped/repeatable fallbacks so three choices remain possible. Apply one choice once, then handle any queued levels before resuming.\n- Use bounded, prewarmed enemy and projectile pools, plus recycled gem views. On reuse reset HP, velocity, collision, flash/knockback, timers and target state. Reuse signal/overlap handlers instead of reconnecting each spawn. Reaching a pool cap defers or skips a spawn safely. Use coarse spatial buckets or a bounded target scan, without sorting/allocating the full horde every frame.\n- Freeze the horde, weapons and survival clock during upgrade/pause overlays while UI remains interactive. Survive the selected duration to win; zero HP loses. Results show kills, level and time with a clickable restart that resets every pool, timer and upgrade.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Use CharacterBody2D player, pooled enemy scene instances and Area2D projectiles/gems. Keep model/data under game/ and UI under a CanvasLayer. Set upgrade UI to process while the scene tree is paused; do not let pooled inactive bodies keep collisions enabled.\n\nGenre-specific Phaser implementation: Use Arcade groups with maxSize for enemies/projectiles, prewarm them, and enable/reset or disable bodies on acquire/recycle. Pause simulation/physics timers without pausing the upgrade overlay scene. Keep plain run/upgrade logic in src/survivors/ and define weapons/enemies/upgrades in typed data modules.\n\nRules checks:\n- XP collected twice awards once; overflow queues the right number of levels; each offer has three unique eligible choices and a double click applies one upgrade.\n- A recycled enemy restores HP/collision/velocity and cannot award a second kill; all pool caps and escalation intervals remain bounded.\n- An injected active clock does not advance during upgrade pause; timeout wins, lethal damage loses, and restart clears pools and queued levels.\n\nPlaytest hints: Move with WASD/arrows and let auto-attacks kill enemies. Walk over XP gems, then use a mouse click on one of the three upgrade cards. Confirm the horde freezes while the menu is open and resumes after selection. Use short deterministic check fixtures for late-run pressure, then click Restart after a result; capture combat, XP and the upgrade overlay.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  },
+  "title": "Survivors starter",
+  "title_i18n": {
+    "en": "Survivors starter",
+    "zh-CN": "幸存者玩法起步"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:40:36Z",
+  "description": "Builds a Godot 2D or Phaser survivors loop with auto-attacks, XP gems, three-choice upgrades and pooled escalating hordes.",
+  "description_i18n": {
+    "en": "Builds a Godot 2D or Phaser survivors loop with auto-attacks, XP gems, three-choice upgrades and pooled escalating hordes.",
+    "zh-CN": "在 Godot 2D 或 Phaser 中构建幸存者循环：自动攻击、经验宝石、三选一升级和对象池驱动的递增敌潮。"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ]
+}

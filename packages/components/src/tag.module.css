@@ -1,0 +1,12 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--ink-2, #3b3757);
+  background: var(--bg-subtle, #f4f3f8);
+  font: 500 11px/1.5 var(--mono, 'Geist Mono', ui-monospace, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

@@ -1,0 +1,450 @@
+/* Slash-command popover in the chat composer */
+
+/* Slash-command popover — FLOATING (positioned by CaretFloatingLayer). */
+.slash-popover {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: var(--cfl-max-h, 320px);
+  overflow: hidden;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+  /* removed: position, bottom, left, right, margin-bottom, fixed max-height, z-index */
+}
+.slash-popover-head {
+  /* Never a shrink target: the head is a flex child of a height-capped
+     column, so without this a long list squeezes the "COMMANDS" strip. */
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 7px 7px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.slash-popover-hint {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+/* The rows' own scroll port. Command rows must NOT be direct flex children of
+   `.slash-popover`: that column is height-capped (`--cfl-max-h`), so flexbox
+   answers an overflowing list by shrinking every row down to its
+   `min-height` floor, and each row's second line (the description) spills out
+   of its own box onto its neighbours. Inside this block-level scroller the
+   rows keep their natural height and the overflow scrolls instead.
+   `min-height: 0` is what lets the scroller shrink below its content inside
+   the flex column — without it there is nothing to scroll. */
+.slash-popover-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-block: 6px;
+}
+.slash-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 8px 9px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  min-height: 34px;
+  /* Override the global `button { height: 36px }` (styles/primitives.css) so a
+     two-line row can grow. Without this the row is pinned at 36px while its
+     command line + description need 54px, and the description paints outside
+     the row box onto the row below -- measured at 9px of overflow in Chrome
+     151. Same primitive that centers these chips' flex line elsewhere. */
+  height: auto;
+  transition: background-color 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.slash-item:hover { background: var(--bg-subtle); }
+.slash-item.active,
+.slash-item[aria-selected='true'] {
+  background: var(--accent-tint);
+  border-color: var(--accent-soft);
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+.slash-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.slash-item-body { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.slash-item-row { display: flex; align-items: baseline; gap: 8px; }
+.slash-item-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  background: transparent;
+  padding: 0;
+}
+.slash-item-arg {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+.slash-item-desc { font-size: 13px; color: var(--text-muted); line-height: 1.35; }
+
+/* ============================================================
+   Quick Switcher (Cmd/Ctrl+P file palette)
+   ============================================================ */
+.qs-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim-tint);
+  -webkit-backdrop-filter: var(--scrim-backdrop);
+  backdrop-filter: var(--scrim-backdrop);
+  /* Sits in the modal tier so the palette renders above any open context
+   * menus or popovers. */
+  z-index: 1500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+.qs-palette {
+  width: min(560px, 92vw);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text);
+}
+.qs-input {
+  appearance: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border-soft);
+}
+.qs-input::placeholder {
+  color: var(--text-faint);
+}
+.qs-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.qs-empty {
+  padding: 20px 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 14px;
+}
+.qs-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 16px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+.qs-row-active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+.qs-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qs-path {
+  color: var(--text-muted);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.qs-kind {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.qs-row-active .qs-kind {
+  color: var(--accent-strong);
+}
+.qs-footer {
+  display: flex;
+  gap: 14px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.qs-footer kbd {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-right: 2px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Skills management */
+
+.library-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+/* Skills toolbar: two-row layout.
+   Row 1: search (grows) + New skill button (right, 12px gap).
+   Row 2: filter dropdowns with inline labels. */
+.library-toolbar.skills-toolbar {
+  flex-direction: column;
+  gap: 10px;
+}
+.skills-toolbar-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.skills-toolbar-top .library-search {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.library-search {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--bg-panel);
+  color: var(--text);
+  outline: none;
+  box-shadow: var(--shadow-xs);
+  cursor: text;
+  transition: border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out), background 120ms var(--ease-out);
+}
+
+.library-search:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+}
+
+.library-search:focus {
+  border-color: var(--selected);
+  box-shadow: var(--shadow-xs);
+}
+
+/*
+ * Compact dropdown row for Skills "Type" + "Category" filters.
+ * Pills don't scale once the option set crosses ~10 entries (Skills'
+ * Category list has 14 today and is growing); they wrap to 2-3 rows
+ * and push the actual cards far below the fold. A labelled <select>
+ * each keeps the same filter affordances in a single fixed-height
+ * row. Source filter (3 options total) keeps its pill row above
+ * because pills are still cheaper for a one-click toggle.
+ */
+.library-filter-selects {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.library-filter-select {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.library-filter-select-label {
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.library-filter-select select {
+  padding: 5px 28px 5px 10px;
+  font-size: 13px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  min-width: 100px;
+  max-width: 180px;
+  cursor: pointer;
+}
+
+.library-filter-select select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+/* Active = something other than "All" is selected. The darker border
+   tells the user at a glance that a filter is in effect, without
+   relying on the user remembering what the dropdown's idle state
+   looked like. */
+.library-filter-select select[data-active='true'] {
+  border-color: var(--text);
+  background-color: var(--bg-subtle);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.library-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.library-import-form {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  display: grid;
+  gap: 10px;
+}
+.library-import-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.library-import-row label,
+.library-import-block {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.library-import-row input,
+.library-import-block input,
+.library-import-block textarea {
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 9px;
+  font-family: inherit;
+  resize: vertical;
+}
+.library-import-block textarea {
+  min-height: 60px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.library-import-error {
+  color: #ef4444;
+  font-size: 13px;
+}
+.library-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.library-preview-body {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.library-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  /* Tinted fill so the empty state reads as its own slot inside the
+     card. Without it the message floats in the same white as the card
+     itself and looks like a layout gap rather than an intentional
+     "you have nothing here yet" panel. */
+  padding: 28px 24px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.instructions-field-block {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+}
+
+.instructions-field-block {
+  padding: 12px;
+}
+
+.instructions-block-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.instructions-block-head h4 {
+  margin: 0 0 3px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.instructions-block-head .hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.instructions-input {
+  min-height: 78px;
+  margin-top: 10px;
+  resize: vertical;
+}
+
+.instructions-rules-card .instructions-block-head {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.instructions-rules-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}

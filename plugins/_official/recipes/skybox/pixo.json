@@ -1,0 +1,152 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/skybox",
+  "title": "Equirectangular skybox",
+  "title_i18n": {
+    "en": "Equirectangular skybox",
+    "zh-CN": "全景天空盒"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "A 360-degree equirectangular sky panorama resized to 2048x1024 for a sky sphere or panorama sky material.",
+  "description_i18n": {
+    "en": "A 360-degree equirectangular sky panorama resized to 2048x1024 for a sky sphere or panorama sky material.",
+    "zh-CN": "360 度等距柱状天空全景，缩放到 2048x1024，用于天空球或全景天空材质。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "background"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "background",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "scene",
+          "label": "Sky",
+          "label_i18n": {
+            "zh-CN": "天空"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "scattered clouds over a calm ocean",
+          "placeholder_i18n": {
+            "zh-CN": "平静海面上空的疏云"
+          }
+        },
+        {
+          "name": "timeOfDay",
+          "label": "Time of day",
+          "label_i18n": {
+            "zh-CN": "时段"
+          },
+          "type": "select",
+          "options": [
+            "dawn",
+            "midday",
+            "sunset",
+            "night with stars"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "dawn": "黎明",
+              "midday": "正午",
+              "sunset": "日落",
+              "night with stars": "星夜"
+            }
+          },
+          "default": "midday"
+        },
+        {
+          "name": "style",
+          "label": "Style",
+          "label_i18n": {
+            "zh-CN": "风格"
+          },
+          "type": "select",
+          "options": [
+            "realistic",
+            "stylized painterly",
+            "low-poly"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "realistic": "写实",
+              "stylized painterly": "风格化绘画",
+              "low-poly": "低多边形"
+            }
+          },
+          "default": "stylized painterly"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "sky_ocean_day"
+        }
+      ],
+      "prompt": "360-degree equirectangular panorama for a game skybox: {{scene}}, {{timeOfDay}}. Equirectangular projection: the horizon is a straight, level line exactly across the vertical middle, the top edge is the zenith and the bottom edge is the nadir, and the left and right edges join seamlessly. Sky and distant scenery only, with nothing close to the camera that would distort near the poles. Smooth gradients and soft natural clouds. Style: {{style}}.",
+      "negative": "text, watermark, logo, border, frame, people, foreground objects, buildings close to the camera, fisheye circle, tilted horizon, curved horizon, visible seam, lens flare, vignette, split screen, multiple panels",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "flux-pro-ultra"
+        ],
+        "fallback": [
+          "gemini-3-pro-image-preview",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "16:9"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": 2048,
+            "height": 1024
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "dimensions",
+          "params": {
+            "width": 2048,
+            "height": 1024
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.textureRoot}}/sky",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+/* Online features in the Share dialog's Play together side (specs/current/online-features.md). */
+.online {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.heading {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.presetLabel {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.usage,
+.local {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.address {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}

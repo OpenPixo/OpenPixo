@@ -1,0 +1,170 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/tileset-seamless",
+  "title": "Seamless tile texture",
+  "title_i18n": {
+    "en": "Seamless tile texture",
+    "zh-CN": "无缝地砖贴图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "A tileable ground or wall texture (grass, stone, sand, floorboards) that wraps on all four edges, resized to tile size and checked for seams.",
+  "description_i18n": {
+    "en": "A tileable ground or wall texture (grass, stone, sand, floorboards) that wraps on all four edges, resized to tile size and checked for seams.",
+    "zh-CN": "四边可无缝拼接的地面或墙面贴图（草地、石板、沙地、木地板），缩放到瓦片尺寸并检查接缝。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "tileset"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "tileset",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "material",
+          "label": "Surface",
+          "label_i18n": {
+            "zh-CN": "表面"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "mossy cobblestone",
+          "placeholder_i18n": {
+            "zh-CN": "长满青苔的鹅卵石"
+          }
+        },
+        {
+          "name": "view",
+          "label": "View",
+          "label_i18n": {
+            "zh-CN": "视角"
+          },
+          "type": "select",
+          "options": [
+            "top-down",
+            "side-view wall or platform fill"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "top-down": "俯视",
+              "side-view wall or platform fill": "侧视墙面或平台填充"
+            }
+          },
+          "default": "top-down"
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "pixel art",
+            "hand-painted",
+            "stylized realistic"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "pixel art": "像素风",
+              "hand-painted": "手绘",
+              "stylized realistic": "风格化写实"
+            }
+          },
+          "default": "pixel art"
+        },
+        {
+          "name": "tileSize",
+          "label": "Tile size (px)",
+          "label_i18n": {
+            "zh-CN": "图块尺寸（像素）"
+          },
+          "type": "select",
+          "options": [
+            "32",
+            "64",
+            "128",
+            "256",
+            "512"
+          ],
+          "default": "128"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "grass_a"
+        }
+      ],
+      "prompt": "A single seamless, tileable game texture of {{material}}, {{view}} orthographic view, filling the whole image edge to edge. The pattern wraps perfectly: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. Detail is spread evenly with no focal point, no single large feature and no vignette, so repetition is not obvious when tiled. Flat, diffuse, shadowless lighting from directly above. Consistent texel density. Style: {{style}}.",
+      "negative": "text, watermark, logo, border, frame, vignette, perspective, horizon, sky, visible seam, lighting gradient, hotspot, large unique landmark, objects cut off at the edge, characters, scene composition",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "flux-pro-ultra"
+        ],
+        "fallback": [
+          "gemini-3-pro-image-preview",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 4,
+          "max": 8
+        },
+        "aspect": "1:1"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": "{{tileSize}}",
+            "height": "{{tileSize}}"
+          }
+        },
+        {
+          "op": "seamless-check"
+        }
+      ],
+      "checks": [
+        {
+          "check": "seamless"
+        },
+        {
+          "check": "dimensions",
+          "params": {
+            "width": "{{tileSize}}",
+            "height": "{{tileSize}}"
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.textureRoot}}/tiles",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

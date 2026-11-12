@@ -1,0 +1,120 @@
+/* Composer setting chips (reasoning effort, approval mode) and their menu. */
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chip:hover:not(:disabled),
+.chip[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+}
+
+.chip:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.value {
+  font-weight: 500;
+}
+
+.leading {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.menu {
+  z-index: var(--z-menu);
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 16%);
+  animation: enter 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px 8px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+  min-height: 34px;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  white-space: normal;
+}
+
+.row[aria-checked='true'] {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  font-weight: 500;
+}
+
+.description {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.check {
+  flex: none;
+  align-self: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu { animation: none; }
+}

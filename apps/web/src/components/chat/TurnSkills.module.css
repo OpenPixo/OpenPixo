@@ -1,0 +1,18 @@
+/* 消息开头那一行「这一轮用了 ××」。只消费 --chat-*(chat/AGENTS.md §2)。 */
+.line {
+  margin: 0 0 6px;
+  color: var(--chat-text-soft);
+  font-size: var(--chat-t-mini);
+  line-height: 1.5;
+}
+
+/* 一段连续的文字:名字长的时候接着折行,不整段掉到第二行 */
+.icon {
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+.names {
+  margin-left: 6px;
+  color: var(--chat-text-strong);
+}

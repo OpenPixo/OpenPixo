@@ -1,0 +1,163 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/npc-voice-lines",
+  "title": "NPC voice line",
+  "title_i18n": {
+    "en": "NPC voice line",
+    "zh-CN": "NPC 配音"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Text-to-speech takes of one dialogue line in a chosen voice, trimmed and loudness-normalized. Script a whole cast by running it once per line.",
+  "description_i18n": {
+    "en": "Text-to-speech takes of one dialogue line in a chosen voice, trimmed and loudness-normalized. Script a whole cast by running it once per line.",
+    "zh-CN": "用选定音色为一句台词生成多个配音版本，裁掉静音并做响度规整。整份台词表可逐行批量运行。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "audio",
+    "voice"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "audio",
+      "category": "voice",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "line",
+          "label": "Line to speak (spoken verbatim)",
+          "label_i18n": {
+            "zh-CN": "台词（逐字朗读）"
+          },
+          "type": "text",
+          "required": true,
+          "placeholder": "Halt! The bridge is closed after dark.",
+          "placeholder_i18n": {
+            "zh-CN": "站住！天黑后这座桥就封了。"
+          }
+        },
+        {
+          "name": "voice",
+          "label": "Voice id (from your TTS provider)",
+          "label_i18n": {
+            "zh-CN": "声音 ID（来自你的 TTS 服务商）"
+          },
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "language",
+          "label": "Language hint (optional)",
+          "label_i18n": {
+            "zh-CN": "语言提示（可选）"
+          },
+          "type": "string"
+        },
+        {
+          "name": "lufs",
+          "label": "Loudness target (LUFS)",
+          "label_i18n": {
+            "zh-CN": "目标响度（LUFS）"
+          },
+          "type": "select",
+          "options": [
+            "-16",
+            "-18",
+            "-20",
+            "-23"
+          ],
+          "default": "-18"
+        },
+        {
+          "name": "format",
+          "label": "Format",
+          "label_i18n": {
+            "zh-CN": "格式"
+          },
+          "type": "select",
+          "options": [
+            "ogg",
+            "wav"
+          ],
+          "default": "ogg"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "guard_bridge_01"
+        }
+      ],
+      "prompt": "{{line}}",
+      "models": {
+        "requires": [
+          "tts"
+        ],
+        "recommended": [
+          "elevenlabs-v3",
+          "minimax-tts"
+        ],
+        "fallback": [
+          "fish-speech-2",
+          "gpt-4o-mini-tts",
+          "senseaudio-tts",
+          "doubao-tts"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        }
+      },
+      "postprocess": [
+        {
+          "op": "audio-trim",
+          "params": {
+            "silenceThreshold": -50
+          }
+        },
+        {
+          "op": "audio-normalize",
+          "params": {
+            "lufs": "{{lufs}}"
+          }
+        },
+        {
+          "op": "audio-convert",
+          "params": {
+            "format": "{{format}}"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "loudness-range",
+          "params": {
+            "minLufs": -24,
+            "maxLufs": -15
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.audioRoot}}/voice",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

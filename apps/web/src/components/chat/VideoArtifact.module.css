@@ -1,0 +1,73 @@
+/* 消息里的视频。只消费 --chat-*(chat/AGENTS.md §2)。 */
+.video {
+  width: 406px;
+  max-width: 100%;
+  margin: 0;
+}
+.video + .video {
+  margin-top: 8px;
+}
+
+.stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--chat-radius);
+  background: var(--chat-bg-subtle);
+}
+
+.player {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--chat-overlay-glass);
+  object-fit: contain;
+}
+
+.failed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  color: var(--chat-text-muted);
+  font-size: var(--chat-t-mini);
+  text-align: center;
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  margin-top: 2px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--chat-text-muted);
+  font-family: var(--chat-font-mono);
+  font-size: var(--chat-t-cap);
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.name {
+  cursor: pointer;
+}
+button.name:hover {
+  color: var(--chat-text-strong);
+  text-decoration: underline;
+}
+
+.caption .download {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+}

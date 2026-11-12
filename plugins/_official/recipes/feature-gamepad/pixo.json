@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-gamepad",
+  "title": "Gamepad support",
+  "title_i18n": {
+    "en": "Gamepad support",
+    "zh-CN": "手柄支持"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Adds controller input through an action layer, analog movement with deadzones, menu navigation and device-aware button prompts.",
+  "description_i18n": {
+    "en": "Adds controller input through an action layer, analog movement with deadzones, menu navigation and device-aware button prompts.",
+    "zh-CN": "通过动作层加入手柄输入：带死区的模拟摇杆移动、菜单导航和随设备切换的按键提示。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "scope",
+          "label": "What the gamepad must control",
+          "label_i18n": {
+            "zh-CN": "手柄要控制的内容"
+          },
+          "type": "text",
+          "default": "movement, jump or primary action, pause, and menu navigation",
+          "default_i18n": {
+            "zh-CN": "移动、跳跃或主要动作、暂停和菜单导航"
+          }
+        },
+        {
+          "name": "glyphs",
+          "label": "Button labels",
+          "label_i18n": {
+            "zh-CN": "按键提示"
+          },
+          "type": "select",
+          "options": [
+            "Xbox-style (A/B/X/Y)",
+            "PlayStation-style (Cross/Circle/Square/Triangle)",
+            "match the connected controller when it can be identified"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "Xbox-style (A/B/X/Y)": "Xbox 样式（A/B/X/Y）",
+              "PlayStation-style (Cross/Circle/Square/Triangle)": "PlayStation 样式（叉/圆/方/三角）",
+              "match the connected controller when it can be identified": "能识别时匹配已连接的手柄"
+            }
+          },
+          "default": "Xbox-style (A/B/X/Y)"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add gamepad support to this {{engine.id}} game covering: {{scope}}. Button labels: {{glyphs}}.\n\nRequirements:\n- Gameplay reads actions, not devices. Godot: add joypad events (left stick, D-pad, face buttons, Start) to the existing `InputMap` actions in `project.godot`, give stick actions a 0.2 deadzone, and use `Input.get_vector` for analog movement. Phaser: enable `input: { gamepad: true }` in the game config and add one `src/input/controls.ts` layer that merges keyboard and gamepad (standard mapping) into named actions with a radial deadzone.\n- Menus work without a mouse: focus starts on the first control, the D-pad and stick move focus, the accept button activates and the back button returns (Godot: focus neighbours and `grab_focus()`; Phaser: an explicit focus index per menu).\n- On-screen prompts switch between keyboard and gamepad labels based on the last device used.\n- Connecting and disconnecting a pad is handled at runtime; a disconnect during play pauses the game.\n- Keyboard and mouse controls keep working exactly as before.\n- Automated verification cannot press real buttons, so after verify list the manual gamepad checks the user should run.\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

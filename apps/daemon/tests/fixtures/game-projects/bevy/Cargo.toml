@@ -1,0 +1,6 @@
+[package]
+name = "fixture"
+version = "0.1.0"
+
+[dependencies]
+bevy = { version = "0.15", features = ["dynamic_linking"] }

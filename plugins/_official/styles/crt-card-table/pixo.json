@@ -1,0 +1,83 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/crt-card-table",
+  "title": "CRT retro pixel",
+  "title_i18n": {
+    "en": "CRT retro pixel",
+    "zh-CN": "CRT 复古像素"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:41:23Z",
+  "description": "Chunky pixel cards and menus seen through an old CRT screen, with soft glow and scanlines: the look of recent card roguelites.",
+  "description_i18n": {
+    "en": "Chunky pixel cards and menus seen through an old CRT screen, with soft glow and scanlines: the look of recent card roguelites.",
+    "zh-CN": "透过老式 CRT 屏幕看到的厚实像素卡牌和界面，带柔和辉光和扫描线，是近年卡牌肉鸽游戏常见的样子。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "2d",
+    "retro",
+    "crt",
+    "card-game"
+  ],
+  "examples": [
+    {
+      "title": "Card back set",
+      "title_i18n": {
+        "zh-CN": "卡背套组"
+      },
+      "prompt": "Generate four matching card backs using the crt-card-table art style: comet, keyhole, twin moons and spiral shell motifs, each with a thick rounded border and bold flat shapes. Keep the CRT glow subtle and leave no lettering.",
+      "prompt_i18n": {
+        "zh-CN": "使用 crt-card-table 美术风格生成四张配套卡背：彗星、钥匙孔、双月和螺旋贝壳图案，均带厚圆角边框和大块平涂造型。CRT 辉光保持克制，不要任何文字。"
+      }
+    },
+    {
+      "title": "Modifier charms",
+      "title_i18n": {
+        "zh-CN": "增益护符"
+      },
+      "prompt": "Create six matching modifier charm icons using the crt-card-table art style: lucky die, golden horseshoe, cracked mirror, fire opal, hourglass and clover. Use saturated jewel tones, soft phosphor glow and silhouettes readable at 48 pixels.",
+      "prompt_i18n": {
+        "zh-CN": "使用 crt-card-table 美术风格制作六个配套的增益护符图标：幸运骰子、金马蹄铁、裂纹镜子、火欧泊、沙漏和四叶草。使用饱和的宝石色、柔和荧光辉光，轮廓在 48 像素下清晰可辨。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "crt-card-table",
+      "dimension": [
+        "2d"
+      ],
+      "medium": [
+        "retro",
+        "crt",
+        "card-game"
+      ],
+      "prompt": "Card-roguelite table art seen through a vintage CRT screen: chunky low-resolution cards with thick rounded borders and bold flat symbols, laid over a deep teal felt table with a soft swirling abstract backdrop. Saturated jewel-tone accents, soft phosphor glow on bright shapes, gentle barrel curvature, fine horizontal scanlines and a light vignette. Cards fan in a readable hand with a slight tilt and drop shadow; a playful high-stakes mood without real-world gambling brands.",
+      "negativePrompt": "real casino or playing-card brands, photorealistic felt, dense glitch noise, heavy chromatic aberration, unreadable bloom, tiny card detail, muddy colors, baked-in text, logo, watermark",
+      "palette": [
+        "#10141F",
+        "#1E3B3A",
+        "#2E6B5E",
+        "#F4EEDC",
+        "#E8443A",
+        "#3B6FD9",
+        "#F2B134",
+        "#9B5DE5"
+      ],
+      "constraints": {
+        "outline": "Thick rounded card borders and bold dark symbol contours; glow stays outside the shapes.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

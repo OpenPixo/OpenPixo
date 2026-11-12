@@ -1,0 +1,83 @@
+{
+  "name": "@openpixo/daemon",
+  "version": "0.25.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "bin": {
+    "pixo": "./bin/pixo.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    },
+    "./package.json": "./package.json",
+    "./sidecar": {
+      "types": "./dist/sidecar/index.d.ts",
+      "default": "./dist/sidecar/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "daemon": "pnpm run build && node dist/cli.js --no-open",
+    "dev": "pnpm run build && node dist/cli.js --no-open",
+    "start": "pnpm run build && node dist/cli.js",
+    "pretest": "pnpm --filter '@openpixo/daemon^...' --workspace-concurrency=4 --if-present run build",
+    "test": "vitest run -c vitest.config.ts",
+    "typecheck": "pnpm --filter @openpixo/contracts build && pnpm --filter @openpixo/registry-protocol build && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit && tsc -p ../../game-sdk/tsconfig.json"
+  },
+  "dependencies": {
+    "@babel/parser": "7.29.3",
+    "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@openpixo/agui-adapter": "workspace:*",
+    "@openpixo/contracts": "workspace:*",
+    "@openpixo/diagnostics": "workspace:*",
+    "@openpixo/launcher-proto": "workspace:*",
+    "@openpixo/platform": "workspace:*",
+    "@openpixo/plugin-runtime": "workspace:*",
+    "@openpixo/registry-protocol": "workspace:*",
+    "@openpixo/release": "workspace:*",
+    "@openpixo/sidecar": "workspace:*",
+    "@openpixo/sidecar-proto": "workspace:*",
+    "acorn": "8.15.0",
+    "better-sqlite3": "12.10.0",
+    "blake3-wasm": "2.1.5",
+    "cheerio": "1.2.0",
+    "chokidar": "3.6.0",
+    "express": "5.3.0",
+    "gsap": "3.14.2",
+    "htmlparser2": "10.1.0",
+    "hyperframes": "0.8.1",
+    "jszip": "3.10.1",
+    "sharp": "0.35.5",
+    "multer": "2.5.0",
+    "node-pty": "1.1.0",
+    "pdf-lib": "1.17.1",
+    "postcss": "8.5.32",
+    "posthog-node": "5.34.6",
+    "tar": "7.5.22",
+    "undici": "7.30.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.0",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@babel/types": "7.29.0",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/express": "5.0.6",
+    "@types/multer": "2.1.0",
+    "@types/node": "20.19.39",
+    "jsdom": "29.1.1",
+    "vitest": "4.1.6"
+  },
+  "engines": {
+    "node": "~24"
+  }
+}

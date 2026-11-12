@@ -1,0 +1,75 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo/web-export-and-itch",
+  "version": "0.1.0",
+  "title": "Web export and itch.io packaging",
+  "title_i18n": {
+    "en": "Web export and itch.io packaging",
+    "zh-CN": "Web 导出与 itch.io 打包"
+  },
+  "description": "Build and locally test an itch.io-ready HTML5 ZIP with portable assets, browser controls, audio checks and an export handoff checklist.",
+  "description_i18n": {
+    "en": "Build and locally test an itch.io-ready HTML5 ZIP with portable assets, browser controls, audio checks and an export handoff checklist.",
+    "zh-CN": "构建并本地测试可供 itch.io 使用的 HTML5 ZIP，检查资源路径、浏览器操作和音频，并附导出交付清单。"
+  },
+  "author": {
+    "name": "OpenPixo"
+  },
+  "license": "Apache-2.0",
+  "engines": [
+    "godot",
+    "phaser"
+  ],
+  "tags": [
+    "game-development",
+    "first-party",
+    "openpixo",
+    "godot",
+    "phaser",
+    "export"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Package the sample platformer",
+      "title_i18n": {
+        "zh-CN": "打包示例平台游戏"
+      },
+      "prompt": "Build the bundled Phaser sample platformer for itch.io. Test the production output, preserve relative asset paths, make a ZIP with index.html at its root, and give me a local checklist. Do not upload it.",
+      "prompt_i18n": {
+        "zh-CN": "将内置 Phaser 示例平台游戏构建为 itch.io 用的 Web 包。测试生产构建，保留相对资源路径，生成根目录含 index.html 的 ZIP，并给出本地检查清单，不上传。"
+      }
+    },
+    {
+      "title": "Export the Godot 2D game to Web",
+      "title_i18n": {
+        "zh-CN": "将 Godot 2D 游戏导出为 Web"
+      },
+      "prompt": "Prepare a local Web export of my Godot 2D template project using matching installed export templates. Check browser rendering, focus return and sound after a Start gesture, then package all export files into an itch.io-ready ZIP.",
+      "prompt_i18n": {
+        "zh-CN": "使用已安装且版本匹配的导出模板，为我的 Godot 2D 模板项目准备本地 Web 导出。检查浏览器渲染、焦点恢复和点击开始后的声音，再将全部导出文件打包为可供 itch.io 使用的 ZIP。"
+      }
+    },
+    {
+      "title": "Fix assets under a hosted subpath",
+      "title_i18n": {
+        "zh-CN": "修复子路径托管时的资源加载"
+      },
+      "prompt": "My Phaser game works in development but shows missing images when hosted under a subpath. Reproduce the exported-build failure locally, fix the asset URLs or relative base, rebuild the ZIP, and verify images and audio load.",
+      "prompt_i18n": {
+        "zh-CN": "我的 Phaser 游戏开发时正常，托管到子路径后图片缺失。请在本地复现导出构建的问题，修复资源 URL 或相对 base，重新打包 ZIP，并验证图片和音频均能加载。"
+      }
+    }
+  ]
+}

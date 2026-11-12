@@ -1,0 +1,95 @@
+/* "Finish setup" card above the starter checklist in an empty conversation. */
+
+/* It sits in the conversation's artifact grid: span the row like the checklist does. */
+.visibility {
+  width: 100%;
+  min-width: 0;
+  max-width: 36rem;
+  grid-column: 1 / -1;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--spacing-12, 12px);
+  margin-bottom: var(--spacing-12, 12px);
+  padding: var(--spacing-12, 12px) var(--spacing-14, 14px);
+  border: var(--stroke-thin, 1px) solid color-mix(in srgb, var(--brand-ink) 30%, var(--border-soft));
+  border-radius: var(--radius-lg, 12px);
+  background: var(--brand-surface);
+  text-align: left;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--brand-ink);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4, 4px);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.body {
+  margin: 0;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-4, 4px) var(--spacing-12, 12px);
+  margin: var(--spacing-4, 4px) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-13, 13px);
+  color: var(--text-strong);
+}
+
+.steps li::before {
+  content: '○';
+  margin-right: var(--spacing-4, 4px);
+  color: var(--text-soft);
+}
+
+.steps li[data-done='true'] { color: var(--text-muted); }
+.steps li[data-done='true']::before { content: '✓'; color: var(--brand-ink); }
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-4, 4px);
+}
+
+.error {
+  margin: 0;
+  padding: var(--spacing-10, 10px) var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--red-border);
+  border-radius: var(--radius-sm);
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: var(--font-size-14, 14px);
+}
+
+@media (max-width: 520px) {
+  .card { grid-template-columns: auto minmax(0, 1fr); }
+  .actions { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
+}

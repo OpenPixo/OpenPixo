@@ -1,0 +1,159 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-walk-8dir",
+  "title": "8-direction walk sprite sheet",
+  "title_i18n": {
+    "en": "8-direction walk sprite sheet",
+    "zh-CN": "8 方向行走精灵图"
+  },
+  "version": "0.2.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "An 8-direction walk cycle on square cells, sliced into transparent PNG frames and exported with engine animation metadata.",
+  "description_i18n": {
+    "en": "An 8-direction walk cycle on square cells, sliced into transparent PNG frames and exported with engine animation metadata.",
+    "zh-CN": "方形格子排布的 8 方向行走循环，切成透明 PNG 逐帧，并导出引擎动画元数据。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "character",
+          "label": "Character",
+          "label_i18n": {
+            "zh-CN": "角色"
+          },
+          "type": "character-ref",
+          "required": true
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "pixel art, 32px character",
+            "pixel art, 16px character",
+            "hand-painted 2D",
+            "clean cartoon with bold outlines"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "pixel art, 32px character": "像素风，32 像素角色",
+              "pixel art, 16px character": "像素风，16 像素角色",
+              "hand-painted 2D": "2D 手绘",
+              "clean cartoon with bold outlines": "粗描边的简洁卡通"
+            }
+          },
+          "default": "pixel art, 32px character"
+        },
+        {
+          "name": "frames",
+          "label": "Frames per direction",
+          "label_i18n": {
+            "zh-CN": "每个方向的帧数"
+          },
+          "type": "select",
+          "options": [
+            "4",
+            "6",
+            "8"
+          ],
+          "default": "6"
+        }
+      ],
+      "prompt": "Game sprite sheet: walk cycle of {{character.name}}, {{character.description}}. A strict grid of 8 columns by 8 rows of equal square cells, with no gaps and no visible grid lines. Each row is one facing direction, top to bottom: down (facing the viewer), down-left, left, up-left, up (back to the viewer), up-right, right, down-right. Only the first {{frames}} cells of each row contain a looping {{frames}}-frame walk cycle read left to right; every remaining cell is empty background. The walk cycle has alternating legs and a slight body bob. Top-down three-quarter view with the same camera angle in every cell. The character is centered in each cell at the same size, about three quarters of the cell height, with clear empty space between the cell edges and every part of the character, hair, clothing and feet included; feet on the same baseline; nothing crosses into a neighboring cell. Identical design, colors and proportions in every frame; where reference images are provided, follow them exactly. Style: {{style}}, crisp clean edges, flat even lighting. Background: fully transparent, with nothing behind the character: no floor, cast shadow, scenery or vignette.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, inconsistent character between frames, changing size, overlapping cells, uneven grid, missing frames, motion blur, speed lines, weapons or props not in the reference",
+      "models": {
+        "requires": [
+          "t2i",
+          "i2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "1:1",
+        "background": "transparent"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": 1024,
+            "height": 1024
+          }
+        },
+        {
+          "op": "slice",
+          "params": {
+            "grid": "8x8",
+            "frameColumns": "{{frames}}"
+          }
+        },
+        {
+          "op": "export-spritesheet",
+          "params": {
+            "name": "walk",
+            "columns": "{{frames}}",
+            "animations": [
+              "down",
+              "down-left",
+              "left",
+              "up-left",
+              "up",
+              "up-right",
+              "right",
+              "down-right"
+            ],
+            "fps": 8
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        },
+        {
+          "check": "grid-divisible",
+          "params": {
+            "grid": "8x8"
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/{{character.slug}}",
+        "name": "{{character.slug}}_walk"
+      }
+    }
+  }
+}

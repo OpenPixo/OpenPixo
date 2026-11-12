@@ -1,0 +1,33 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "todo-write",
+  "title": "Todo write",
+  "version": "0.1.0",
+  "publishedAt": "2026-05-09T13:00:27Z",
+  "description": "Record and maintain a plan for a non-trivial project task using the session's plan tool.",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "atom",
+    "first-party",
+    "planning"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "atom",
+    "scenario": "general",
+    "mode": "planning",
+    "capabilities": [
+      "prompt:inject"
+    ]
+  }
+}

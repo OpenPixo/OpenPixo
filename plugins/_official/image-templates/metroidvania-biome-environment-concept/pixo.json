@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-metroidvania-biome-environment-concept",
+  "title": "Metroidvania Biome Environment Concept",
+  "title_i18n": {
+    "en": "Metroidvania Biome Environment Concept",
+    "zh-CN": "类银河恶魔城生物群系场景概念"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A side-view environment concept for a metroidvania biome with traversal readability built in: clear walkable surfaces, a gated path that needs a later ability, layered parallax depth and a focal landmark. Slots for biome, gating ability, landmark and palette.",
+  "description_i18n": {
+    "en": "A side-view environment concept for a metroidvania biome with traversal readability built in: clear walkable surfaces, a gated path that needs a later ability, layered parallax depth and a focal landmark. Slots for biome, gating ability, landmark and palette.",
+    "zh-CN": "为类银河恶魔城（metroidvania）的一个生物群系生成横版场景概念，内置可读的移动设计：清晰的可站立平台、需要后期能力才能通过的封锁路径、多层视差纵深和一个视觉焦点地标。可调整群系、封锁能力、地标和配色。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "concept-art",
+    "metroidvania",
+    "platformer",
+    "environment",
+    "side-view",
+    "level-design"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A side-view environment concept painting for one biome of a 2D metroidvania, drawn the way the player will see it in game, at gameplay camera scale.\n\nBiome: {argument name=\"biome\" default=\"a sunken cathedral reclaimed by bioluminescent fungus, half flooded, with collapsed organ pipes\"}.\nArt style: {argument name=\"art_style\" default=\"hand-painted 2D with clean silhouettes, in the spirit of modern painterly indie platformers\"}.\n\n# Traversal readability (most important)\n- A clear main walkable route made of flat, brightly edged platforms and ledges that obviously support the player; walkable tops have a consistent highlight rim.\n- One visible gated path that clearly needs a later ability: {argument name=\"gated_ability\" default=\"a high ledge reachable only with a double jump, with a glowing collectible on it\"}.\n- One hazard zone (for example spikes or toxic water) with a distinct warning colour.\n- A small player character silhouette at true scale on the main route so the size of the space is obvious.\n\n# Depth layers\n- Foreground: dark, out-of-focus silhouettes (pillars, hanging roots) framing the edges, never covering the route.\n- Playfield: highest contrast and saturation in the image.\n- Midground and background: progressively lighter and lower in contrast with atmospheric haze, built as separate parallax layers.\n- Focal landmark in the background: {argument name=\"landmark\" default=\"a giant cracked rose window glowing from behind\"}, which guides the eye along the route.\n\n# Lighting and palette\n- Main light from the landmark, secondary glow from the fungus, cool ambient fill.\n- Palette: {argument name=\"palette\" default=\"deep violet and teal shadows, cyan fungus glow, a single warm gold accent on collectibles and doors\"}.\n\n# Avoid\nAmbiguous surfaces that could be wall or floor, background detail with the same contrast as the playfield, perspective views, UI, text, watermarks, existing franchise characters or iconography.",
+        "zh-CN": "A side-view environment concept painting for one biome of a 2D metroidvania, drawn the way the player will see it in game, at gameplay camera scale.\n\nBiome: {argument name=\"biome\" default=\"a sunken cathedral reclaimed by bioluminescent fungus, half flooded, with collapsed organ pipes\"}.\nArt style: {argument name=\"art_style\" default=\"hand-painted 2D with clean silhouettes, in the spirit of modern painterly indie platformers\"}.\n\n# Traversal readability (most important)\n- A clear main walkable route made of flat, brightly edged platforms and ledges that obviously support the player; walkable tops have a consistent highlight rim.\n- One visible gated path that clearly needs a later ability: {argument name=\"gated_ability\" default=\"a high ledge reachable only with a double jump, with a glowing collectible on it\"}.\n- One hazard zone (for example spikes or toxic water) with a distinct warning colour.\n- A small player character silhouette at true scale on the main route so the size of the space is obvious.\n\n# Depth layers\n- Foreground: dark, out-of-focus silhouettes (pillars, hanging roots) framing the edges, never covering the route.\n- Playfield: highest contrast and saturation in the image.\n- Midground and background: progressively lighter and lower in contrast with atmospheric haze, built as separate parallax layers.\n- Focal landmark in the background: {argument name=\"landmark\" default=\"a giant cracked rose window glowing from behind\"}, which guides the eye along the route.\n\n# Lighting and palette\n- Main light from the landmark, secondary glow from the fungus, cool ambient fill.\n- Palette: {argument name=\"palette\" default=\"deep violet and teal shadows, cyan fungus glow, a single warm gold accent on collectibles and doors\"}.\n\n# Avoid\nAmbiguous surfaces that could be wall or floor, background detail with the same contrast as the playfield, perspective views, UI, text, watermarks, existing franchise characters or iconography."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

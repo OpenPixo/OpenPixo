@@ -1,0 +1,8 @@
+{
+  "id": "threejs-vite",
+  "name": "Three.js · 3D",
+  "engine": "threejs",
+  "description": "Minimal 3D starter: camera, light and a spinning cube.",
+  "nameZhCN": "Three.js · 3D",
+  "descriptionZhCN": "最简 3D 起步项目：相机、灯光和一个旋转方块。"
+}

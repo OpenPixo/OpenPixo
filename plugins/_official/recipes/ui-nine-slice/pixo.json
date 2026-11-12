@@ -1,0 +1,184 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/ui-nine-slice",
+  "title": "Nine-slice UI element",
+  "title_i18n": {
+    "en": "Nine-slice UI element",
+    "zh-CN": "九宫格 UI 元素"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "A button, panel or frame designed so its corners stay fixed and its edges and center stretch cleanly, keyed to transparency and trimmed.",
+  "description_i18n": {
+    "en": "A button, panel or frame designed so its corners stay fixed and its edges and center stretch cleanly, keyed to transparency and trimmed.",
+    "zh-CN": "按钮、面板或边框，四角固定、边与中心可拉伸，去背景并裁边。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "ui"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "ui",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "element",
+          "label": "Element",
+          "label_i18n": {
+            "zh-CN": "元素"
+          },
+          "type": "select",
+          "options": [
+            "button",
+            "panel",
+            "dialog window",
+            "inventory slot",
+            "tooltip box",
+            "progress bar frame"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "button": "按钮",
+              "panel": "面板",
+              "dialog window": "对话框窗口",
+              "inventory slot": "物品格",
+              "tooltip box": "提示框",
+              "progress bar frame": "进度条边框"
+            }
+          },
+          "default": "button"
+        },
+        {
+          "name": "state",
+          "label": "State",
+          "label_i18n": {
+            "zh-CN": "状态"
+          },
+          "type": "select",
+          "options": [
+            "normal",
+            "hover",
+            "pressed",
+            "disabled"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "normal": "正常",
+              "hover": "悬停",
+              "pressed": "按下",
+              "disabled": "禁用"
+            }
+          },
+          "default": "normal"
+        },
+        {
+          "name": "theme",
+          "label": "Material and theme",
+          "label_i18n": {
+            "zh-CN": "材质和主题"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "weathered oak with iron rivets",
+          "placeholder_i18n": {
+            "zh-CN": "带铁铆钉的风化橡木"
+          }
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "pixel art",
+            "hand-painted fantasy",
+            "sci-fi flat",
+            "clean modern flat"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "pixel art": "像素风",
+              "hand-painted fantasy": "手绘奇幻",
+              "sci-fi flat": "科幻扁平",
+              "clean modern flat": "简洁现代扁平"
+            }
+          },
+          "default": "pixel art"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "button_wood"
+        }
+      ],
+      "prompt": "A single game UI {{element}} sprite in its {{state}} state, built for nine-slice scaling. A rectangular shape seen straight on, centered, with generous empty space around it. Decoration lives only in the four corners and along a border of uniform thickness; the straight edges between the corners are plain and repeat evenly, and the center is a flat, even fill with no ornament, so the middle and edges can stretch without distortion. All four corners match. Material and theme: {{theme}}. Style: {{style}}, crisp edges, flat even lighting, no drop shadow. No text, icons or labels on it. Background: one perfectly flat, uniform solid magenta #FF00FF fill from edge to edge, with no gradient, texture, floor, cast shadow or vignette. Do not use magenta, hot pink or purple anywhere on the subject.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, magenta or pink on the subject, button label, icons, perspective, tilted, ornament in the center, uneven border thickness, mismatched corners, drop shadow, outer glow, multiple elements",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 3,
+          "max": 6
+        },
+        "aspect": "1:1"
+      },
+      "postprocess": [
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "#FF00FF",
+            "tolerance": 32
+          }
+        },
+        {
+          "op": "trim",
+          "params": {
+            "padding": 0
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        }
+      ],
+      "output": {
+        "dir": "{{engine.uiRoot}}/{{name}}",
+        "name": "{{name}}_{{state}}"
+      }
+    }
+  }
+}

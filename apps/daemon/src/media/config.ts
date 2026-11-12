@@ -1,0 +1,602 @@
+// Per-provider credentials for the media dispatcher.
+//
+// The frontend Settings dialog pushes API keys here via PUT
+// /api/media/config; the daemon persists them to .pixo/media-config.json
+// and reads them at generation time. Environment variables override the
+// stored values so power users can keep keys out of the workspace
+// folder altogether (`PIXO_OPENAI_API_KEY=… node daemon/cli.js`).
+//
+// Storage location (precedence high → low):
+//   1. PIXO_MEDIA_CONFIG_DIR=DIR   → <DIR>/media-config.json
+//   2. PIXO_DATA_DIR=DIR           → <DIR>/media-config.json
+//   3. (default)                 → <projectRoot>/.pixo/media-config.json
+// The default is unchanged for workspace-local installs. (1) lets a
+// supervisor relocate just the credentials file. (2) means installs
+// that already set PIXO_DATA_DIR for the rest of the daemon's runtime
+// state (immutable-image installs and the packaged daemon at
+// apps/packaged/src/sidecars.ts:createPackagedDaemonManagedPathEnv)
+// get media-config there too without
+// any extra plumbing. Both env values are resolved with the same
+// semantics as PIXO_DATA_DIR in server.ts:resolveDataDir(): the shared
+// expandHomePrefix() helper handles `~`, `$HOME`, and `${HOME}` (with
+// either `/` or `\` separator), then relative paths anchor to
+// <projectRoot> (NOT process.cwd, which is unrelated to the workspace
+// when systemd or launchd starts the daemon).
+//
+// Migration note: a workspace install that sets a custom PIXO_DATA_DIR
+// AND has a pre-existing `<projectRoot>/.pixo/media-config.json` will
+// start reading from `<PIXO_DATA_DIR>/media-config.json` instead. Move
+// the file once or set PIXO_MEDIA_CONFIG_DIR=<projectRoot>/.pixo to keep
+// the old location.
+//
+// The file is intentionally simple JSON — no encryption, no schema
+// versioning yet. The daemon listens on 127.0.0.1 only and the workspace
+// is already trusted, so adding a vault here would mostly be theatre.
+// We DO mask keys when reading via the GET endpoint so the UI doesn't
+// echo secrets back into the DOM.
+
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { MEDIA_PROVIDERS, RENAMED_MEDIA_PROVIDERS, canonicalMediaModelId, findMediaModel } from './models.js';
+import type { MediaProviderAvailability } from '@openpixo/contracts';
+import { codexImageProviderStatus } from './codex-image-runtime.js';
+import { expandHomePrefix } from '../home-expansion.js';
+import { resolveXAIBearer } from '../integrations/xai-credentials.js';
+import { getXAIToken, isXAITokenExpired } from '../integrations/xai-tokens.js';
+import { isSandboxModeEnabled } from '../sandbox-mode.js';
+
+const PROVIDER_IDS = MEDIA_PROVIDERS.map((p) => p.id);
+type ProviderEntry = { apiKey?: string; baseUrl?: string; model?: string };
+type ProviderMap = Record<string, ProviderEntry>;
+type ModelAliasMap = Record<string, string>;
+type JsonRecord = Record<string, unknown>;
+type OAuthCredential = { apiKey: string; source: string };
+
+// Single env var carries the full alias map as JSON so we don't have
+// to dynamically lift `PIXO_MEDIA_MODEL_ALIAS_<id>=value` into a record
+// with all the env-var-name escaping that entails (Windows cmd.exe in
+// particular rejects hyphens). The shape mirrors the on-disk
+// `aliases` map so users can switch storage layers without rewriting
+// their workflow:
+//
+//   PIXO_MEDIA_MODEL_ALIASES='{"doubao-seedream-3-0-t2i-250415":"doubao-seedream-5-0"}'
+const ENV_MODEL_ALIASES = 'PIXO_MEDIA_MODEL_ALIASES';
+
+function isRecord(value: unknown): value is JsonRecord {
+  return value !== null && typeof value === 'object';
+}
+
+function errorCode(err: unknown): string | undefined {
+  return isRecord(err) && typeof err.code === 'string' ? err.code : undefined;
+}
+
+const ENV_KEYS: Record<string, string[]> = {
+  // OPENAI_API_KEY is the canonical env for the standard OpenAI API.
+  // AZURE_API_KEY / AZURE_OPENAI_API_KEY are the canonical envs Azure
+  // OpenAI examples use — we share the openai provider slot so a user
+  // who pastes an Azure deployment URL into the OpenAI Base URL field
+  // gets the credential picked up automatically.
+  openai: [
+    'PIXO_OPENAI_API_KEY',
+    'OPENAI_API_KEY',
+    'AZURE_API_KEY',
+    'AZURE_OPENAI_API_KEY',
+  ],
+  volcengine: ['PIXO_VOLCENGINE_API_KEY', 'ARK_API_KEY', 'VOLCENGINE_API_KEY'],
+  // PIXO_GROK_API_KEY first (the project-reserved override, same shape as
+  // every other provider above), then XAI_API_KEY as the canonical
+  // upstream env per docs.x.ai quickstart — so users who already export
+  // it for the official SDK don't have to re-paste into Settings.
+  grok: ['PIXO_GROK_API_KEY', 'XAI_API_KEY'],
+  nanobanana: ['PIXO_NANOBANANA_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY'],
+  imagerouter: ['PIXO_IMAGEROUTER_API_KEY', 'IMAGEROUTER_API_KEY'],
+  openrouter: ['PIXO_OPENROUTER_API_KEY', 'OPENROUTER_API_KEY'],
+  'custom-image': ['PIXO_CUSTOM_IMAGE_API_KEY', 'CUSTOM_IMAGE_API_KEY'],
+  bfl: ['PIXO_BFL_API_KEY', 'BFL_API_KEY'],
+  'media-gateway': ['PIXO_FAL_KEY', 'FAL_KEY'],
+  replicate: ['PIXO_REPLICATE_API_TOKEN', 'REPLICATE_API_TOKEN'],
+  google: ['PIXO_GOOGLE_API_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY'],
+  kling: ['PIXO_KLING_API_KEY', 'KLING_API_KEY'],
+  midjourney: ['PIXO_MIDJOURNEY_API_KEY'],
+  minimax: ['PIXO_MINIMAX_API_KEY', 'MINIMAX_API_KEY'],
+  suno: ['PIXO_SUNO_API_KEY'],
+  udio: ['PIXO_UDIO_API_KEY'],
+  elevenlabs: ['PIXO_ELEVENLABS_API_KEY', 'ELEVENLABS_API_KEY'],
+  fishaudio: ['PIXO_FISHAUDIO_API_KEY', 'FISH_AUDIO_API_KEY'],
+  senseaudio: ['PIXO_SENSEAUDIO_API_KEY', 'SENSEAUDIO_API_KEY'],
+  aihubmix: ['PIXO_AIHUBMIX_API_KEY', 'AIHUBMIX_API_KEY'],
+  tavily: ['PIXO_TAVILY_API_KEY', 'TAVILY_API_KEY'],
+  leonardo: ['PIXO_LEONARDO_API_KEY', 'LEONARDO_API_KEY'],
+};
+
+// Resolve an `PIXO_*_DIR` env override using the same semantics as
+// `resolveDataDir()` in server.ts: expandHomePrefix() handles the `~`,
+// `$HOME`, and `${HOME}` shorthands (with either `/` or `\` separator),
+// then relative paths anchor to <projectRoot>, not process.cwd, since
+// the daemon is often launched from a directory that has nothing to do
+// with the workspace, e.g. systemd's `/`. The writability check that
+// resolveDataDir does on startup is intentionally NOT replicated here:
+// configFile() is on the read path and a missing/unwritable directory
+// is a normal "no config yet" condition handled by readStored(); the
+// write path's mkdir(recursive) creates the directory on first use.
+function resolveOverrideDir(raw: string, projectRoot: string): string {
+  // Share expandHomePrefix with resolveDataDir (server.ts) so PIXO_DATA_DIR
+  // and PIXO_MEDIA_CONFIG_DIR cannot split state under a $HOME-style value.
+  // A launcher passing PIXO_DATA_DIR=$HOME/.openpixo without a shell to
+  // expand it would otherwise route SQLite/projects/artifacts to the
+  // expanded path while media-config.json stayed under
+  // <projectRoot>/$HOME/.openpixo, leaving stored credentials
+  // unreachable on the next read.
+  const expanded = expandHomePrefix(raw);
+  return path.isAbsolute(expanded)
+    ? expanded
+    : path.resolve(projectRoot, expanded);
+}
+
+function envOverrideDir(envName: string, projectRoot: string): string | null {
+  const raw = process.env[envName];
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed ? resolveOverrideDir(trimmed, projectRoot) : null;
+}
+
+/**
+ * Resolve the directory media-config.json (and credentials living next to
+ * it, like xai-tokens.json) actually live in. Precedence: explicit
+ * media-config override > general data dir > default.
+ */
+export function mediaConfigDir(projectRoot: string): string {
+  return (
+    envOverrideDir('PIXO_MEDIA_CONFIG_DIR', projectRoot)
+    ?? envOverrideDir('PIXO_DATA_DIR', projectRoot)
+    ?? path.join(projectRoot, '.pixo')
+  );
+}
+
+function configFile(projectRoot: string, resolvedDataDir?: string): string {
+  const directory = resolvedDataDir === undefined ? mediaConfigDir(projectRoot)
+    : envOverrideDir('PIXO_MEDIA_CONFIG_DIR', projectRoot) ?? resolvedDataDir;
+  return path.join(directory, 'media-config.json');
+}
+
+/**
+ * Normalise an arbitrary unknown into a string-to-string map, dropping
+ * keys that have empty / non-string values. Shared by the env-var
+ * parser and the on-disk reader so both layers reject malformed
+ * entries the same way.
+ */
+function coerceAliasMap(raw: unknown): ModelAliasMap {
+  if (!isRecord(raw)) return {};
+  const out: ModelAliasMap = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof k !== 'string' || !k.trim()) continue;
+    if (typeof v !== 'string' || !v.trim()) continue;
+    const id = k.trim();
+    const canonicalId = canonicalMediaModelId(id);
+    // An explicit alias for the surviving id wins over one for a retired id.
+    // Values are provider wire names, so custom deployments stay untouched.
+    if (canonicalId === id || !Object.hasOwn(out, canonicalId)) {
+      out[canonicalId] = v.trim();
+    }
+  }
+  return out;
+}
+
+async function readStoredFile(projectRoot: string, resolvedDataDir?: string): Promise<JsonRecord> {
+  try {
+    const raw = await readFile(configFile(projectRoot, resolvedDataDir), 'utf8');
+    const parsed = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : {};
+  } catch (err) {
+    if (errorCode(err) === 'ENOENT') return {};
+    throw err;
+  }
+}
+
+function configuredModelId(providerId: string, modelId: string): string {
+  const canonicalId = canonicalMediaModelId(modelId);
+  return findMediaModel(canonicalId)?.provider === providerId ? canonicalId : modelId;
+}
+
+/**
+ * Entries saved under a provider's previous id answer to its current one. A saved
+ * default base URL is dropped: the adapter applies the default itself, and masked
+ * config would otherwise echo it. An entry already under the current id wins.
+ */
+function withCurrentProviderIds<T extends JsonRecord>(providers: T): T {
+  const current: JsonRecord = { ...providers };
+  for (const [oldId, { id, defaultBaseUrl }] of Object.entries(RENAMED_MEDIA_PROVIDERS)) {
+    const saved = current[oldId];
+    delete current[oldId];
+    if (!isRecord(saved) || isRecord(current[id])) continue;
+    current[id] = saved.baseUrl === defaultBaseUrl ? { ...saved, baseUrl: '' } : saved;
+  }
+  return current as T;
+}
+
+async function readStored(projectRoot: string, resolvedDataDir?: string): Promise<ProviderMap> {
+  const parsed = await readStoredFile(projectRoot, resolvedDataDir);
+  const providers = isRecord(parsed.providers) ? withCurrentProviderIds(parsed.providers as ProviderMap) : {};
+  for (const [id, entry] of Object.entries(providers)) {
+    if (typeof entry?.model === 'string' && entry.model.trim()) {
+      providers[id] = { ...entry, model: configuredModelId(id, entry.model.trim()) };
+    }
+  }
+  return providers;
+}
+
+async function readStoredAliases(projectRoot: string, resolvedDataDir?: string): Promise<ModelAliasMap> {
+  const parsed = await readStoredFile(projectRoot, resolvedDataDir);
+  return coerceAliasMap(parsed.aliases);
+}
+
+async function writeStored(
+  projectRoot: string,
+  providers: ProviderMap,
+  aliases?: ModelAliasMap,
+): Promise<void> {
+  const file = configFile(projectRoot);
+  await mkdir(path.dirname(file), { recursive: true });
+  // Preserve any existing aliases when the caller doesn't pass them.
+  // The Settings UI writes providers only; without this, every
+  // provider edit would silently wipe the user's model aliases (issue
+  // #1277 introduces aliases but the Settings UI surface for editing
+  // them lands in a follow-up PR).
+  const resolvedAliases = aliases ?? (await readStoredAliases(projectRoot));
+  const body: JsonRecord = { providers };
+  if (Object.keys(resolvedAliases).length > 0) {
+    body.aliases = resolvedAliases;
+  }
+  await writeFile(file, JSON.stringify(body, null, 2), 'utf8');
+}
+
+function readEnvAliases(): ModelAliasMap {
+  const raw = process.env[ENV_MODEL_ALIASES];
+  if (typeof raw !== 'string' || !raw.trim()) return {};
+  try {
+    return coerceAliasMap(JSON.parse(raw));
+  } catch {
+    // Malformed JSON is non-fatal — the user can fix the env var
+    // without restarting the daemon mid-generation, and silent fall-
+    // through to the on-disk map matches the precedent of the rest
+    // of the env / stored config resolution in this module.
+    return {};
+  }
+}
+
+/**
+ * Resolve a registered model id to the wire-name the provider should
+ * actually receive on the network. Env wins over stored, mirroring
+ * the precedence the rest of media-config uses for `apiKey` (issue
+ * #1277). Pass-through when no alias is configured.
+ */
+export async function resolveModelAlias(
+  projectRoot: string,
+  modelId: string,
+): Promise<string> {
+  const canonicalId = canonicalMediaModelId(modelId);
+  const envAliases = readEnvAliases();
+  if (envAliases[canonicalId]) return envAliases[canonicalId]!;
+  const stored = await readStoredAliases(projectRoot);
+  return stored[canonicalId] ?? canonicalId;
+}
+
+/**
+ * Read the merged alias map (env + stored). Exposed for the
+ * `/api/media/config` GET endpoint so the Settings UI can display
+ * which aliases are active and where they came from.
+ */
+export async function readAliasMap(
+  projectRoot: string,
+  resolvedDataDir?: string,
+): Promise<{ effective: ModelAliasMap; env: ModelAliasMap; stored: ModelAliasMap }> {
+  const env = readEnvAliases();
+  const stored = await readStoredAliases(projectRoot, resolvedDataDir);
+  const effective: ModelAliasMap = { ...stored, ...env };
+  return { effective, env, stored };
+}
+
+function readEnvKey(providerId: string): string | null {
+  const keys = ENV_KEYS[providerId];
+  if (!keys) return null;
+  for (const k of keys) {
+    const v = process.env[k];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return null;
+}
+
+function readNestedString(obj: unknown, keys: string[]): string {
+  let cur: unknown = obj;
+  for (const key of keys) {
+    if (!isRecord(cur)) return '';
+    cur = cur[key];
+  }
+  return typeof cur === 'string' && cur.trim() ? cur.trim() : '';
+}
+
+async function readJsonIfPresent(file: string): Promise<JsonRecord | null> {
+  try {
+    const raw = await readFile(file, 'utf8');
+    const parsed = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : null;
+  } catch (err) {
+    if (errorCode(err) === 'ENOENT') return null;
+    // Auth files are best-effort fallbacks. A malformed local auth cache
+    // should not break the Settings page or hide stored provider config.
+    return null;
+  }
+}
+
+function apiKeyFromCodexAuth(data: unknown): string {
+  return readNestedString(data, ['OPENAI_API_KEY']);
+}
+
+async function resolveOpenAIAuthFileCredential(): Promise<OAuthCredential | null> {
+  if (isSandboxModeEnabled(process.env)) return null;
+  const home = os.homedir();
+  const codexAuth = await readJsonIfPresent(
+    path.join(home, '.codex', 'auth.json'),
+  );
+  const apiKey = apiKeyFromCodexAuth(codexAuth);
+  if (apiKey) {
+    return { apiKey, source: 'codex-auth' };
+  }
+
+  return null;
+}
+
+async function resolveXAIOAuthCredential(
+  projectRoot: string,
+  refreshCredentials = true,
+  resolvedDataDir?: string,
+): Promise<OAuthCredential | null> {
+  // 1. OpenPixo-native xAI OAuth tokens (written by the daemon's own
+  //    xai-oauth.ts client when the user authorizes inside OpenPixo).
+  // The media-only override affects media-config.json, never daemon-owned OAuth tokens.
+  const dataDir = resolvedDataDir ?? mediaConfigDir(projectRoot);
+  const stored = refreshCredentials ? null : await getXAIToken(dataDir).catch(() => null);
+  // Status reads recognize renewable credentials without refreshing them.
+  const pixoBearer = refreshCredentials
+    ? await resolveXAIBearer(dataDir).catch(() => null)
+    : stored && (!isXAITokenExpired(stored) || stored.refreshToken)
+      ? { accessToken: stored.accessToken, source: 'stored' }
+      : null;
+  if (pixoBearer) {
+    return {
+      apiKey: pixoBearer.accessToken,
+      source: `oauth-xai-${pixoBearer.source}`,
+    };
+  }
+
+  if (isSandboxModeEnabled(process.env)) return null;
+
+  // 2. Borrow the xAI OAuth token Hermes wrote to ~/.hermes/auth.json
+  //    when the user ran `hermes auth add xai-oauth`. A user who has already authorized
+  //    Hermes doesn't have to run a second OAuth dance inside OpenPixo.
+  //    (No proactive refresh here — Hermes itself maintains the token,
+  //    and we only borrow what is currently fresh.)
+  const home = os.homedir();
+  const hermesAuth = await readJsonIfPresent(
+    path.join(home, '.hermes', 'auth.json'),
+  );
+  const hermesXaiToken = readNestedString(hermesAuth, [
+    'providers',
+    'xai-oauth',
+    'tokens',
+    'access_token',
+  ]);
+  if (hermesXaiToken) {
+    return { apiKey: hermesXaiToken, source: 'oauth-hermes-xai' };
+  }
+
+  return null;
+}
+
+/**
+ * Resolve credentials for a provider. Env vars win, then stored config,
+ * then provider-specific external credential stores. OpenAI only trusts
+ * explicit API keys from Codex auth files; Codex/Hermes OAuth tokens are
+ * not valid proof that the Images API can be called.
+ * Returns { apiKey, baseUrl } where either may be empty string.
+ */
+export async function resolveProviderConfig(projectRoot: string, providerId: string): Promise<ProviderEntry> {
+  const stored = await readStored(projectRoot);
+  const entry = stored[providerId] || {};
+  const envKey = readEnvKey(providerId);
+  const needsExternalCredential = !envKey && !entry.apiKey;
+  const externalCredential = needsExternalCredential
+    ? providerId === 'openai'
+      ? await resolveOpenAIAuthFileCredential()
+      : providerId === 'grok'
+        ? await resolveXAIOAuthCredential(projectRoot)
+        : null
+    : null;
+  return {
+    apiKey: envKey || entry.apiKey || externalCredential?.apiKey || '',
+    baseUrl: entry.baseUrl || '',
+    ...(typeof entry.model === 'string' && entry.model.trim()
+      ? { model: entry.model.trim() }
+      : {}),
+  };
+}
+
+/**
+ * Read the full config for the GET endpoint. API keys are masked so the
+ * frontend can show "••••" + a "configured" indicator without leaking
+ * the secret back into the DOM.
+ */
+export interface MaskedConfigResponse {
+  providers: Record<string, { configured: boolean; source: string; apiKeyTail: string; baseUrl: string; model?: string } & Partial<MediaProviderAvailability>>;
+  /**
+   * Effective alias map plus source attribution. The Settings UI can
+   * show "from env" vs "from media-config.json" badges next to each
+   * entry without needing a second endpoint. Empty maps mean no
+   * aliases are configured (issue #1277).
+   */
+  aliases: { effective: ModelAliasMap; env: ModelAliasMap; stored: ModelAliasMap };
+}
+
+export async function readMaskedConfig(
+  projectRoot: string,
+  // `cachedAgentDetection` is for a run about to start or a panel waiting on the
+  // answer: it reads the last detection of the Codex CLI instead of spending seconds
+  // on a fresh probe.
+  options: { refreshCredentials?: boolean; dataDir?: string; cachedAgentDetection?: boolean } = {},
+): Promise<MaskedConfigResponse> {
+  const stored = await readStored(projectRoot, options.dataDir);
+  const providers: MaskedConfigResponse['providers'] = {};
+  for (const id of PROVIDER_IDS) {
+    if (id === 'codex-cli') {
+      providers[id] = { configured: false, source: 'codex-cli', apiKeyTail: '', baseUrl: '',
+        ...await codexImageProviderStatus(options.dataDir, { cached: options.cachedAgentDetection === true }) };
+      continue;
+    }
+    const entry = stored[id] || {};
+    const envKey = readEnvKey(id);
+    const hasStoredKey = typeof entry.apiKey === 'string' && entry.apiKey.length > 0;
+    const needsExternalCredential = !envKey && !hasStoredKey;
+    const externalCredential = needsExternalCredential
+      ? id === 'openai'
+        ? await resolveOpenAIAuthFileCredential()
+        : id === 'grok'
+          ? await resolveXAIOAuthCredential(projectRoot, options.refreshCredentials !== false, options.dataDir)
+          : null
+      : null;
+    providers[id] = {
+      configured: Boolean(envKey || hasStoredKey || externalCredential?.apiKey),
+      source: envKey ? 'env' : hasStoredKey ? 'stored' : externalCredential?.source || 'unset',
+      // Show last 4 chars only when stored locally; never echo env-var
+      // or borrowed auth-file/OAuth secrets so power users don't
+      // accidentally see them in the DOM.
+      apiKeyTail: hasStoredKey && entry.apiKey ? entry.apiKey.slice(-4) : '',
+      baseUrl: entry.baseUrl || '',
+      ...(typeof entry.model === 'string' && entry.model.trim()
+        ? { model: entry.model.trim() }
+        : {}),
+    };
+  }
+  const aliases = await readAliasMap(projectRoot, options.dataDir);
+  return { providers, aliases };
+}
+
+/**
+ * Write the supplied {providerId: {apiKey, baseUrl}} map. Empty
+ * apiKey deletes the entry. Unknown provider IDs are ignored. We
+ * deliberately replace the whole map rather than merging so the
+ * UI's "clear key" affordance just sends an empty string.
+ *
+ * Safety: if the incoming payload is empty but the on-disk config
+ * currently has providers, we log a WARN to stderr. This catches
+ * accidental wipes (e.g. a fresh-localStorage browser bootstrap
+ * pushing `{providers: {}}` onto a daemon that had keys from a
+ * previous session) without silently destroying the user's data.
+ */
+export async function writeConfig(projectRoot: string, body: unknown) {
+  const incoming = isRecord(body) && isRecord(body.providers) ? withCurrentProviderIds(body.providers) : {};
+  const force = Boolean(isRecord(body) && body.force === true);
+  const prior = await readStored(projectRoot);
+  const next: ProviderMap = {};
+  for (const id of PROVIDER_IDS) {
+    const entry = incoming[id];
+    if (!isRecord(entry)) continue;
+    const incomingApiKey =
+      typeof entry.apiKey === 'string' && entry.apiKey.trim()
+        ? entry.apiKey.trim()
+        : '';
+    const preserveApiKey = entry.preserveApiKey === true;
+    const priorApiKey =
+      typeof prior[id]?.apiKey === 'string' && prior[id].apiKey.trim()
+        ? prior[id].apiKey.trim()
+        : '';
+    const apiKey = incomingApiKey || (preserveApiKey ? priorApiKey : '');
+    const baseUrl =
+      typeof entry.baseUrl === 'string' && entry.baseUrl.trim()
+        ? entry.baseUrl.trim()
+        : '';
+    const model =
+      typeof entry.model === 'string' && entry.model.trim()
+        ? configuredModelId(id, entry.model.trim())
+        : '';
+    if (!apiKey && !baseUrl && !model) continue;
+    next[id] = {
+      apiKey,
+      baseUrl,
+      ...(model ? { model } : {}),
+    };
+  }
+  if (Object.keys(next).length === 0) {
+    const priorIds = Object.keys(prior).filter(
+      (id) => prior[id] && (prior[id].apiKey || prior[id].baseUrl),
+    );
+    if (priorIds.length > 0) {
+      if (!force) {
+        const err = new Error(
+          `refusing to wipe ${priorIds.length} configured provider(s) without force=true: ${priorIds.join(', ')}`,
+        ) as Error & { status: number };
+        err.status = 409;
+        throw err;
+      }
+      try {
+        console.error(
+          `[media-config] WARN: incoming PUT empty, would wipe ${priorIds.length} configured provider(s): ${priorIds.join(', ')}`,
+        );
+      } catch {
+        // best-effort logging only
+      }
+    }
+  }
+  await writeStored(projectRoot, next);
+  return readMaskedConfig(projectRoot);
+}
+
+/**
+ * Idempotent "seed if empty" write for a single provider slot. The chat
+ * proxy uses this to mirror a BYOK key into media-config so the agent's
+ * image / TTS path picks up the same credential without the user having
+ * to paste it twice. Strict rules:
+ *   * No-op when an apiKey is ALREADY stored for `providerId` (the user
+ *     may have configured Media independently and we never overwrite).
+ *   * No-op when an env-var key resolves for `providerId` (env wins
+ *     regardless of disk state — seeding would be invisible).
+ *   * No-op when the incoming `apiKey` is empty (we only seed values
+ *     the chat layer has just verified upstream).
+ *   * Otherwise merge `{ [providerId]: entry }` into the existing
+ *     provider map and persist. All other provider slots and aliases
+ *     are preserved byte-for-byte.
+ *
+ * Returns `true` when a write happened (caller can log), `false` when
+ * the call was a no-op. Errors are surfaced — the caller decides
+ * whether to swallow them (fire-and-forget) or propagate.
+ */
+export async function seedProviderIfMissing(
+  projectRoot: string,
+  providerId: string,
+  entry: { apiKey?: string; baseUrl?: string; model?: string },
+): Promise<boolean> {
+  if (!PROVIDER_IDS.includes(providerId)) return false;
+  const apiKey = entry.apiKey?.trim() ?? '';
+  if (!apiKey) return false;
+  // Env var wins at resolution time, so seeding when env is set would
+  // be invisible to the user. Skip to avoid confusing on-disk state.
+  if (readEnvKey(providerId)) return false;
+
+  const prior = await readStored(projectRoot);
+  const priorApiKey =
+    typeof prior[providerId]?.apiKey === 'string' && prior[providerId].apiKey.trim()
+      ? prior[providerId].apiKey.trim()
+      : '';
+  if (priorApiKey) return false;
+
+  const baseUrl = entry.baseUrl?.trim() ?? '';
+  const model = configuredModelId(providerId, entry.model?.trim() ?? '');
+  const next: ProviderMap = { ...prior };
+  next[providerId] = {
+    apiKey,
+    ...(baseUrl ? { baseUrl } : {}),
+    ...(model ? { model } : {}),
+  };
+  await writeStored(projectRoot, next);
+  return true;
+}

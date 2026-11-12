@@ -1,0 +1,23 @@
+{
+  "name": "@openpixo/terminal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Native POSIX sh and PowerShell carrier for Standalone exact distributions.",
+  "files": ["contract", "node-lock.json", "ps1", "runtime", "sh", "version"],
+  "scripts": {
+    "pretest": "pnpm --filter @openpixo/platform build && pnpm --filter @openpixo/sidecar build && pnpm --filter @openpixo/standalone build && pnpm --filter @openpixo/closure build",
+    "test": "vitest run",
+    "pretypecheck": "pnpm --filter @openpixo/standalone build",
+    "typecheck": "tsc -p tsconfig.tests.json --noEmit"
+  },
+  "devDependencies": {
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@openpixo/platform": "workspace:*",
+    "@openpixo/sidecar": "workspace:*",
+    "@openpixo/standalone": "workspace:*",
+    "@types/node": "24.12.2",
+    "vitest": "4.1.6"
+  },
+  "engines": {"node": "~24"}
+}

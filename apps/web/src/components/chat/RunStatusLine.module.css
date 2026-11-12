@@ -1,0 +1,85 @@
+/*
+ * 输入框上方那一行状态。一行、定高、不换行 —— 高度永远不变,
+ * 一轮开始 / 结束时不会把输入框顶上顶下(滚动跟随也就不用为它多算一次)。
+ * 色值一律走 `--chat-*` 接缝(chat/AGENTS.md §2)。
+ */
+.line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px 4px;
+  min-width: 0;
+  font-size: var(--chat-t-mini);
+  line-height: 20px;
+  color: var(--chat-text-muted);
+}
+
+.mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--chat-text-faint);
+  transition: background-color var(--chat-dur-enter) var(--chat-ease-out);
+}
+.line[data-tone='success'] .dot { background: var(--chat-green); }
+.line[data-tone='error'] .dot { background: var(--chat-red); }
+.line[data-tone='attention'] .dot {
+  background: var(--chat-amber);
+  box-shadow: 0 0 0 3px var(--chat-amber-bg);
+}
+
+.text {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 主语那一段:当前那一步(或状态词本身) */
+.step {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--chat-text);
+  font-weight: 500;
+}
+.line[data-tone='attention'] .step { color: var(--chat-text-strong); }
+.line[data-tone='error'] .step { color: var(--chat-red); }
+
+.sep {
+  flex: none;
+  color: var(--chat-text-faint);
+}
+
+.activity {
+  flex: none;
+  color: var(--chat-text-muted);
+}
+
+/* 「上面有问题等你回答 ↑」:等用户回答问题表单时,这一行本身变成一颗按钮。
+   高度钉在这一行里(20px),不把输入框顶上去。 */
+.line .jump {
+  height: 20px;
+  min-width: 0;
+  padding: 0 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--chat-brand);
+  background: var(--chat-brand-weak);
+  font-size: var(--chat-t-mini);
+  font-weight: 600;
+  line-height: 20px;
+}

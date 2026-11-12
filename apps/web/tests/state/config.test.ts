@@ -1,0 +1,1778 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildMediaProvidersForDaemonSave,
+  BYOK_PROVIDER_PRESETS,
+  DEFAULT_CONFIG,
+  defaultKnownProviderModel,
+  fetchMediaProvidersFromDaemon,
+  isStoredMediaProviderEntryEmpty,
+  isStoredMediaProviderEntryPresent,
+  KNOWN_PROVIDERS,
+  loadConfig,
+  mergeDaemonConfig,
+  mergeDaemonMediaProviders,
+  rebaseConfigEdits,
+  saveConfig,
+  shouldSyncLocalMediaProvidersToDaemon,
+  syncConfigToDaemon,
+  syncMediaProvidersToDaemon,
+} from '../../src/state/config';
+import type { AppConfig } from '../../src/types';
+import type { AppConfigPrefs } from '@openpixo/contracts';
+
+const store = new Map<string, string>();
+const originalFetch = globalThis.fetch;
+
+describe('KNOWN_PROVIDERS', () => {
+  it('includes separate SiliconFlow CN and Global presets', () => {
+    expect(
+      KNOWN_PROVIDERS.filter((provider) => provider.label.startsWith('SiliconFlow')),
+    ).toEqual([
+      expect.objectContaining({
+        label: 'SiliconFlow (CN)',
+        protocol: 'openai',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        preferredModels: expect.arrayContaining(['deepseek-ai/DeepSeek-V3.1']),
+      }),
+      expect.objectContaining({
+        label: 'SiliconFlow (Global)',
+        protocol: 'openai',
+        baseUrl: 'https://api.siliconflow.com/v1',
+        preferredModels: expect.arrayContaining(['deepseek-ai/DeepSeek-V3.1']),
+      }),
+    ]);
+  });
+
+  it('keeps BYOK presets derived from the canonical provider registry', () => {
+    const moonshot = KNOWN_PROVIDERS.find((provider) => provider.label === 'Moonshot');
+    const moonshotPreset = BYOK_PROVIDER_PRESETS.find((preset) => preset.id === 'moonshot');
+
+    expect(moonshot?.preferredModels).toEqual(expect.arrayContaining([
+      'kimi-k2.6',
+      'kimi-k2.7-code',
+    ]));
+    expect(moonshot?.retiredModels).toContain('kimi-k2-0711-preview');
+    expect(moonshotPreset).toEqual(expect.objectContaining({
+      protocol: moonshot?.protocol,
+      baseUrl: moonshot?.baseUrl,
+      preferredModels: moonshot?.preferredModels,
+    }));
+  });
+
+  it('uses the current native DeepSeek Flash model without changing the separate Anthropic gateway', () => {
+    const deepSeekProviders = KNOWN_PROVIDERS.filter((provider) =>
+      provider.label.startsWith('DeepSeek'),
+    );
+
+    expect(deepSeekProviders).toHaveLength(2);
+    for (const provider of deepSeekProviders) {
+      expect(provider.preferredModels).toEqual([
+        provider.protocol === 'openai' ? 'deepseek-flash' : 'deepseek-v4-flash',
+        'deepseek-v4-pro',
+      ]);
+      expect(provider.retiredModels).toEqual([
+        'deepseek-chat',
+        'deepseek-reasoner',
+        ...(provider.protocol === 'openai' ? ['deepseek-v4-flash'] : []),
+      ]);
+    }
+  });
+
+
+
+  it('defaults OpenRouter to a live model and records retired defaults', () => {
+    const openRouter = KNOWN_PROVIDERS.find(
+      (provider) => provider.label === 'OpenRouter',
+    );
+
+    expect(defaultKnownProviderModel(openRouter)).toBe(
+      'anthropic/claude-sonnet-4.6',
+    );
+    expect(openRouter?.retiredModels).toEqual([
+      'anthropic/claude-3.7-sonnet',
+      'anthropic/claude-3.5-sonnet',
+    ]);
+  });
+});
+
+vi.stubGlobal('localStorage', {
+  getItem: vi.fn((key: string) => store.get(key) ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    store.set(key, value);
+  }),
+  removeItem: vi.fn((key: string) => {
+    store.delete(key);
+  }),
+  clear: vi.fn(() => {
+    store.clear();
+  }),
+});
+
+describe('syncConfigToDaemon', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('fetch', originalFetch);
+  });
+
+  it('syncs approval modes from daemon hydration through the settings save', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const config = mergeDaemonConfig({ ...DEFAULT_CONFIG, agentApprovalModes: { claude: 'skip' } }, { agentApprovalModes: { claude: 'in-app' } });
+    expect(config.agentApprovalModes).toEqual({ claude: 'in-app' });
+    await syncConfigToDaemon(config);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).agentApprovalModes).toEqual({ claude: 'in-app' });
+  });
+
+  it('follows the daemon for the game experience answer, and never clears one it has not loaded', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const hydrated = mergeDaemonConfig(DEFAULT_CONFIG, { gameExperience: 'first' });
+    expect(hydrated.gameExperience).toBe('first');
+    expect(mergeDaemonConfig(hydrated, {}).gameExperience).toBeUndefined();
+    await syncConfigToDaemon(DEFAULT_CONFIG);
+    await syncConfigToDaemon({ ...DEFAULT_CONFIG, gameExperience: 'experienced' });
+    const bodies = fetchMock.mock.calls.map(call => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
+    expect('gameExperience' in bodies[0]).toBe(false);
+    expect(bodies[1].gameExperience).toBe('experienced');
+  });
+
+  it('syncs per-agent CLI env prefs to the daemon app config', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await syncConfigToDaemon({
+      ...DEFAULT_CONFIG,
+      agentCliEnv: {
+        claude: { CLAUDE_CONFIG_DIR: '~/.claude-2' },
+        codex: { CODEX_HOME: '~/.codex-alt', CODEX_BIN: '~/bin/codex-next' },
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe('/api/app-config');
+    expect(init.method).toBe('PUT');
+    expect(init.headers).toEqual({ 'content-type': 'application/json' });
+    const body = JSON.parse(String(init.body));
+    // A false `onboardingCompleted` is omitted rather than sent: the sync only
+    // ratchets it upward, so a stale local `false` can never re-arm first-run
+    // onboarding on the daemon. Resetting is opt-in via `allowOnboardingReset`.
+    expect(body).not.toHaveProperty('onboardingCompleted');
+    expect(body).toMatchObject({
+      agentId: DEFAULT_CONFIG.agentId,
+      agentModels: DEFAULT_CONFIG.agentModels,
+      skillId: DEFAULT_CONFIG.skillId,
+      agentCliEnv: {
+        claude: { CLAUDE_CONFIG_DIR: '~/.claude-2' },
+        codex: { CODEX_HOME: '~/.codex-alt', CODEX_BIN: '~/bin/codex-next' },
+      },
+    });
+  });
+
+  it('syncs CLI API key env values and intent to daemon app config while localStorage strips them', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await syncConfigToDaemon({
+      ...DEFAULT_CONFIG,
+      agentCliEnv: {
+        claude: { ANTHROPIC_API_KEY: 'sk-anthropic', ANTHROPIC_BASE_URL: 'https://proxy.example/anthropic' },
+        codex: { OPENAI_API_KEY: 'sk-openai', OPENAI_BASE_URL: 'https://proxy.example/openai' },
+      },
+      agentCliEnvIntent: {
+        claude: { apiKeyOverride: true },
+        codex: { apiKeyOverride: true },
+      },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      agentCliEnv: {
+        claude: { ANTHROPIC_API_KEY: 'sk-anthropic', ANTHROPIC_BASE_URL: 'https://proxy.example/anthropic' },
+        codex: { OPENAI_API_KEY: 'sk-openai', OPENAI_BASE_URL: 'https://proxy.example/openai' },
+      },
+      agentCliEnvIntent: {
+        claude: { apiKeyOverride: true },
+        codex: { apiKeyOverride: true },
+      },
+    });
+  });
+
+  it('syncs daemon-owned privacy decision fields', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await syncConfigToDaemon({
+      ...DEFAULT_CONFIG,
+      installationId: 'install-1',
+      privacyDecisionAt: 1778244000000,
+      telemetry: { metrics: true, },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      installationId: 'install-1',
+      privacyDecisionAt: 1778244000000,
+      telemetry: { metrics: true, },
+    });
+  });
+
+  it('syncs the silent update preference to daemon app config', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await syncConfigToDaemon({
+      ...DEFAULT_CONFIG,
+      allowSilentUpdates: true,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      allowSilentUpdates: true,
+    });
+  });
+});
+
+describe('syncMediaProvidersToDaemon', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('fetch', originalFetch);
+  });
+
+  it('throws when a forced media sync fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
+
+    await expect(
+      syncMediaProvidersToDaemon({}, { force: true, throwOnError: true }),
+    ).rejects.toThrow('Media config save failed');
+  });
+});
+
+describe('mergeDaemonConfig', () => {
+  it('moves a retired hosted model saved on the daemon to DeepSeek V4.1 Flash', () => {
+    const merged = mergeDaemonConfig(DEFAULT_CONFIG, {
+      agentModels: { 'openpixo-agent': { model: 'openpixo-agent-pro', reasoning: 'high' } },
+    });
+    expect(merged.agentModels?.['openpixo-agent']).toEqual({ model: 'openpixo-agent-flash', reasoning: 'high' });
+    expect(mergeDaemonConfig(DEFAULT_CONFIG, {
+      agentModels: { 'openpixo-agent': { model: 'openpixo-agent-gpt-6-luna' } },
+    }).agentModels?.['openpixo-agent']).toEqual({ model: 'openpixo-agent-gpt-6-luna' });
+  });
+
+  it('never un-completes onboarding from a daemon copy that predates the completion', () => {
+    // The user finished onboarding: the local copy flipped to true immediately,
+    // and the daemon PUT is asynchronous (and can fail outright). A daemon read
+    // that still says `false` must not roll the local completion back — the
+    // merged config is written straight back to BOTH localStorage and the
+    // daemon, so one stale read would permanently re-arm the first-run flow and
+    // the user would meet onboarding on every launch.
+    const merged = mergeDaemonConfig(
+      { ...DEFAULT_CONFIG, onboardingCompleted: true },
+      { onboardingCompleted: false },
+    );
+
+    expect(merged.onboardingCompleted).toBe(true);
+  });
+
+  it('lets an explicit reset clear onboarding once the local copy is already false', () => {
+    // Settings → "run setup again" writes false to both stores at once, so by
+    // the time the next merge runs the local copy is false too. The ratchet
+    // must not resurrect completion in that state.
+    const merged = mergeDaemonConfig(
+      { ...DEFAULT_CONFIG, onboardingCompleted: false },
+      { onboardingCompleted: false },
+    );
+
+    expect(merged.onboardingCompleted).toBe(false);
+  });
+
+  it('adopts a daemon completion for a local copy that never had one', () => {
+    // Fresh browser profile / cleared localStorage against a daemon that
+    // already recorded the completion: the user must not be re-onboarded.
+    const merged = mergeDaemonConfig(
+      { ...DEFAULT_CONFIG, onboardingCompleted: false },
+      { onboardingCompleted: true },
+    );
+
+    expect(merged.onboardingCompleted).toBe(true);
+  });
+
+  it('clears stale local CLI env prefs when the daemon has none', () => {
+    const merged = mergeDaemonConfig(
+      {
+        ...DEFAULT_CONFIG,
+        agentCliEnv: {
+          claude: { CLAUDE_CONFIG_DIR: '~/.claude-old' },
+        },
+      },
+      {
+        agentId: 'codex',
+      },
+    );
+
+    expect(merged.agentId).toBe('codex');
+    expect(merged.agentCliEnv).toEqual({});
+  });
+
+  it('uses daemon CLI env prefs instead of merging with stale local entries', () => {
+    const merged = mergeDaemonConfig(
+      {
+        ...DEFAULT_CONFIG,
+        agentCliEnv: {
+          claude: { CLAUDE_CONFIG_DIR: '~/.claude-old' },
+        },
+      },
+      {
+        agentCliEnv: {
+          codex: { CODEX_HOME: '~/.codex-new', CODEX_BIN: '~/bin/codex-new' },
+        },
+      },
+    );
+
+    expect(merged.agentCliEnv).toEqual({
+      codex: { CODEX_HOME: '~/.codex-new', CODEX_BIN: '~/bin/codex-new' },
+    });
+  });
+
+  it('uses daemon CLI env intent instead of merging with stale local entries', () => {
+    const merged = mergeDaemonConfig(
+      {
+        ...DEFAULT_CONFIG,
+        agentCliEnvIntent: {
+          claude: { apiKeyOverride: true },
+        },
+      },
+      {
+        agentCliEnvIntent: {
+          codex: { apiKeyOverride: true },
+        },
+      },
+    );
+
+    expect(merged.agentCliEnvIntent).toEqual({
+      codex: { apiKeyOverride: true },
+    });
+  });
+
+  it('copies privacyDecisionAt from daemon config', () => {
+    const merged = mergeDaemonConfig(DEFAULT_CONFIG, {
+      installationId: 'install-1',
+      privacyDecisionAt: 1778244000000,
+      telemetry: { metrics: true },
+    });
+
+    expect(merged.installationId).toBe('install-1');
+    expect(merged.privacyDecisionAt).toBe(1778244000000);
+    expect(merged.telemetry).toEqual({ metrics: true });
+  });
+
+  it('migrates old daemon privacy config to a resolved decision', () => {
+    const merged = mergeDaemonConfig(DEFAULT_CONFIG, {
+      installationId: 'install-1',
+      telemetry: { metrics: true },
+    });
+
+    expect(merged.installationId).toBe('install-1');
+    expect(typeof merged.privacyDecisionAt).toBe('number');
+  });
+
+  it('keeps reporting off and does not mint an installationId without opt-in', () => {
+    const merged = mergeDaemonConfig(DEFAULT_CONFIG, {});
+
+    expect(merged.telemetry?.metrics).toBe(false);
+    expect(merged.installationId == null).toBe(true);
+  });
+
+  it('mints an installationId for a reporting install that somehow has none', () => {
+    // The "on but no id" state that surfaces as "Opted out" in Settings:
+    // metrics is on but no anonymous id was ever assigned.
+    const merged = mergeDaemonConfig(DEFAULT_CONFIG, {
+      telemetry: { metrics: true, },
+      installationId: null,
+    });
+
+    expect(merged.telemetry?.metrics).toBe(true);
+    expect(merged.installationId).toBeTruthy();
+  });
+
+  it('preserves an explicit opt-out and never re-mints an id', () => {
+    const merged = mergeDaemonConfig(DEFAULT_CONFIG, {
+      telemetry: { metrics: false, },
+      installationId: null,
+      privacyDecisionAt: 1778244000000,
+    });
+
+    expect(merged.telemetry?.metrics).toBe(false);
+    expect(merged.installationId == null).toBe(true);
+  });
+
+  it('uses daemon silent update preference and clears stale local values when absent', () => {
+    expect(
+      mergeDaemonConfig(DEFAULT_CONFIG, { allowSilentUpdates: false }).allowSilentUpdates,
+    ).toBe(false);
+    expect(
+      mergeDaemonConfig(DEFAULT_CONFIG, { allowSilentUpdates: true }).allowSilentUpdates,
+    ).toBe(true);
+    expect(
+      mergeDaemonConfig({ ...DEFAULT_CONFIG, allowSilentUpdates: true }, {}).allowSilentUpdates,
+    ).toBeUndefined();
+  });
+});
+
+describe('rebaseConfigEdits', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('fetch', originalFetch);
+  });
+
+  // Boot reads the daemon, the user keeps working, and only then does the read land.
+  const atRead: AppConfig = {
+    ...DEFAULT_CONFIG,
+    agentId: 'codex',
+    agentModels: { codex: { model: 'default' } },
+  };
+  const landRead = (latest: AppConfig, daemon: AppConfigPrefs, base: AppConfig = atRead) =>
+    rebaseConfigEdits(base, latest, mergeDaemonConfig(base, daemon));
+
+  it('keeps a model picked after the read, in memory and in what boot writes back', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const merged = landRead(
+      { ...atRead, agentModels: { codex: { model: 'gpt-5.5' } } },
+      { agentId: 'codex', agentModels: { codex: { model: 'default' } } },
+    );
+    await syncConfigToDaemon(merged);
+
+    expect(merged.agentModels).toEqual({ codex: { model: 'gpt-5.5' } });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).agentModels).toEqual({ codex: { model: 'gpt-5.5' } });
+  });
+
+  it('keeps an agent switched after the read', () => {
+    const merged = landRead({ ...atRead, agentId: 'claude' }, { agentId: 'codex' });
+
+    expect(merged.agentId).toBe('claude');
+  });
+
+  it('lets the daemon win for everything the user left alone', () => {
+    const merged = landRead(
+      { ...atRead, agentModels: { codex: { model: 'gpt-5.5' } } },
+      {
+        agentId: 'claude',
+        skillId: 'skill-from-daemon',
+        agentModels: { codex: { model: 'default' }, claude: { model: 'opus' } },
+        agentCliEnv: { codex: { OPENAI_API_KEY: 'sk-daemon' } },
+        agentCliEnvIntent: { codex: { apiKeyOverride: true } },
+        agentApprovalModes: { claude: 'skip' },
+        gameEnginePaths: { godot: 'daemon-godot' },
+        disabledSkills: ['skill-a'],
+        customInstructions: 'from the daemon',
+        projectLocations: [{ id: 'loc', name: 'Games', path: 'daemon-path' }],
+        defaultProjectLocationId: 'loc',
+        installationId: 'install-1',
+        privacyDecisionAt: 1778244000000,
+        telemetry: { metrics: true },
+        allowSilentUpdates: true,
+      },
+    );
+
+    expect(merged).toMatchObject({
+      agentId: 'claude',
+      skillId: 'skill-from-daemon',
+      agentModels: { codex: { model: 'gpt-5.5' }, claude: { model: 'opus' } },
+      agentCliEnv: { codex: { OPENAI_API_KEY: 'sk-daemon' } },
+      agentCliEnvIntent: { codex: { apiKeyOverride: true } },
+      agentApprovalModes: { claude: 'skip' },
+      gameEnginePaths: { godot: 'daemon-godot' },
+      disabledSkills: ['skill-a'],
+      customInstructions: 'from the daemon',
+      projectLocations: [{ id: 'loc', name: 'Games', path: 'daemon-path' }],
+      defaultProjectLocationId: 'loc',
+      installationId: 'install-1',
+      privacyDecisionAt: 1778244000000,
+      telemetry: { metrics: true },
+      allowSilentUpdates: true,
+    });
+  });
+
+  it('is plain hydration when nothing changed since the read', () => {
+    const daemon: AppConfigPrefs = {
+      agentId: 'claude',
+      agentModels: { claude: { model: 'opus' } },
+      agentCliEnv: { claude: { CLAUDE_BIN: 'daemon-claude' } },
+    };
+
+    // A rebuilt copy of the same values is not an edit either.
+    const latest = JSON.parse(JSON.stringify(atRead)) as AppConfig;
+
+    expect(landRead(atRead, daemon)).toEqual(mergeDaemonConfig(atRead, daemon));
+    expect(landRead(latest, daemon)).toEqual(mergeDaemonConfig(atRead, daemon));
+  });
+
+  it('keeps an approval mode changed after the read without losing the other agents', () => {
+    const merged = landRead(
+      { ...atRead, agentApprovalModes: { codex: 'skip' } },
+      { agentApprovalModes: { claude: 'skip' } },
+    );
+
+    expect(merged.agentApprovalModes).toEqual({ codex: 'skip', claude: 'skip' });
+  });
+
+  it('keeps an API key the browser never held when the user edits another variable of that agent', () => {
+    // saveConfig strips secrets, so the local copy cannot know about the key.
+    const merged = landRead(
+      { ...atRead, agentCliEnv: { codex: { CODEX_BIN: 'edited-codex' } } },
+      { agentCliEnv: { codex: { CODEX_BIN: 'old-codex', OPENAI_API_KEY: 'sk-daemon' } } },
+    );
+
+    expect(merged.agentCliEnv).toEqual({
+      codex: { CODEX_BIN: 'edited-codex', OPENAI_API_KEY: 'sk-daemon' },
+    });
+  });
+
+  it('keeps a variable the user removed after the read', () => {
+    const base: AppConfig = { ...atRead, agentCliEnv: { codex: { CODEX_BIN: 'old-codex' } } };
+
+    const merged = landRead(
+      { ...base, agentCliEnv: { codex: {} } },
+      { agentCliEnv: { codex: { CODEX_BIN: 'old-codex', OPENAI_API_KEY: 'sk-daemon' } } },
+      base,
+    );
+
+    expect(merged.agentCliEnv).toEqual({ codex: { OPENAI_API_KEY: 'sk-daemon' } });
+  });
+
+  it('keeps an edited model choice whole, so an old speed tier cannot return with the new model', () => {
+    const merged = landRead(
+      { ...atRead, agentModels: { codex: { model: 'gpt-5.5' } } },
+      { agentModels: { codex: { model: 'default', serviceTier: 'fast' } } },
+    );
+
+    expect(merged.agentModels).toEqual({ codex: { model: 'gpt-5.5' } });
+  });
+
+  it('keeps an opt-out made after the read, even though it equals the telemetry default', () => {
+    const merged = landRead(
+      {
+        ...atRead,
+        installationId: null,
+        privacyDecisionAt: 1778244000000,
+        telemetry: { metrics: false },
+      },
+      { installationId: 'install-1', telemetry: { metrics: true } },
+    );
+
+    expect(merged.installationId).toBeNull();
+    expect(merged.privacyDecisionAt).toBe(1778244000000);
+    expect(merged.telemetry).toEqual({ metrics: false });
+  });
+
+  it('keeps a list edited after the read whole', () => {
+    const merged = landRead(
+      { ...atRead, disabledSkills: ['skill-b'] },
+      { disabledSkills: ['skill-a'] },
+    );
+
+    expect(merged.disabledSkills).toEqual(['skill-b']);
+  });
+
+  it('keeps onboarding the user finished, or explicitly reset, after the read', () => {
+    const notDone: AppConfig = { ...atRead, onboardingCompleted: false };
+    const done: AppConfig = { ...atRead, onboardingCompleted: true };
+
+    expect(landRead(done, { onboardingCompleted: false }, notDone).onboardingCompleted).toBe(true);
+    expect(landRead(notDone, { onboardingCompleted: true }, done).onboardingCompleted).toBe(false);
+  });
+
+  it('keeps edits to settings the daemon does not hold', () => {
+    const merged = landRead({ ...atRead, mode: 'api', model: 'gpt-4o' }, { agentId: 'claude' });
+
+    expect(merged).toMatchObject({ mode: 'api', model: 'gpt-4o', agentId: 'claude' });
+  });
+
+  it('keeps the edits when the daemon read failed', () => {
+    const merged = rebaseConfigEdits(
+      atRead,
+      { ...atRead, agentId: 'claude' },
+      mergeDaemonConfig(atRead, null),
+    );
+
+    expect(merged.agentId).toBe('claude');
+  });
+});
+
+describe('mergeDaemonMediaProviders', () => {
+  it('preserves a local pending media-provider edit while adopting daemon saved-marker metadata', () => {
+    const merged = mergeDaemonMediaProviders(
+      {
+        ...DEFAULT_CONFIG,
+        mediaProviders: {
+          openai: {
+            apiKey: 'sk-local',
+            baseUrl: 'https://local.example/v1',
+          },
+        },
+      },
+      {
+        openai: {
+          apiKey: '',
+          apiKeyConfigured: true,
+          apiKeyTail: '1234',
+          baseUrl: 'https://daemon.example/v1',
+        },
+      },
+      { preserveLocalProviderIds: new Set(['openai']) },
+    );
+
+    expect(merged.mediaProviders).toEqual({
+      openai: {
+        apiKey: 'sk-local',
+        apiKeyConfigured: true,
+        apiKeyTail: '1234',
+        baseUrl: 'https://local.example/v1',
+      },
+    });
+  });
+
+  it('preserves local pending edits and unrelated local-only providers when daemon returns a partial provider set', () => {
+    const merged = mergeDaemonMediaProviders(
+      {
+        ...DEFAULT_CONFIG,
+        mediaProviders: {
+          openai: {
+            apiKey: 'sk-local-openai',
+            baseUrl: 'https://local-openai.example/v1',
+          },
+          'media-gateway': {
+            apiKey: 'sk-local-gateway',
+            baseUrl: 'https://gateway.example',
+            model: 'gateway/imagen4-preview',
+          },
+        },
+      },
+      {
+        openai: {
+          apiKey: '',
+          apiKeyConfigured: true,
+          apiKeyTail: '1234',
+          baseUrl: 'https://daemon-openai.example/v1',
+        },
+      },
+      { preserveLocalProviderIds: new Set(['openai']) },
+    );
+
+    expect(merged.mediaProviders).toEqual({
+      openai: {
+        apiKey: 'sk-local-openai',
+        apiKeyConfigured: true,
+        apiKeyTail: '1234',
+        baseUrl: 'https://local-openai.example/v1',
+      },
+      'media-gateway': {
+        apiKey: 'sk-local-gateway',
+        baseUrl: 'https://gateway.example',
+        model: 'gateway/imagen4-preview',
+      },
+    });
+  });
+
+  it('keeps local media providers when daemon has no stored state yet', () => {
+    const localConfig = {
+      ...DEFAULT_CONFIG,
+      mediaProviders: {
+        openai: {
+          apiKey: 'sk-local',
+          baseUrl: 'https://local.example/v1',
+        },
+      },
+    };
+
+    const merged = mergeDaemonMediaProviders(localConfig, {
+      openai: {
+        apiKey: '',
+        apiKeyConfigured: false,
+        apiKeyTail: '',
+        baseUrl: '',
+      },
+    });
+
+    expect(merged.mediaProviders).toEqual(localConfig.mediaProviders);
+  });
+
+  it('preserves local pending media-provider edits when daemon reload returns saved marker state', () => {
+    const merged = mergeDaemonMediaProviders(
+      {
+        ...DEFAULT_CONFIG,
+        mediaProviders: {
+          openai: {
+            apiKey: 'sk-local-pending',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: 'https://local-pending.example/v1',
+          },
+        },
+      },
+      {
+        openai: {
+          apiKey: '',
+          apiKeyConfigured: true,
+          apiKeyTail: '9876',
+          baseUrl: 'https://daemon.example/v1',
+        },
+      },
+      { preserveLocalProviderIds: new Set(['openai']) },
+    );
+
+    expect(merged.mediaProviders).toEqual({
+      openai: {
+        apiKey: 'sk-local-pending',
+        apiKeyConfigured: true,
+        apiKeyTail: '1234',
+        baseUrl: 'https://local-pending.example/v1',
+      },
+    });
+  });
+
+  it('refreshes ordinary saved-marker rows from daemon state when there is no unsaved local secret', () => {
+    const merged = mergeDaemonMediaProviders(
+      {
+        ...DEFAULT_CONFIG,
+        mediaProviders: {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: 'https://local-saved.example/v1',
+            model: 'gpt-image-1',
+          },
+        },
+      },
+      {
+        openai: {
+          apiKey: '',
+          apiKeyConfigured: true,
+          apiKeyTail: '9876',
+          baseUrl: 'https://daemon.example/v1',
+          model: 'gpt-image-1-mini',
+        },
+      },
+    );
+
+    expect(merged.mediaProviders).toEqual({
+      openai: {
+        apiKey: '',
+        apiKeyConfigured: true,
+        apiKeyTail: '9876',
+        baseUrl: 'https://daemon.example/v1',
+        model: 'gpt-image-1-mini',
+      },
+    });
+  });
+
+  it('prefers daemon-backed media provider state during startup reloads by default', () => {
+    const merged = mergeDaemonMediaProviders(
+      {
+        ...DEFAULT_CONFIG,
+        mediaProviders: {
+          openai: {
+            apiKey: 'sk-stale-local',
+            baseUrl: 'https://local-stale.example/v1',
+          },
+        },
+      },
+      {
+        openai: {
+          apiKey: '',
+          apiKeyConfigured: true,
+          apiKeyTail: '9876',
+          baseUrl: 'https://daemon.example/v1',
+        },
+      },
+    );
+
+    expect(merged.mediaProviders).toEqual({
+      openai: {
+        apiKey: '',
+        apiKeyConfigured: true,
+        apiKeyTail: '9876',
+        baseUrl: 'https://daemon.example/v1',
+      },
+    });
+  });
+
+  it('refreshes browser-persisted saved rows from daemon state unless the dialog marks them dirty', () => {
+    const localConfig = {
+      ...DEFAULT_CONFIG,
+      mediaProviders: {
+        openai: {
+          apiKey: 'sk-browser-saved',
+          apiKeyConfigured: true,
+          apiKeyTail: '1234',
+          baseUrl: 'https://local-stale.example/v1',
+          model: 'gpt-image-1',
+        },
+      },
+    };
+
+    const daemonProviders = {
+      openai: {
+        apiKey: '',
+        apiKeyConfigured: true,
+        apiKeyTail: '9876',
+        baseUrl: 'https://daemon.example/v1',
+        model: 'gpt-image-1-mini',
+      },
+    };
+
+    expect(mergeDaemonMediaProviders(localConfig, daemonProviders).mediaProviders).toEqual({
+      openai: {
+        apiKey: '',
+        apiKeyConfigured: true,
+        apiKeyTail: '9876',
+        baseUrl: 'https://daemon.example/v1',
+        model: 'gpt-image-1-mini',
+      },
+    });
+
+    expect(
+      mergeDaemonMediaProviders(localConfig, daemonProviders, {
+        preserveLocalProviderIds: new Set(['openai']),
+      }).mediaProviders,
+    ).toEqual({
+      openai: {
+        apiKey: 'sk-browser-saved',
+        apiKeyConfigured: true,
+        apiKeyTail: '1234',
+        baseUrl: 'https://local-stale.example/v1',
+        model: 'gpt-image-1',
+      },
+    });
+  });
+
+  it('drops stale marker-only local entries when daemon definitively has no stored state', () => {
+    const merged = mergeDaemonMediaProviders(
+      {
+        ...DEFAULT_CONFIG,
+        mediaProviders: {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: '',
+            model: '',
+          },
+          'media-gateway': {
+            apiKey: 'sk-local-gateway',
+            baseUrl: 'https://gateway.example',
+            model: 'gateway/imagen4-preview',
+          },
+        },
+      },
+      {},
+    );
+
+    expect(merged.mediaProviders).toEqual({
+      'media-gateway': {
+        apiKey: 'sk-local-gateway',
+        baseUrl: 'https://gateway.example',
+        model: 'gateway/imagen4-preview',
+      },
+    });
+  });
+});
+
+describe('media provider entry presence helpers', () => {
+  it('treat saved-marker entries as present even when visible fields are empty', () => {
+    expect(
+      isStoredMediaProviderEntryPresent({
+        apiKey: '',
+        apiKeyConfigured: true,
+        apiKeyTail: '1234',
+        baseUrl: '',
+      }),
+    ).toBe(true);
+    expect(
+      isStoredMediaProviderEntryEmpty({
+        apiKey: '',
+        apiKeyConfigured: true,
+        apiKeyTail: '1234',
+        baseUrl: '',
+      }),
+    ).toBe(false);
+  });
+
+  it('treats entries as empty only after clear-level fields and markers are removed', () => {
+    expect(
+      isStoredMediaProviderEntryEmpty({
+        apiKey: '',
+        apiKeyConfigured: false,
+        apiKeyTail: '',
+        baseUrl: '',
+        model: '',
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('shouldSyncLocalMediaProvidersToDaemon', () => {
+  it('returns true when local providers exist and daemon has none yet', () => {
+    expect(
+      shouldSyncLocalMediaProvidersToDaemon(
+        {
+          openai: {
+            apiKey: 'sk-local',
+            baseUrl: 'https://local.example/v1',
+          },
+        },
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: false,
+            apiKeyTail: '',
+            baseUrl: '',
+          },
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false when daemon already has persisted media provider state', () => {
+    expect(
+      shouldSyncLocalMediaProvidersToDaemon(
+        {
+          openai: {
+            apiKey: 'sk-local',
+            baseUrl: 'https://local.example/v1',
+          },
+        },
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: '',
+          },
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false when daemon media config could not be fetched', () => {
+    expect(
+      shouldSyncLocalMediaProvidersToDaemon(
+        {
+          openai: {
+            apiKey: 'sk-local',
+            baseUrl: 'https://local.example/v1',
+          },
+        },
+        null,
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false when local state only has masked saved markers', () => {
+    expect(
+      shouldSyncLocalMediaProvidersToDaemon(
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: '',
+            model: '',
+          },
+        },
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: false,
+            apiKeyTail: '',
+            baseUrl: '',
+            model: '',
+          },
+        },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('fetchMediaProvidersFromDaemon', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('fetch', originalFetch);
+  });
+
+  it('maps daemon media config into masked local config state', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          providers: {
+            openai: {
+              configured: true,
+              source: 'stored',
+              apiKeyTail: '1234',
+              baseUrl: 'https://daemon.example/v1',
+              model: 'gpt-image-1',
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchMediaProvidersFromDaemon()).resolves.toEqual({
+      status: 'ok',
+      providers: {
+        openai: {
+          apiKey: '',
+          apiKeyConfigured: true,
+          source: 'stored',
+          apiKeyTail: '1234',
+          baseUrl: 'https://daemon.example/v1',
+          model: 'gpt-image-1',
+        },
+      },
+    });
+  });
+
+  it('returns an error status when daemon media config fetch fails', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 503 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchMediaProvidersFromDaemon()).resolves.toEqual({ status: 'error' });
+  });
+});
+
+describe('buildMediaProvidersForDaemonSave', () => {
+  it('preserves a stored key while applying daemon/default non-secret values', () => {
+    expect(
+      buildMediaProvidersForDaemonSave(
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: '',
+          },
+        },
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '1234',
+            baseUrl: '',
+          },
+        },
+        { force: true },
+      ),
+    ).toEqual({
+      providers: {
+        openai: {
+          preserveApiKey: true,
+          baseUrl: 'https://api.openai.com/v1',
+        },
+      },
+      force: true,
+    });
+  });
+
+  it('keeps an existing stored key when only baseUrl or model changes', () => {
+    expect(
+      buildMediaProvidersForDaemonSave(
+        {
+          nanobanana: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '9999',
+            baseUrl: 'https://custom.gateway.example',
+            model: 'gemini-custom',
+          },
+        },
+        {
+          nanobanana: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '9999',
+            baseUrl: 'https://generativelanguage.googleapis.com',
+            model: 'gemini-3.1-flash-image-preview',
+          },
+        },
+      ),
+    ).toEqual({
+      providers: {
+        nanobanana: {
+          preserveApiKey: true,
+          baseUrl: 'https://custom.gateway.example',
+          model: 'gemini-custom',
+        },
+      },
+      force: false,
+    });
+  });
+
+  it('does not persist default OpenAI base URL for OAuth-only markers', () => {
+    expect(
+      buildMediaProvidersForDaemonSave(
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '',
+            baseUrl: '',
+            source: 'oauth-codex',
+          },
+        },
+        {
+          openai: {
+            apiKey: '',
+            apiKeyConfigured: true,
+            apiKeyTail: '',
+            baseUrl: '',
+            source: 'oauth-codex',
+          },
+        },
+      ),
+    ).toEqual({
+      providers: {},
+      force: false,
+    });
+  });
+});
+
+afterEach(() => {
+  store.clear();
+});
+
+describe('loadConfig', () => {
+  it('starts a fresh config with no agent, so first-run setup can pick the hosted default', () => {
+    expect(DEFAULT_CONFIG.agentId).toBeNull();
+    expect(loadConfig().agentId).toBeNull();
+    // A saved choice is the user's and stays.
+    store.set('pixo:config', JSON.stringify({ agentId: 'codex' }));
+    expect(loadConfig().agentId).toBe('codex');
+  });
+
+  it('moves a saved retired hosted model to DeepSeek V4.1 Flash and keeps the rest of the choice', () => {
+    store.set('pixo:config', JSON.stringify({
+      agentId: 'openpixo-agent',
+      agentModels: { 'openpixo-agent': { model: 'openpixo-agent-pro', reasoning: 'low' }, codex: { model: 'gpt-5' } },
+    }));
+    const config = loadConfig();
+    expect(config.agentModels).toEqual({
+      'openpixo-agent': { model: 'openpixo-agent-flash', reasoning: 'low' },
+      codex: { model: 'gpt-5' },
+    });
+    // Written back once, so the old id stops existing on disk.
+    expect(JSON.parse(store.get('pixo:config')!).agentModels['openpixo-agent'].model).toBe('openpixo-agent-flash');
+  });
+
+  it('enables completion sound and desktop notifications for a fresh config', () => {
+    expect(loadConfig().notifications).toEqual({
+      soundEnabled: true,
+      successSoundId: 'ding',
+      failureSoundId: 'buzz',
+      desktopEnabled: true,
+    });
+  });
+
+  it('preserves an explicit saved notification opt-out', () => {
+    store.set('pixo:config', JSON.stringify({
+      notifications: {
+        soundEnabled: false,
+        successSoundId: 'ding',
+        failureSoundId: 'buzz',
+        desktopEnabled: false,
+      },
+    }));
+
+    expect(loadConfig().notifications).toEqual({
+      soundEnabled: false,
+      successSoundId: 'ding',
+      failureSoundId: 'buzz',
+      desktopEnabled: false,
+    });
+  });
+
+  it('migrates legacy OpenAI-compatible API configs to an explicit apiProtocol', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.mode).toBe('api');
+    expect(config.baseUrl).toBe('https://api.deepseek.com');
+    expect(config.model).toBe('deepseek-flash');
+    expect(config.apiProtocol).toBe('openai');
+    expect(config.configMigrationVersion).toBe(4);
+    expect(config.configMigrationVersion).toBe(4);
+  });
+
+  it('migrates retired provider defaults in active, protocol, and provider-draft configs', () => {
+    const moonshotBaseUrl = 'https://api.moonshot.cn/v1';
+    const persisted: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'openai',
+      apiKey: 'sk-moonshot',
+      baseUrl: moonshotBaseUrl,
+      model: 'kimi-k2-0711-preview',
+      apiProviderBaseUrl: moonshotBaseUrl,
+      configMigrationVersion: 1,
+      apiProtocolConfigs: {
+        openai: {
+          apiKey: 'sk-moonshot',
+          baseUrl: moonshotBaseUrl,
+          model: 'kimi-k2-0711-preview',
+          apiProviderBaseUrl: moonshotBaseUrl,
+        },
+      },
+      byokProviderConfigDrafts: {
+        [`openai:${moonshotBaseUrl}`]: {
+          apiConfig: {
+            apiKey: 'sk-moonshot',
+            baseUrl: moonshotBaseUrl,
+            model: 'kimi-k2-0711-preview',
+            apiProviderBaseUrl: moonshotBaseUrl,
+          },
+        },
+      },
+    };
+    store.set('pixo:config', JSON.stringify(persisted));
+
+    const config = loadConfig();
+
+    expect(config.model).toBe('kimi-k2.6');
+    expect(config.apiProtocolConfigs?.openai?.model).toBe('kimi-k2.6');
+    expect(
+      config.byokProviderConfigDrafts?.[`openai:${moonshotBaseUrl}`]?.apiConfig.model,
+    ).toBe('kimi-k2.6');
+    expect(config.configMigrationVersion).toBe(4);
+  });
+
+  it('migrates the retired OpenRouter default from migration version 3', () => {
+    const openRouterBaseUrl = 'https://openrouter.ai/api/v1';
+    const persisted: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'openai',
+      apiKey: 'sk-or-test',
+      baseUrl: openRouterBaseUrl,
+      model: 'anthropic/claude-3.7-sonnet',
+      apiProviderBaseUrl: openRouterBaseUrl,
+      configMigrationVersion: 3,
+    };
+    store.set('pixo:config', JSON.stringify(persisted));
+
+    const config = loadConfig();
+
+    expect(config.model).toBe('anthropic/claude-sonnet-4.6');
+    expect(config.configMigrationVersion).toBe(4);
+  });
+
+  it('migrates legacy SiliconFlow Global configs to the known OpenAI preset', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.siliconflow.com/v1',
+      model: 'deepseek-ai/DeepSeek-V3.1',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('openai');
+    expect(config.apiProviderBaseUrl).toBe('https://api.siliconflow.com/v1');
+    expect(config.configMigrationVersion).toBe(4);
+  });
+
+  it('keeps the parsed config when re-persisting a downgraded protocol fails', () => {
+    // A stored `bedrock` protocol is downgraded on load, which re-persists via
+    // saveConfig(). If that localStorage write throws (quota / private mode),
+    // the valid parsed config must survive rather than being reset to defaults.
+    const persisted: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'bedrock',
+      apiKey: 'sk-secret',
+      baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+      model: 'anthropic.claude-3',
+      configMigrationVersion: 1,
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(persisted));
+    const setItem = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('exceeded', 'QuotaExceededError');
+    });
+    try {
+      const config = loadConfig();
+      // the unsupported protocol was still downgraded ...
+      expect(config.apiProtocol).toBe(DEFAULT_CONFIG.apiProtocol);
+      // ... but the rest of the user's config was NOT discarded to defaults
+      expect(config.mode).toBe('api');
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+
+  it('backfills the fixed-origin base URL for AIHubMix when persisted empty', () => {
+    // AIHubMix hides the Base URL field, so older configs persisted an empty
+    // baseUrl. An empty base URL blocks the live model-list fetch, so loadConfig
+    // must resolve it to the canonical origin.
+    const persisted: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'aihubmix',
+      apiKey: 'sk-test',
+      baseUrl: '',
+      model: 'claude-opus-4-8',
+      configMigrationVersion: 1,
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(persisted));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('aihubmix');
+    expect(config.baseUrl).toBe('https://aihubmix.com/v1');
+  });
+
+  it('leaves a non-gateway protocol base URL untouched', () => {
+    const persisted: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'openai',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'gpt-4o',
+      configMigrationVersion: 1,
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(persisted));
+
+    expect(loadConfig().baseUrl).toBe('https://api.example.com/v1');
+  });
+
+  it('keeps custom proxy paths containing bedrock-runtime on their selected protocol', () => {
+    const persisted: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'openai',
+      apiKey: 'sk-proxy',
+      apiVersion: '2024-01-01',
+      baseUrl: 'https://proxy.example.com/bedrock-runtime/v1',
+      model: 'gpt-4o',
+      configMigrationVersion: 1,
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(persisted));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('openai');
+    expect(config.apiKey).toBe('sk-proxy');
+    expect(config.apiVersion).toBe('2024-01-01');
+    expect(config.baseUrl).toBe('https://proxy.example.com/bedrock-runtime/v1');
+    expect(config.model).toBe('gpt-4o');
+    const migrated = JSON.parse(store.get('pixo:config') ?? '{}');
+    expect(migrated.apiKey).toBe('sk-proxy');
+    expect(store.get('pixo:config')).toContain('sk-proxy');
+  });
+
+  it('migrates legacy Anthropic API configs to an explicit apiProtocol', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.anthropic.com',
+      model: 'claude-sonnet-4-5',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('anthropic');
+  });
+
+  it('downgrades legacy Bedrock Runtime configs to the default chat protocol', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'bedrock-secret',
+      apiVersion: 'bedrock-2023-05-31',
+      baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+      model: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('anthropic');
+    expect(config.apiKey).toBe('');
+    expect(config.apiVersion).toBe('');
+    expect(config.baseUrl).toBe(DEFAULT_CONFIG.baseUrl);
+    expect(config.model).toBe(DEFAULT_CONFIG.model);
+    expect(config.apiProviderBaseUrl).toBe(DEFAULT_CONFIG.apiProviderBaseUrl);
+  });
+
+  it('downgrades explicitly persisted Bedrock configs to the default chat protocol', () => {
+    const savedConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'bedrock',
+      apiKey: 'bedrock-secret',
+      apiVersion: 'bedrock-2023-05-31',
+      baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+      model: 'amazon.nova-lite-v1:0',
+      configMigrationVersion: 1,
+      apiProtocolConfigs: {
+        bedrock: {
+          apiKey: 'nested-bedrock-secret',
+          apiVersion: 'bedrock-2023-05-31',
+          baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+          model: 'amazon.nova-lite-v1:0',
+        },
+        openai: {
+          apiKey: 'sk-openai',
+          baseUrl: 'https://api.openai.com/v1',
+          model: 'gpt-4o',
+        },
+      },
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(savedConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('anthropic');
+    expect(config.apiKey).toBe('');
+    expect(config.apiVersion).toBe('');
+    expect(config.baseUrl).toBe(DEFAULT_CONFIG.baseUrl);
+    expect(config.model).toBe(DEFAULT_CONFIG.model);
+    expect(config.apiProviderBaseUrl).toBe(DEFAULT_CONFIG.apiProviderBaseUrl);
+    expect(config.apiProtocolConfigs?.bedrock).toBeUndefined();
+    expect(config.apiProtocolConfigs?.openai).toEqual({
+      apiKey: 'sk-openai',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o',
+    });
+
+    const persisted = JSON.parse(
+      store.get('pixo:config') ?? '{}',
+    ) as Partial<AppConfig>;
+    expect(persisted.apiProtocol).toBe('anthropic');
+    expect(persisted.apiKey).toBe('');
+    expect(persisted.apiVersion).toBe('');
+    expect(persisted.baseUrl).toBe(DEFAULT_CONFIG.baseUrl);
+    expect(persisted.apiProtocolConfigs?.bedrock).toBeUndefined();
+    expect(persisted.apiProtocolConfigs?.openai).toEqual({
+      apiKey: 'sk-openai',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o',
+    });
+  });
+
+  it('infers protocol for legacy daemon-mode API fields without changing mode', () => {
+    const daemonConfig: Partial<AppConfig> = {
+      mode: 'daemon',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+      agentId: 'codex',
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(daemonConfig));
+
+    const config = loadConfig();
+
+    expect(config.mode).toBe('daemon');
+    expect(config.apiProtocol).toBe('openai');
+    expect(config.configMigrationVersion).toBe(4);
+    expect(config.configMigrationVersion).toBe(4);
+  });
+
+
+
+  it('migrates legacy ollama.com configs with a custom base URL path', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'ollama-key',
+      baseUrl: 'https://ollama.com/api',
+      model: 'deepseek-v4-pro',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('ollama');
+    // /api suffix must be stripped so the daemon doesn't build /api/api/chat.
+    expect(config.baseUrl).toBe('https://ollama.com');
+  });
+
+  it('migrates legacy ollama.com configs with a trailing /api/ suffix', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'ollama-key',
+      baseUrl: 'https://ollama.com/api/',
+      model: 'glm-5',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('ollama');
+    expect(config.baseUrl).toBe('https://ollama.com');
+  });
+
+  it('does not overwrite an already explicit apiProtocol', () => {
+    const explicitConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiProtocol: 'anthropic',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(explicitConfig));
+
+    const config = loadConfig();
+
+    expect(config.apiProtocol).toBe('anthropic');
+  });
+
+  it('preserves saved settings when migration sees a malformed base URL', () => {
+    const legacyConfig: Partial<AppConfig> = {
+      mode: 'api',
+      apiKey: 'sk-test',
+      baseUrl: 'https://[broken-ipv6',
+      model: 'custom-model',
+      agentId: null,
+      skillId: null,
+    };
+    store.set('pixo:config', JSON.stringify(legacyConfig));
+
+    const config = loadConfig();
+
+    expect(config.mode).toBe('api');
+    expect(config.apiKey).toBe('sk-test');
+    expect(config.baseUrl).toBe('https://[broken-ipv6');
+    expect(config.model).toBe('custom-model');
+    expect(config.apiProtocol).toBe('anthropic');
+  });
+
+  it('preserves a valid saved accent color while forcing the theme back to light', () => {
+    const savedConfig: Partial<AppConfig> = {
+      theme: 'dark',
+      accentColor: '#4F46E5',
+    };
+    store.set('pixo:config', JSON.stringify(savedConfig));
+
+    const config = loadConfig();
+
+    // The theme setting was removed and the app ships light-only, so a stored
+    // dark preference is coerced on read (see tests/state/force-light-theme).
+    // The accent, which has no such rule, must still survive.
+    expect(config.theme).toBe('light');
+    expect(config.accentColor).toBe('#4f46e5');
+  });
+
+  it('falls back to the default accent color for malformed saved colors', () => {
+    const savedConfig: Partial<AppConfig> = {
+      accentColor: 'blue',
+    };
+    store.set('pixo:config', JSON.stringify(savedConfig));
+
+    expect(loadConfig().accentColor).toBe(DEFAULT_CONFIG.accentColor);
+  });
+
+
+
+  it('returns defaults for malformed localStorage JSON', () => {
+    store.set('pixo:config', '{broken-json');
+
+    expect(loadConfig()).toEqual(DEFAULT_CONFIG);
+  });
+
+  it('sets an explicit apiProtocol for new default configs', () => {
+    expect(DEFAULT_CONFIG.apiProtocol).toBe('anthropic');
+    expect(DEFAULT_CONFIG.configMigrationVersion).toBe(4);
+    expect(DEFAULT_CONFIG.accentColor).toBe('#6c4bff');
+  });
+
+  // Only versions that shipped these defaults migrate them. Later versions
+  // can carry a deliberate choice using a historical default color.
+  it.each(['#87ea5c', '#c96442'])(
+    'resets the legacy default accent %s to the current default',
+    (legacy) => {
+      store.set(
+        'pixo:config',
+        JSON.stringify({ accentColor: legacy, configMigrationVersion: 2 }),
+      );
+
+      const config = loadConfig();
+
+      expect(config.accentColor).toBe(DEFAULT_CONFIG.accentColor);
+      expect(config.configMigrationVersion).toBe(4);
+    },
+  );
+
+  it('keeps a deliberately chosen accent through the migration', () => {
+    store.set(
+      'pixo:config',
+      JSON.stringify({ accentColor: '#1A74FF', configMigrationVersion: 2 }),
+    );
+
+    expect(loadConfig().accentColor).toBe('#1a74ff');
+    expect(DEFAULT_CONFIG.configMigrationVersion).toBe(4);
+    expect(DEFAULT_CONFIG.accentColor).toBe('#6c4bff');
+  });
+
+  it('migrates the previous neutral default from version 3 to violet', () => {
+    store.set(
+      'pixo:config',
+      JSON.stringify({ accentColor: '#353535', configMigrationVersion: 3 }),
+    );
+
+    expect(loadConfig().accentColor).toBe('#6c4bff');
+    expect(loadConfig().configMigrationVersion).toBe(4);
+    expect(JSON.parse(store.get('pixo:config') ?? '{}')).toMatchObject({
+      accentColor: '#6c4bff', configMigrationVersion: 4,
+    });
+  });
+
+  it.each([
+    { accentColor: '#87ea5c', configMigrationVersion: 3 },
+    { accentColor: '#c96442', configMigrationVersion: 3 },
+    { accentColor: '#353535', configMigrationVersion: 4 },
+  ])('preserves a deliberate color saved after its default era: %j', (saved) => {
+    store.set('pixo:config', JSON.stringify(saved));
+
+    expect(loadConfig().accentColor).toBe(saved.accentColor);
+  });
+});
+
+describe('saveConfig', () => {
+  it('persists Local BYOK API keys while removing unpublished secure-profile metadata', () => {
+    store.set('pixo:config', JSON.stringify({
+      ...DEFAULT_CONFIG,
+      mode: 'api',
+      apiKey: 'top-level-secret',
+      byokProfileId: 'byok-openrouter-1',
+      byokCredentialConfigured: true,
+      apiProtocolConfigs: {
+        openai: {
+          apiKey: 'protocol-secret',
+          baseUrl: 'https://openrouter.ai/api/v1',
+          model: 'openrouter/free',
+        },
+      },
+      byokProviderConfigDrafts: {
+        openrouter: {
+          apiConfig: {
+            apiKey: 'draft-secret',
+            baseUrl: 'https://openrouter.ai/api/v1',
+            model: 'openrouter/free',
+          },
+        },
+      },
+    }));
+
+    const loaded = loadConfig();
+    expect(loaded.apiKey).toBe('top-level-secret');
+    expect(loaded.apiProtocolConfigs?.openai?.apiKey).toBe('protocol-secret');
+    expect(loaded.byokProviderConfigDrafts?.openrouter?.apiConfig.apiKey).toBe('draft-secret');
+    saveConfig(loaded);
+
+    const raw = store.get('pixo:config') ?? '';
+    const saved = JSON.parse(raw);
+    expect(raw).toContain('top-level-secret');
+    expect(raw).toContain('protocol-secret');
+    expect(raw).toContain('draft-secret');
+    expect(saved.apiKey).toBe('top-level-secret');
+    expect(saved.apiProtocolConfigs.openai.apiKey).toBe('protocol-secret');
+    expect(saved.byokProviderConfigDrafts.openrouter.apiConfig.apiKey).toBe('draft-secret');
+    expect(saved.byokProfileId).toBeUndefined();
+    expect(saved.byokCredentialConfigured).toBeUndefined();
+  });
+
+  it('keeps daemon-owned privacy fields out of localStorage', () => {
+    saveConfig({
+      ...DEFAULT_CONFIG,
+      installationId: 'install-1',
+      privacyDecisionAt: 1778244000000,
+      telemetry: { metrics: true },
+      allowSilentUpdates: true,
+    });
+
+    const saved = JSON.parse(store.get('pixo:config') ?? '{}');
+    expect(saved.installationId).toBeUndefined();
+    expect(saved.privacyDecisionAt).toBeUndefined();
+    expect(saved.telemetry).toBeUndefined();
+    expect(saved.allowSilentUpdates).toBeUndefined();
+  });
+
+  it('keeps CLI API key env values out of localStorage while preserving intent and non-secret env', () => {
+    saveConfig({
+      ...DEFAULT_CONFIG,
+      agentCliEnv: {
+        claude: {
+          ANTHROPIC_API_KEY: 'sk-anthropic',
+          ANTHROPIC_AUTH_TOKEN: 'sk-auth-token',
+          ANTHROPIC_BASE_URL: 'https://proxy.example/anthropic',
+          CLAUDE_CONFIG_DIR: '~/.claude-2',
+        },
+        codex: {
+          CODEX_API_KEY: 'sk-codex',
+          OPENAI_API_KEY: 'sk-openai',
+          OPENAI_BASE_URL: 'https://proxy.example/openai',
+          CODEX_HOME: '~/.codex-alt',
+        },
+      },
+      agentCliEnvIntent: {
+        claude: { apiKeyOverride: true },
+        codex: { apiKeyOverride: true },
+      },
+    });
+
+    const saved = JSON.parse(store.get('pixo:config') ?? '{}');
+    expect(saved.agentCliEnv.claude).toEqual({
+      ANTHROPIC_BASE_URL: 'https://proxy.example/anthropic',
+      CLAUDE_CONFIG_DIR: '~/.claude-2',
+    });
+    expect(saved.agentCliEnv.codex).toEqual({
+      OPENAI_BASE_URL: 'https://proxy.example/openai',
+      CODEX_HOME: '~/.codex-alt',
+    });
+    expect(saved.agentCliEnvIntent).toEqual({
+      claude: { apiKeyOverride: true },
+      codex: { apiKeyOverride: true },
+    });
+  });
+});

@@ -1,0 +1,208 @@
+// @vitest-environment jsdom
+
+import { act, cleanup, render, waitFor } from '@testing-library/react';
+
+import { forwardRef, useImperativeHandle, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ProjectView } from '../../src/components/ProjectView';
+
+import { streamViaDaemon } from '../../src/providers/daemon';
+import { createConversation, listConversations, listMessages, ProjectConversationsHttpError } from '../../src/state/projects';
+import type { AgentInfo, AppConfig, ChatMessage, Conversation, Project } from '../../src/types';
+
+const workspace = vi.hoisted(() => ({
+  caller: null,
+  scope: { loading: false, scope: null },
+}));
+
+vi.mock('../../src/i18n', () => ({
+  useI18n: () => ({ locale: 'en', setLocale: () => undefined, t: (key: string) => key }),
+  useT: () => (key: string) => key,
+}));
+vi.mock('../../src/router', () => ({ navigate: vi.fn() }));
+vi.mock('../../src/providers/anthropic', () => ({ streamMessage: vi.fn() }));
+vi.mock('../../src/providers/daemon', () => ({
+  fetchChatRunStatus: vi.fn(),
+  listActiveChatRuns: vi.fn().mockResolvedValue([]),
+  listProjectRuns: vi.fn().mockResolvedValue([]),
+  publishDaemonRunFinishedEvent: vi.fn(),
+  reattachDaemonRun: vi.fn(),
+  streamViaDaemon: vi.fn(),
+}));
+vi.mock('../../src/providers/project-events', () => ({ useProjectFileEvents: vi.fn() }));
+
+
+
+
+vi.mock('../../src/providers/registry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/providers/registry')>()),
+  deletePreviewComment: vi.fn(), fetchSkill: vi.fn(),
+  fetchPreviewComments: vi.fn().mockResolvedValue([]),
+  fetchProjectFiles: vi.fn().mockResolvedValue([]),
+  getTemplate: vi.fn(), patchPreviewCommentStatus: vi.fn(),
+  upsertPreviewComment: vi.fn(), writeProjectTextFile: vi.fn(),
+}));
+vi.mock('../../src/state/projects', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/state/projects')>()),
+  createConversation: vi.fn(), listConversations: vi.fn(), listMessages: vi.fn(),
+  loadTabs: vi.fn().mockResolvedValue({ tabs: [], active: null }),
+  patchConversation: vi.fn(), patchProject: vi.fn(),
+  persistTabsToDaemonNow: vi.fn(), saveMessage: vi.fn(), saveTabs: vi.fn(),
+}));
+vi.mock('../../src/components/AppChromeHeader', () => ({
+  AppChromeHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
+}));
+vi.mock('../../src/components/FileWorkspace', () => ({ FileWorkspace: () => <div />,
+}));
+// Keep ProjectView, ChatPane, its loading UI and message rows real. The editor's
+// Lexical lifecycle and assistant Markdown are outside this read-lifetime test.
+vi.mock('../../src/components/ChatComposer', () => ({
+  ChatComposer: forwardRef((props: {
+    sendDisabled?: boolean;
+    onSend?: (prompt: string, attachments: [],) => unknown;
+  }, ref) => {
+    useImperativeHandle(ref, () => ({
+      focus: () => undefined, restoreDraft: () => undefined, setDraft: () => undefined,
+    }));
+    return (
+      <button
+        type="button"
+        data-testid="composer-fixture-send"
+        disabled={props.sendDisabled}
+        onClick={() => { void props.onSend?.('Follow-up prompt', [],); }}
+      >
+        Send fixture prompt
+      </button>
+    );
+  }),
+}));
+vi.mock('../../src/components/AssistantMessage', () => ({
+  AssistantMessage: ({ message }: { message: ChatMessage }) => <div>{message.content}</div>,
+}));
+
+const OWNER = null;
+
+const project: Project = {
+  id: 'transcript-authority-project', name: 'Transcript authority fixture',
+   skillId: null,
+  createdAt: 1, updatedAt: 1, metadata: { kind: 'prototype' },
+};
+const conversation: Conversation = {
+  id: 'transcript-conversation', projectId: project.id,
+  title: null, createdAt: 1, updatedAt: 1,
+};
+const history: ChatMessage = {
+  id: 'persisted-message', role: 'user', content: 'Existing private conversation', createdAt: 1,
+};
+const config: AppConfig = {
+  mode: 'daemon', apiKey: '', baseUrl: '', model: 'deepseek-v4-flash', agentId: 'amr',
+  skillId: null,
+};
+
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function projectView() {
+  return (
+    <ProjectView
+      project={project} routeFileName={null} config={config}
+      agents={[{
+        id: 'amr', name: 'amr', available: true,
+        models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', default: true }],
+      }] as unknown as AgentInfo[]}
+      skills={[]} designTemplates={[]} daemonLive
+      onModeChange={vi.fn()} onAgentChange={vi.fn()} onAgentModelChange={vi.fn()}
+      onRefreshAgents={vi.fn()} onOpenSettings={vi.fn()} onBack={vi.fn()}
+      onClearPendingPrompt={vi.fn()} onTouchProject={vi.fn()}
+      onProjectChange={vi.fn()} onProjectsRefresh={vi.fn()}
+    />
+  );
+}
+
+describe('ProjectView transcript visibility across authority confirmation', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    window.localStorage.clear();
+    workspace.caller = OWNER;
+
+    vi.mocked(listConversations).mockReset().mockResolvedValue([conversation]);
+    vi.mocked(createConversation).mockReset().mockResolvedValue(conversation);
+    vi.mocked(listMessages).mockReset().mockResolvedValue([history]);
+    vi.mocked(streamViaDaemon).mockReset().mockResolvedValue(undefined);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('keeps an existing loading UI through the conversation-list and transcript reads', async () => {
+    const conversations = deferred<Conversation[]>();
+    const messages = deferred<ChatMessage[]>();
+    vi.mocked(listConversations).mockReturnValue(conversations.promise);
+    vi.mocked(listMessages).mockReturnValue(messages.promise);
+    const view = render(projectView());
+
+    // Before a conversation is selected, ProjectView already owns a loader.
+    expect(view.getByTestId('chat-pane-loading').querySelector('[role="status"]')).not.toBeNull();
+    expect(view.container.querySelector('.chat-empty-wrap')).toBeNull();
+    expect(listMessages).not.toHaveBeenCalled();
+    await act(async () => { conversations.resolve([conversation]); });
+    await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(1));
+    expect(view.container.querySelector('.chat-loading-state')).not.toBeNull();
+    expect(view.container.querySelector('.chat-empty-wrap')).toBeNull();
+
+    await act(async () => { messages.resolve([history]); });
+    expect(view.getByText(history.content)).toBeTruthy();
+    expect(view.container.querySelector('.chat-loading-state')).toBeNull();
+  });
+
+  it('shows an actual empty conversation once its authoritative reads settle', async () => {
+    const messages = deferred<ChatMessage[]>();
+    vi.mocked(listConversations).mockResolvedValue([]);
+    vi.mocked(listMessages).mockReturnValue(messages.promise);
+    const view = render(projectView());
+    await waitFor(() => expect(createConversation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(1));
+    await act(async () => { messages.resolve([]); });
+    expect(view.queryByTestId('chat-pane-loading')).toBeNull();
+    expect(view.container.querySelector('.chat-loading-state')).toBeNull();
+    expect(view.container.querySelector('.chat-empty-wrap')).not.toBeNull();
+  });
+
+  it('exits the initial loading UI when the conversation read is refused', async () => {
+    const conversations = deferred<Conversation[]>();
+    vi.mocked(listConversations).mockReturnValue(conversations.promise);
+    const view = render(projectView());
+    await act(async () => {
+      conversations.reject(new ProjectConversationsHttpError(403, 'workspace access forbidden'));
+    });
+    await waitFor(() => expect(view.queryByTestId('chat-pane-loading')).toBeNull());
+    expect(view.getByTestId('chat-log')).toBeTruthy();
+    expect(view.container.querySelector('.chat-loading-state')).toBeNull();
+    expect(listMessages).not.toHaveBeenCalled();
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+});

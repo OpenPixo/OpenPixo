@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/low-poly-3d",
+    "title":  "Low-poly 3D",
+    "title_i18n":  {
+                       "en":  "Low-poly 3D",
+                       "zh-CN":  "低多边形 3D"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Faceted forms, matte materials and soft light for cohesive stylized 3D asset concepts.",
+    "description_i18n":  {
+                             "en":  "Faceted forms, matte materials and soft light for cohesive stylized 3D asset concepts.",
+                             "zh-CN":  "用分面形体、哑光材质和柔光，制作统一的风格化 3D 资产概念图。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "3d",
+                 "3d-render",
+                 "low-poly"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Merchant cart concept",
+                         "title_i18n":  {
+                                            "zh-CN":  "商人推车概念"
+                                        },
+                         "prompt":  "Generate a low-poly merchant cart concept using the low-poly-3d art style, with a striped canvas canopy, three wooden crates and sturdy wheels. Use a consistent orthographic three-quarter view and matte materials.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 low-poly-3d 美术风格生成低多边形商人推车概念图：条纹帆布棚、三个木箱和结实车轮。采用统一的正交四分之三视角与哑光材质。"
+                                         }
+                     },
+                     {
+                         "title":  "Forest prop family",
+                         "title_i18n":  {
+                                            "zh-CN":  "森林道具组"
+                                        },
+                         "prompt":  "Create matching 3D asset concept views using the low-poly-3d art style for a pine tree, boulder and tree stump. Share facet scale, upper-left lighting and a muted forest palette.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 low-poly-3d 美术风格为松树、巨石和树桩制作配套的 3D 资产概念图。统一分面尺度、左上方光照和低饱和森林配色。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "low-poly-3d",
+                               "dimension":  [
+                                                 "3d"
+                                             ],
+                               "medium":  [
+                                              "3d-render",
+                                              "low-poly"
+                                          ],
+                               "prompt":  "Stylized low-poly 3D game asset concept rendered with visible planar facets, economical geometry and matte untextured materials. Use the shared earthy palette, consistent three-quarter orthographic framing and a large soft key light from the upper left. Let face orientation create broad value changes, preserve simple silhouettes and keep bevels minimal and deliberate.",
+                               "negativePrompt":  "photorealism, smooth high-poly sculpt, subdivision gloss, tiny surface texture, noisy normal maps, chrome, heavy depth of field, exaggerated perspective, text, logo, watermark",
+                               "palette":  [
+                                               "#354C50",
+                                               "#688371",
+                                               "#A6B58A",
+                                               "#D9C99F",
+                                               "#B98D68",
+                                               "#8A6259",
+                                               "#AEBFC2",
+                                               "#EEE1BF"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Faceted silhouette defined by geometry; no ink contour.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

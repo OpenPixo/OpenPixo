@@ -1,0 +1,23 @@
+{
+  "id": "metroidvania-biome-environment-concept",
+  "surface": "image",
+  "title": "Metroidvania Biome Environment Concept",
+  "summary": "A side-view environment concept for a metroidvania biome with traversal readability built in: clear walkable surfaces, a gated path that needs a later ability, layered parallax depth and a focal landmark. Slots for biome, gating ability, landmark and palette.",
+  "category": "Concept Art",
+  "tags": [
+    "metroidvania",
+    "platformer",
+    "environment",
+    "side-view",
+    "concept-art",
+    "level-design"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "A side-view environment concept painting for one biome of a 2D metroidvania, drawn the way the player will see it in game, at gameplay camera scale.\n\nBiome: {argument name=\"biome\" default=\"a sunken cathedral reclaimed by bioluminescent fungus, half flooded, with collapsed organ pipes\"}.\nArt style: {argument name=\"art_style\" default=\"hand-painted 2D with clean silhouettes, in the spirit of modern painterly indie platformers\"}.\n\n# Traversal readability (most important)\n- A clear main walkable route made of flat, brightly edged platforms and ledges that obviously support the player; walkable tops have a consistent highlight rim.\n- One visible gated path that clearly needs a later ability: {argument name=\"gated_ability\" default=\"a high ledge reachable only with a double jump, with a glowing collectible on it\"}.\n- One hazard zone (for example spikes or toxic water) with a distinct warning colour.\n- A small player character silhouette at true scale on the main route so the size of the space is obvious.\n\n# Depth layers\n- Foreground: dark, out-of-focus silhouettes (pillars, hanging roots) framing the edges, never covering the route.\n- Playfield: highest contrast and saturation in the image.\n- Midground and background: progressively lighter and lower in contrast with atmospheric haze, built as separate parallax layers.\n- Focal landmark in the background: {argument name=\"landmark\" default=\"a giant cracked rose window glowing from behind\"}, which guides the eye along the route.\n\n# Lighting and palette\n- Main light from the landmark, secondary glow from the fungus, cool ambient fill.\n- Palette: {argument name=\"palette\" default=\"deep violet and teal shadows, cyan fungus glow, a single warm gold accent on collectibles and doors\"}.\n\n# Avoid\nAmbiguous surfaces that could be wall or floor, background detail with the same contrast as the playfield, perspective views, UI, text, watermarks, existing franchise characters or iconography.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

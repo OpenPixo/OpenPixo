@@ -1,0 +1,3285 @@
+import {
+  panelFileLabel,
+  openPanelFile,
+  expectAllProjectFilesActive,
+  openAllProjectFiles,
+  answerDeleteConfirm,
+} from '@/playwright/workspace';
+import { expect, test } from '@/playwright/suite';
+import { ACTIVE_ARTIFACT_PREVIEW_SELECTOR } from '@/playwright/artifact-preview';
+import { ensureRailOpen } from '@/playwright/rail';
+import { T } from '@/timeouts';
+import type { Locator, Page, Request } from '@playwright/test';
+import { routeAgents, routeSuccessfulRuns, suppressWhatsNew } from '../lib/playwright/mock-factory.js';
+import {
+  openSettingsDialog,
+  settingsSurface,
+  waitForAppConfigWrite,
+} from '../lib/playwright/local-project.js';
+
+// The `/projects` view in `EntryShell` renders a `CenteredLoader` until
+// `projectsLoading || skillsLoading || designSystemsLoading` all clear
+// (`apps/web/src/components/EntryShell.tsx`). Tests that land on `/projects`
+// should stub the catalog endpoints that are unrelated to the project-list
+// behavior under test; otherwise a large registry response can keep the first
+// assertion gated on daemon/catalog timing instead of the UI contract.
+async function stubCatalogsEmpty(page: Page): Promise<void> {
+  await page.route('**/api/design-templates', async (route) => {
+    await route.fulfill({ json: { designTemplates: [] } });
+  });
+  await page.route('**/api/design-systems', async (route) => {
+    await route.fulfill({ json: { } });
+  });
+}
+
+const STORAGE_KEY = 'pixo:config';
+function projectDesignSystemTrigger(page: Page): Locator {
+  return page
+    .getByTestId('chat-composer')
+    .getByTestId('home-hero-design-system-trigger');
+}
+const AGENTS = [
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    bin: 'codex',
+    available: true,
+    version: '0.134.0',
+    models: [
+      { id: 'default', label: 'Default (CLI config)' },
+      {
+        id: 'gpt-5.5',
+        label: 'GPT 5.5',
+        additionalSpeedTiers: ['fast'],
+        serviceTierOptions: [{ id: 'priority', label: 'Fast' }],
+      },
+    ],
+  },
+  {
+    id: 'claude',
+    name: 'Claude Code',
+    bin: 'claude',
+    available: true,
+    version: '2.1.131',
+    models: [
+      { id: 'default', label: 'Default (CLI config)' },
+      { id: 'sonnet', label: 'Sonnet (alias)' },
+      { id: 'opus', label: 'Opus (alias)' },
+    ],
+  },
+];
+
+const DESIGN_SYSTEMS = [
+  {
+    id: 'sample-soft-tech',
+    title: 'Sample Soft Tech',
+    category: 'Product',
+    summary: 'Warm utility system for product interfaces.',
+    swatches: ['#F7F4EE', '#D6CBBF', '#1F2937', '#D97757'],
+  },
+  {
+    id: 'editorial-noir',
+    title: 'Editorial Noir',
+    category: 'Editorial',
+    summary: 'High-contrast editorial system with expressive type.',
+    swatches: ['#111111', '#F6EFE6', '#C44536', '#F2C14E'],
+  },
+  {
+    id: 'data-mist',
+    title: 'Data Mist',
+    category: 'Analytics',
+    summary: 'Calm dashboard system for dense data products.',
+    swatches: ['#EAF4F4', '#5EAAA8', '#05668D', '#0B132B'],
+  },
+];
+
+async function stubEmptyProjectsNewProjectData(page: Page): Promise<void> {
+  await page.route('**/api/skills', async (route) => {
+    await route.fulfill({ json: { skills: TAB_SKILLS } });
+  });
+  await page.route('**/api/connectors', async (route) => {
+    await route.fulfill({ json: { connectors: [] } });
+  });
+  await page.route('**/api/connectors/status', async (route) => {
+    await route.fulfill({ json: { statuses: {} } });
+  });
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects: [] } });
+      return;
+    }
+    await route.fallback();
+  });
+  await page.route('**/api/design-systems', async (route) => {
+    await route.fulfill({ json: { } });
+  });
+}
+
+async function openNewProjectFromEmptyProjects(page: Page): Promise<void> {
+  await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByText('Loading OpenPixo…')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.locator('.designs-empty-state')).toBeVisible();
+  await page.getByTestId('designs-empty-new-project').click();
+
+  await expect(page.getByTestId('new-project-modal')).toBeVisible();
+  await expect(page.getByTestId('new-project-panel')).toBeVisible();
+}
+
+// #5517's rail has no "+ New project" button any more, so the Projects view's
+// own CTA is the entry this flow starts from.
+async function openNewProjectFromProjectsView(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('pixo.entry.railOpen.v2', 'true');
+  });
+  await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.entry')).toHaveClass(/entry--rail-open/);
+  const projectsView = page.getByTestId('entry-view-projects');
+  await expect(projectsView).toBeVisible();
+  const createButton = projectsView
+    .getByTestId('designs-new-project')
+    .or(projectsView.getByTestId('designs-empty-new-project'))
+    .first();
+  await expect(createButton).toBeVisible();
+  await createButton.click();
+
+  await expect(page.getByTestId('new-project-modal')).toBeVisible();
+  await expect(page.getByTestId('new-project-panel')).toBeVisible();
+}
+
+const TAB_SKILLS = [
+  skillSummary('prototype-skill', 'Prototype Skill', 'prototype', 'web', ['prototype']),
+  skillSummary('live-artifact', 'live-artifact', 'prototype', 'web', []),
+  skillSummary('deck-skill', 'Deck Skill', 'deck', 'web', ['deck']),
+  skillSummary('image-skill', 'Image Skill', 'image', 'image', ['image']),
+];
+
+const COMPOSER_PLUS_PLUGIN = {
+  id: 'composer-context-plugin',
+  title: 'Composer Context Plugin',
+  version: '1.0.0',
+  trust: 'bundled',
+  sourceKind: 'bundled',
+  source: '/tmp/composer-context-plugin',
+  fsPath: '/tmp/composer-context-plugin',
+  capabilitiesGranted: ['prompt:inject'],
+  installedAt: 0,
+  updatedAt: 0,
+  manifest: {
+    name: 'composer-context-plugin',
+    title: 'Composer Context Plugin',
+    version: '1.0.0',
+    description: 'Project composer context picker fixture.',
+    pixo: {
+      kind: 'scenario',
+      taskKind: 'new-generation',
+      useCase: {
+        query: 'Use the composer context plugin.',
+      },
+    },
+  },
+};
+
+test.beforeEach(async ({ page }) => {
+  // The entry home mounts `WhatsNewPopup` (EntryShell.tsx), and its backdrop
+  // sits at z-index 1500 — above the z-index 120 workspace chrome that owns
+  // the rail toggle. A live release card therefore swallows every rail/settings
+  // click in this file. Pin it closed.
+  await suppressWhatsNew(page);
+  let appConfig = {
+    onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: false, content: false, artifactManifest: false },
+    mode: 'daemon',
+    agentId: 'codex',
+    skillId: null,
+    agentModels: { codex: { model: 'default' } },
+    agentCliEnv: {},
+  };
+
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        mode: 'daemon',
+        apiKey: '',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'default',
+        agentId: 'codex',
+        skillId: null,
+        onboardingCompleted: true,
+        privacyDecisionAt: 1,
+        telemetry: { metrics: false, content: false, artifactManifest: false },
+        agentModels: { codex: { model: 'default' } },
+      }),
+    );
+  }, STORAGE_KEY);
+
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() === 'PUT') {
+      const next = route.request().postDataJSON() as Record<string, unknown>;
+      appConfig = {
+        ...appConfig,
+        ...next,
+      };
+      await route.fulfill({ json: { config: appConfig } });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        config: appConfig,
+      },
+    });
+  });
+
+  await routeAgents(page, AGENTS);
+});
+
+function artifactPreview(page: Page) {
+  return page.locator(ACTIVE_ARTIFACT_PREVIEW_SELECTOR).first();
+}
+
+function artifactPreviewFrame(page: Page) {
+  return page.frameLocator(ACTIVE_ARTIFACT_PREVIEW_SELECTOR);
+}
+
+test.describe('new project media modal', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('[P1] new project media modal switches media surfaces', async ({ page }) => {
+    await stubEmptyProjectsNewProjectData(page);
+    await openNewProjectFromProjectsView(page);
+
+    await page.getByTestId('new-project-media-surface-image').click();
+    await expect(page.getByTestId('new-project-media-surface-image')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.newproj-title')).toContainText('New image');
+    await expect(page.getByTestId('design-system-picker')).toHaveCount(0);
+    await expect(page.getByText('Model', { exact: true })).toBeVisible();
+    await expect(page.getByText('Aspect', { exact: true })).toBeVisible();
+
+    await page.getByTestId('new-project-media-surface-video').click();
+    await expect(page.getByTestId('new-project-media-surface-video')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.newproj-title')).toContainText('New video');
+
+    await page.getByTestId('new-project-media-surface-audio').click();
+    await expect(page.getByTestId('new-project-media-surface-audio')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.newproj-title')).toContainText('New audio');
+  });
+});
+
+test('[P0] projects empty state create action opens the new project flow', async ({ page }) => {
+  await page.route('**/api/skills', async (route) => {
+    await route.fulfill({ json: { skills: TAB_SKILLS } });
+  });
+  await page.route('**/api/connectors', async (route) => {
+    await route.fulfill({ json: { connectors: [] } });
+  });
+  await page.route('**/api/connectors/status', async (route) => {
+    await route.fulfill({ json: { statuses: {} } });
+  });
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects: [] } });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await stubCatalogsEmpty(page);
+  await openNewProjectFromEmptyProjects(page);
+
+  await expect(page.getByTestId('new-project-modal')).toBeVisible();
+  await expect(page.getByTestId('new-project-panel')).toBeVisible();
+  await expect(page.getByTestId('new-project-media-surface-image')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.newproj-title')).toContainText('New image');
+});
+
+test('[P1] project detail composer working directory picker opens without leaving chat', async ({ page }) => {
+  await page.goto('/');
+  await createProject(page, 'Composer working directory picker');
+  await expectWorkspaceReady(page);
+
+  const composer = page.getByTestId('chat-composer');
+  await composer.getByTestId('chat-plus-trigger').click();
+  await page.getByTestId('composer-plus-working-dir').click();
+  await expect(page.getByTestId('composer-plus-working-dir-pick')).toBeVisible();
+  await expect(page).toHaveURL(/\/projects\//);
+});
+
+test('[P1] project detail composer plus menu exposes the attachment entry and no resource submenus', async ({ page }) => {
+  await routeComposerPlusFixtures(page);
+  await page.goto('/');
+  await createProject(page, 'Composer plus context menu');
+  await expectWorkspaceReady(page);
+
+  const composer = page.getByTestId('chat-composer');
+  await composer.getByTestId('chat-plus-trigger').click();
+  await expect(page.getByTestId('composer-plus-attach')).toBeVisible();
+  // Plugins, connectors and MCP were removed from this menu; they stay
+  // reachable from their own surfaces.
+  await expect(page.getByTestId('composer-plus-plugins')).toHaveCount(0);
+  await expect(page.getByTestId('composer-plus-connectors')).toHaveCount(0);
+  await expect(page.getByTestId('composer-plus-mcp')).toHaveCount(0);
+});
+
+
+
+
+
+test('[P1] project detail composer sends referenced workspace contexts into the run request', async ({ page }) => {
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  const referenceProject = {
+    id: 'ref-project-payload',
+    name: 'Reference Project Payload',
+    skillId: null,
+    createdAt: Date.now() - 1_000,
+    updatedAt: Date.now(),
+    metadata: {
+      kind: 'prototype',
+      nameSource: 'user',
+    },
+  };
+
+  await routeComposerPlusFixtures(page);
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'workspace-context-payload-run' });
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects: [referenceProject] } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('**/api/projects/ref-project-payload**', async (route) => {
+    await route.fulfill({
+      json: {
+        project: referenceProject,
+        resolvedDir: '/tmp/openpixo/reference-project-payload',
+      },
+    });
+  });
+  await page.route('**/api/projects/*', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        json: {
+          project: {
+            id: route.request().url().split('/api/projects/')[1]?.split(/[/?#]/)[0] ?? 'project',
+            name: 'Composer workspace context payload',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: body.metadata ?? { kind: 'prototype' },
+          },
+        },
+      });
+      return;
+    }
+    await route.fallback();
+  });
+  await page.route('**/api/dialog/open-folder', async (route) => {
+    await route.fulfill({ json: { path: '/tmp/openpixo/local-code-project-payload' } });
+  });
+  await page.route('**/api/dir-exists', async (route) => {
+    await route.fulfill({ json: { exists: true } });
+  });
+
+  await page.goto('/');
+  await createProject(page, 'Composer workspace context payload');
+  await expectWorkspaceReady(page);
+  const composer = page.getByTestId('chat-composer');
+  const input = page.getByTestId('chat-composer-input');
+
+  await composer.getByTestId('chat-plus-trigger').click();
+  // Both context actions sit inside the "+" menu's working-dir group.
+  await page.getByTestId('composer-plus-working-dir').click();
+  await page.getByTestId('composer-plus-reference-project').click();
+  const referenceDialog = page.getByRole('dialog', { name: 'Reference another project' });
+  await expect(referenceDialog.getByRole('option', { name: /Reference Project Payload/i })).toHaveAttribute('aria-selected', 'true');
+  await referenceDialog.getByRole('button', { name: 'Reference project' }).click();
+  await expect(input).toContainText('Reference Project Payload');
+
+  await composer.getByTestId('chat-plus-trigger').click();
+  await page.getByTestId('composer-plus-working-dir').click();
+  await page.getByTestId('composer-plus-local-code').click();
+  await expect(input).toContainText('local-code-project-payload');
+
+  await input.fill('Use the referenced workspace contexts in this run.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  const context = runRequestBodies[0]?.context as { workspaceItems?: Array<{ id?: string; label?: string; absolutePath?: string }> } | undefined;
+  expect(context?.workspaceItems ?? []).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: 'project:ref-project-payload',
+        label: 'Reference Project Payload',
+        absolutePath: '/tmp/openpixo/reference-project-payload',
+      }),
+      expect.objectContaining({
+        id: 'local-code:/tmp/openpixo/local-code-project-payload',
+        label: 'local-code-project-payload',
+        absolutePath: '/tmp/openpixo/local-code-project-payload',
+      }),
+    ]),
+  );
+});
+
+test('[P1] project detail composer removing local-code context updates metadata and the next run request', async ({ page }) => {
+  test.fail(true, 'Deleting an inline workspace mention does not yet remove linkedDirs metadata');
+  const patchRequests: Array<Record<string, unknown>> = [];
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+
+  await routeComposerPlusFixtures(page);
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'workspace-context-remove-run' });
+  await page.route('**/api/dialog/open-folder', async (route) => {
+    await route.fulfill({ json: { path: '/tmp/openpixo/local-code-remove' } });
+  });
+  await page.route('**/api/dir-exists', async (route) => {
+    await route.fulfill({ json: { exists: true } });
+  });
+  await page.route('**/api/projects/*', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      patchRequests.push(body);
+      await route.fulfill({
+        json: {
+          project: {
+            id: route.request().url().split('/api/projects/')[1]?.split(/[/?#]/)[0] ?? 'project',
+            name: 'Composer remove context',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: body.metadata ?? { kind: 'prototype' },
+          },
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/');
+  await createProject(page, 'Composer remove context');
+  await expectWorkspaceReady(page);
+  const composer = page.getByTestId('chat-composer');
+  const input = page.getByTestId('chat-composer-input');
+
+  await composer.getByTestId('chat-plus-trigger').click();
+  await page.getByTestId('composer-plus-working-dir').click();
+  await page.getByTestId('composer-plus-local-code').click();
+  await expect(input).toContainText('local-code-remove');
+
+  await input.press('ControlOrMeta+A');
+  await input.press('Backspace');
+  await expect(input).not.toContainText('local-code-remove');
+  await expect.poll(() => patchRequests.length).toBeGreaterThanOrEqual(2);
+  expect((patchRequests.at(-1)?.metadata as { linkedDirs?: string[] } | undefined)?.linkedDirs ?? []).toEqual([]);
+
+  await input.fill('Run without the removed local code context.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  const context = runRequestBodies[0]?.context as { workspaceItems?: Array<{ label?: string; absolutePath?: string }> } | undefined;
+  expect(context?.workspaceItems ?? []).toEqual([]);
+});
+
+test('[P1] project detail keeps local-code context when linkedDirs PATCH removal fails', async ({ page }) => {
+  test.fail(true, 'Inline workspace mention deletion does not yet reach the linkedDirs PATCH path');
+  test.setTimeout(60_000);
+  const patchRequests: Array<Record<string, unknown>> = [];
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+
+  await routeComposerPlusFixtures(page);
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'workspace-context-remove-failure-run' });
+  await page.route('**/api/dialog/open-folder', async (route) => {
+    await route.fulfill({ json: { path: '/tmp/openpixo/local-code-persist' } });
+  });
+  await page.route('**/api/dir-exists', async (route) => {
+    await route.fulfill({ json: { exists: true } });
+  });
+  await page.route('**/api/projects/*', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      patchRequests.push(body);
+      const linkedDirs = (body.metadata as { linkedDirs?: string[] } | undefined)?.linkedDirs ?? [];
+      if (linkedDirs.length === 0) {
+        await route.fulfill({
+          status: 400,
+          json: { error: { code: 'INVALID_LINKED_DIR', message: 'linked dir removal rejected' } },
+        });
+        return;
+      }
+      await route.fulfill({
+        json: {
+          project: {
+            id: route.request().url().split('/api/projects/')[1]?.split(/[/?#]/)[0] ?? 'project',
+            name: 'Composer remove context failure',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: body.metadata ?? { kind: 'prototype' },
+          },
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await createProject(page, 'Composer remove context failure');
+  await expectWorkspaceReady(page);
+  const composer = page.getByTestId('chat-composer');
+  const input = page.getByTestId('chat-composer-input');
+
+  await composer.getByTestId('chat-plus-trigger').click();
+  // Link-local-code sits inside the + menu's working-dir group.
+  await page.getByTestId('composer-plus-working-dir').click();
+  await page.getByRole('menuitem', { name: /Link local code/i }).click();
+  await expect(input).toContainText('local-code-persist');
+
+  await input.press('ControlOrMeta+A');
+  await input.press('Backspace');
+  await expect.poll(() => patchRequests.length).toBeGreaterThanOrEqual(2);
+  await expect(input).toContainText('local-code-persist');
+
+  await input.fill('Run with the local code context after removal failed.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  const context = runRequestBodies[0]?.context as { workspaceItems?: Array<{ label?: string; absolutePath?: string }> } | undefined;
+  expect(context?.workspaceItems ?? []).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        label: 'local-code-persist',
+        absolutePath: '/tmp/openpixo/local-code-persist',
+      }),
+    ]),
+  );
+});
+
+test('[P1] project detail composer context actions emit analytics event fields', async ({ page }) => {
+  test.fail(true, 'Inline workspace mention deletion does not yet emit context_remove analytics');
+  const analyticsBodies: string[] = [];
+
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      json: {
+        config: {
+          mode: 'daemon',
+          apiKey: '',
+          baseUrl: 'https://api.anthropic.com',
+          model: 'claude-sonnet-4-5',
+          agentId: 'codex',
+          skillId: null,
+          onboardingCompleted: true,
+          agentModels: { codex: { model: 'default', reasoning: 'default' } },
+          privacyDecisionAt: 1,
+          telemetry: { metrics: true, content: false, artifactManifest: false },
+        },
+      },
+    });
+  });
+  await page.route('**/api/analytics/config', async (route) => {
+    await route.fulfill({
+      json: {
+        enabled: true,
+        env: 'e2e',
+        key: 'phc_e2e',
+        host: 'https://analytics.openpixo.test',
+        installationId: 'e2e-installation',
+      },
+    });
+  });
+  await page.route('https://analytics.openpixo.test/**', async (route) => {
+    analyticsBodies.push(route.request().postData() ?? '');
+    await route.fulfill({ status: 200, json: { status: 1 } });
+  });
+  await routeComposerPlusFixtures(page);
+  await page.route('**/api/dialog/open-folder', async (route) => {
+    await route.fulfill({ json: { path: '/tmp/openpixo/local-code-analytics' } });
+  });
+  await page.route('**/api/dir-exists', async (route) => {
+    await route.fulfill({ json: { exists: true } });
+  });
+  await page.route('**/api/projects/*', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        json: {
+          project: {
+            id: route.request().url().split('/api/projects/')[1]?.split(/[/?#]/)[0] ?? 'project',
+            name: 'Composer context analytics',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: body.metadata ?? { kind: 'prototype' },
+          },
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/');
+  await createProject(page, 'Composer context analytics');
+  await expectWorkspaceReady(page);
+  const composer = page.getByTestId('chat-composer');
+
+  await composer.getByTestId('chat-plus-trigger').click();
+  await page.getByTestId('composer-plus-working-dir').click();
+  await page.getByTestId('composer-plus-local-code').click();
+  const chip = composer.locator('.staged-context--workspace', { hasText: 'local-code-analytics' });
+  await expect(chip).toBeVisible();
+  await chip.getByRole('button', { name: /local-code-analytics/i }).click();
+  await expect(chip).toHaveCount(0);
+
+  await expect.poll(() => analyticsBodies.join('\n')).toContain('plus_pick');
+  const raw = analyticsBodies.join('\n');
+  expect(raw).toContain('context_remove');
+  expect(raw).toContain('workspace');
+  expect(raw).toContain('local-code');
+});
+
+test('[P0] @critical project detail composer agent menu lets the user switch the model', async ({ page }) => {
+  test.setTimeout(60_000);
+  await createProject(page, 'Composer agent switch');
+  await expectWorkspaceReady(page);
+
+  const { menu } = await openComposerAgentMenu(page);
+  await expect(menu.getByRole('menuitemradio', { checked: true })).toContainText(/default/i);
+
+  await menu.getByRole('menuitemradio', { name: /^GPT 5\.5$/i }).click();
+  await expect(menu).toBeHidden();
+
+  const { menu: reopened } = await openComposerAgentMenu(page);
+  await expect(reopened.getByRole('menuitemradio', { checked: true })).toContainText(/GPT 5\.5/i);
+});
+
+test('[P1] a model picked while boot is still loading survives it', async ({ page }) => {
+  // Hold the second half of boot's config read so the pick lands inside it, the
+  // way a slow daemon would. The config itself was already read before the pick.
+  let releaseBoot = () => {};
+  const bootHeld = new Promise<void>((resolve) => { releaseBoot = resolve; });
+  await page.route('**/api/media/config', async (route) => {
+    if (route.request().method() === 'GET') await bootHeld;
+    await route.fallback();
+  });
+
+  await createProject(page, 'Composer pick during boot');
+  await expectWorkspaceReady(page);
+
+  const pickSaved = waitForAppConfigWrite(page);
+  await pickComposerModel(page, /^GPT 5\.5$/i);
+  await pickSaved;
+
+  const bootFinished = waitForAppConfigWrite(page);
+  releaseBoot();
+  const bootWrite = await bootFinished;
+
+  // Boot's write-back lands last, so it decides what the daemon keeps.
+  expect(bootWrite.request().postDataJSON()).toMatchObject({
+    agentId: 'codex',
+    agentModels: { codex: { model: 'gpt-5.5' } },
+  });
+
+  const { menu } = await openComposerAgentMenu(page);
+  await expect(menu.getByRole('menuitemradio', { checked: true })).toContainText(/GPT 5\.5/i);
+});
+
+test('[P0] project detail composer model switch carries into the next daemon run request', async ({ page }) => {
+  test.setTimeout(60_000);
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runId: 'agent-model-run' });
+
+  await createProject(page, 'Composer agent switch run context');
+  await expectWorkspaceReady(page);
+
+  await pickComposerModel(page, /^GPT 5\.5$/i);
+
+  // The composer no longer carries a session-mode picker (#7635): every turn
+  // runs in the conversation's stored mode, which is design for a new project.
+  await expect(page.getByTestId('chat-composer').getByTestId('composer-mode-trigger')).toHaveCount(0);
+
+  const input = page.getByTestId('chat-composer-input');
+  await input.fill('Use the selected local agent for this design run.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  expect(runRequestBodies.length).toBeGreaterThan(0);
+  expect(runRequestBodies[0]?.agentId).toBe('codex');
+  expect(runRequestBodies[0]?.model).toBe('gpt-5.5');
+  expect(runRequestBodies[0]?.sessionMode).toBe('design');
+});
+
+test('[P1] GPT 5.5 Fast service tier carries into the next Codex daemon run request', async ({ page }) => {
+  test.setTimeout(60_000);
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'codex-fast-tier-run' });
+
+  await createProject(page, 'Codex Fast service tier contract');
+  await expectWorkspaceReady(page);
+
+  await pickComposerModel(page, /^GPT 5\.5$/i);
+  const { menu } = await openComposerAgentMenu(page);
+
+  const serviceTierSelect = menu.getByRole('combobox', { name: /Service tier/i });
+  await expect(serviceTierSelect).toBeVisible();
+  await serviceTierSelect.selectOption('priority');
+  await expect(serviceTierSelect).toHaveValue('priority');
+
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  await page.getByTestId('chat-composer-input').fill('Use GPT 5.5 Fast for this Codex run.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  expect(runRequestBodies[0]).toMatchObject({
+    agentId: 'codex',
+    model: 'gpt-5.5',
+    serviceTier: 'priority',
+  });
+});
+test('[P1] project detail composer keeps design mode across consecutive turns without a mode picker', async ({ page }) => {
+  test.setTimeout(60_000);
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'fixed-design-mode-run' });
+
+  await page.goto('/');
+  await createProject(page, 'Composer session mode contract');
+  await expectWorkspaceReady(page);
+
+  async function sendTurn(prompt: string) {
+    const input = page.getByTestId('chat-composer-input');
+    await expect(input).toBeVisible();
+    await input.fill(prompt);
+    await Promise.all([
+      page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+      page.getByTestId('chat-send').click(),
+    ]);
+    await expect(input).toHaveText('');
+  }
+
+  // The 规划/设计/提问 picker left the composer row (#7635): there is nothing
+  // to alternate from here, and consecutive turns keep the conversation's
+  // stored mode — design for a new project — on every run request.
+  await expect(page.getByTestId('chat-composer').getByTestId('composer-mode-trigger')).toHaveCount(0);
+  await expect(page.getByTestId('composer-mode-menu')).toHaveCount(0);
+
+  await sendTurn('Design the first iteration.');
+  await sendTurn('Design the second iteration without touching any mode control.');
+
+  expect(runRequestBodies.map((body) => body.sessionMode)).toEqual(['design', 'design']);
+});
+
+test('[P0] @critical project detail composer opens Execution settings where BYOK model choice persists', async ({ page }) => {
+  test.setTimeout(60_000);
+  let config = {
+    mode: 'daemon',
+    apiKey: 'sk-openai-test',
+    apiProtocol: 'openai',
+    apiVersion: '',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-2024-05-13',
+    apiProviderBaseUrl: 'https://api.openai.com/v1',
+    agentId: 'codex',
+    skillId: null,
+    onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: false, content: false, artifactManifest: false },
+    mediaProviders: {},
+    agentModels: { codex: { model: 'default' } },
+    agentCliEnv: {},
+  };
+
+  await page.addInitScript(
+    ({ key, value }) => {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    },
+    { key: STORAGE_KEY, value: config },
+  );
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      config = { ...config, ...body };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ config }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ config }),
+    });
+  });
+
+  await page.goto('/');
+  await createProject(page, 'Composer BYOK model switch');
+  await expectWorkspaceReady(page);
+
+  const { menu } = await openComposerAgentMenu(page);
+  await menu.getByTestId('inline-model-switcher-open-settings').click();
+
+  const settings = settingsSurface(page);
+  await expect(settings).toBeVisible();
+  await expect(settings.getByTestId('settings-nav-execution')).toBeVisible();
+  await settings.getByRole('tab', { name: 'API key' }).click();
+  await settings.getByRole('tab', { name: 'OpenAI', exact: true }).click();
+  const modelSelect = settings.getByRole('combobox', { name: 'Model', exact: true });
+  await expect(modelSelect).toContainText('Custom (type below)…');
+  await expect(settings.getByRole('textbox', { name: 'Custom model id', exact: true }))
+    .toHaveValue('gpt-4o-2024-05-13');
+  await modelSelect.click();
+  const modelPopover = page.getByTestId('settings-byok-model-popover');
+  await expect(modelPopover.getByRole('option', { name: /^gpt-4o-mini$/i })).toBeVisible();
+  await expect(modelPopover.getByRole('option', { name: /deepseek/i })).toHaveCount(0);
+  await expect(modelPopover.getByRole('option', { name: /MiniMax/i })).toHaveCount(0);
+  await modelPopover.getByRole('option', { name: /^gpt-4o-mini$/i }).click();
+
+  await expect(modelSelect).toContainText('gpt-4o-mini');
+  await expect.poll(async () => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  }, STORAGE_KEY)).toMatchObject({
+    mode: 'api',
+    model: 'gpt-4o-mini',
+  });
+});
+
+test('[P0] @critical project detail composer keeps Local CLI and BYOK model choices isolated', async ({ page }) => {
+  test.setTimeout(60_000);
+  const config = {
+    mode: 'daemon',
+    apiKey: 'test-byok-key',
+    apiProtocol: 'openai',
+    apiVersion: '',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-2024-05-13',
+    apiProviderBaseUrl: 'https://api.openai.com/v1',
+    agentId: 'codex',
+    skillId: null,
+    onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: false, content: false, artifactManifest: false },
+    mediaProviders: {},
+    agentModels: { codex: { model: 'default' } },
+    agentCliEnv: {},
+  };
+
+  await page.addInitScript(
+    ({ key, value }) => {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    },
+    { key: STORAGE_KEY, value: config },
+  );
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ config: body }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ config }),
+    });
+  });
+
+  await createProject(page, 'Composer model mode isolation');
+  await expectWorkspaceReady(page);
+
+  // Picking a Local CLI model must not touch the stored BYOK model: the two
+  // live in separate config slots (`agentModels[agentId].model` vs `model`).
+  await pickComposerModel(page, /^GPT 5\.5$/i);
+
+  await expect.poll(async () => page.evaluate((key) => {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  }, STORAGE_KEY)).toMatchObject({
+    mode: 'daemon',
+    agentId: 'codex',
+    model: 'gpt-4o-2024-05-13',
+    agentModels: {
+      codex: { model: 'gpt-5.5' },
+    },
+  });
+
+  const { menu } = await openComposerAgentMenu(page);
+  await expect(menu.getByRole('menuitemradio', { checked: true })).toContainText(/GPT 5\.5/i);
+});
+
+test('[P1] project rename from the switcher persists after reload and ignores blank titles', async ({ page }) => {
+  await page.goto('/');
+  await createProject(page, 'Original rename title');
+  await expectWorkspaceReady(page);
+
+  // The chat card carries no inline title any more (OPEND-3128); the project
+  // is renamed through the switcher's row menu (K2 #8183).
+  const switcher = page.getByTestId('workspace-tabs-dropdown-trigger');
+  await renameProjectFromSwitcher(page, 'Original rename title', 'Renamed persistent title');
+  await expect(switcher).toContainText('Renamed persistent title');
+
+  await page.reload();
+  await expectWorkspaceReady(page);
+  await expect(switcher).toContainText('Renamed persistent title');
+
+  await renameProjectFromSwitcher(page, 'Renamed persistent title', '   ');
+  await page.reload();
+  await expectWorkspaceReady(page);
+  await expect(switcher).toContainText('Renamed persistent title');
+
+  const project = await fetchCurrentProject(page);
+  expect(project.name).toBe('Renamed persistent title');
+});
+
+
+test('[P1] project handoff CLI prompt copies the project path, framework, id, and target agent', async ({ page }) => {
+  await page.addInitScript(() => {
+    const store: string[] = [];
+    Object.defineProperty(window, '__copiedTexts', {
+      value: store,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText(text: string) {
+          store.push(text);
+          return Promise.resolve();
+        },
+      },
+      configurable: true,
+    });
+  });
+  await routeHandoffEditors(page);
+  await page.goto('/');
+  await createProject(page, 'Handoff CLI prompt contract');
+  await expectWorkspaceReady(page);
+  await uploadTinyHtml(
+    page,
+    'handoff-cli.html',
+    '<!doctype html><html><body><h1>Handoff CLI</h1></body></html>',
+  );
+  const { projectId } = getProjectContextFromUrl(page);
+
+  const menu = await openHandoffCliTab(page);
+  const pathButton = menu.locator('.handoff-path-button');
+  await expect(pathButton).toBeEnabled();
+  const projectDir = await pathButton.getAttribute('title');
+  expect(projectDir).toBeTruthy();
+
+  await menu.getByRole('button', { name: /^Next\.js$/ }).click();
+  await menu.getByTestId('handoff-cli-item-codex').click();
+  await expect(menu.getByTestId('handoff-cli-item-codex')).toContainText('Copied');
+
+  const copied = await page.evaluate(() => {
+    return (window as typeof window & { __copiedTexts?: string[] }).__copiedTexts ?? [];
+  });
+  const prompt = copied.at(-1) ?? '';
+  expect(prompt).toContain(projectDir as string);
+  expect(prompt).toContain('cd ');
+  expect(prompt).toContain('Target: Next.js / React');
+  expect(prompt).toContain('CLI: Codex CLI (codex)');
+  expect(prompt).toContain(`Project ID: ${projectId}`);
+});
+
+test('[P1] canceling design file deletion keeps the Library file available', async ({ page }) => {
+  await page.goto('/');
+  await createProject(page, 'Design file delete cancel flow');
+  await expectWorkspaceReady(page);
+
+  const uploadedName = await uploadTinyPng(page, 'delete-cancel.png');
+  const fileItem = panelFileLabel(page, uploadedName);
+  await expect(fileItem).toBeVisible();
+
+  await openAllProjectFiles(page);
+  await rowByFileName(page, uploadedName).hover();
+  await menuByFileName(page, uploadedName).click();
+  await page.getByTestId(`design-file-delete-${uploadedName}`).click();
+  await answerDeleteConfirm(page, 'cancel', 'delete-cancel.png');
+
+  await expect(rowByFileName(page, uploadedName)).toBeVisible();
+  await expectAllProjectFilesActive(page);
+  await openPanelFile(page, uploadedName);
+  await expect(fileItem).toBeVisible();
+
+  const { projectId } = getProjectContextFromUrl(page);
+  const files = await listProjectFiles(page, projectId);
+  expect(files.map((file) => file.name)).toContain(uploadedName);
+});
+
+test('[P1] project detail workspace keeps the view switcher, stack back control and preview controls visible for uploaded html artifacts', async ({ page }) => {
+  // The viewport picker hides when the viewer is narrower than 500px
+  // (viewer/core.css container query); give the side panel room for it.
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto('/');
+  await createProject(page, 'Workspace preview structure');
+  await expectWorkspaceReady(page);
+
+  const uploadedName = await uploadTinyHtml(page, 'workspace-preview.html', '<!doctype html><html><body><main><h1>Workspace Preview Structure</h1><p>Preview stays visible.</p></main></body></html>');
+
+  const fileItem = panelFileLabel(page, uploadedName);
+  await expect(fileItem).toBeVisible();
+  await expect(fileItem).toBeVisible();
+  await expect(page.getByTestId('panel-view-switcher')).toBeVisible();
+  await expect(page.getByTestId('panel-stack-back')).toBeVisible();
+
+  await openUploadedHtmlArtifactPreview(page, uploadedName);
+
+  await expect(page.getByRole('tablist', { name: 'View mode' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(artifactPreview(page)).toBeVisible();
+  await expect(
+    artifactPreviewFrame(page).getByRole('heading', { name: 'Workspace Preview Structure' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: /Preview viewport/i })).toBeVisible();
+  await expect(page.locator('pre.viewer-source')).toHaveCount(0);
+});
+
+test('[P1] project detail turns carry the stored design session mode into daemon runs and message history', async ({ page }) => {
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'session-mode-run' });
+
+  await page.goto('/');
+  await createProject(page, 'Project session mode contract');
+  await expectWorkspaceReady(page);
+
+  // No picker in the composer row any more (#7635); the conversation's stored
+  // mode is what every run request and message chip carry.
+  await expect(page.getByTestId('composer-mode-trigger')).toHaveCount(0);
+
+  await page.getByTestId('chat-composer-input').fill('Draft the first pass of the screens.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  expect(runRequestBodies[0]?.sessionMode).toBe('design');
+  // Design is the default, so the message history carries no mode chip for it
+  // (only Ask / Plan turns are chipped).
+  await expect(page.getByTestId('msg-run-context-row').last()).toBeVisible();
+  await expect(page.getByTestId('msg-session-mode-chip')).toHaveCount(0);
+});
+test('[P1] BYOK OpenCode project run sends provider config through the daemon contract', async ({ page }) => {
+  const byokConfig = {
+    mode: 'api',
+    apiKey: 'sk-openai-e2e',
+    apiProtocol: 'openai',
+    apiVersion: '',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+    apiProviderBaseUrl: 'https://api.openai.com/v1',
+    agentId: null,
+    skillId: null,
+    onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: false, content: false, artifactManifest: false },
+    agentModels: {},
+    agentCliEnv: {},
+  };
+  await page.addInitScript(
+    ({ key, value }) => {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    },
+    { key: STORAGE_KEY, value: byokConfig },
+  );
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ json: { config: byokConfig } });
+  });
+  await routeAgents(page, [
+    ...AGENTS,
+    {
+      id: 'byok-opencode',
+      name: 'BYOK OpenCode',
+      bin: 'opencode',
+      available: true,
+      version: '0.12.0',
+      models: [{ id: 'default', label: 'Default' }],
+    },
+  ]);
+  await page.route('**/api/memory/extract', async (route) => {
+    await route.fulfill({ json: { ok: true, extracted: [] } });
+  });
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'byok-opencode-run' });
+
+  await page.goto('/');
+  await createProject(page, 'BYOK OpenCode daemon contract');
+  await expectWorkspaceReady(page);
+
+  const input = page.getByTestId('chat-composer-input');
+  await input.fill('Create a landing page with the configured BYOK provider.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  expect(runRequestBodies[0]).toMatchObject({
+    agentId: 'byok-opencode',
+    model: 'gpt-4o-mini',
+    byokProvider: {
+      protocol: 'openai',
+      apiKey: 'sk-openai-e2e',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      apiVersion: '',
+    },
+    analyticsHints: {
+      runtimeType: 'byok',
+    },
+  });
+});
+
+test('[P1] BYOK OpenCode keyless vLLM run keeps auth fields out of the daemon contract', async ({ page }) => {
+  const byokConfig = {
+    mode: 'api',
+    apiKey: '',
+    apiProtocol: 'openai',
+    apiVersion: '',
+    baseUrl: 'http://127.0.0.1:8000/v1',
+    model: 'model',
+    apiProviderBaseUrl: 'http://127.0.0.1:8000/v1',
+    agentId: null,
+    skillId: null,
+    onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: false, content: false, artifactManifest: false },
+    agentModels: {},
+    agentCliEnv: {},
+  };
+  await page.addInitScript(
+    ({ key, value }) => {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    },
+    { key: STORAGE_KEY, value: byokConfig },
+  );
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ json: { config: byokConfig } });
+  });
+  await routeAgents(page, [
+    ...AGENTS,
+    {
+      id: 'byok-opencode',
+      name: 'BYOK OpenCode',
+      bin: 'opencode',
+      available: true,
+      version: '0.12.0',
+      models: [{ id: 'default', label: 'Default' }],
+    },
+  ]);
+  await page.route('**/api/memory/extract', async (route) => {
+    await route.fulfill({ json: { ok: true, extracted: [] } });
+  });
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'byok-opencode-keyless-run' });
+
+  await page.goto('/');
+  await createProject(page, 'BYOK OpenCode keyless vLLM contract');
+  await expectWorkspaceReady(page);
+
+  await page.getByTestId('chat-composer-input').fill('Use the local vLLM BYOK endpoint.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  expect(runRequestBodies[0]).toMatchObject({
+    agentId: 'byok-opencode',
+    model: 'model',
+    byokProvider: {
+      protocol: 'openai',
+      apiKey: '',
+      baseUrl: 'http://127.0.0.1:8000/v1',
+      model: 'model',
+      requiresApiKey: false,
+    },
+    analyticsHints: {
+      runtimeType: 'byok',
+    },
+  });
+});
+
+// Everything a BYOK preflight refusal needs on screen: the saved BYOK config,
+// the agents the daemon reports, and a project to send from. The run routes stay
+// mocked so each test can prove the send never reached POST /api/runs.
+async function sendRefusedByokPrompt(
+  page: Page,
+  scenario: {
+    config?: Record<string, unknown>;
+    agents: ReadonlyArray<Record<string, unknown>>;
+    locale?: 'en' | 'zh-CN';
+    name: string;
+  },
+) {
+  const byokConfig = {
+    mode: 'api',
+    apiKey: 'sk-openai-e2e',
+    apiProtocol: 'openai',
+    apiVersion: '',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+    apiProviderBaseUrl: 'https://api.openai.com/v1',
+    agentId: null,
+    skillId: null,
+    onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: false, content: false, artifactManifest: false },
+    agentModels: {},
+    agentCliEnv: {},
+    ...scenario.config,
+  };
+  await page.addInitScript(
+    ({ key, value, locale }) => {
+      window.localStorage.setItem(key, JSON.stringify(value));
+      if (locale) {
+        window.localStorage.setItem('pixo:locale', locale);
+        window.localStorage.setItem('pixo:locale-source', 'manual');
+      }
+    },
+    { key: STORAGE_KEY, value: byokConfig, locale: scenario.locale },
+  );
+  await page.route('**/api/app-config', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ json: { config: byokConfig } });
+  });
+  await routeAgents(page, scenario.agents);
+
+  const runRequests = await routeSuccessfulRuns(page, {
+    runIdPrefix: 'byok-unavailable-should-not-start',
+    events: false,
+  });
+
+  await page.goto('/');
+  await createProject(page, scenario.name);
+  await expectWorkspaceReady(page);
+
+  await page.getByTestId('chat-composer-input').fill('Create a landing page with no runtime.');
+  await page.getByTestId('chat-send').click();
+
+  return runRequests;
+}
+
+async function expectSettingsLeadsTheCard(page: Page) {
+  await expect(page.getByTestId('chat-error-open-settings')).toHaveAttribute(
+    'data-run-error-action',
+    'primary',
+  );
+  await expect(page.getByTestId('chat-error-retry')).toHaveAttribute(
+    'data-run-error-action',
+    'secondary',
+  );
+}
+
+const BYOK_OPENCODE_MISSING = {
+  id: 'byok-opencode',
+  name: 'BYOK OpenCode',
+  bin: 'opencode',
+  available: false,
+  version: null,
+  models: [],
+};
+const BYOK_OPENCODE_INSTALLED = {
+  ...BYOK_OPENCODE_MISSING,
+  available: true,
+  version: '0.12.0',
+  models: [{ id: 'default', label: 'Default' }],
+};
+const CODEX_MISSING_AGENTS = [
+  ...AGENTS.map((agent) => (agent.id === 'codex' ? { ...agent, available: false } : agent)),
+  BYOK_OPENCODE_INSTALLED,
+];
+const DEEPSEEK_BYOK_CONFIG = {
+  apiKey: 'sk-deepseek-e2e',
+  baseUrl: 'https://api.deepseek.com',
+  apiProviderBaseUrl: 'https://api.deepseek.com',
+  model: 'deepseek-chat',
+};
+
+test('[P1] BYOK OpenCode unavailable blocks the project run before daemon routing', async ({ page }) => {
+  const runRequests = await sendRefusedByokPrompt(page, {
+    agents: [...AGENTS, BYOK_OPENCODE_MISSING],
+    name: 'BYOK OpenCode unavailable contract',
+  });
+
+  const description = page.getByTestId('chat-run-error-description');
+  await expect(description).toContainText(/BYOK API runs require OpenCode/i);
+  await expect(description).toContainText(/Local CLI/);
+  await expect(page.getByTestId('chat-run-error-card')).toContainText('OpenCode not detected');
+  await expectSettingsLeadsTheCard(page);
+  await runRequests.expectNone({
+    message: 'unavailable BYOK OpenCode should fail preflight before POST /api/runs',
+  });
+
+  // The failed turn is persisted, so the explanation outlives the pane state.
+  await page.reload();
+  await expectWorkspaceReady(page);
+  await expect(description).toContainText(/BYOK API runs require OpenCode/i);
+  await expectSettingsLeadsTheCard(page);
+
+  await page.getByTestId('chat-error-open-settings').click();
+  await expect(settingsSurface(page)).toBeVisible();
+  await runRequests.expectNone({
+    message: 'opening Settings from the refusal should not start a run',
+  });
+});
+
+test('[P1] BYOK on DeepSeek without Codex says Codex is what is missing', async ({ page }) => {
+  const runRequests = await sendRefusedByokPrompt(page, {
+    config: DEEPSEEK_BYOK_CONFIG,
+    agents: CODEX_MISSING_AGENTS,
+    name: 'BYOK Codex unavailable contract',
+  });
+
+  await expect(page.getByTestId('chat-run-error-description')).toContainText(
+    /DeepSeek and OpenRouter API runs require Codex/,
+  );
+  await expect(page.getByTestId('chat-run-error-card')).toContainText('Codex not detected');
+  await expectSettingsLeadsTheCard(page);
+  await runRequests.expectNone({
+    message: 'unavailable Codex should fail preflight before POST /api/runs',
+  });
+});
+
+test('[P1] BYOK refusal shows a card instead of losing the turn when the BYOK agent is selected', async ({ page }) => {
+  const runRequests = await sendRefusedByokPrompt(page, {
+    config: { mode: 'daemon', agentId: 'byok-opencode' },
+    agents: [...AGENTS, BYOK_OPENCODE_MISSING],
+    name: 'BYOK agent refusal contract',
+  });
+
+  await expect(page.getByTestId('chat-run-error-description')).toContainText(
+    /BYOK API runs require OpenCode/i,
+  );
+  await expect(page.getByTestId('user-send-failed')).toHaveCount(0);
+  await expectSettingsLeadsTheCard(page);
+  await runRequests.expectNone({
+    message: 'the selected BYOK agent should fail preflight before POST /api/runs',
+  });
+});
+
+test('[P1] BYOK refusal is written in the reader\'s language', async ({ page }) => {
+  const runRequests = await sendRefusedByokPrompt(page, {
+    config: DEEPSEEK_BYOK_CONFIG,
+    agents: CODEX_MISSING_AGENTS,
+    locale: 'zh-CN',
+    name: 'BYOK refusal zh-CN contract',
+  });
+
+  await expect(page.getByTestId('chat-run-error-description')).toContainText(/依赖 Codex/);
+  await expect(page.getByTestId('chat-run-error-card')).toContainText('未检测到 Codex');
+  await expect(page.getByTestId('chat-error-open-settings')).toContainText('去设置');
+  await runRequests.expectNone({
+    message: 'the zh-CN refusal should fail preflight before POST /api/runs',
+  });
+});
+
+test('[P1] project detail active file context is sent with the run but hidden on the user message', async ({ page }) => {
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'workspace-context-run' });
+
+  await page.goto('/');
+  await createProject(page, 'Workspace context chip contract');
+  await expectWorkspaceReady(page);
+
+  const uploadedName = await uploadTinyHtml(
+    page,
+    'workspace-context.html',
+    '<!doctype html><html><body><main><h1>Workspace Context</h1></main></body></html>',
+  );
+  await expect(panelFileLabel(page, uploadedName)).toBeVisible();
+
+  await page.getByTestId('chat-composer-input').fill('Use the currently open file as context.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  const context = runRequestBodies[0]?.context as { workspaceItems?: Array<{ label?: string; id?: string }> } | undefined;
+  expect(context?.workspaceItems?.some((item) => item.label === uploadedName || item.id?.includes(uploadedName))).toBe(true);
+  await expect(page.getByTestId('msg-run-context-row')).toHaveCount(0);
+  await expect(page.getByTestId('msg-workspace-context-chip')).toHaveCount(0);
+});
+
+test('[P1] project detail active file context survives reload in message history', async ({ page }) => {
+  const runRequestBodies: Array<Record<string, unknown>> = [];
+  await routeSuccessfulRuns(page, { bodies: runRequestBodies, runIdPrefix: 'workspace-context-reload-run' });
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await createProject(page, 'Workspace context reload contract');
+  await expectWorkspaceReady(page);
+
+  const uploadedName = await uploadTinyHtml(
+    page,
+    'workspace-context-reload.html',
+    '<!doctype html><html><body><main><h1>Workspace Context Reload</h1></main></body></html>',
+  );
+  await expect(panelFileLabel(page, uploadedName)).toBeVisible();
+
+  await page.getByTestId('chat-composer-input').fill('Persist this file context through reload.');
+  await Promise.all([
+    page.waitForRequest((request) => request.url().includes('/api/runs') && request.method() === 'POST'),
+    page.getByTestId('chat-send').click(),
+  ]);
+
+  await expect.poll(() => runRequestBodies.length).toBe(1);
+  const context = runRequestBodies[0]?.context as { workspaceItems?: Array<{ label?: string; id?: string }> } | undefined;
+  expect(runRequestBodies[0]?.sessionMode).toBe('design');
+  expect(context?.workspaceItems?.some((item) => item.label === uploadedName || item.id?.includes(uploadedName))).toBe(true);
+  // Design turns carry no mode chip (only Ask / Plan are chipped).
+  await expect(page.getByTestId('msg-session-mode-chip')).toHaveCount(0);
+  await expect(page.getByTestId('msg-workspace-context-chip').last()).toContainText(uploadedName);
+  await page.reload();
+  await expectWorkspaceReady(page);
+  await expect(page.getByTestId('msg-session-mode-chip')).toHaveCount(0);
+  await expect(page.getByTestId('msg-workspace-context-chip').last()).toContainText(uploadedName);
+});
+
+test('[P1] active project API defaults to the selected project file from the real workspace', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await createProject(page, 'MCP active context contract');
+  await expectWorkspaceReady(page);
+
+  const uploadedName = await uploadTinyHtml(
+    page,
+    'mcp-active-context.html',
+    '<!doctype html><html><body><main><h1>MCP Active Context</h1></main></body></html>',
+  );
+  const { projectId } = getProjectContextFromUrl(page);
+  await expect(panelFileLabel(page, uploadedName)).toBeVisible();
+  await expect
+    .poll(async () => {
+      const response = await page.request.get('/api/active');
+      const body = (await response.json()) as { projectId?: string; fileName?: string };
+      return `${body.projectId ?? ''}:${body.fileName ?? ''}`;
+    })
+    .toBe(`${projectId}:${uploadedName}`);
+});
+
+test('[P1] project detail HTML version manager previews and restores an older snapshot', async ({ page }) => {
+  const restoredRequests: string[] = [];
+
+  await page.goto('/');
+  await createProject(page, 'HTML version manager contract');
+  await expectWorkspaceReady(page);
+
+  const uploadedName = await uploadTinyHtml(
+    page,
+    'version-manager.html',
+    '<!doctype html><html><body><main><h1>Current Version</h1></main></body></html>',
+  );
+  const { projectId } = getProjectContextFromUrl(page);
+  const now = Date.now();
+  const currentVersion = {
+    id: 'v-current',
+    fileName: uploadedName,
+    version: 2,
+    label: 'Current generated HTML',
+    createdAt: now,
+    source: 'ai',
+    prompt: 'Current generated HTML',
+    promptSource: 'message',
+    size: 82,
+    mime: 'text/html',
+    kind: 'html',
+    current: true,
+  };
+  const oldVersion = {
+    id: 'v-old',
+    fileName: uploadedName,
+    version: 1,
+    label: 'Initial generated HTML',
+    createdAt: now - 60_000,
+    source: 'manual',
+    prompt: 'Initial generated HTML',
+    promptSource: 'manual',
+    size: 78,
+    mime: 'text/html',
+    kind: 'html',
+    current: false,
+  };
+  const restoredVersion = {
+    ...oldVersion,
+    id: 'v-restored',
+    version: 3,
+    source: 'restore',
+    current: true,
+    restoreFromVersionId: oldVersion.id,
+  };
+  const oldVersionContent = '<!doctype html><html><body><main><h1>Initial Version</h1></main></body></html>';
+  const restoredContent = '<!doctype html><html><body><main><h1>Restored Version</h1></main></body></html>';
+
+  await page.route(`**/api/projects/${projectId}/files/${uploadedName}/versions`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        json: {
+          file: { name: uploadedName, kind: 'html', mime: 'text/html', size: oldVersionContent.length, mtime: now },
+          versions: [currentVersion, oldVersion],
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route(`**/api/projects/${projectId}/files/${uploadedName}/versions/v-old`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { version: oldVersion, content: oldVersionContent } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route(`**/api/projects/${projectId}/files/${uploadedName}/versions/v-old/restore`, async (route) => {
+    if (route.request().method() === 'POST') {
+      restoredRequests.push(route.request().url());
+      await route.fulfill({
+        json: {
+          file: { name: uploadedName, kind: 'html', mime: 'text/html', size: restoredContent.length, mtime: Date.now() },
+          version: restoredVersion,
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await openUploadedHtmlArtifactPreview(page, uploadedName);
+  await page.getByRole('button', { name: 'Versions' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Versions' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('option', { name: /Current generated HTML/i })).toHaveAttribute('aria-selected', 'true');
+
+  await dialog.getByRole('option', { name: /Initial generated HTML/i }).click();
+  await expect(dialog.locator('iframe').first().contentFrame().getByRole('heading', { name: 'Initial Version' })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Switch to this version' }).click();
+  // The shared ConfirmDialog renders as its own top-level alertdialog.
+  await page.getByRole('alertdialog', { name: 'Switch to this version?' }).getByRole('button', { name: 'Switch' }).click();
+  await expect.poll(() => restoredRequests.length).toBe(1);
+  await expect(dialog).toHaveCount(0);
+});
+
+test('[P1] project detail assistant completion actions support copy, fork, and feedback', async ({ page }) => {
+  await page.addInitScript(() => {
+    const store: string[] = [];
+    Object.defineProperty(window, '__copiedTexts', {
+      value: store,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText(text: string) {
+          store.push(text);
+          return Promise.resolve();
+        },
+      },
+      configurable: true,
+    });
+  });
+
+  const { projectId, conversationId, assistantMessageId, assistantText } =
+    await seedProjectWithAssistantCompletion(page);
+
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
+  await expectWorkspaceReady(page);
+  await expect(page.getByText('Assistant completion actions fixture')).toBeVisible();
+
+  const copyButton = page.getByTestId('assistant-copy-markdown');
+  await expect(copyButton).toBeVisible();
+  await copyButton.click();
+  await expect(copyButton).toHaveAttribute('data-copied', 'true');
+  const copied = await page.evaluate(() => {
+    return (window as typeof window & { __copiedTexts?: string[] }).__copiedTexts ?? [];
+  });
+  expect(copied.at(-1)).toBe(assistantText);
+
+  const positive = page.getByTestId('assistant-feedback-positive');
+  const negative = page.getByTestId('assistant-feedback-negative');
+  await expect(positive).toBeVisible();
+  await expect(negative).toBeVisible();
+  await positive.click();
+  await expect(positive).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.assistant-feedback-reasons')).toBeVisible();
+  await negative.click();
+  await expect(negative).toHaveAttribute('aria-pressed', 'true');
+  await expect(positive).toHaveAttribute('aria-pressed', 'false');
+
+  const forkRequestPromise = page.waitForRequest((request) => {
+    return request.method() === 'POST'
+      && request.url().endsWith(`/api/projects/${projectId}/conversations`);
+  });
+  await page.getByTestId('assistant-fork-button').click();
+  const forkRequest = await forkRequestPromise;
+  const forkBody = forkRequest.postDataJSON() as {
+    forkAfterMessageId?: string;
+    seedFromConversationId?: string;
+    seedMessages?: unknown;
+  };
+  expect(forkBody.seedFromConversationId).toBe(conversationId);
+  expect(forkBody.forkAfterMessageId).toBe(assistantMessageId);
+  expect(forkBody.seedMessages).toBeUndefined();
+  await expect
+    .poll(() => getProjectContextFromUrl(page).conversationId)
+    .not.toBe(conversationId);
+});
+
+for (const origin of ['artifact-card', 'toolbar'] as const) {
+}
+
+for (const published of [false, true]) {
+}
+
+test('[P1] project detail fork emits correlated click and result analytics', async ({ page }) => {
+  const analyticsBodies: string[] = [];
+  await page.unroute('**/api/app-config').catch(() => {});
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        mode: 'daemon',
+        apiKey: '',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'default',
+        agentId: 'codex',
+        skillId: null,
+        onboardingCompleted: true,
+        privacyDecisionAt: 1,
+        telemetry: { metrics: true, content: false, artifactManifest: false },
+        agentModels: { codex: { model: 'default' } },
+      }),
+    );
+  }, STORAGE_KEY);
+  await page.route('**/api/app-config', async (route) => {
+    await route.fulfill({
+      json: {
+        config: {
+          onboardingCompleted: true,
+          privacyDecisionAt: 1,
+          telemetry: { metrics: true, content: false, artifactManifest: false },
+          mode: 'daemon',
+          agentId: 'codex',
+          skillId: null,
+          agentModels: { codex: { model: 'default' } },
+          agentCliEnv: {},
+        },
+      },
+    });
+  });
+  await page.route('**/api/analytics/config', async (route) => {
+    await route.fulfill({
+      json: {
+        enabled: true,
+        env: 'e2e',
+        key: 'phc_e2e',
+        host: 'https://analytics.openpixo.test',
+        installationId: 'e2e-installation',
+      },
+    });
+  });
+  await page.route('https://analytics.openpixo.test/**', async (route) => {
+    analyticsBodies.push(route.request().postData() ?? '');
+    await route.fulfill({ status: 200, json: { status: 1 } });
+  });
+
+  const { projectId, conversationId } = await seedProjectWithAssistantCompletion(page);
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
+  await expectWorkspaceReady(page);
+
+  const forkResponsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST'
+      && response.url().endsWith(`/api/projects/${projectId}/conversations`);
+  });
+  await page.getByTestId('assistant-fork-button').click();
+  expect((await forkResponsePromise).ok()).toBe(true);
+
+  await expect
+    .poll(() => analyticsBodies.join('\n'), { timeout: T.medium })
+    .toContain('conversation_fork_result');
+  const raw = analyticsBodies.join('\n');
+  expect(raw).toContain('assistant_fork_button');
+  expect(raw).toContain('fork_conversation');
+  expect(raw).toContain('"result":"success"');
+  expect(raw).toContain('"fork_point":"latest"');
+  expect(raw).toContain(projectId);
+  expect(raw).toContain(conversationId);
+  const requestIdCounts = new Map<string, number>();
+  for (const match of raw.matchAll(/"request_id":"([^"]+)"/g)) {
+    const requestId = match[1];
+    if (!requestId) continue;
+    requestIdCounts.set(requestId, (requestIdCounts.get(requestId) ?? 0) + 1);
+  }
+  expect([...requestIdCounts.values()].some((count) => count >= 2)).toBe(true);
+});
+
+test('[P1] project detail forks histories larger than the daemon JSON body limit', async ({ page }) => {
+  test.setTimeout(T.xlong);
+  const { projectId, conversationId, expectedContents } =
+    await seedProjectWithLargeAssistantHistory(page);
+
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
+  await expectWorkspaceReady(page);
+  await expect(page.getByTestId('assistant-fork-button')).toHaveCount(3, {
+    timeout: T.long,
+  });
+
+  const forkResponsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST'
+      && response.url().endsWith(`/api/projects/${projectId}/conversations`);
+  });
+  await page.getByTestId('assistant-fork-button').last().click();
+  const forkResponse = await forkResponsePromise;
+  expect(
+    forkResponse.ok(),
+    `fork large conversation: ${await forkResponse.text()}`,
+  ).toBe(true);
+  const forkRequestBody = forkResponse.request().postDataJSON() as {
+    seedMessages?: unknown;
+  };
+  expect(forkRequestBody.seedMessages).toBeUndefined();
+
+  await expect
+    .poll(() => getProjectContextFromUrl(page).conversationId)
+    .not.toBe(conversationId);
+  const forkConversationId = getProjectContextFromUrl(page).conversationId;
+  expect(forkConversationId).toBeTruthy();
+  const forkRequestHeaders = forkResponse.request().headers();
+  const workspaceHeaders = Object.fromEntries(
+    ['x-pixo-workspace-id', 'x-pixo-workspace-member-id']
+      .map((name) => [name, forkRequestHeaders[name]] as const)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+  const forkMessagesResponse = await page.request.get(
+    `/api/projects/${projectId}/conversations/${forkConversationId}/messages`,
+    { headers: workspaceHeaders },
+  );
+  expect(
+    forkMessagesResponse.ok(),
+    `load forked messages: ${await forkMessagesResponse.text()}`,
+  ).toBe(true);
+  const forkMessagesBody = (await forkMessagesResponse.json()) as {
+    messages: Array<{ content: string }>;
+  };
+  expect(forkMessagesBody.messages.map((message) => message.content)).toEqual(expectedContents);
+});
+
+test('[P1] project detail conversations menu supports new chat, search, and recency metadata', async ({ page }) => {
+  const { projectId, conversations } = await seedProjectConversationHistory(page);
+  await routeConversationHistoryFixtures(page, projectId, conversations);
+
+  await page.goto(`/projects/${projectId}/conversations/${conversations[0]!.id}`);
+  await expectWorkspaceReady(page);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const menu = page.getByTestId('conversation-history-menu');
+  await expect(menu).toBeVisible();
+  // The dropdown no longer shows a heading, a count, per-row message counts
+  // or run durations (OPEND-3087, Demo #8113): rows carry only the title and
+  // the time since the last update. The fixtures are 30s / 2m / 7m old at
+  // seed time, so allow one minute of drift while the page loads.
+  const rows = page.getByTestId('conversation-list').locator('.chat-conv-item');
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByTestId(`conversation-select-${conversations[0]!.id}`)).toContainText('Runway final polish');
+  await expect(page.getByTestId(`conversation-meta-${conversations[0]!.id}`)).toHaveText(/^(now|1m)$/);
+  await expect(page.getByTestId(`conversation-meta-${conversations[1]!.id}`)).toHaveText(/^[23]m$/);
+  await expect(page.getByTestId(`conversation-meta-${conversations[2]!.id}`)).toHaveText(/^[78]m$/);
+  await expect(page.getByTestId('conversation-history-count')).toHaveCount(0);
+  await expect(menu.getByTestId(/^conversation-delete-/)).toHaveCount(0);
+
+  await page.getByTestId('conversation-history-search').fill('font audit');
+  await expect(rows).toHaveCount(1);
+  await expect(page.getByTestId(`conversation-item-${conversations[1]!.id}`)).toBeVisible();
+  await expect(page.getByTestId(`conversation-item-${conversations[0]!.id}`)).toHaveCount(0);
+
+  await page.getByTestId('conversation-history-search').fill('');
+  const newConversationRequestPromise = page.waitForRequest((request) => {
+    return request.method() === 'POST'
+      && request.url().endsWith(`/api/projects/${projectId}/conversations`);
+  });
+  // The single "new conversation" control sits inside the dropdown beside the
+  // search field. Clicking it still dismisses the menu, which is what the
+  // count assertion below pins.
+  await menu.getByTestId('chat-new-conversation').click();
+  await newConversationRequestPromise;
+  await expect(page.getByTestId('conversation-history-menu')).toHaveCount(0);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(rows).toHaveCount(4);
+  await expect(page.getByTestId('conversation-select-conv-new-history')).toContainText('Untitled');
+  await expect(page.getByTestId('conversation-meta-conv-new-history')).toHaveText(/^(now|1m)$/);
+});
+
+test('[P0] project detail share menu copies the current share link for uploaded html artifacts', async ({ page }) => {
+  // Upload opens the file in Library immediately, so the first deployment read may
+  // precede the upload helper's return. Seed the deterministic file name so
+  // that read receives the deployment instead of a stale empty fixture.
+  let uploadedName = 'share-link-copy.html';
+  await page.addInitScript(() => {
+    const store: string[] = [];
+    Object.defineProperty(window, '__copiedTexts', {
+      value: store,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText(text: string) {
+          store.push(text);
+          return Promise.resolve();
+        },
+      },
+      configurable: true,
+    });
+  });
+  await page.route('**/api/projects/*/deployments', async (route) => {
+    await route.fulfill({
+      json: {
+        deployments: uploadedName
+          ? [{
+              id: 'ready-share-link',
+              projectId: getProjectIdFromApiPath(route.request().url()),
+              fileName: uploadedName,
+              providerId: 'vercel-self',
+              url: 'https://share-preview.example',
+              deploymentCount: 1,
+              target: 'preview',
+              status: 'ready',
+              createdAt: 1,
+              updatedAt: 2,
+            }]
+          : [],
+      },
+    });
+  });
+
+  await page.goto('/');
+  await createProject(page, 'Share link copy flow', {
+  });
+  await expectWorkspaceReady(page);
+
+  uploadedName = await uploadTinyHtml(page, 'share-link-copy.html', '<!doctype html><html><body><h1>Share link copy</h1></body></html>', {
+  });
+  await openUploadedHtmlArtifactPreview(page, uploadedName);
+
+  await openShareMenu(page);
+  await page.getByRole('menuitem', { name: /^Copy share link$/i }).click();
+  await expect(page.getByRole('menuitem', { name: /^Copied!$/i })).toBeVisible();
+
+  const copied = await page.evaluate(() => (window as typeof window & { __copiedTexts?: string[] }).__copiedTexts ?? []);
+  expect(copied.at(-1)).toBe('https://share-preview.example');
+});
+
+test('[P0] project detail share menu opens the current share page for uploaded html artifacts', async ({ page }) => {
+  // See the copy-link case above: FileViewer can ask for deployments before
+  // the upload helper returns and assigns the persisted file name.
+  let uploadedName = 'share-page-open.html';
+  await page.addInitScript(() => {
+    const opened: string[] = [];
+    Object.defineProperty(window, '__openedUrls', {
+      value: opened,
+      configurable: true,
+    });
+    const originalOpen = window.open.bind(window);
+    window.open = ((...args: Parameters<typeof window.open>) => {
+      if (typeof args[0] === 'string') opened.push(args[0]);
+      return originalOpen(...args);
+    }) as typeof window.open;
+  });
+  await page.route('**/api/projects/*/deployments', async (route) => {
+    await route.fulfill({
+      json: {
+        deployments: uploadedName
+          ? [{
+              id: 'protected-share-link',
+              projectId: getProjectIdFromApiPath(route.request().url()),
+              fileName: uploadedName,
+              providerId: 'vercel-self',
+              url: 'https://protected-share.example',
+              deploymentCount: 1,
+              target: 'preview',
+              status: 'protected',
+              createdAt: 1,
+              updatedAt: 2,
+            }]
+          : [],
+      },
+    });
+  });
+
+  // This scenario creates through Playwright's APIRequestContext rather than
+  // the browser UI, so the Web cannot inherit its normal same-session creation
+  // witness. Give the page an exact writable Personal/owner identity and bind
+  // the project-scope bootstrap to that same identity. Do not make the share
+  // control writable by weakening the shared-project authority gate.
+
+  await page.goto('/');
+  await createProject(page, 'Open share page flow', {
+  });
+  await expectWorkspaceReady(page);
+
+  uploadedName = await uploadTinyHtml(page, 'share-page-open.html', '<!doctype html><html><body><h1>Open share page</h1></body></html>', {
+  });
+  await openUploadedHtmlArtifactPreview(page, uploadedName);
+
+  await openShareMenu(page);
+  await page.getByRole('menuitem', { name: /Open share page/i }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as typeof window & { __openedUrls?: string[] }).__openedUrls ?? []),
+    )
+    .toContain('https://protected-share.example/');
+});
+
+test('[P1] home design card deletion supports cancel and confirm flows', async ({ page }) => {
+  const projectName = `Home delete design flow ${Date.now()}`;
+  await page.goto('/');
+  await createProject(page, projectName);
+  await expectWorkspaceReady(page);
+
+  const { projectId } = getProjectContextFromUrl(page);
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  const designCard = homeDesignCard(page, projectName);
+  await expect(designCard).toBeVisible();
+
+  // Cancel flow: open the overflow menu, choose Delete, then dismiss the confirm modal.
+  await designCard.hover();
+  await designCard.getByRole('button', { name: /more actions/i }).click();
+  await page.getByRole('menuitem', { name: /^delete$/i }).click();
+  const confirmDialog = page.locator('.modal-confirm');
+  await expect(confirmDialog).toBeVisible();
+  await expect(confirmDialog).toContainText(projectName);
+  await confirmDialog.getByRole('button', { name: /^cancel$/i }).click();
+  await expect(confirmDialog).toHaveCount(0);
+  await expect(designCard).toBeVisible();
+
+  // Confirm flow: same trigger, this time accept the confirm modal.
+  await designCard.hover();
+  await designCard.getByRole('button', { name: /more actions/i }).click();
+  await page.getByRole('menuitem', { name: /^delete$/i }).click();
+  const confirmDialog2 = page.locator('.modal-confirm');
+  await expect(confirmDialog2).toBeVisible();
+  await expect(confirmDialog2).toContainText(projectName);
+  await confirmDialog2.getByRole('button', { name: /^delete$/i }).click();
+  await expect(homeDesignCard(page, projectName)).toHaveCount(0);
+
+  const response = await page.request.get(`/api/projects/${projectId}`);
+  expect(response.status()).toBe(404);
+});
+
+test('[P2] home designs view toggle switches between grid and kanban and persists', async ({ page }) => {
+  const projectName = `Home view toggle flow ${Date.now()}`;
+  await page.goto('/');
+  await createProject(page, projectName);
+  await expectWorkspaceReady(page);
+  const { projectId } = getProjectContextFromUrl(page);
+
+  await page.goto('/projects');
+  await expectDesignsView(page);
+  await expect(homeDesignCard(page, projectName)).toBeVisible();
+  await expect(page.locator('.design-grid')).toBeVisible();
+  await expect(page.locator('.design-kanban-board')).toHaveCount(0);
+  await expect(page.getByTestId('designs-view-grid')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByTestId('designs-view-kanban').click();
+  await expect(page.locator('.design-kanban-board')).toBeVisible();
+  await expect(page.locator('.design-grid')).toHaveCount(0);
+  await expect(page.getByTestId('designs-view-kanban')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.design-kanban-card', { hasText: projectName })).toBeVisible();
+
+  await page.reload();
+  await expectDesignsView(page);
+  await expect(page.locator('.design-kanban-board')).toBeVisible();
+  await expect(page.getByTestId('designs-view-kanban')).toHaveAttribute('aria-pressed', 'true');
+  const projectsAfterReload = await listProjectsFromApi(page);
+  expect(projectsAfterReload.some((project) => project.id === projectId && project.name === projectName)).toBe(true);
+
+  await page.getByTestId('designs-view-grid').click();
+  await expect(page.locator('.design-grid')).toBeVisible();
+  await expect(homeDesignCard(page, projectName)).toBeVisible();
+  await expect(page.getByTestId('designs-view-grid')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('[P1] home designs search filters projects and recovers from no results', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  const stamp = Date.now();
+  const alphaName = `Home search alpha ${stamp}`;
+  const betaName = `Home search beta ${stamp}`;
+  await page.goto('/');
+
+  await createProject(page, alphaName);
+  await expectWorkspaceReady(page);
+  const alphaProjectId = getProjectContextFromUrl(page).projectId;
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  await createProject(page, betaName);
+  await expectWorkspaceReady(page);
+  const betaProjectId = getProjectContextFromUrl(page).projectId;
+  await page.goto('/projects');
+  await expectDesignsView(page);
+  await expect(homeDesignCard(page, alphaName)).toBeVisible();
+  await expect(homeDesignCard(page, betaName)).toBeVisible();
+
+  const search = page.locator('.tab-panel-toolbar .toolbar-search input');
+  await search.fill('alpha');
+  await expect(homeDesignCard(page, alphaName)).toBeVisible();
+  await expect(homeDesignCard(page, betaName)).toHaveCount(0);
+
+  await search.fill(`missing-${stamp}`);
+  await expect(homeDesignCard(page, alphaName)).toHaveCount(0);
+  await expect(homeDesignCard(page, betaName)).toHaveCount(0);
+  await expect(page.locator('.tab-empty')).toBeVisible();
+
+  await search.fill('');
+  await expect(homeDesignCard(page, alphaName)).toBeVisible();
+  await expect(homeDesignCard(page, betaName)).toBeVisible();
+  const projects = await listProjectsFromApi(page);
+  expect(projects).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: alphaProjectId, name: alphaName }),
+      expect.objectContaining({ id: betaProjectId, name: betaName }),
+    ]),
+  );
+});
+
+test('[P2] projects sub tabs switch between Recent and Your projects ordering', async ({ page }) => {
+  const now = Date.now();
+  const projects = [
+    makeProjectsTabProject({
+      id: 'proj-alpha',
+      name: 'Sort Alpha',
+      createdAt: now - 3 * 60_000,
+      updatedAt: now - 1 * 60_000,
+    }),
+    makeProjectsTabProject({
+      id: 'proj-beta',
+      name: 'Sort Beta',
+      createdAt: now - 1 * 60_000,
+      updatedAt: now - 3 * 60_000,
+    }),
+    makeProjectsTabProject({
+      id: 'proj-gamma',
+      name: 'Sort Gamma',
+      createdAt: now - 2 * 60_000,
+      updatedAt: now - 2 * 60_000,
+    }),
+  ];
+
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('**/api/live-artifacts?projectId=*', async (route) => {
+    await route.fulfill({ json: { liveArtifacts: [] } });
+  });
+
+  await stubCatalogsEmpty(page);
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  await expect(page.locator('.design-grid .design-card .design-card-name').nth(0)).toContainText(
+    'Sort Alpha',
+  );
+  await expect(page.locator('.design-grid .design-card .design-card-name').nth(1)).toContainText(
+    'Sort Gamma',
+  );
+  await expect(page.locator('.design-grid .design-card .design-card-name').nth(2)).toContainText(
+    'Sort Beta',
+  );
+
+  await page.getByRole('button', { name: 'Your projects' }).click();
+  await expect(page.locator('.design-grid .design-card .design-card-name').nth(0)).toContainText(
+    'Sort Beta',
+  );
+  await expect(page.locator('.design-grid .design-card .design-card-name').nth(1)).toContainText(
+    'Sort Gamma',
+  );
+  await expect(page.locator('.design-grid .design-card .design-card-name').nth(2)).toContainText(
+    'Sort Alpha',
+  );
+});
+
+test('[P1] projects grid card rename updates the card title and persists after reload', async ({ page }) => {
+  const originalName = `Projects rename flow ${Date.now()}`;
+  const renamedName = `${originalName} renamed`;
+  await page.goto('/');
+  await createProject(page, originalName);
+  await expectWorkspaceReady(page);
+  const { projectId } = getProjectContextFromUrl(page);
+
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  const card = homeDesignCard(page, originalName);
+  await card.hover();
+  await card.getByRole('button', { name: /more actions/i }).click();
+  await page.getByRole('menuitem', { name: /^rename$/i }).click();
+
+  const renameModal = page.locator('.modal-rename');
+  await expect(renameModal).toBeVisible();
+  const renameInput = renameModal.getByRole('textbox');
+  await expect(renameInput).toHaveValue(originalName);
+  await renameInput.fill(renamedName);
+  await renameModal.locator('button.primary').click();
+
+  await expect(homeDesignCard(page, renamedName)).toBeVisible();
+  await expect(homeDesignCard(page, originalName)).toHaveCount(0);
+
+  await page.reload();
+  await expectDesignsView(page);
+  await expect(homeDesignCard(page, renamedName)).toBeVisible();
+  const project = await fetchProjectById(page, projectId);
+  expect(project.name).toBe(renamedName);
+});
+
+test('[P1] projects select mode supports multi-select delete with cancel and confirm', async ({ page }) => {
+  const firstName = `Batch delete A ${Date.now()}`;
+  const secondName = `Batch delete B ${Date.now()}`;
+  await page.goto('/');
+
+  await createProject(page, firstName);
+  await expectWorkspaceReady(page);
+  const firstProjectId = getProjectContextFromUrl(page).projectId;
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  await createProject(page, secondName);
+  await expectWorkspaceReady(page);
+  const secondProjectId = getProjectContextFromUrl(page).projectId;
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  await page.locator('.designs-select-toggle').click();
+  await homeDesignCard(page, firstName).click();
+  await homeDesignCard(page, secondName).click();
+  await expect(page.locator('.designs-select-bar')).toBeVisible();
+  await expect(page.locator('.design-card.is-selected')).toHaveCount(2);
+
+  await page.getByRole('button', { name: /Delete selected/i }).click();
+  const confirmDialog = page.locator('.modal-confirm');
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole('button', { name: /^cancel$/i }).click();
+  await expect(confirmDialog).toHaveCount(0);
+  await expect(homeDesignCard(page, firstName)).toBeVisible();
+  await expect(homeDesignCard(page, secondName)).toBeVisible();
+
+  await page.getByRole('button', { name: /Delete selected/i }).click();
+  const confirmDialog2 = page.locator('.modal-confirm');
+  await expect(confirmDialog2).toBeVisible();
+  await confirmDialog2.getByRole('button', { name: /^delete/i }).click();
+  await expect(homeDesignCard(page, firstName)).toHaveCount(0);
+  await expect(homeDesignCard(page, secondName)).toHaveCount(0);
+  await expect(page.locator('.designs-select-bar')).toHaveCount(0);
+
+  const firstResponse = await page.request.get(`/api/projects/${firstProjectId}`);
+  const secondResponse = await page.request.get(`/api/projects/${secondProjectId}`);
+  expect(firstResponse.status()).toBe(404);
+  expect(secondResponse.status()).toBe(404);
+});
+
+test('[P1] projects kanban cards open projects and support delete cancel and confirm', async ({ page }) => {
+  const projectName = `Kanban flow ${Date.now()}`;
+  await page.goto('/');
+  await createProject(page, projectName);
+  await expectWorkspaceReady(page);
+
+  const { projectId } = getProjectContextFromUrl(page);
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  await page.getByTestId('designs-view-kanban').click();
+  await expect(page.locator('.design-kanban-board')).toBeVisible();
+
+  const kanbanCard = page.locator('.design-kanban-card', { hasText: projectName });
+  await expect(kanbanCard).toBeVisible();
+
+  await kanbanCard.click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}(/conversations/[^/]+)?$`));
+  await expect(page.getByTestId('workspace-tabs-dropdown-trigger')).toContainText(projectName);
+  const openedProject = await fetchCurrentProject(page);
+  expect(openedProject.name).toBe(projectName);
+
+  await page.goto('/projects');
+  await expectDesignsView(page);
+  await expect(page.locator('.design-kanban-board')).toBeVisible();
+
+  const kanbanCardAgain = page.locator('.design-kanban-card', { hasText: projectName });
+  await kanbanCardAgain.locator('.design-card-close').click();
+  const confirmDialog = page.locator('.modal-confirm');
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole('button', { name: /^cancel$/i }).click();
+  await expect(kanbanCardAgain).toBeVisible();
+
+  await kanbanCardAgain.locator('.design-card-close').click();
+  const confirmDialog2 = page.locator('.modal-confirm');
+  await expect(confirmDialog2).toBeVisible();
+  await confirmDialog2.getByRole('button', { name: /^delete/i }).click();
+  await expect(page.locator('.design-kanban-card', { hasText: projectName })).toHaveCount(0);
+
+  const response = await page.request.get(`/api/projects/${projectId}`);
+  expect(response.status()).toBe(404);
+});
+
+test('[P2] projects page shows the empty state when there are no projects', async ({ page }) => {
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects: [] } });
+      return;
+    }
+    await route.continue();
+  });
+
+  await stubCatalogsEmpty(page);
+  await page.goto('/projects');
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.locator('.tab-empty')).toBeVisible();
+  await expect(page.locator('.tab-empty')).toContainText('No projects yet');
+  await expect(page.locator('.design-grid')).toHaveCount(0);
+  await expect(page.locator('.design-kanban-board')).toHaveCount(0);
+});
+
+test('[P2] projects page shows the no-results state and recovers when search is cleared', async ({ page }) => {
+  const projects = [
+    makeProjectsTabProject({
+      id: 'proj-search-1',
+      name: 'Searchable Prototype',
+      createdAt: Date.now() - 10_000,
+      updatedAt: Date.now() - 5_000,
+    }),
+  ];
+
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('**/api/live-artifacts?projectId=*', async (route) => {
+    await route.fulfill({ json: { liveArtifacts: [] } });
+  });
+
+  await stubCatalogsEmpty(page);
+  await page.goto('/projects');
+  await expectDesignsView(page);
+  await expect(homeDesignCard(page, 'Searchable Prototype')).toBeVisible();
+
+  const search = page.locator('.tab-panel-toolbar .toolbar-search input');
+  await search.fill('does-not-exist');
+  await expect(page.locator('.tab-empty')).toBeVisible();
+  await expect(page.locator('.tab-empty')).toContainText('No projects match your search');
+  await expect(homeDesignCard(page, 'Searchable Prototype')).toHaveCount(0);
+
+  await search.fill('');
+  await expect(homeDesignCard(page, 'Searchable Prototype')).toBeVisible();
+});
+
+test('[P2] projects grid overflow menu closes on outside click and Escape', async ({ page }) => {
+  const projects = [
+    makeProjectsTabProject({
+      id: 'proj-menu-1',
+      name: 'Menu Close Project',
+      createdAt: Date.now() - 10_000,
+      updatedAt: Date.now() - 5_000,
+    }),
+  ];
+
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('**/api/live-artifacts?projectId=*', async (route) => {
+    await route.fulfill({ json: { liveArtifacts: [] } });
+  });
+
+  await stubCatalogsEmpty(page);
+  await page.goto('/projects');
+  await expectDesignsView(page);
+
+  const card = homeDesignCard(page, 'Menu Close Project');
+  await card.hover();
+  await card.getByRole('button', { name: /more actions/i }).click();
+  const menu = page.locator('.design-card-menu');
+  await expect(menu).toBeVisible();
+
+  await page.locator('.tab-panel-toolbar').click({ position: { x: 8, y: 8 } });
+  await expect(menu).toHaveCount(0);
+
+  await card.hover();
+  await card.getByRole('button', { name: /more actions/i }).click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+});
+
+test('[P2] projects kanban view groups cards into status columns', async ({ page }) => {
+  const now = Date.now();
+  const projects = [
+    makeProjectsTabProject({
+      id: 'proj-not-started',
+      name: 'Not Started Card',
+      createdAt: now - 50_000,
+      updatedAt: now - 45_000,
+      status: { value: 'not_started' },
+    }),
+    makeProjectsTabProject({
+      id: 'proj-running',
+      name: 'Running Card',
+      createdAt: now - 40_000,
+      updatedAt: now - 35_000,
+      status: { value: 'running' },
+    }),
+    makeProjectsTabProject({
+      id: 'proj-awaiting',
+      name: 'Awaiting Input Card',
+      createdAt: now - 30_000,
+      updatedAt: now - 25_000,
+      status: { value: 'awaiting_input' },
+    }),
+    makeProjectsTabProject({
+      id: 'proj-succeeded',
+      name: 'Succeeded Card',
+      createdAt: now - 20_000,
+      updatedAt: now - 15_000,
+      status: { value: 'succeeded' },
+    }),
+    makeProjectsTabProject({
+      id: 'proj-failed',
+      name: 'Failed Card',
+      createdAt: now - 10_000,
+      updatedAt: now - 5_000,
+      status: { value: 'failed' },
+    }),
+  ];
+
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { projects } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route('**/api/live-artifacts?projectId=*', async (route) => {
+    await route.fulfill({ json: { liveArtifacts: [] } });
+  });
+
+  await stubCatalogsEmpty(page);
+  await page.goto('/projects');
+  await expectDesignsView(page);
+  await page.getByTestId('designs-view-kanban').click();
+  await expect(page.locator('.design-kanban-board')).toBeVisible();
+
+  await expect(page.locator('.design-kanban-card.status-not_started')).toHaveCount(1);
+  await expect(page.locator('.design-kanban-card.status-running')).toHaveCount(1);
+  await expect(page.locator('.design-kanban-card.status-awaiting_input')).toHaveCount(1);
+  await expect(page.locator('.design-kanban-card.status-succeeded')).toHaveCount(1);
+  await expect(page.locator('.design-kanban-card.status-failed')).toHaveCount(1);
+  const kanbanColumns = page.locator('.design-kanban-col');
+  await expect(kanbanColumns).toHaveCount(7);
+  await expect(
+    kanbanColumns.filter({ hasText: 'Incomplete' }).locator('.design-kanban-empty'),
+  ).toHaveCount(1);
+  await expect(
+    kanbanColumns.filter({ hasText: 'Canceled' }).locator('.design-kanban-empty'),
+  ).toHaveCount(1);
+  await expect(page.locator('.design-kanban-empty')).toHaveCount(2);
+
+  await expect(page.locator('.design-kanban-card.status-running')).toContainText('Running Card');
+  await expect(page.locator('.design-kanban-card.status-awaiting_input')).toContainText(
+    'Awaiting Input Card',
+  );
+  await expect(page.locator('.design-kanban-card.status-succeeded')).toContainText(
+    'Succeeded Card',
+  );
+});
+
+test('[P2] General settings updates the custom companion draft', async ({ page }) => {
+  await seedAdoptedPet(page);
+  await page.route('**/api/codex-pets', async (route) => {
+    await route.fulfill({ json: { pets: [], rootDir: '' } });
+  });
+
+  await page.goto('/');
+  const dialog = await openSettingsDialog(page);
+  await dialog.getByRole('button', { name: /^General$/i }).click();
+  await expect(dialog.getByRole('heading', { level: 3, name: 'Pets' })).toBeVisible();
+
+  await dialog.getByRole('tab', { name: 'Custom' }).click();
+  const customPanel = dialog.locator('.pet-custom');
+  await expect(customPanel).toBeVisible();
+
+  await customPanel.getByLabel('Name').fill('QA Turtle');
+  await customPanel.getByLabel('Glyph').fill('🐢');
+  await customPanel.getByLabel('Greeting').fill('Shell yeah, tests are green.');
+  await expect(customPanel.getByText('QA Turtle')).toBeVisible();
+  await expect(customPanel.getByText('Shell yeah, tests are green.')).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+async function createProject(
+  page: Page,
+  projectName: string,
+  options: { headers?: Readonly<Record<string, string>> } = {},
+) {
+  const response = await createProjectViaApi(page, projectName, options);
+  const body = (await response.json()) as {
+    project: { id: string };
+    conversationId: string;
+  };
+  await page.goto(`/projects/${body.project.id}/conversations/${body.conversationId}`);
+}
+
+async function createProjectViaApi(
+  page: Page,
+  projectName: string,
+  options: { headers?: Readonly<Record<string, string>> } = {},
+) {
+  // The Playwright suite fixture waits on daemon `/api/health` before handing
+  // out a worker. Project create is therefore a single-shot completion signal
+  // (the HTTP response), not a call-site retry loop over an unknown race.
+  const response = await page.request.post('/api/projects', {
+    timeout: 15_000,
+    ...(options.headers ? { headers: { ...options.headers } } : {}),
+    data: {
+      id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: projectName,
+      skillId: null,
+      metadata: {
+        kind: 'prototype',
+        nameSource: 'user',
+      },
+    },
+  });
+  expect(
+    response.ok(),
+    `create project "${projectName}": ${await response.text()}`,
+  ).toBeTruthy();
+  return response;
+}
+
+async function seedProjectWithAssistantCompletion(
+  page: Page,
+): Promise<{
+  projectId: string;
+  conversationId: string;
+  assistantMessageId: string;
+  assistantText: string;
+}> {
+  const projectId = `assistant-actions-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const projectResponse = await page.request.post('/api/projects', {
+    data: {
+      id: projectId,
+      name: 'Assistant Completion Actions',
+      skillId: null,
+      metadata: {
+        kind: 'prototype',
+        nameSource: 'user',
+      },
+    },
+  });
+  expect(projectResponse.ok(), `create project: ${await projectResponse.text()}`).toBeTruthy();
+  const { conversationId } = (await projectResponse.json()) as { conversationId: string };
+
+  const fileResponse = await page.request.post(`/api/projects/${projectId}/files`, {
+    data: {
+      name: 'index.html',
+      content: '<!doctype html><html><body><main><h1>Assistant actions preview</h1></main></body></html>',
+      artifactManifest: {
+        version: 1,
+        kind: 'html',
+        title: 'index.html',
+        entry: 'index.html',
+        renderer: 'html',
+        exports: ['html'],
+      },
+    },
+  });
+  expect(fileResponse.ok(), `seed index.html: ${await fileResponse.text()}`).toBeTruthy();
+
+  const createdAt = Date.now() - 2_000;
+  const userMessageId = `u-${projectId}`;
+  const userResponse = await page.request.put(
+    `/api/projects/${projectId}/conversations/${conversationId}/messages/${userMessageId}`,
+    {
+      data: {
+        id: userMessageId,
+        role: 'user',
+        content: 'Create a tiny prototype.',
+        createdAt,
+      },
+    },
+  );
+  expect(userResponse.ok(), `seed user message: ${await userResponse.text()}`).toBeTruthy();
+
+  const assistantMessageId = `a-${projectId}`;
+  const assistantText = 'Assistant completion actions fixture.\n\nGenerated `index.html` for this turn.';
+  const assistantResponse = await page.request.put(
+    `/api/projects/${projectId}/conversations/${conversationId}/messages/${assistantMessageId}`,
+    {
+      data: {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: assistantText,
+        runStatus: 'succeeded',
+        startedAt: createdAt + 500,
+        endedAt: createdAt + 1_500,
+        events: [
+          { kind: 'text', text: assistantText },
+        ],
+        createdAt: createdAt + 1_000,
+      },
+    },
+  );
+  expect(assistantResponse.ok(), `seed assistant message: ${await assistantResponse.text()}`).toBeTruthy();
+
+  return { projectId, conversationId, assistantMessageId, assistantText };
+}
+
+async function seedProjectWithRepeatedArtifactCards(
+  page: Page,
+): Promise<{ projectId: string; conversationId: string }> {
+  const projectId = `repeated-artifact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const projectResponse = await page.request.post('/api/projects', {
+    data: {
+      id: projectId,
+      name: 'Repeated Artifact Card Anchors',
+      skillId: null,
+      metadata: { kind: 'prototype', nameSource: 'user' },
+    },
+  });
+  expect(projectResponse.ok(), `create project: ${await projectResponse.text()}`).toBeTruthy();
+  const { conversationId } = (await projectResponse.json()) as { conversationId: string };
+
+  const fileName = 'index.html';
+  const fileContent = '<!doctype html><html><body><main><h1>Repeated artifact anchors</h1></main></body></html>';
+  const fileResponse = await page.request.post(`/api/projects/${projectId}/files`, {
+    data: {
+      name: fileName,
+      content: fileContent,
+      artifactManifest: {
+        version: 1,
+        kind: 'html',
+        title: fileName,
+        entry: fileName,
+        renderer: 'html',
+        exports: ['html'],
+      },
+    },
+  });
+  expect(fileResponse.ok(), `seed ${fileName}: ${await fileResponse.text()}`).toBeTruthy();
+
+  const startedAt = Date.now() - 4_000;
+  const producedFile = {
+    name: fileName,
+    path: fileName,
+    localPath: `/project/${projectId}/${fileName}`,
+    type: 'file',
+    size: fileContent.length,
+    mtime: startedAt + 1_000,
+    kind: 'html',
+    mime: 'text/html',
+  };
+
+  for (let turn = 0; turn < 2; turn += 1) {
+    const userMessageId = `repeated-artifact-user-${turn}-${projectId}`;
+    const assistantMessageId = `repeated-artifact-assistant-${turn}-${projectId}`;
+    const turnStartedAt = startedAt + turn * 2_000;
+    const userResponse = await page.request.put(
+      `/api/projects/${projectId}/conversations/${conversationId}/messages/${userMessageId}`,
+      {
+        data: {
+          id: userMessageId,
+          role: 'user',
+          content: `Generate ${fileName}, turn ${turn + 1}.`,
+          createdAt: turnStartedAt,
+        },
+      },
+    );
+    expect(userResponse.ok(), `seed user turn ${turn + 1}: ${await userResponse.text()}`).toBeTruthy();
+
+    const toolUseId = `write-index-${turn}`;
+    const assistantResponse = await page.request.put(
+      `/api/projects/${projectId}/conversations/${conversationId}/messages/${assistantMessageId}`,
+      {
+        data: {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: `Generated ${fileName}, turn ${turn + 1}.`,
+          runStatus: 'succeeded',
+          startedAt: turnStartedAt + 200,
+          endedAt: turnStartedAt + 1_200,
+          events: [
+            {
+              kind: 'tool_use',
+              id: toolUseId,
+              name: 'Write',
+              input: { file_path: producedFile.localPath, content: fileContent },
+            },
+            { kind: 'tool_result', toolUseId, content: 'ok', isError: false },
+            { kind: 'text', text: `Generated ${fileName}, turn ${turn + 1}.` },
+            { kind: 'artifact_focus', show: [fileName] },
+          ],
+          producedFiles: [producedFile],
+          createdAt: turnStartedAt + 1_000,
+        },
+      },
+    );
+    expect(assistantResponse.ok(), `seed assistant turn ${turn + 1}: ${await assistantResponse.text()}`).toBeTruthy();
+  }
+
+  return { projectId, conversationId };
+}
+
+async function seedProjectWithLargeAssistantHistory(
+  page: Page,
+): Promise<{
+  projectId: string;
+  conversationId: string;
+  expectedContents: string[];
+}> {
+  const projectId = `assistant-large-fork-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const projectResponse = await page.request.post('/api/projects', {
+    data: {
+      id: projectId,
+      name: 'Large Conversation Fork',
+      skillId: null,
+      metadata: {
+        kind: 'prototype',
+        nameSource: 'user',
+      },
+    },
+  });
+  expect(projectResponse.ok(), `create project: ${await projectResponse.text()}`).toBeTruthy();
+  const { conversationId } = (await projectResponse.json()) as { conversationId: string };
+  const expectedContents: string[] = [];
+
+  for (let index = 1; index <= 3; index += 1) {
+    const userMessageId = `large-user-${index}`;
+    const userContent = `Large fork request ${index}`;
+    const userResponse = await page.request.put(
+      `/api/projects/${projectId}/conversations/${conversationId}/messages/${userMessageId}`,
+      {
+        data: {
+          id: userMessageId,
+          role: 'user',
+          content: userContent,
+          createdAt: Date.now() + index * 2,
+        },
+      },
+    );
+    expect(userResponse.ok(), `seed user ${index}: ${await userResponse.text()}`).toBeTruthy();
+    expectedContents.push(userContent);
+
+    const assistantMessageId = `large-assistant-${index}`;
+    const assistantContent = `Large fork point ${index}`;
+    const assistantResponse = await page.request.put(
+      `/api/projects/${projectId}/conversations/${conversationId}/messages/${assistantMessageId}`,
+      {
+        data: {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: assistantContent,
+          runStatus: 'succeeded',
+          events: [{ kind: 'raw', line: 'x'.repeat(1_500_000) }],
+          createdAt: Date.now() + index * 2 + 1,
+        },
+      },
+    );
+    expect(
+      assistantResponse.ok(),
+      `seed assistant ${index}: ${await assistantResponse.text()}`,
+    ).toBeTruthy();
+    expectedContents.push(assistantContent);
+  }
+
+  return { projectId, conversationId, expectedContents };
+}
+
+type ConversationHistoryFixture = {
+  id: string;
+  projectId: string;
+  title: string | null;
+  sessionMode: 'design' | 'ask' | 'plan';
+  messageCount: number;
+  createdAt: number;
+  updatedAt: number;
+  totalDurationMs?: number;
+  latestRun?: {
+    status: 'succeeded' | 'failed' | 'canceled';
+    durationMs?: number;
+  };
+};
+
+async function seedProjectConversationHistory(
+  page: Page,
+): Promise<{
+  projectId: string;
+  conversations: ConversationHistoryFixture[];
+}> {
+  const projectId = `conversation-history-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const projectResponse = await page.request.post('/api/projects', {
+    data: {
+      id: projectId,
+      name: 'Conversation History Coverage',
+      skillId: null,
+      metadata: {
+        kind: 'prototype',
+        nameSource: 'user',
+      },
+    },
+  });
+  expect(projectResponse.ok(), `create project: ${await projectResponse.text()}`).toBeTruthy();
+  const { conversationId } = (await projectResponse.json()) as { conversationId: string };
+
+  const now = Date.now();
+  return {
+    projectId,
+    conversations: [
+      {
+        id: conversationId,
+        projectId,
+        title: 'Runway final polish',
+        sessionMode: 'design',
+        messageCount: 8,
+        createdAt: now - 90 * 60_000,
+        updatedAt: now - 30_000,
+        totalDurationMs: 342_000,
+        latestRun: {
+          status: 'succeeded',
+          durationMs: 330_000,
+        },
+      },
+      {
+        id: 'conv-font-audit',
+        projectId,
+        title: 'Font audit and brand pass',
+        sessionMode: 'design',
+        messageCount: 6,
+        createdAt: now - 80 * 60_000,
+        updatedAt: now - 2 * 60_000,
+        latestRun: {
+          status: 'succeeded',
+          durationMs: 1_140_000,
+        },
+      },
+      {
+        id: 'conv-slide-review',
+        projectId,
+        title: 'Slide review baseline',
+        sessionMode: 'ask',
+        messageCount: 6,
+        createdAt: now - 70 * 60_000,
+        updatedAt: now - 7 * 60_000,
+      },
+    ],
+  };
+}
+
+async function routeConversationHistoryFixtures(
+  page: Page,
+  projectId: string,
+  initialConversations: ConversationHistoryFixture[],
+) {
+  const conversations = [...initialConversations];
+  await page.route(`**/api/projects/${projectId}/conversations`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { conversations } });
+      return;
+    }
+    if (route.request().method() === 'POST') {
+      const now = Date.now();
+      const fresh: ConversationHistoryFixture = {
+        id: 'conv-new-history',
+        projectId,
+        title: null,
+        sessionMode: 'design',
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      conversations.unshift(fresh);
+      await route.fulfill({ json: { conversation: fresh } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route(`**/api/projects/${projectId}/conversations/*/messages`, async (route) => {
+    if (route.request().method() === 'GET') {
+      const conversationId = conversationIdFromMessagesApiPath(route.request().url());
+      const conversation = conversations.find((item) => item.id === conversationId);
+      const count = conversation?.messageCount ?? 0;
+      await route.fulfill({
+        json: {
+          messages: Array.from({ length: count }, (_, index) => ({
+            id: `${conversationId}-m-${index}`,
+            role: index % 2 === 0 ? 'user' : 'assistant',
+            content: `Conversation ${conversationId} message ${index + 1}`,
+            createdAt: (conversation?.createdAt ?? Date.now()) + index,
+          })),
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+}
+
+function conversationIdFromMessagesApiPath(url: string): string {
+  const pathname = new URL(url).pathname;
+  const match = pathname.match(/\/conversations\/([^/]+)\/messages$/);
+  return match ? decodeURIComponent(match[1]!) : '';
+}
+
+async function expectDesignsView(page: Page) {
+  if (!/\/projects$/.test(new URL(page.url()).pathname)) {
+    // The rail's Projects destination went away in #5517; /projects is still a
+    // real route (Home's recent-projects "view all" is the in-product entry).
+    await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+  }
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.locator('.design-grid, .design-kanban-board')).toBeVisible();
+}
+
+/**
+ * Opens the composer's model menu (`InlineModelSwitcher`, the same menu Home
+ * uses). It is portalled to <body> and stays mounted while closed, so "closed"
+ * is `toBeHidden`, not a count of zero. Every available agent's models are
+ * listed as `menuitemradio` rows, and only the active choice is checked.
+ */
+async function openComposerAgentMenu(page: Page): Promise<{ menu: Locator }> {
+  const composer = page.getByTestId('chat-composer');
+  await expect(composer).toBeVisible();
+  const trigger = composer.getByTestId('inline-model-switcher-chip');
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  const menu = page.getByTestId('inline-model-switcher-popover');
+  await expect(menu).toBeVisible();
+  return { menu };
+}
+
+/** Picks a model from the menu; selecting one dismisses it. */
+async function pickComposerModel(page: Page, name: RegExp): Promise<void> {
+  const { menu } = await openComposerAgentMenu(page);
+  await menu.getByRole('menuitemradio', { name }).click();
+  await expect(menu).toBeHidden();
+}
+
+async function routeComposerPlusFixtures(page: Page) {
+  await page.route('**/api/connectors', async (route) => {
+    await route.fulfill({
+      json: {
+        connectors: [
+          {
+            id: 'figma',
+            name: 'Figma Connector',
+            provider: 'Composio',
+            category: 'Design',
+            status: 'connected',
+            tools: [],
+          },
+        ],
+      },
+    });
+  });
+  await page.route('**/api/connectors/status', async (route) => {
+    await route.fulfill({
+      json: {
+        statuses: {
+          figma: { status: 'connected', accountLabel: 'Design Team' },
+        },
+      },
+    });
+  });
+  await page.route('**/api/connectors/discovery**', async (route) => {
+    await route.fulfill({ json: { connectors: [] } });
+  });
+  await page.route('**/api/plugins', async (route) => {
+    await route.fulfill({ json: { plugins: [COMPOSER_PLUS_PLUGIN] } });
+  });
+  await page.route('**/api/mcp/servers', async (route) => {
+    await route.fulfill({
+      json: {
+        servers: [
+          {
+            id: 'design-docs',
+            label: 'Design Docs MCP',
+            transport: 'stdio',
+            enabled: true,
+            command: 'npx',
+          },
+        ],
+        templates: [],
+      },
+    });
+  });
+}
+
+async function expectWorkspaceReady(page: Page) {
+  await expect(page).toHaveURL(/\/projects\//);
+  await page.getByText('Loading OpenPixo…').waitFor({ state: 'hidden', timeout: T.long }).catch(() => {});
+  await dismissPrivacyDialog(page);
+  // The workspace tab strip only renders docked in focus mode; the side
+  // panel's view switcher is what a ready project view always shows.
+  await expect(page.getByTestId('panel-view-switcher')).toBeVisible();
+  await expect(page.getByTestId('chat-composer')).toBeVisible();
+  await expect(page.getByTestId('chat-composer-input')).toBeVisible();
+  await expect(page.locator('.chat-loading-state')).toHaveCount(0, { timeout: T.medium });
+  await expect(page.getByTestId('file-workspace')).toBeVisible();
+}
+
+async function routeHandoffEditors(page: Page): Promise<void> {
+  await page.route('**/api/editors', async (route) => {
+    await route.fulfill({
+      json: {
+        platform: 'darwin',
+        editors: [
+          {
+            id: 'cursor',
+            label: 'Cursor',
+            icon: 'cursor',
+            available: true,
+            resolvedPath: '/Applications/Cursor.app',
+            platforms: ['darwin', 'win32', 'linux'],
+          },
+          {
+            id: 'finder',
+            label: 'Finder',
+            icon: 'finder',
+            available: true,
+            resolvedPath: '/System/Library/CoreServices/Finder.app',
+            platforms: ['darwin'],
+          },
+        ],
+      },
+    });
+  });
+}
+
+async function openHandoffCliTab(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const unifiedPopover = page.locator('.chrome-unified-popover:visible');
+  await unifiedPopover.getByRole('tab', { name: 'Send to...' }).click();
+  const menu = unifiedPopover.getByTestId('handoff-menu');
+  await expect(menu).toBeVisible();
+  await menu.getByRole('tab', { name: /^Copy for CLI$/ }).click();
+  return menu;
+}
+
+async function dismissPrivacyDialog(page: Page) {
+  const privacyRegion = page.getByRole('region', { name: /Help us improve OpenPixo/i });
+  if (await privacyRegion.isVisible().catch(() => false)) {
+    await privacyRegion.getByRole('button', { name: /I get it|not now|got it/i }).click();
+    await expect(privacyRegion).toBeHidden();
+  }
+}
+
+/**
+ * Renames a project through the switcher's row menu (K2 #8183): open the
+ * dropdown, ⋮ on the project's row, 重命名, type, Enter. The chat card carries
+ * no inline title to edit any more (OPEND-3128).
+ */
+async function renameProjectFromSwitcher(
+  page: Page,
+  currentName: string,
+  nextName: string,
+) {
+  await page.getByTestId('workspace-tabs-dropdown-trigger').click();
+  const row = page
+    .locator('.workspace-tabs-dropdown__row')
+    .filter({ hasText: currentName })
+    .first();
+  await row.hover();
+  await row.getByTestId('workspace-tabs-dropdown-row-more').click();
+  await page
+    .getByTestId('workspace-tabs-dropdown-row-menu')
+    .getByRole('menuitem', { name: 'Rename' })
+    .click();
+  const input = page.getByRole('textbox', { name: 'Rename' });
+  await input.fill(nextName);
+  await input.press('Enter');
+  await page.locator('.workspace-tabs-dropdown__backdrop').click({ position: { x: 4, y: 4 } });
+}
+
+async function uploadTinyHtml(
+  page: Page,
+  name: string,
+  content: string,
+  options: { headers?: Readonly<Record<string, string>> } = {},
+): Promise<string> {
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name,
+    mimeType: 'text/html',
+    buffer: Buffer.from(content),
+  });
+  const { projectId } = getProjectContextFromUrl(page);
+  let uploadedName = '';
+  await expect
+    .poll(async () => {
+      const files = await listProjectFiles(page, projectId, options);
+      uploadedName = files.find((file) => file.name.endsWith(name))?.name ?? '';
+      return uploadedName;
+    })
+    .not.toBe('');
+  await expect(panelFileLabel(page, uploadedName)).toBeVisible();
+  return uploadedName;
+}
+
+async function uploadTinyPng(
+  page: Page,
+  name: string,
+): Promise<string> {
+  const pngBytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W6McAAAAASUVORK5CYII=',
+    'base64',
+  );
+  await page.getByTestId('file-list-upload-input').setInputFiles({
+    name,
+    mimeType: 'image/png',
+    buffer: pngBytes,
+  });
+  await expect(panelFileLabel(page, name)).toBeVisible();
+  const { projectId } = getProjectContextFromUrl(page);
+  const files = await listProjectFiles(page, projectId);
+  const uploaded = files.find((file) => file.name.endsWith(name));
+  expect(uploaded?.name).toBeTruthy();
+  return uploaded!.name;
+}
+
+async function openUploadedHtmlArtifactPreview(page: Page, uploadedName: string) {
+  await openAllProjectFiles(page);
+  const fileRow = rowByFileName(page, uploadedName);
+  await expect(fileRow).toBeVisible();
+  // #5517 deleted the preview card and its Open button: the row's primary
+  // target opens the artifact in a workspace tab on a single click.
+  await fileRow.getByRole('button').first().click();
+  await expect(panelFileLabel(page, uploadedName)).toBeVisible();
+}
+
+
+function rowByFileName(page: Page, name: string): Locator {
+  return page.getByTestId(`design-file-row-${name}`);
+}
+
+function menuByFileName(page: Page, name: string): Locator {
+  return page.getByTestId(`design-file-menu-${name}`);
+}
+
+function homeDesignCard(page: Page, name: string): Locator {
+  return page.locator('.design-card', {
+    has: page.locator('.design-card-name', {
+      hasText: new RegExp(`^${escapeRegExp(name)}$`),
+    }),
+  });
+}
+
+async function seedAdoptedPet(page: Page) {
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        mode: 'daemon',
+        apiKey: '',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'default',
+        agentId: 'codex',
+        skillId: null,
+        onboardingCompleted: true,
+        agentModels: { codex: { model: 'default' } },
+        pet: {
+          adopted: true,
+          enabled: true,
+          petId: 'custom',
+          custom: {
+            name: 'Original Buddy',
+            glyph: '🦄',
+            accent: '#c96442',
+            greeting: 'Ready to pair.',
+          },
+        },
+      }),
+    );
+  }, STORAGE_KEY);
+}
+
+async function fetchCurrentProject(page: Page) {
+  const { projectId } = getProjectContextFromUrl(page);
+  return fetchProjectById(page, projectId);
+}
+
+async function fetchProjectById(page: Page, projectId: string) {
+  const response = await page.request.get(`/api/projects/${projectId}`);
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    project: {
+      id?: string;
+      name: string;
+      metadata?: {
+      };
+    };
+  };
+  return body.project;
+}
+
+async function listProjectsFromApi(page: Page) {
+  const response = await page.request.get('/api/projects');
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    projects: Array<{ id: string; name: string }>;
+  };
+  return body.projects;
+}
+
+async function listProjectFiles(
+  page: Page,
+  projectId: string,
+  options: { headers?: Readonly<Record<string, string>> } = {},
+) {
+  const response = await page.request.get(
+    `/api/projects/${projectId}/files`,
+    options.headers ? { headers: { ...options.headers } } : undefined,
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as { files: Array<{ name: string }> };
+  return body.files;
+}
+
+function isCreateProjectRequest(request: Request): boolean {
+  const url = new URL(request.url());
+  return url.pathname === '/api/projects' && request.method() === 'POST';
+}
+
+function getProjectContextFromUrl(page: Page) {
+  const url = new URL(page.url());
+  const [, projectId, conversationId] = url.pathname.match(
+    /\/projects\/([^/]+)(?:\/conversations\/([^/]+))?/,
+  ) ?? [];
+  if (!projectId) throw new Error(`unexpected project route: ${url.pathname}`);
+  return { projectId, conversationId };
+}
+
+function getProjectIdFromApiPath(rawUrl: string) {
+  const url = new URL(rawUrl);
+  const [, projectId] = url.pathname.match(/\/api\/projects\/([^/]+)/) ?? [];
+  if (!projectId) throw new Error(`unexpected project api path: ${url.pathname}`);
+  return projectId;
+}
+
+// Share opens straight onto the link/asset-shaped rows — share link, share
+// page, deploy targets, save-as-template. These used to live under the old
+// popover's "Export" tab; the split moved them to Share and left Export as a
+// pure file-format menu, so the callers below take the Share door now. The
+// popover shell is still shared between the two, so the locator is unchanged.
+async function openShareMenu(page: Page) {
+  await page.getByRole('button', { name: /^Share$/i }).click();
+  const menu = page.locator('.share-menu-popover[role="menu"]');
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function makeProjectsTabProject({
+  id,
+  name,
+  createdAt,
+  updatedAt,
+  skillId = null,
+  metadata = { kind: 'prototype' as const },
+  status = { value: 'succeeded' as const },
+}: {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  skillId?: string | null;
+  metadata?: Record<string, unknown>;
+  status?: { value: string };
+}) {
+  return {
+    id,
+    name,
+    createdAt,
+    updatedAt,
+    skillId,
+    pendingPrompt: '',
+    customInstructions: null,
+    metadata,
+    status,
+  };
+}
+
+function skillSummary(
+  id: string,
+  name: string,
+  mode: 'prototype' | 'deck' | 'image',
+  surface: 'web' | 'image',
+  defaultFor: string[],
+) {
+  return {
+    id,
+    name,
+    description: `${name} for tab switching coverage.`,
+    triggers: [],
+    mode,
+    surface,
+    platform: 'desktop',
+    scenario: 'qa',
+    previewType: 'html',
+    defaultFor,
+    upstream: null,
+    featured: null,
+    fidelity: null,
+    speakerNotes: null,
+    animations: null,
+    hasBody: true,
+    examplePrompt: '',
+  };
+}

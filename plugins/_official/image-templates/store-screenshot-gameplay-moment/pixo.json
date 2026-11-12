@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-store-screenshot-gameplay-moment",
+  "title": "Store Screenshot - Staged Gameplay Moment",
+  "title_i18n": {
+    "en": "Store Screenshot - Staged Gameplay Moment",
+    "zh-CN": "商店截图 - 精心摆拍的游戏瞬间"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A staged 16:9 in-game screenshot for a store page or press kit that sells one specific moment of play: the player in focus, a clear threat and answer, a minimal readable HUD and a hint of progression, composed to survive the small store carousel thumbnail.",
+  "description_i18n": {
+    "en": "A staged 16:9 in-game screenshot for a store page or press kit that sells one specific moment of play: the player in focus, a clear threat and answer, a minimal readable HUD and a hint of progression, composed to survive the small store carousel thumbnail.",
+    "zh-CN": "为商店页或媒体资料包生成一张 16:9 的摆拍游戏截图，突出一个具体的游玩瞬间：玩家角色清晰、威胁与应对一目了然、HUD 简洁可读并带有成长暗示，构图在商店轮播小缩略图中依然清楚。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "marketing",
+    "steam",
+    "store-page",
+    "screenshot",
+    "gameplay",
+    "press-kit",
+    "hud"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A staged in-game screenshot for a store page, 1920x1080, that sells one specific moment of play. It must look like a real frame captured from the running game, not concept art or a poster.\n\nGame: {argument name=\"game_pitch\" default=\"a top-down twin-stick shooter set in an overgrown solar-punk greenhouse station\"}.\nVisual style: {argument name=\"art_style\" default=\"clean pixel art at 480x270 native resolution, scaled up with crisp nearest-neighbour pixels\"}.\nMoment to show: {argument name=\"moment\" default=\"the player dashing through a ring of enemy bullets while a charged laser clears a corridor of vine creatures\"}.\n\n# Composition\n- Player character slightly off-centre on a rule-of-thirds point, facing into open space, never hidden behind UI or effects.\n- One action that reads left to right: the threat and the player's answer are both obvious within a second.\n- Foreground, playfield and background separated by value; the playfield carries the highest contrast.\n- One hint of depth or progression: {argument name=\"progression_hint\" default=\"an upgrade pickup glowing just ahead and a sealed door in the background\"}.\n\n# HUD\n- Minimal HUD in the same art style: health top-left, ability cooldowns bottom-centre, currency or score top-right.\n- Keep every HUD element inside a 5% safe margin, centre of the frame clear. Numbers crisp and plausible, one consistent UI font.\n\n# Readability\n- Must read at 600x338, the store carousel size: strong silhouettes, high contrast between player, enemies and floor, effects bright but never covering the player.\n- Palette: {argument name=\"palette\" default=\"lush greens and warm sunlight, with magenta enemy bullets for maximum contrast\"}.\n- Consistent pixel size everywhere; light comes from one direction.\n\n# Avoid\nSmeared or mixed-resolution pixels, painterly concept-art rendering, lens flares hiding gameplay, controller button prompts, store badges, review quotes, real brand logos, watermarks, and any text outside the HUD.",
+        "zh-CN": "A staged in-game screenshot for a store page, 1920x1080, that sells one specific moment of play. It must look like a real frame captured from the running game, not concept art or a poster.\n\nGame: {argument name=\"game_pitch\" default=\"a top-down twin-stick shooter set in an overgrown solar-punk greenhouse station\"}.\nVisual style: {argument name=\"art_style\" default=\"clean pixel art at 480x270 native resolution, scaled up with crisp nearest-neighbour pixels\"}.\nMoment to show: {argument name=\"moment\" default=\"the player dashing through a ring of enemy bullets while a charged laser clears a corridor of vine creatures\"}.\n\n# Composition\n- Player character slightly off-centre on a rule-of-thirds point, facing into open space, never hidden behind UI or effects.\n- One action that reads left to right: the threat and the player's answer are both obvious within a second.\n- Foreground, playfield and background separated by value; the playfield carries the highest contrast.\n- One hint of depth or progression: {argument name=\"progression_hint\" default=\"an upgrade pickup glowing just ahead and a sealed door in the background\"}.\n\n# HUD\n- Minimal HUD in the same art style: health top-left, ability cooldowns bottom-centre, currency or score top-right.\n- Keep every HUD element inside a 5% safe margin, centre of the frame clear. Numbers crisp and plausible, one consistent UI font.\n\n# Readability\n- Must read at 600x338, the store carousel size: strong silhouettes, high contrast between player, enemies and floor, effects bright but never covering the player.\n- Palette: {argument name=\"palette\" default=\"lush greens and warm sunlight, with magenta enemy bullets for maximum contrast\"}.\n- Consistent pixel size everywhere; light comes from one direction.\n\n# Avoid\nSmeared or mixed-resolution pixels, painterly concept-art rendering, lens flares hiding gameplay, controller button prompts, store badges, review quotes, real brand logos, watermarks, and any text outside the HUD."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

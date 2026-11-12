@@ -1,0 +1,76 @@
+/* A sent message opened for editing: it takes the bubble's place at the
+   transcript's full width, so a long prompt has room. */
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.editor:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+
+.input {
+  width: 100%;
+  min-height: 24px;
+  max-height: 320px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-size-15, 15px);
+  line-height: 1.55;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* The editor's own border shows focus; the app's global field ring would draw a second one. */
+.input:focus,
+.input:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.option input {
+  flex: none;
+  width: auto;
+  height: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}

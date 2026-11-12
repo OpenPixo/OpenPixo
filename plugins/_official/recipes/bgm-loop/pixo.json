@@ -1,0 +1,176 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/bgm-loop",
+  "title": "Looping background music",
+  "title_i18n": {
+    "en": "Looping background music",
+    "zh-CN": "循环背景音乐"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine. Needs a music provider.",
+  "description_i18n": {
+    "en": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine. Needs a music provider.",
+    "zh-CN": "为循环播放而写的器乐曲，生成交叉淡化的循环点并转换格式。需要音乐供应商。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "audio",
+    "bgm"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "audio",
+      "category": "bgm",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "genre",
+          "label": "Genre",
+          "label_i18n": {
+            "zh-CN": "曲风"
+          },
+          "type": "select",
+          "options": [
+            "chiptune",
+            "orchestral",
+            "synthwave",
+            "lo-fi hip hop",
+            "acoustic folk",
+            "ambient",
+            "rock"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "chiptune": "芯片音乐",
+              "orchestral": "管弦乐",
+              "synthwave": "合成器浪潮",
+              "lo-fi hip hop": "Lo-fi 嘻哈",
+              "acoustic folk": "原声民谣",
+              "ambient": "氛围音乐",
+              "rock": "摇滚"
+            }
+          },
+          "default": "chiptune"
+        },
+        {
+          "name": "mood",
+          "label": "Mood and setting",
+          "label_i18n": {
+            "zh-CN": "情绪和场景"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "calm, curious exploration of a sunny village",
+          "placeholder_i18n": {
+            "zh-CN": "平静而好奇地探索阳光下的村庄"
+          }
+        },
+        {
+          "name": "bpm",
+          "label": "Tempo (BPM)",
+          "label_i18n": {
+            "zh-CN": "速度（BPM）"
+          },
+          "type": "number",
+          "default": 100
+        },
+        {
+          "name": "lengthSec",
+          "label": "Length (seconds)",
+          "label_i18n": {
+            "zh-CN": "时长（秒）"
+          },
+          "type": "select",
+          "options": [
+            "30",
+            "60",
+            "90",
+            "120"
+          ],
+          "default": "60"
+        },
+        {
+          "name": "format",
+          "label": "Format",
+          "label_i18n": {
+            "zh-CN": "格式"
+          },
+          "type": "select",
+          "options": [
+            "ogg",
+            "wav"
+          ],
+          "default": "ogg"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "village_theme"
+        }
+      ],
+      "prompt": "Instrumental background music loop for a video game. Genre: {{genre}}. Mood and setting: {{mood}}. Tempo {{bpm}} BPM in strict, steady time, about {{lengthSec}} seconds long. Constant energy with no intro build-up, no fade-in, no fade-out and no final cadence; the last bar leads straight back into the first so the track loops seamlessly. No vocals, no lyrics, no spoken words. Leave space in the mix for sound effects and dialogue.",
+      "models": {
+        "requires": [
+          "music"
+        ],
+        "recommended": [
+          "suno-v5",
+          "lyria-2"
+        ],
+        "fallback": [
+          "udio-v2",
+          "audiocraft"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        }
+      },
+      "postprocess": [
+        {
+          "op": "audio-loop",
+          "params": {
+            "crossfadeMs": 500
+          }
+        },
+        {
+          "op": "audio-convert",
+          "params": {
+            "format": "{{format}}"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "duration-range",
+          "params": {
+            "minMs": 15000,
+            "maxMs": 240000
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.audioRoot}}/music",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

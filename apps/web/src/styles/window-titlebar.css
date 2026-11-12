@@ -1,0 +1,80 @@
+/* Custom window title bar (Windows desktop).
+   The desktop shell hides the native caption and marks <html> with
+   `pixo-custom-titlebar`; Windows still draws its own minimise / maximise /
+   close buttons in the top-right corner (the window controls overlay). This
+   file is the web side of that contract: a drag strip across the top of the
+   window, controls inside it kept clickable, and the top-right headers kept
+   clear of the system buttons. Without the class nothing here applies, so the
+   browser and macOS are unchanged. */
+:root {
+  --pixo-titlebar-height: 40px;
+  /* Width the system buttons take at the right edge. `titlebar-area-*` are
+     the window controls overlay's own numbers; 138px is the fallback for
+     three 46px Windows caption buttons. */
+  --pixo-window-controls-width: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px)));
+}
+
+/* What floats in the top-right corner (the update-ready button and its
+   account-actions host, EntryShell / ProjectSidebar modules) offsets itself
+   by this inset. It is 0 outside the custom title bar, so the browser and
+   macOS keep their corner. */
+html.pixo-custom-titlebar {
+  --pixo-window-controls-inset: var(--pixo-window-controls-width);
+}
+
+.pixo-titlebar-strip {
+  display: none;
+}
+
+html.pixo-custom-titlebar .pixo-titlebar-strip {
+  position: fixed;
+  /* Below everything. Chromium lists drag regions in paint order and a later
+     no-drag control only cuts a hole in what came before it; at z-index 0 the
+     strip paints after the headers and swallows their buttons (measured with
+     WM_NCHITTEST on Windows: buttons answered as caption). */
+  z-index: -1;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: block;
+  height: var(--pixo-titlebar-height);
+  /* Only the OS reads the drag region; clicks inside the page still reach
+     whatever is underneath. */
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+/* Anything you can press stays pressable inside the strip. The strip is the
+   first thing in the page, so these later elements cut holes in it. */
+html.pixo-custom-titlebar :is(
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  label,
+  summary,
+  iframe,
+  webview,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='menuitemradio'],
+  [role='separator'],
+  [role='dialog'],
+  [role='menu'],
+  [contenteditable]
+) {
+  -webkit-app-region: no-drag;
+}
+
+/* The project panel's header is the window's top-right corner: its last
+   controls (panel menu, full screen) would sit under the system buttons. */
+html.pixo-custom-titlebar .workspace .ws-tabs-shell {
+  padding-inline-end: calc(var(--pixo-window-controls-width) + 8px);
+}
+
+/* With the panel hidden, the conversation header reaches the right edge. */
+html.pixo-custom-titlebar .split.split-panel-hidden [data-testid='project-conversation-head'] {
+  padding-inline-end: calc(var(--pixo-window-controls-width) + 8px);
+}

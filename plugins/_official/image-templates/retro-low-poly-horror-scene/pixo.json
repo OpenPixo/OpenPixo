@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-retro-low-poly-horror-scene",
+  "title": "Retro 32-Bit Low-Poly Horror Scene",
+  "title_i18n": {
+    "en": "Retro 32-Bit Low-Poly Horror Scene",
+    "zh-CN": "复古 32 位低多边形恐怖场景"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "An atmospheric late-90s console style horror frame: low polygon geometry, warped unfiltered textures, heavy distance fog, dithered colour and a 320x240 look, with a single light source and an unsettling hint of a threat. Slots for location, light source and threat.",
+  "description_i18n": {
+    "en": "An atmospheric late-90s console style horror frame: low polygon geometry, warped unfiltered textures, heavy distance fog, dithered colour and a 320x240 look, with a single light source and an unsettling hint of a threat. Slots for location, light source and threat.",
+    "zh-CN": "生成一帧上世纪 90 年代末主机风格的氛围恐怖画面：低多边形几何体、未过滤且扭曲的低分辨率贴图、浓重的距离雾、抖动色彩和 320x240 质感，配合单一光源与令人不安的威胁暗示。可调整地点、光源和威胁。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "illustration",
+    "horror",
+    "low-poly",
+    "retro-3d",
+    "32-bit",
+    "atmosphere",
+    "environment"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A single in-game frame from a low-poly survival horror game rendered to look exactly like a late-1990s home console title, output as if captured at 320x240 and upscaled with nearest-neighbour pixels.\n\nLocation: {argument name=\"location\" default=\"a narrow corridor in an abandoned roadside motel at night, doors on both sides, one door ajar\"}.\nLight source: {argument name=\"light_source\" default=\"the player character flashlight, a hard cone of yellowish light\"}.\nThreat: {argument name=\"threat\" default=\"a tall, thin silhouette standing motionless at the far end of the corridor, barely visible in the fog\"}.\n\n# Retro 3D rendering rules\n- Very low polygon counts: visibly faceted walls, door frames and props; characters built from a few hundred triangles.\n- Low-resolution textures around 64x64, unfiltered (no bilinear smoothing), with affine texture warping visible on large floor and wall polygons.\n- Slight vertex jitter look: edges not perfectly straight, small gaps where polygons meet.\n- Thick distance fog fading geometry to {argument name=\"fog_colour\" default=\"murky dark green-grey\"} within a short draw distance.\n- 15-bit colour with visible ordered dithering in the gradients; no smooth modern gradients.\n\n# Composition and camera\n- Fixed, slightly high camera angle looking down the corridor, as in classic fixed-camera horror games, with the player character visible from behind in the lower third.\n- The flashlight cone is the brightest area; the threat sits just at the edge of the light, readable only as a silhouette.\n- Lots of negative space and darkness; one red or warm accent ({argument name=\"accent\" default=\"a flickering exit sign\"}) to draw the eye.\n\n# Mood\nQuiet dread, not gore. Lonely, humid, wrong.\n\n# Avoid\nModern PBR materials, high-resolution textures, ray-traced reflections, depth of field, film-grain noise instead of dithering, blood or gore, UI, text, watermarks, any recognisable existing game character or monster.",
+        "zh-CN": "A single in-game frame from a low-poly survival horror game rendered to look exactly like a late-1990s home console title, output as if captured at 320x240 and upscaled with nearest-neighbour pixels.\n\nLocation: {argument name=\"location\" default=\"a narrow corridor in an abandoned roadside motel at night, doors on both sides, one door ajar\"}.\nLight source: {argument name=\"light_source\" default=\"the player character flashlight, a hard cone of yellowish light\"}.\nThreat: {argument name=\"threat\" default=\"a tall, thin silhouette standing motionless at the far end of the corridor, barely visible in the fog\"}.\n\n# Retro 3D rendering rules\n- Very low polygon counts: visibly faceted walls, door frames and props; characters built from a few hundred triangles.\n- Low-resolution textures around 64x64, unfiltered (no bilinear smoothing), with affine texture warping visible on large floor and wall polygons.\n- Slight vertex jitter look: edges not perfectly straight, small gaps where polygons meet.\n- Thick distance fog fading geometry to {argument name=\"fog_colour\" default=\"murky dark green-grey\"} within a short draw distance.\n- 15-bit colour with visible ordered dithering in the gradients; no smooth modern gradients.\n\n# Composition and camera\n- Fixed, slightly high camera angle looking down the corridor, as in classic fixed-camera horror games, with the player character visible from behind in the lower third.\n- The flashlight cone is the brightest area; the threat sits just at the edge of the light, readable only as a silhouette.\n- Lots of negative space and darkness; one red or warm accent ({argument name=\"accent\" default=\"a flickering exit sign\"}) to draw the eye.\n\n# Mood\nQuiet dread, not gore. Lonely, humid, wrong.\n\n# Avoid\nModern PBR materials, high-resolution textures, ray-traced reflections, depth of field, film-grain noise instead of dithering, blood or gore, UI, text, watermarks, any recognisable existing game character or monster."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "4:3"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

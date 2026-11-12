@@ -1,0 +1,52 @@
+/* Run controls and the inline Run notice in the 游戏 view
+   (specs/current/openpixo-game-panel.md §4). */
+.button { gap: 6px; }
+
+.notice {
+  display: grid;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px var(--shell-gutter);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
+}
+.notice[data-tone='danger'] {
+  box-shadow: inset 2px 0 0 var(--danger);
+}
+.notice p { margin: 0; overflow-wrap: anywhere; }
+.notice a { color: var(--accent); }
+
+.block { display: grid; gap: 4px; }
+.muted { color: var(--text-muted); font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.actions button { gap: 6px; }
+
+.command {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--shell-radius);
+  background: var(--bg-fill-tertiary);
+  font: 400 13px/18px var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.details summary {
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.details pre {
+  max-height: 200px;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: var(--shell-radius);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-muted);
+  font: 400 13px/18px var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

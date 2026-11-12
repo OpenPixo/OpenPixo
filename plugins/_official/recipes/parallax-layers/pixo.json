@@ -1,0 +1,147 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/parallax-layers",
+  "title": "Parallax background layer",
+  "title_i18n": {
+    "en": "Parallax background layer",
+    "zh-CN": "视差背景分层"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "One horizontally tileable layer (far, mid or near) of a side-scrolling parallax background, with everything above the scenery transparent.",
+  "description_i18n": {
+    "en": "One horizontally tileable layer (far, mid or near) of a side-scrolling parallax background, with everything above the scenery transparent.",
+    "zh-CN": "横版视差背景的一层（远景、中景或近景），可水平平铺，景物上方透明。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "background"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "background",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "scene",
+          "label": "Scene",
+          "label_i18n": {
+            "zh-CN": "场景"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "misty pine forest at dusk",
+          "placeholder_i18n": {
+            "zh-CN": "黄昏时薄雾笼罩的松林"
+          }
+        },
+        {
+          "name": "layer",
+          "label": "Layer",
+          "label_i18n": {
+            "zh-CN": "图层"
+          },
+          "type": "select",
+          "options": [
+            "far",
+            "mid",
+            "near"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "far": "远景",
+              "mid": "中景",
+              "near": "近景"
+            }
+          },
+          "default": "far"
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "pixel art",
+            "hand-painted 2D",
+            "flat vector silhouettes"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "pixel art": "像素风",
+              "hand-painted 2D": "2D 手绘",
+              "flat vector silhouettes": "扁平矢量剪影"
+            }
+          },
+          "default": "pixel art"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "forest"
+        }
+      ],
+      "prompt": "One layer of a side-scrolling 2D parallax background: the {{layer}} layer of {{scene}}. Straight-on side view with no perspective ground plane. The scenery sits along the bottom of the image and spans the full width, and its left and right edges line up so the layer tiles horizontally without a seam. Depth cue for this layer: far layers are hazy, low-contrast, simple silhouettes; mid layers have moderate detail; near layers are darker, higher-contrast and more detailed. No sky, sun, moon or clouds in this layer: everything above the scenery's silhouette is background. Style: {{style}}. Background: one perfectly flat, uniform solid magenta #FF00FF fill from edge to edge, with no gradient, texture, floor, cast shadow or vignette. Do not use magenta, hot pink or purple anywhere on the subject.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, magenta or pink on the subject, sky, clouds, sun, moon, gradient sky, characters, animals, UI, perspective ground plane, floating objects, scenery cut off at the top, mismatched left and right edges",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "16:9"
+      },
+      "postprocess": [
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "#FF00FF",
+            "tolerance": 32
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        }
+      ],
+      "output": {
+        "dir": "{{engine.textureRoot}}/parallax/{{name}}",
+        "name": "{{name}}_{{layer}}"
+      }
+    }
+  }
+}

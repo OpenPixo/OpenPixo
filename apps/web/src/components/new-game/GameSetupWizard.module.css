@@ -1,0 +1,1158 @@
+/* Game setup wizard: new game and "finish setup" share this shell. It reads as
+   a guided conversation: one question per screen, large flat cards chosen by
+   colour and a check mark, a progress bar along the top. One ease-out curve,
+   enter ~200ms / exit ~140ms, never scaling from 0 (root AGENTS.md "UI
+   animation philosophy"). `data-motion="reduced"` on the frame (from
+   prefers-reduced-motion) leaves only quick fades. The --ng-* tokens also
+   drive the NewGameDialog.module.css pieces rendered inside it. */
+
+.dialog {
+  --ng-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ng-enter: 200ms;
+  --ng-exit: 140ms;
+  --ng-screen: 260ms;
+  width: min(920px, calc(100vw - var(--spacing-32, 32px)));
+  max-width: none;
+  height: min(760px, calc(100vh - var(--spacing-48, 48px)));
+  max-height: calc(100vh - var(--spacing-48, 48px));
+  overflow: hidden;
+}
+
+.frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ---------- top: title, step count, progress ---------- */
+
+.top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12, 12px);
+  padding: var(--spacing-16, 16px) var(--spacing-20, 20px) 0 var(--spacing-28, 28px);
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8, 8px);
+  min-width: 0;
+}
+
+.dialog .dialogTitle {
+  margin: 0;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.stepCount {
+  font-size: var(--font-size-13, 13px);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+
+.topNote {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-13, 13px);
+  color: var(--text-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topNote p { display: inline; margin: 0; }
+
+.close {
+  flex: none;
+  width: 32px;
+  padding: 0;
+}
+
+.progress {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-fill-secondary);
+}
+
+.progressFill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--selected);
+  transform-origin: left center;
+  transition: transform 320ms var(--ng-ease);
+}
+
+/* ---------- body ---------- */
+
+.dialog .body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+
+/* A short screen sits a little above the middle, like a question asked in conversation;
+   a long one scrolls from its top (auto margins give way when there is no room). */
+.scroll {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.scroll::after {
+  content: '';
+  flex: 0 1 8%;
+}
+
+.stepPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-20, 20px);
+  width: 100%;
+  max-width: 760px;
+  flex: none;
+  margin: auto;
+  padding: var(--spacing-28, 28px) var(--spacing-28, 28px) var(--spacing-32, 32px);
+  animation: wizard-in-forward var(--ng-screen) var(--ng-ease) backwards;
+}
+
+.stepPanel[data-direction='back'] { animation-name: wizard-in-back; }
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6, 6px);
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+
+.dialog .stepHint {
+  margin: 0;
+  font-size: var(--font-size-15, 15px);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .top { padding: var(--spacing-12, 12px) var(--spacing-12, 12px) 0 var(--spacing-16, 16px); }
+  .stepPanel { padding: var(--spacing-20, 20px) var(--spacing-16, 16px) var(--spacing-24, 24px); }
+  .stepTitle { font-size: 20px; }
+  .topNote { display: none; }
+}
+
+.stepFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-24, 24px);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8, 8px);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-8, 8px);
+  padding: 0;
+  margin: 0;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+/* `.modal label` stacks a label's children; keep these labels on one row. */
+.dialog .label,
+.dialog .toggleRow { flex-direction: row; }
+
+.optional {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-soft);
+}
+
+.input { font-size: var(--font-size-15, 15px); }
+
+.dialog .titleInput {
+  height: 48px;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.textarea {
+  font-size: var(--font-size-15, 15px);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.textarea[aria-invalid='true'],
+.input[aria-invalid='true'],
+.titleInput[aria-invalid='true'] { border-color: var(--red-border); }
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- large choice cards ---------- */
+
+.cardsStack {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-12, 12px);
+}
+
+@media (max-width: 640px) {
+  .cardsStack { grid-template-columns: minmax(0, 1fr); }
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--spacing-14, 14px);
+  height: auto;
+  min-width: 0;
+  min-height: 176px;
+  padding: var(--spacing-20, 20px);
+  padding-right: var(--spacing-40, 40px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+  animation: wizard-card-in var(--ng-screen) var(--ng-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms + 60ms);
+  transition:
+    border-color var(--ng-exit) var(--ng-ease),
+    background-color var(--ng-exit) var(--ng-ease),
+    box-shadow var(--ng-exit) var(--ng-ease),
+    transform var(--ng-exit) var(--ng-ease);
+}
+
+@media (max-width: 640px) {
+  .choice { flex-direction: row; align-items: center; min-height: 0; padding: var(--spacing-14, 14px) var(--spacing-40, 40px) var(--spacing-14, 14px) var(--spacing-14, 14px); }
+}
+
+.choice:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-fill-tertiary);
+  transform: translateY(-1px);
+}
+
+.choice:active { transform: translateY(0) scale(0.99); }
+
+.choice:focus-visible {
+  outline: var(--stroke-thick, 2px) solid var(--selected);
+  outline-offset: 2px;
+}
+
+/* The chosen card: a stronger border drawn inside, never a drop shadow. */
+.choice[aria-checked='true'] {
+  border-color: var(--selected);
+  background: var(--selected-soft);
+  box-shadow: inset 0 0 0 1px var(--selected);
+  transition-duration: var(--ng-enter);
+}
+
+.choiceIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-muted);
+  transition: background-color var(--ng-exit) var(--ng-ease), color var(--ng-exit) var(--ng-ease);
+}
+
+.choice[aria-checked='true'] .choiceIcon {
+  background: var(--bg-app);
+  color: var(--selected);
+  transition-duration: var(--ng-enter);
+}
+
+.choiceText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4, 4px);
+  min-width: 0;
+}
+
+.choiceTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--spacing-8, 8px);
+  row-gap: 2px;
+}
+
+.choiceTitle strong {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+.choiceMeta {
+  font-size: var(--font-size-13, 13px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-ink);
+}
+
+.choiceHint {
+  font-size: var(--font-size-14, 14px);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* The check mark: an empty ring that fills and draws its tick when chosen. */
+.choiceCheck {
+  position: absolute;
+  top: var(--spacing-12, 12px);
+  right: var(--spacing-12, 12px);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-app);
+  color: var(--accent-contrast);
+  transition:
+    background-color var(--ng-exit) var(--ng-ease),
+    border-color var(--ng-exit) var(--ng-ease);
+}
+
+.choiceCheck svg {
+  opacity: 0;
+  transform: scale(0.9) rotate(-8deg);
+  transition: opacity var(--ng-exit) var(--ng-ease), transform var(--ng-exit) var(--ng-ease);
+}
+
+[aria-checked='true'] > .choiceCheck {
+  border-color: var(--selected);
+  background: var(--selected);
+  transition-duration: var(--ng-enter);
+}
+
+[aria-checked='true'] > .choiceCheck svg {
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--ng-enter);
+}
+
+.cardsStack[data-invalid='true'] .choice,
+.perspectives[data-invalid='true'] .perspective,
+.styleGrid[data-invalid='true'] .styleCard,
+.chips[data-invalid='true'] .chip,
+.genres[data-invalid='true'] .chip,
+.genres[data-invalid='true'] .genreCard { border-color: var(--red-border); }
+
+/* ---------- compact toggles ---------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-6, 6px);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-4, 4px);
+  height: 34px;
+  padding: 0 var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-app);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-size-14, 14px);
+  cursor: pointer;
+  transition:
+    border-color var(--ng-exit) var(--ng-ease),
+    background-color var(--ng-exit) var(--ng-ease),
+    color var(--ng-exit) var(--ng-ease),
+    transform var(--ng-exit) var(--ng-ease);
+}
+
+.chip:hover { border-color: var(--border-strong); background: var(--bg-fill-tertiary); }
+.chip:active { transform: scale(0.97); }
+
+.chip[data-selected='true'] {
+  border-color: var(--selected);
+  background: var(--selected);
+  color: var(--accent-contrast);
+  transition-duration: var(--ng-enter);
+}
+
+.chip:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; }
+
+.chipTick {
+  display: grid;
+  place-items: center;
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: width var(--ng-exit) var(--ng-ease), opacity var(--ng-exit) var(--ng-ease);
+}
+
+.chip[data-selected='true'] .chipTick {
+  width: 12px;
+  opacity: 1;
+  transition-duration: var(--ng-enter);
+}
+
+/* ---------- genre ---------- */
+
+.genres {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8, 8px);
+}
+
+.genreRow {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--spacing-8, 8px);
+  animation: wizard-card-in var(--ng-screen) var(--ng-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms + 60ms);
+}
+
+@media (max-width: 640px) {
+  .genreRow { grid-template-columns: minmax(0, 1fr); gap: var(--spacing-4, 4px); }
+}
+
+.genreGroup {
+  font-size: var(--font-size-13, 13px);
+  color: var(--text-muted);
+}
+
+/* What the pointed-at or chosen genre plays like, always on screen rather than in a tooltip. */
+.genreExplain {
+  min-height: calc(1.45em * 2);
+  margin: 0;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.genreExplain strong {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.genreExplain[data-empty='true'] { color: var(--text-soft); }
+
+/* The featured genres: picture cards chosen like the style cards (accent border, check mark). */
+.genreCards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-12, 12px);
+}
+
+@media (max-width: 760px) {
+  .genreCards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .genreCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.genreCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-6, 6px);
+  height: auto;
+  min-width: 0;
+  padding: var(--spacing-6, 6px) var(--spacing-6, 6px) var(--spacing-10, 10px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+  animation: wizard-card-in var(--ng-screen) var(--ng-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms + 40ms);
+  transition:
+    border-color var(--ng-exit) var(--ng-ease),
+    background-color var(--ng-exit) var(--ng-ease),
+    box-shadow var(--ng-exit) var(--ng-ease),
+    transform var(--ng-exit) var(--ng-ease);
+}
+
+.genreCard:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.genreCard:active { transform: translateY(0) scale(0.99); }
+.genreCard:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; }
+
+.genreCard[aria-checked='true'] {
+  border-color: var(--selected);
+  background: var(--selected-soft);
+  box-shadow: inset 0 0 0 1px var(--selected);
+  transition-duration: var(--ng-enter);
+}
+
+.genreCard .choiceCheck { top: var(--spacing-12, 12px); right: var(--spacing-12, 12px); }
+
+/* 16:9 like the images; a missing image leaves this calm frame with a faint icon. */
+.genreArt {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-soft);
+}
+
+.genreArt img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.genreArt[data-failed='true'] svg { opacity: 0.6; }
+
+.genreCardName {
+  padding: var(--spacing-2, 2px) var(--spacing-4, 4px) 0;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+.genreCardHint {
+  display: -webkit-box;
+  overflow: hidden;
+  padding: 0 var(--spacing-4, 4px);
+  font-size: var(--font-size-12, 12px);
+  line-height: 1.4;
+  color: var(--text-muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+/* ---------- perspective ---------- */
+
+.perspectives {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-12, 12px);
+}
+
+@media (max-width: 760px) {
+  .perspectives { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.perspective {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-10, 10px);
+  height: auto;
+  min-width: 0;
+  padding: var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+  animation: wizard-card-in var(--ng-screen) var(--ng-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 35ms + 60ms);
+  transition:
+    border-color var(--ng-exit) var(--ng-ease),
+    background-color var(--ng-exit) var(--ng-ease),
+    box-shadow var(--ng-exit) var(--ng-ease),
+    color var(--ng-exit) var(--ng-ease),
+    transform var(--ng-exit) var(--ng-ease);
+}
+
+.perspectiveArt {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  transition: background-color var(--ng-exit) var(--ng-ease);
+}
+
+.perspectiveName {
+  padding: 0 var(--spacing-2, 2px);
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+.perspectiveHint {
+  padding: 0 var(--spacing-2, 2px);
+  margin-top: calc(var(--spacing-6, 6px) * -1);
+  font-size: var(--font-size-12, 12px);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.perspective .choiceCheck { top: var(--spacing-18, 18px); right: var(--spacing-18, 18px); }
+.perspective:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.perspective:active { transform: translateY(0) scale(0.99); }
+.perspective:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; }
+
+.perspective[aria-checked='true'] {
+  border-color: var(--selected);
+  background: var(--selected-soft);
+  box-shadow: inset 0 0 0 1px var(--selected);
+  color: var(--selected);
+  transition-duration: var(--ng-enter);
+}
+
+.perspective[aria-checked='true'] .perspectiveArt { background: var(--bg-app); }
+
+/* ---------- "More settings" ---------- */
+
+.more {
+  display: flex;
+  flex-direction: column;
+  border-top: var(--stroke-thin, 1px) solid var(--border-soft);
+}
+
+.moreToggle {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--spacing-6, 6px);
+  height: auto;
+  padding: var(--spacing-12, 12px) 0 var(--spacing-4, 4px);
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--ng-exit) var(--ng-ease);
+}
+
+.moreToggle:hover { color: var(--text-strong); }
+.moreToggle:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+.moreChevron {
+  transform: rotate(-90deg);
+  transition: transform var(--ng-exit) var(--ng-ease);
+}
+
+.more[data-open='true'] .moreChevron {
+  transform: none;
+  transition-duration: var(--ng-enter);
+}
+
+.moreBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-20, 20px);
+  padding: var(--spacing-12, 12px) 0 var(--spacing-4, 4px);
+}
+
+/* ---------- art styles ---------- */
+
+.styleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--spacing-12, 12px);
+}
+
+.styleCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-8, 8px);
+  height: auto;
+  min-width: 0;
+  padding: var(--spacing-6, 6px) var(--spacing-6, 6px) var(--spacing-10, 10px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: wizard-card-in var(--ng-screen) var(--ng-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms + 40ms);
+  transition:
+    border-color var(--ng-exit) var(--ng-ease),
+    background-color var(--ng-exit) var(--ng-ease),
+    box-shadow var(--ng-exit) var(--ng-ease),
+    transform var(--ng-exit) var(--ng-ease);
+}
+
+.styleCard:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.styleCard:active { transform: translateY(0) scale(0.99); }
+
+.styleCard[aria-checked='true'] {
+  border-color: var(--selected);
+  background: var(--selected-soft);
+  box-shadow: inset 0 0 0 1px var(--selected);
+  transition-duration: var(--ng-enter);
+}
+
+.styleCard .choiceCheck { top: var(--spacing-12, 12px); right: var(--spacing-12, 12px); }
+.styleCard:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; }
+
+/* Style covers are 16:9 (1280x720), so the frame matches and nothing is cropped. */
+.stylePreview {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-soft);
+}
+
+.stylePreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: auto;
+}
+
+.styleCustom {
+  border: var(--stroke-thin, 1px) dashed var(--border);
+  background: transparent;
+}
+
+.stylePalette {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.stylePalette span { flex: 1; }
+
+.styleTitle {
+  overflow: hidden;
+  padding: 0 var(--spacing-4, 4px);
+  font-size: var(--font-size-13, 13px);
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The style's own short description, one line; the card's tooltip keeps the whole text. */
+.styleDescription {
+  overflow: hidden;
+  margin-top: calc(var(--spacing-6, 6px) * -1);
+  padding: 0 var(--spacing-4, 4px);
+  font-size: var(--font-size-12, 12px);
+  line-height: 1.35;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.styleSkeleton {
+  aspect-ratio: 4 / 3.4;
+  border-radius: var(--radius-md);
+  background: var(--bg-fill-tertiary);
+  animation: wizard-pulse 1.2s var(--ng-ease) infinite alternate;
+}
+
+.stylesFailed { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; color: var(--red); font-size: 13px; line-height: 1.5; }
+
+.twoUp {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--spacing-16, 16px);
+}
+
+@media (max-width: 640px) {
+  .twoUp { grid-template-columns: 1fr; }
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-6, 6px);
+}
+
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: var(--stroke-thin, 1px) solid color-mix(in srgb, var(--text-strong) 18%, transparent);
+  border-radius: var(--radius-sm);
+  color: transparent;
+  cursor: pointer;
+  transition: color var(--ng-exit) var(--ng-ease);
+}
+
+.swatch:hover,
+.swatch:focus-visible { color: var(--accent-contrast); }
+.swatch:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; }
+
+.swatchAdd {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-soft);
+}
+
+.swatchAdd:hover { color: var(--text-strong); }
+
+/* ---------- references ---------- */
+
+.references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8, 8px);
+}
+
+.reference {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  animation: wizard-fade-in var(--ng-enter) var(--ng-ease);
+}
+
+.reference img { width: 100%; height: 100%; object-fit: cover; }
+
+.referenceRemove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-app);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.referenceAdd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-4, 4px);
+  width: 72px;
+  height: 72px;
+  padding: var(--spacing-4, 4px);
+  border: var(--stroke-thin, 1px) dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.referenceAdd:hover { border-color: var(--border-strong); color: var(--text-strong); }
+
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-10, 10px);
+  padding: var(--spacing-12, 12px) var(--spacing-14, 14px);
+  border: var(--stroke-thin, 1px) solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-fill-tertiary);
+  cursor: pointer;
+}
+
+.toggleRow[data-tone='brand'] {
+  border-color: color-mix(in srgb, var(--brand-ink) 30%, var(--border-soft));
+  background: var(--brand-surface);
+}
+
+.dialog .toggleRow input { flex: none; width: auto; height: auto; margin: 2px 0 0; accent-color: var(--selected); }
+
+.toggleRow > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-14, 14px);
+  color: var(--text-strong);
+}
+
+/* ---------- resolution ---------- */
+
+.resolutionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--spacing-8, 8px);
+}
+
+@media (max-width: 760px) {
+  .resolutionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.resolution {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  min-width: 0;
+  padding: var(--spacing-10, 10px) var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--ng-exit) var(--ng-ease), background-color var(--ng-exit) var(--ng-ease);
+}
+
+.resolution[aria-checked='true'] {
+  border-color: var(--selected);
+  background: var(--selected-soft);
+  transition-duration: var(--ng-enter);
+}
+
+.resolution:hover { border-color: var(--border-strong); }
+.resolution:focus-visible { outline: var(--stroke-thick, 2px) solid var(--selected); outline-offset: 2px; }
+.resolutionGrid[data-invalid='true'] .resolution { border-color: var(--red-border); }
+
+.resolutionSize {
+  font-family: var(--mono);
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.resolutionLabel {
+  font-size: var(--font-size-13, 13px);
+  color: var(--text-muted);
+}
+
+.suggested {
+  position: absolute;
+  top: var(--spacing-8, 8px);
+  right: var(--spacing-8, 8px);
+  padding: 0 var(--spacing-6, 6px);
+  border-radius: var(--radius-pill);
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.customSize {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8, 8px);
+  max-width: 280px;
+  color: var(--text-soft);
+  animation: wizard-fade-in var(--ng-enter) var(--ng-ease);
+}
+
+/* ---------- review ---------- */
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border: var(--stroke-thin, 1px) solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-12, 12px);
+  padding: var(--spacing-8, 8px) var(--spacing-8, 8px) var(--spacing-8, 8px) var(--spacing-16, 16px);
+  font-size: var(--font-size-14, 14px);
+  line-height: 1.45;
+  animation: wizard-card-in var(--ng-screen) var(--ng-ease) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms + 40ms);
+}
+
+.summaryRow + .summaryRow { border-top: var(--stroke-thin, 1px) solid var(--border-soft); }
+.summaryRow dt { color: var(--text-muted); }
+.summaryRow dd { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; }
+.summaryEdit { justify-self: end; }
+
+/* ---------- footer ---------- */
+
+.dialog .footer {
+  align-items: center;
+  margin-top: 0;
+  padding: var(--spacing-12, 12px) var(--spacing-28, 28px);
+  border-top: var(--stroke-thin, 1px) solid var(--border-soft);
+}
+
+@media (max-width: 640px) {
+  .dialog .footer { padding: var(--spacing-12, 12px) var(--spacing-16, 16px); }
+}
+
+.footerStart {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-8, 8px);
+  min-width: 0;
+}
+
+.footerStart p { margin: 0; }
+
+.pending,
+.problem,
+.enterHint {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.4;
+  color: var(--text-soft);
+  text-align: right;
+  animation: wizard-fade-in var(--ng-enter) var(--ng-ease);
+}
+
+.problem { color: var(--red); }
+
+@media (max-width: 640px) {
+  .enterHint { display: none; }
+}
+
+.next {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-8, 8px);
+  min-width: 112px;
+  justify-content: center;
+}
+
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: var(--stroke-thick, 2px) solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  opacity: 0.7;
+  animation: wizard-spin 0.8s linear infinite;
+}
+
+/* ---------- motion ---------- */
+
+/* Screens come in from the side they are reached from; cards rise in one after another.
+   `translate` (not `transform`) keeps the hover lift free once the entrance ends. */
+@keyframes wizard-in-forward {
+  from { opacity: 0; translate: 24px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes wizard-in-back {
+  from { opacity: 0; translate: -24px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes wizard-card-in {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes wizard-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes wizard-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+@keyframes wizard-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced motion: nothing moves. Screens and cards only fade, quickly; state changes are instant. */
+.frame[data-motion='reduced'] .stepPanel { animation: wizard-fade-in 120ms var(--ng-ease); }
+
+.frame[data-motion='reduced'] :is(.choice, .perspective, .styleCard, .genreCard, .genreRow, .summaryRow, .reference, .customSize, .pending, .problem, .enterHint) {
+  animation: none;
+}
+
+.frame[data-motion='reduced'] :is(.choice, .perspective, .styleCard, .genreCard, .chip):is(:hover, :active) { transform: none; }
+.frame[data-motion='reduced'] .progressFill { transition: none; }
+.frame[data-motion='reduced'] .choiceCheck svg { transform: none; transition-property: opacity; }
+.frame[data-motion='reduced'] .styleSkeleton { animation: none; }
+.frame[data-motion='reduced'] .spinner { animation-duration: 2.4s; }
+.frame[data-motion='reduced'] :global(.accordion-collapsible) { transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stepPanel { animation: wizard-fade-in 120ms var(--ng-ease); }
+  .choice, .perspective, .styleCard, .genreCard, .genreRow, .summaryRow, .reference, .customSize { animation: none; }
+  .progressFill { transition: none; }
+}

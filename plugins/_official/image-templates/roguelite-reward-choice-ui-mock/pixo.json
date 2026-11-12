@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-roguelite-reward-choice-ui-mock",
+  "title": "Roguelite Reward Choice Screen UI Mock",
+  "title_i18n": {
+    "en": "Roguelite Reward Choice Screen UI Mock",
+    "zh-CN": "肉鸽游戏奖励三选一界面样机"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A full-screen UI mock of the classic roguelite reward screen: three upgrade cards with icons, rarity colours and short effect text over dimmed gameplay, plus reroll and skip buttons, currency, run progress and a persistent HUD. Slots for theme, UI style and the three upgrades.",
+  "description_i18n": {
+    "en": "A full-screen UI mock of the classic roguelite reward screen: three upgrade cards with icons, rarity colours and short effect text over dimmed gameplay, plus reroll and skip buttons, currency, run progress and a persistent HUD. Slots for theme, UI style and the three upgrades.",
+    "zh-CN": "生成经典肉鸽奖励界面的全屏 UI 样机：三张带图标、稀有度颜色和简短效果说明的升级卡，叠加在变暗的游戏画面上，并含重抽 / 跳过按钮、货币、局内进度和常驻 HUD。可调整主题、UI 风格和三项升级内容。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "game-ui",
+    "roguelite",
+    "hud",
+    "upgrade-screen",
+    "ui-mock",
+    "menu"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A full-screen 1920x1080 UI mock of a roguelite reward choice screen, as it would appear in the shipped game. The run is paused and the gameplay behind is dimmed and slightly blurred.\n\nGame theme: {argument name=\"theme\" default=\"a neon arcade underworld where the hero fights through cursed pinball machines\"}.\nUI style: {argument name=\"ui_style\" default=\"bold flat shapes, thick dark outlines, chunky rounded corners and a slight retro arcade glow\"}.\n\n# Centre: choose one of three\n- Title across the top centre: \"{argument name=\"screen_title\" default=\"Choose a Boon\"}\".\n- Three vertical upgrade cards side by side, equal size, evenly spaced, the middle one slightly raised as the hovered selection with a glowing outline.\n- Each card: a large central icon, the upgrade name, a rarity strip in its rarity colour, and one or two short lines of effect text with numbers highlighted.\n- Cards: {argument name=\"upgrades\" default=\"1) Multiball - common - Your attacks split into 2 smaller projectiles. 2) Tilt Shock - rare - Dashing releases a shockwave for 12 damage. 3) Jackpot Heart - epic - Heal 5 HP every 10 coins collected.\"}.\n- Rarity colours: common grey-white, rare blue, epic purple, legendary gold.\n\n# Bottom bar\n- Reroll button with a small cost and a skip button, both clearly labelled, with keyboard and gamepad-neutral styling (no platform button glyphs).\n\n# Persistent HUD (dimmed but visible)\n- Top-left: health bar with numbers and current build icons in a small row.\n- Top-right: currency counter and a run map strip showing the current room among the next few nodes.\n\n# Readability\n- High contrast text on solid panels; a single UI typeface family with a bold display weight for titles.\n- Everything inside a 5% safe area; the three cards are the clear focal point.\n- Palette: {argument name=\"palette\" default=\"hot magenta and electric cyan accents on deep purple-black panels\"}.\n\n# Avoid\nMisspelled or gibberish text, more than two lines per card, overlapping panels, tiny unreadable labels, real console button icons, real game logos, watermarks.",
+        "zh-CN": "A full-screen 1920x1080 UI mock of a roguelite reward choice screen, as it would appear in the shipped game. The run is paused and the gameplay behind is dimmed and slightly blurred.\n\nGame theme: {argument name=\"theme\" default=\"a neon arcade underworld where the hero fights through cursed pinball machines\"}.\nUI style: {argument name=\"ui_style\" default=\"bold flat shapes, thick dark outlines, chunky rounded corners and a slight retro arcade glow\"}.\n\n# Centre: choose one of three\n- Title across the top centre: \"{argument name=\"screen_title\" default=\"Choose a Boon\"}\".\n- Three vertical upgrade cards side by side, equal size, evenly spaced, the middle one slightly raised as the hovered selection with a glowing outline.\n- Each card: a large central icon, the upgrade name, a rarity strip in its rarity colour, and one or two short lines of effect text with numbers highlighted.\n- Cards: {argument name=\"upgrades\" default=\"1) Multiball - common - Your attacks split into 2 smaller projectiles. 2) Tilt Shock - rare - Dashing releases a shockwave for 12 damage. 3) Jackpot Heart - epic - Heal 5 HP every 10 coins collected.\"}.\n- Rarity colours: common grey-white, rare blue, epic purple, legendary gold.\n\n# Bottom bar\n- Reroll button with a small cost and a skip button, both clearly labelled, with keyboard and gamepad-neutral styling (no platform button glyphs).\n\n# Persistent HUD (dimmed but visible)\n- Top-left: health bar with numbers and current build icons in a small row.\n- Top-right: currency counter and a run map strip showing the current room among the next few nodes.\n\n# Readability\n- High contrast text on solid panels; a single UI typeface family with a bold display weight for titles.\n- Everything inside a 5% safe area; the three cards are the clear focal point.\n- Palette: {argument name=\"palette\" default=\"hot magenta and electric cyan accents on deep purple-black panels\"}.\n\n# Avoid\nMisspelled or gibberish text, more than two lines per card, overlapping panels, tiny unreadable labels, real console button icons, real game logos, watermarks."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

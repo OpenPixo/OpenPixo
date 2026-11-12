@@ -1,0 +1,13 @@
+.accent {
+  padding: 0 0.04em;
+  color: var(--violet, #6c4bff);
+  font-family: var(--serif, 'Instrument Serif', 'Noto Serif SC', 'PingFang SC', 'Microsoft YaHei', serif);
+  font-weight: 700;
+  letter-spacing: 0;
+  background-image: linear-gradient(var(--lime, #c4f542), var(--lime, #c4f542));
+  background-position: 50% 100%;
+  background-repeat: no-repeat;
+  background-size: calc(100% - 0.16em) 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}

@@ -1,0 +1,67 @@
+/* The 游戏 stage (specs/current/openpixo-game-panel.md §4). It takes the room
+   the summary rows leave, so maximising the panel gives a live game the
+   full workbench. */
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* The 游戏 view's split keeps the stage's share (game-split.ts); this only
+     stops tall notices above it from squeezing it to nothing. */
+  min-height: 96px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.stage[data-stage='empty'] { background: var(--bg-panel); }
+
+.frame {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+}
+
+.shot {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.native {
+  position: absolute;
+  inset: auto 12px 12px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: var(--radius-xlarge);
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-md);
+  text-align: center;
+}
+.native:not([data-has-shot]) {
+  position: static;
+  background: transparent;
+  box-shadow: none;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px var(--shell-gutter);
+  text-align: center;
+}
+
+.icon { color: var(--text-faint); }
+.title { margin: 0; color: var(--text-strong); font: var(--shell-meta-font); font-weight: 600; }
+.body { max-width: 320px; margin: 0; color: var(--text-muted); font-size: 13px; line-height: 18px; }
+.run { gap: 6px; margin-top: 6px; }

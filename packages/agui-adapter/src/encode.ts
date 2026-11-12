@@ -1,0 +1,154 @@
+// Map an OpenPixo native event onto the AG-UI canonical wire shape.
+//
+// The OD native union covers more than AG-UI cares about (e.g. internal
+// daemon-control events). We project only what an external AG-UI client
+// would meaningfully consume; unrecognised events return null and the
+// daemon SSE relay drops them.
+
+import type {
+  PluginPipelineStageEvent,
+} from '@openpixo/contracts';
+import type {
+  AGUIAgentMessageEvent,
+  AGUIEvent,
+  AGUIRunLifecycleEvent,
+  AGUIStateUpdateEvent,
+  AGUIToolCallEvent,
+} from './types.js';
+
+// The PersistedAgentEvent variants OD emits on a run's SSE stream.
+// We model the subset we map; the daemon may emit other shapes (errors,
+// system messages, …) which the encoder drops.
+export interface PixoMessageChunkEvent {
+  kind: 'message_chunk';
+  runId?: string;
+  text?: string;
+  done?: boolean;
+  ts?: number;
+}
+
+export interface PixoToolCallEvent {
+  kind: 'tool_call';
+  runId?: string;
+  toolName?: string;
+  args?: unknown;
+  callId?: string;
+  status?: 'started' | 'completed' | 'failed';
+  result?: unknown;
+  ts?: number;
+}
+
+export interface PixoStateUpdateEvent {
+  kind: 'state_update';
+  runId?: string;
+  path?: string;
+  value?: unknown;
+  ts?: number;
+}
+
+export interface PixoRunEndEvent {
+  kind: 'end';
+  runId?: string;
+  status?: 'succeeded' | 'failed' | 'canceled' | 'completed';
+  ts?: number;
+}
+
+export interface PixoRunStartedEvent {
+  kind: 'run_started';
+  runId?: string;
+  ts?: number;
+}
+
+export type PixoNativeEvent =
+  | PluginPipelineStageEvent
+  | PixoMessageChunkEvent
+  | PixoToolCallEvent
+  | PixoStateUpdateEvent
+  | PixoRunEndEvent
+  | PixoRunStartedEvent;
+
+export interface EncodeContext {
+  // The run's id; OD may have it on the event already, but the daemon
+  // SSE relay always knows it from the route, so we pass it in to keep
+  // the encoder pure.
+  runId: string;
+  // Optional monotonic sequence the daemon assigns per-run. Phase 4's
+  // SSE relay can pass design.runs.events[i].id directly.
+  seq?: number;
+  // Wall-clock fallback. The encoder uses this when the OD event
+  // lacks `requestedAt` / `startedAt` / etc.
+  now?: number;
+}
+
+export function encodePixoEventForAgui(
+  event: PixoNativeEvent,
+  ctx: EncodeContext,
+): AGUIEvent | null {
+  const ts = ctx.now ?? Date.now();
+  const base = { runId: ctx.runId, ts, ...(ctx.seq !== undefined ? { seq: ctx.seq } : {}) };
+  switch (event.kind) {
+    case 'message_chunk': {
+      const out: AGUIAgentMessageEvent = {
+        ...base,
+        kind: 'agent.message',
+        text: event.text ?? '',
+      };
+      if (event.done) out.done = true;
+      return out;
+    }
+    case 'tool_call': {
+      const out: AGUIToolCallEvent = {
+        ...base,
+        kind: 'tool_call',
+        toolName: event.toolName ?? 'unknown',
+        args: event.args ?? null,
+      };
+      if (event.callId) out.callId = event.callId;
+      if (event.status) out.status = event.status;
+      if (event.result !== undefined) out.result = event.result;
+      return out;
+    }
+    case 'state_update': {
+      const out: AGUIStateUpdateEvent = {
+        ...base,
+        kind: 'state_update',
+        path: event.path ?? '',
+        value: event.value ?? null,
+      };
+      return out;
+    }
+    case 'run_started': {
+      const out: AGUIRunLifecycleEvent = { ...base, kind: 'run.lifecycle', status: 'started' };
+      return out;
+    }
+    case 'end': {
+      const status = event.status === 'failed' ? 'failed'
+        : event.status === 'canceled' ? 'cancelled'
+        : 'completed';
+      const out: AGUIRunLifecycleEvent = { ...base, kind: 'run.lifecycle', status };
+      return out;
+    }
+    case 'pipeline_stage_started': {
+      const out: AGUIRunLifecycleEvent = {
+        ...base,
+        kind: 'run.lifecycle',
+        status: 'pipeline_stage_started',
+        stageId: event.stageId,
+        iteration: event.iteration,
+      };
+      return out;
+    }
+    case 'pipeline_stage_completed': {
+      const out: AGUIRunLifecycleEvent = {
+        ...base,
+        kind: 'run.lifecycle',
+        status: 'pipeline_stage_completed',
+        stageId: event.stageId,
+        iteration: event.iteration,
+      };
+      return out;
+    }
+    default:
+      return null;
+  }
+}

@@ -1,0 +1,511 @@
+/* New game dialog — the first creative moment for a new user.
+   Rhythm: 4/8/12/16/20/24 spacing tokens; one ease-out curve for every
+   transition (root AGENTS.md "UI animation philosophy"). */
+
+/* The dialog shell, stepper and footer live in new-game/GameSetupWizard.module.css,
+   which also defines the --ng-* motion tokens these rules read. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8, 8px);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  padding: 0;
+  margin: 0;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.input { font-size: var(--font-size-15, 15px); }
+
+.input[aria-invalid='true'] { border-color: var(--red-border); }
+.input[aria-invalid='true']:focus { border-color: var(--red); }
+
+.message,
+.messageError {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.4;
+  color: var(--text-soft);
+}
+
+.messageError { color: var(--red); }
+
+/* ---------- template picker: 2×2 radiogroup ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--spacing-8, 8px);
+}
+
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.card {
+  --engine-ink: var(--text-muted);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-12, 12px);
+  min-width: 0;
+  /* The global `button` rule pins a 36px control height; a card grows with its copy. */
+  height: auto;
+  padding: var(--spacing-16, 16px);
+  padding-right: var(--spacing-36, 36px);
+  border: var(--stroke-thin, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* Same rise-in as the wizard's cards; `translate` leaves `transform` to hover and press. */
+  animation: ng-card-in 260ms var(--ng-ease, ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms + 60ms);
+  transition:
+    border-color var(--ng-exit, 140ms) var(--ng-ease, ease-out),
+    background-color var(--ng-exit, 140ms) var(--ng-ease, ease-out),
+    box-shadow var(--ng-exit, 140ms) var(--ng-ease, ease-out),
+    transform var(--ng-exit, 140ms) var(--ng-ease, ease-out);
+}
+
+.hiddenLegend { padding: 0; margin: 0; }
+
+@keyframes ng-card-in {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.card[data-engine='godot'] { --engine-ink: var(--blue); }
+.card[data-engine='phaser'] { --engine-ink: var(--amber); }
+.card[data-engine='threejs'] { --engine-ink: var(--text-strong); }
+
+.card:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-fill-tertiary);
+  transform: translateY(-1px);
+}
+
+.card:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+
+.card[aria-checked='true'] {
+  border-color: var(--selected);
+  background: var(--selected-soft);
+  box-shadow: inset 0 0 0 1px var(--selected);
+  transition-duration: var(--ng-enter, 200ms);
+}
+
+.card:focus-visible {
+  outline: var(--stroke-thick, 2px) solid var(--selected);
+  outline-offset: 2px;
+}
+
+.card:disabled { cursor: default; opacity: 0.6; }
+
+.art {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  color: var(--engine-ink);
+  background: color-mix(in srgb, var(--engine-ink) 12%, var(--bg-panel));
+}
+
+.cardText {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4, 4px);
+  min-width: 0;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-6, 6px);
+  min-width: 0;
+}
+
+.engine {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-15, 15px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.tag {
+  flex: none;
+  padding: 1px var(--spacing-6, 6px);
+  border-radius: var(--radius-pill);
+  background: var(--bg-fill-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 16px;
+}
+
+.cardDescription {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* The same check mark as the wizard's cards: an empty ring that fills and draws its tick. */
+.tick {
+  position: absolute;
+  top: var(--spacing-12, 12px);
+  right: var(--spacing-12, 12px);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-app);
+  color: var(--accent-contrast);
+  transition:
+    background-color var(--ng-exit, 140ms) var(--ng-ease, ease-out),
+    border-color var(--ng-exit, 140ms) var(--ng-ease, ease-out);
+}
+
+.tick svg {
+  opacity: 0;
+  transform: scale(0.9) rotate(-8deg);
+  transition:
+    opacity var(--ng-exit, 140ms) var(--ng-ease, ease-out),
+    transform var(--ng-exit, 140ms) var(--ng-ease, ease-out);
+}
+
+.card[aria-checked='true'] .tick {
+  border-color: var(--selected);
+  background: var(--selected);
+  transition-duration: var(--ng-enter, 200ms);
+}
+
+.card[aria-checked='true'] .tick svg {
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--ng-enter, 200ms);
+}
+
+.skeleton {
+  height: 70px;
+  border-radius: var(--radius-md);
+  background: var(--bg-fill-tertiary);
+  animation: ng-pulse 1.2s var(--ng-ease, ease-out) infinite alternate;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-size-14, 14px);
+}
+
+/* ---------- location ---------- */
+
+.locationRow {
+  display: flex;
+  gap: var(--spacing-8, 8px);
+  min-width: 0;
+}
+
+.pathInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--font-size-14, 14px);
+}
+
+.pathInput::placeholder { font-family: var(--sans); }
+
+.browse {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-6, 6px);
+}
+
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10, 10px);
+  padding: var(--spacing-8, 8px) var(--spacing-8, 8px) var(--spacing-8, 8px) var(--spacing-12, 12px);
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  animation: ng-fade-in var(--ng-enter, 200ms) var(--ng-ease, ease-out);
+}
+
+.waitingText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.waitingText strong {
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--spacing-12, 12px);
+  row-gap: var(--spacing-4, 4px);
+  padding: var(--spacing-10, 10px) var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-tertiary);
+  transition: border-color var(--ng-enter, 200ms) var(--ng-ease, ease-out);
+}
+
+.target[data-state='available'] {
+  border-color: color-mix(in srgb, var(--brand-ink) 30%, var(--border-soft));
+}
+
+.targetLabel {
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.targetPath {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--font-size-14, 14px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.targetParent { color: var(--text-muted); }
+.targetName { color: var(--text-strong); font-weight: 600; }
+
+.targetPending {
+  flex: 1 1 auto;
+  font-size: var(--font-size-14, 14px);
+  color: var(--text-soft);
+}
+
+.targetStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-6, 6px);
+  margin-left: auto;
+  font-size: var(--font-size-13, 13px);
+  color: var(--text-soft);
+  white-space: nowrap;
+  animation: ng-fade-in var(--ng-enter, 200ms) var(--ng-ease, ease-out);
+}
+
+.targetReady { color: var(--brand-ink); font-weight: 600; }
+
+.readyTick {
+  width: 14px;
+  height: 14px;
+  background: var(--tick-img) center / contain no-repeat;
+}
+
+/* ---------- feedback ---------- */
+
+.alert {
+  margin: 0;
+  padding: var(--spacing-10, 10px) var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--red-border);
+  border-radius: var(--radius-sm);
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: var(--font-size-14, 14px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  animation: ng-fade-in var(--ng-enter, 200ms) var(--ng-ease, ease-out);
+}
+
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: var(--stroke-thick, 2px) solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  opacity: 0.7;
+  animation: ng-spin 0.8s linear infinite;
+}
+
+/* ---------- motion ---------- */
+
+@keyframes ng-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ng-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+@keyframes ng-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waiting,
+  .targetStatus,
+  .alert,
+  .skeleton,
+  .card { animation: none; }
+  .card:hover:not(:disabled),
+  .card:active:not(:disabled) { transform: none; }
+  .tick,
+  .tick svg { transition: none; transform: none; }
+  .spinner { animation-duration: 2.4s; }
+}
+.createParent { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 8px 0 12px; }
+/* `.modal label` stacks label children; this one is a checkbox row. */
+.section .createParent { flex-direction: row; }
+.section .createParent input { width: auto; height: auto; }
+.details { margin-top: 8px; color: var(--text-muted); font-size: 13px; }
+.details summary { cursor: pointer; }
+.details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; }
+
+/* ---------- engine readiness ---------- */
+
+.recommended {
+  flex: none;
+  padding: 1px var(--spacing-6, 6px);
+  border-radius: var(--radius-pill);
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.machineReady,
+.machineMissing {
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.4;
+}
+
+.machineReady { color: var(--green, var(--text-muted)); }
+.machineMissing { color: var(--amber); }
+
+/* What a starter's engine means for the chosen stores, under its description. */
+.cardMeans {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.4;
+  color: var(--text-soft);
+}
+
+/* ---------- an engine this computer does not have ---------- */
+
+.engineMissing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6, 6px);
+  margin-top: var(--spacing-8, 8px);
+  padding: var(--spacing-12, 12px);
+  border: var(--stroke-thin, 1px) solid var(--amber-border);
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+  animation: engineMissingIn 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.engineMissingTitle {
+  margin: 0;
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  color: var(--amber-ink);
+}
+
+.engineMissingBody {
+  margin: 0;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  color: var(--text-strong);
+}
+
+.engineMissingActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-6, 6px);
+}
+
+.engineMissing .messageError { min-height: 0; }
+.engineMissing .messageError:empty { display: none; }
+
+@keyframes engineMissingIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .engineMissing { animation: none; }
+}
+
+/* ---------- review: what creating does next ---------- */
+
+.nextSteps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6, 6px);
+}
+
+.nextList {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4, 4px);
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.existing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-4, 4px);
+  margin: 0;
+  font-size: var(--font-size-13, 13px);
+  color: var(--text-muted);
+}

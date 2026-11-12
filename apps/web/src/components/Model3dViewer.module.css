@@ -1,0 +1,56 @@
+.viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-subtle);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+.canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.caption {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.caption button {
+  pointer-events: auto;
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "video-template-vertical-juicy-gameplay-clip",
+  "title": "Vertical Social Clip - Juicy Gameplay Moment",
+  "title_i18n": {
+    "en": "Vertical Social Clip - Juicy Gameplay Moment",
+    "zh-CN": "竖屏社媒短片 - 爽感十足的游戏瞬间"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A loopable 9:16 clip of one satisfying gameplay moment for short-video platforms: hit-stop, screen shake, particles, chunky damage numbers and a combo payoff, framed inside the safe area so platform buttons and captions never cover the action.",
+  "description_i18n": {
+    "en": "A loopable 9:16 clip of one satisfying gameplay moment for short-video platforms: hit-stop, screen shake, particles, chunky damage numbers and a combo payoff, framed inside the safe area so platform buttons and captions never cover the action.",
+    "zh-CN": "为短视频平台生成一段可循环的 9:16 竖屏片段，展示一个爽感十足的游戏瞬间：顿帧、屏幕震动、粒子、醒目的伤害数字与连击收尾，画面构图位于安全区内，不会被平台按钮和字幕遮挡。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "video-template",
+    "first-party",
+    "video",
+    "short-form",
+    "vertical",
+    "social",
+    "game-feel",
+    "juice",
+    "loop"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "video",
+    "scenario": "video",
+    "surface": "video",
+    "useCase": {
+      "query": {
+        "en": "A vertical 9:16 gameplay clip, about 8 seconds, built to stop the scroll on short-video platforms. It shows one extremely satisfying moment of game feel and loops seamlessly.\n\nGame: {argument name=\"game_pitch\" default=\"a pixel-art arena brawler where a tiny chef fights waves of angry vegetables with a frying pan\"}.\nArt style: {argument name=\"art_style\" default=\"bright, chunky pixel art with thick outlines and a vertical playfield\"}.\nThe moment: {argument name=\"moment\" default=\"the chef charges a spin attack, hits a crowd of carrots, and the last enemy explodes into a shower of coins\"}.\n\n# Beat structure\n- 0-1s: instant action, the player already moving. No intro, no title.\n- 1-5s: build-up: {argument name=\"build_up\" default=\"enemies gather, the spin attack charges with a growing glow and rising pitch\"}.\n- 5-6.5s: payoff with heavy juice: 3-4 frame hit-stop on impact, strong screen shake, white hit flashes, squash and stretch on enemies, bursting particles, big chunky damage numbers, and a combo counter popping up to {argument name=\"combo\" default=\"x12\"}.\n- 6.5-8s: settle back toward the opening pose so the clip loops without a visible cut.\n\n# Vertical framing and safe area\n- Keep all key action inside the centre 60% of the frame height.\n- Leave the top 12% and bottom 20% free of important action (platform captions, username and buttons sit there), and keep the right 15% clear of key action (like and share buttons).\n- Camera locked or gently following; the player always near the vertical centre.\n\n# Look and sound\n- Palette: {argument name=\"palette\" default=\"saturated warm oranges and greens on a dark navy floor for maximum pop\"}.\n- Punchy impact sound, rising charge tone, coin shower jingle. No voice-over.\n\n# Avoid\nGenerated captions or text other than in-game damage numbers and the combo counter, letterboxing, horizontal footage cropped to vertical, motion blur that smears pixels, slow starts, watermarks, real game or platform logos.",
+        "zh-CN": "A vertical 9:16 gameplay clip, about 8 seconds, built to stop the scroll on short-video platforms. It shows one extremely satisfying moment of game feel and loops seamlessly.\n\nGame: {argument name=\"game_pitch\" default=\"a pixel-art arena brawler where a tiny chef fights waves of angry vegetables with a frying pan\"}.\nArt style: {argument name=\"art_style\" default=\"bright, chunky pixel art with thick outlines and a vertical playfield\"}.\nThe moment: {argument name=\"moment\" default=\"the chef charges a spin attack, hits a crowd of carrots, and the last enemy explodes into a shower of coins\"}.\n\n# Beat structure\n- 0-1s: instant action, the player already moving. No intro, no title.\n- 1-5s: build-up: {argument name=\"build_up\" default=\"enemies gather, the spin attack charges with a growing glow and rising pitch\"}.\n- 5-6.5s: payoff with heavy juice: 3-4 frame hit-stop on impact, strong screen shake, white hit flashes, squash and stretch on enemies, bursting particles, big chunky damage numbers, and a combo counter popping up to {argument name=\"combo\" default=\"x12\"}.\n- 6.5-8s: settle back toward the opening pose so the clip loops without a visible cut.\n\n# Vertical framing and safe area\n- Keep all key action inside the centre 60% of the frame height.\n- Leave the top 12% and bottom 20% free of important action (platform captions, username and buttons sit there), and keep the right 15% clear of key action (like and share buttons).\n- Camera locked or gently following; the player always near the vertical centre.\n\n# Look and sound\n- Palette: {argument name=\"palette\" default=\"saturated warm oranges and greens on a dark navy floor for maximum pop\"}.\n- Punchy impact sound, rising charge tone, coin shower jingle. No voice-over.\n\n# Avoid\nGenerated captions or text other than in-game damage numbers and the combo counter, letterboxing, horizontal footage cropped to vertical, motion blur that smears pixels, slow starts, watermarks, real game or platform logos."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "seedance-2.0"
+        ],
+        "default": "seedance-2.0"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4"
+        ],
+        "default": "9:16"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-video"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:video-generate"
+    ]
+  }
+}

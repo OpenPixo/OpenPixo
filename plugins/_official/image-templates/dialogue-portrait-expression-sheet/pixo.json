@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-dialogue-portrait-expression-sheet",
+  "title": "Dialogue Portrait Expression Sheet",
+  "title_i18n": {
+    "en": "Dialogue Portrait Expression Sheet",
+    "zh-CN": "对话立绘表情差分表"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A 3x3 expression sheet of one character as a dialogue portrait bust: neutral, happy, laughing, sad, angry, surprised, embarrassed, determined and scared, all with identical framing, eye line and outfit on a flat background so they swap cleanly in a dialogue box. Slots for character, style and expressions.",
+  "description_i18n": {
+    "en": "A 3x3 expression sheet of one character as a dialogue portrait bust: neutral, happy, laughing, sad, angry, surprised, embarrassed, determined and scared, all with identical framing, eye line and outfit on a flat background so they swap cleanly in a dialogue box. Slots for character, style and expressions.",
+    "zh-CN": "生成同一角色的 3x3 对话立绘表情差分表：平静、开心、大笑、难过、生气、惊讶、害羞、坚定和害怕，所有格子取景、视线高度与服装完全一致，背景为纯色，可在对话框中无缝切换。可调整角色、画风与表情列表。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "game-assets",
+    "character-design",
+    "portrait",
+    "expressions",
+    "dialogue",
+    "visual-novel"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A character expression sheet for in-game dialogue portraits: the same character drawn {argument name=\"count\" default=\"9 times in a 3x3 grid\"}, one expression per cell.\n\nCharacter: {argument name=\"character\" default=\"a sharp-tongued young engineer with short copper hair, a soot smudge on one cheek, round goggles pushed up on her head and a worn canvas work jacket\"}.\nArt style: {argument name=\"art_style\" default=\"clean anime-inspired 2D illustration with crisp line art and two-tone cel shading\"}.\nExpressions, in reading order: {argument name=\"expressions\" default=\"neutral, happy, laughing, sad, angry, surprised, embarrassed, determined, scared\"}.\n\n# Consistency rules (critical)\n- Bust framing from mid-chest up, facing about three-quarters toward the viewer's left (so the portrait can sit on the left of a dialogue box).\n- Identical head size, eye line, shoulder line and position in every cell; only the face, eyebrows, mouth, small head tilt and hand gestures near the face change.\n- Identical outfit, hair, accessories and colours in every cell; no costume drift.\n- Every cell has the same flat background colour, {argument name=\"background\" default=\"pale warm grey\"}, so portraits can be cut out cleanly. Even gutters between cells, no frames or borders.\n\n# Expression craft\n- Exaggerate readable cues: eyebrow shape, eye openness and mouth shape do most of the work, plus small extras such as a sweat drop, a blush or tears where they fit.\n- Each emotion must be distinguishable when the portrait is shown at 160 pixels tall.\n\n# Lighting and palette\n- Soft key light from the upper left, the same in every cell.\n- Palette: {argument name=\"palette\" default=\"copper, olive canvas and cream with teal goggle lenses\"}.\n\n# Avoid\nText, speech bubbles, names, cell labels, changing camera angles, changing clothing or hairstyle, cropped heads, extra fingers, watermarks, and resemblance to existing franchise characters.",
+        "zh-CN": "A character expression sheet for in-game dialogue portraits: the same character drawn {argument name=\"count\" default=\"9 times in a 3x3 grid\"}, one expression per cell.\n\nCharacter: {argument name=\"character\" default=\"a sharp-tongued young engineer with short copper hair, a soot smudge on one cheek, round goggles pushed up on her head and a worn canvas work jacket\"}.\nArt style: {argument name=\"art_style\" default=\"clean anime-inspired 2D illustration with crisp line art and two-tone cel shading\"}.\nExpressions, in reading order: {argument name=\"expressions\" default=\"neutral, happy, laughing, sad, angry, surprised, embarrassed, determined, scared\"}.\n\n# Consistency rules (critical)\n- Bust framing from mid-chest up, facing about three-quarters toward the viewer's left (so the portrait can sit on the left of a dialogue box).\n- Identical head size, eye line, shoulder line and position in every cell; only the face, eyebrows, mouth, small head tilt and hand gestures near the face change.\n- Identical outfit, hair, accessories and colours in every cell; no costume drift.\n- Every cell has the same flat background colour, {argument name=\"background\" default=\"pale warm grey\"}, so portraits can be cut out cleanly. Even gutters between cells, no frames or borders.\n\n# Expression craft\n- Exaggerate readable cues: eyebrow shape, eye openness and mouth shape do most of the work, plus small extras such as a sweat drop, a blush or tears where they fit.\n- Each emotion must be distinguishable when the portrait is shown at 160 pixels tall.\n\n# Lighting and palette\n- Soft key light from the upper left, the same in every cell.\n- Palette: {argument name=\"palette\" default=\"copper, olive canvas and cream with teal goggle lenses\"}.\n\n# Avoid\nText, speech bubbles, names, cell labels, changing camera angles, changing clothing or hairstyle, cropped heads, extra fingers, watermarks, and resemblance to existing franchise characters."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "1:1"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+.handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 7px;
+  outline: none;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--violet);
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out);
+}
+
+.handle:hover::after,
+.handle:focus-visible::after,
+.resizing .handle::after {
+  opacity: 1;
+  transition-duration: 200ms;
+}
+
+/* On the root for the length of a drag: the pointer keeps its shape wherever it
+   wanders, text stays unselected, and an embedded game cannot take the pointer. */
+.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.resizing iframe {
+  pointer-events: none;
+}
+
+/* On the project page a small window shows the rail as an overlay; it has no edge to drag. */
+:global([data-sidebar-compact='true']) .handle {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handle::after {
+    transition: none;
+  }
+}

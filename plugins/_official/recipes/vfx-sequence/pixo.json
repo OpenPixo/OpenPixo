@@ -1,0 +1,180 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/vfx-sequence",
+  "title": "VFX flipbook",
+  "title_i18n": {
+    "en": "VFX flipbook",
+    "zh-CN": "特效序列帧"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "A skill or impact flipbook, generated on black then exported as transparent frames with engine animation metadata.",
+  "description_i18n": {
+    "en": "A skill or impact flipbook, generated on black then exported as transparent frames with engine animation metadata.",
+    "zh-CN": "技能或命中特效的序列帧，黑底生成后导出为透明逐帧，并附带引擎动画元数据。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "vfx"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "vfx",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "effect",
+          "label": "Effect",
+          "label_i18n": {
+            "zh-CN": "特效"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "fireball impact explosion",
+          "placeholder_i18n": {
+            "zh-CN": "火球击中后的爆炸"
+          }
+        },
+        {
+          "name": "palette",
+          "label": "Colors",
+          "label_i18n": {
+            "zh-CN": "颜色"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "orange, yellow and white-hot core",
+          "placeholder_i18n": {
+            "zh-CN": "橙色、黄色和白热的核心"
+          }
+        },
+        {
+          "name": "grid",
+          "label": "Frames grid (columns x rows)",
+          "label_i18n": {
+            "zh-CN": "帧网格（列 × 行）"
+          },
+          "type": "select",
+          "options": [
+            "3x3",
+            "4x4",
+            "5x5"
+          ],
+          "default": "4x4"
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "pixel art",
+            "hand-drawn anime",
+            "stylized painterly"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "pixel art": "像素风",
+              "hand-drawn anime": "手绘动画",
+              "stylized painterly": "风格化绘画"
+            }
+          },
+          "default": "hand-drawn anime"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "fireball_hit"
+        }
+      ],
+      "prompt": "Game VFX flipbook sprite sheet: {{effect}}, in {{palette}}. A strict {{grid}} grid (columns x rows) of equal square cells, with no gaps and no visible grid lines. Frames play in reading order, left to right then top to bottom, as one continuous animation from the first spark, through the peak, to fully faded out; the last cell is almost empty so the effect ends cleanly. The effect stays centered in every cell at a consistent scale and never crosses into a neighboring cell. Bright emissive colors with a hot core. Style: {{style}}. Background: pure solid black #000000 in every cell, so the sheet works with additive blending.",
+      "negative": "text, numbers, frame labels, watermark, grid lines, borders, background scenery, characters, ground, gray or colored background, effect cut off at the cell edge, uneven grid, identical repeated frames, smoke filling the whole cell",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "1:1"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": 960,
+            "height": 960
+          }
+        },
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "#000000",
+            "tolerance": 0
+          }
+        },
+        {
+          "op": "slice",
+          "params": {
+            "grid": "{{grid}}"
+          }
+        },
+        {
+          "op": "export-spritesheet",
+          "params": {
+            "name": "effect",
+            "animations": [
+              "effect"
+            ],
+            "fps": 12,
+            "loop": false
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "grid-divisible",
+          "params": {
+            "grid": "{{grid}}"
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/vfx/{{name}}",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

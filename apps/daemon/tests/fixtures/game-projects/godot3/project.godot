@@ -1,0 +1,4 @@
+config_version=4
+[application]
+config/name="Fixture"
+config/features=PoolStringArray("3.5", "GLES2")

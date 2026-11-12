@@ -1,0 +1,63 @@
+.dashboard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  color: var(--ink);
+  isolation: isolate;
+}
+
+:global(.entry-main__inner:not(.entry-main__inner--wide)):has(.dashboard) {
+  width: 100%;
+  max-width: 1120px;
+  padding: 46px 48px 64px;
+}
+
+.dashboard::before,
+.dashboard::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dashboard::before {
+  inset: -46px -48px auto;
+  height: 420px;
+  background: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 13%, transparent) 1px, transparent 0) 0 0 / 20px 20px;
+  mask-image: radial-gradient(ellipse 70% 100% at 85% 0, #000 10%, transparent 75%);
+}
+
+.dashboard::after {
+  top: -180px;
+  right: -48px;
+  width: min(620px, 100%);
+  height: 420px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--violet) 13%, transparent), transparent);
+  filter: blur(10px);
+}
+
+.header { position: relative; }
+.headerLoading { min-height: 49px; }
+.headerReturning { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.composer { min-width: 0; width: 100%; margin-top: 28px; }
+.doctor { color: var(--muted); font-weight: 500; }
+.title { margin: 0; font: 700 clamp(32px, 3.4vw, 46px) / 1.08 var(--sans); letter-spacing: -.035em; isolation: isolate; }
+.lede { max-width: 480px; margin: 12px 0 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.lede + .actions { margin-top: 24px; }
+.importError { margin: -20px 0 0; color: var(--danger); font-size: 13px; }
+
+@media (max-width: 850px) {
+  :global(.entry-main__inner:not(.entry-main__inner--wide)):has(.dashboard) { padding: 32px 24px 48px; }
+  .dashboard::before { inset-inline: -24px; }
+  .dashboard::after { right: -24px; }
+}
+@media (max-width: 480px) {
+  .dashboard::before { inset-inline: -16px; }
+  .dashboard::after { right: -16px; }
+  :global(.entry-main__inner:not(.entry-main__inner--wide)):has(.dashboard) { padding: 28px 16px 40px; }
+  .lede { font-size: 14px; }
+}

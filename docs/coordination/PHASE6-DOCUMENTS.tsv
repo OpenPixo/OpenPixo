@@ -1,0 +1,553 @@
+path	action	reason	uncertain
+design-browser-task-handoff.md	preserve	Verbatim historical task/coordination handoff; retained behavior context	true
+docs/adr/0001-centralize-daemon-startup.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0001-local-workspace-and-user-funded-providers.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0002-code-and-skill-oriented-agent-workbench.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0003-project-folder-is-source-of-truth.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0004-electron-react-typescript-windows-first.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0005-openpixo-fork.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0006-full-hard-fork.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0007-skipped-domain-decoupling.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0008-cli-binary-pixo.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0009-package-scope-openpixo.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/adr/0010-runtime-identifiers-pixo.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/agent-adapters.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/ai-native-observability-trace-analysis.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/architecture.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/assets/_cover/banner.html	delete	Upstream promotional cover generator	false
+docs/assets/_cover/library.html	delete	Upstream promotional cover generator	false
+docs/assets/_cover/star.html	delete	Upstream promotional cover generator	false
+docs/assets/banner.svg	delete	Upstream promotional banner	false
+docs/assets/design-system-2-backfill/data-comparison.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/assets/design-system-2-backfill/visual-colors-comparison.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/assets/design-system-2-backfill/visual-components-comparison.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/assets/design-systems-library.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/design-systems-library.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/logo.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/opend-3854/chat-entry.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/opend-3854/share-panel-read-error.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/opend-4136/community-monochrome.jpg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/opend-4136/en-community.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/opend-4136/zh-CN-community.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/opend-4136/zh-TW-community.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/assets/readme-hero-design-agent.webp	delete	Orphaned image/video referenced only by deleted documents	false
+docs/assets/share-client-batch1/3691-after-login.png	delete	Evidence for removed upstream team/cloud sharing	false
+docs/assets/share-client-batch1/3691-before-login.png	delete	Evidence for removed upstream team/cloud sharing	false
+docs/assets/share-client-batch1/README.md	delete	Evidence for removed upstream team/cloud sharing	false
+docs/atoms.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/CHANGELOG/README.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/CHANGELOG/v0.14.1/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.14.1/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.15.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.15.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.16.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.16.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.17.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.17.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.18.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.18.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.18.1/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.18.1/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.19.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.19.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.19.1/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.19.1/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.21.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.21.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.22.1/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.22.1/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.24.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.24.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.24.1/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.24.1/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.26.0/en.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/CHANGELOG/v0.26.0/zh-CN.md	delete	Upstream release notes; no OpenPixo releases use this content	false
+docs/ci/version-bump-policy.md	delete	Removed upstream installer or release/notification automation	false
+docs/ci/workload-products.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/CLOUD-CREDITS-LAUNCH-PLAN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/code-review-guidelines.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/codex-pets.md	delete	Documentation for a deleted product domain or UI	false
+docs/coordination/ACCEPTANCE.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/APPROVAL-UI.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/ASSETS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/CODEX-EVENTS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/CONTENT-REVIEW.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/CORRECTION-REVIEW.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/DAEMON-TEST-REPAIR.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/DOCS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/EXTENSIONS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/ISOLATION.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/MCP-FEEDBACK.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/MCP-GAME-ENGINES.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PACKAGING.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE1-CATALOG-REVIEW.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE1-REMOVAL.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE2-CLI.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE3-SCOPE.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE4-RUNTIME-IDS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE5-IDENTIFIERS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PHASE6-DOCUMENTS.tsv	create	Current phase 6 delivery and verification evidence	false
+docs/coordination/PHASE6-PACKAGED-HITS.tsv	create	Current phase 6 delivery and verification evidence	false
+docs/coordination/PHASE6-REMAINING-HITS.tsv	create	Current phase 6 delivery and verification evidence	false
+docs/coordination/PHASE6-TEXT.md	create	Current phase 6 delivery and verification evidence	false
+docs/coordination/PRODUCT.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/PROVIDER-FIDELITY.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/REVIEW.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/RUNTIME.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/SCOPE.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/STARTUP-BOUNDARY.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/STATUS.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/coordination/UPSTREAM.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/critique-theater.md	delete	Documentation for a deleted product domain or UI	false
+docs/deepseek-harness-one-click-install.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/deployment/cloud/aliyun.md	delete	Removed upstream deployment/team/Helm surface	false
+docs/deployment/cloud/azure.md	delete	Removed upstream deployment/team/Helm surface	false
+docs/deployment/docker.md	delete	Removed upstream deployment/team/Helm surface	false
+docs/deployment/workspace-team-rollout.md	delete	Removed upstream deployment/team/Helm surface	false
+docs/design-system-tracking-spec.md	delete	Documentation for a deleted product domain or UI	false
+docs/design-systems.md	delete	Documentation for a deleted product domain or UI	false
+docs/design/chat-mirror/build-compare.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/build-matrix.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/check-fonts.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/diff-cells.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/film.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/inline-fonts.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/measure.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/mirror-exec.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/README.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/shoot-live.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/shoot.mjs	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/design/chat-mirror/shots-live-errors/s19-agent-crashed.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-errors/s19-narrow-258px.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-pause/continue-button-fixed.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-pause/pauseline-fixed.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-pause/pauseline.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-reconnect/exhausted-styled.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-reconnect/exhausted.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-reconnect/reconnecting-4of5.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-s12/slow-upstream.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/chat-mirror/shots-live-w2/audio-artifact.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	true
+docs/design/run-errors/error-ux-design.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/implementation-audit.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/examples/DESIGN.sample.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/examples/saas-landing-skill/SKILL.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/external-media-orchestration.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/FIRST-RELEASE-SCOPE.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/handoffs/slides-project-experience-handoff.md	delete	Removed presentation product experience	false
+docs/headless-byok.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/i18n/CONTRIBUTING.de.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/CONTRIBUTING.fr.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/CONTRIBUTING.ja-JP.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/CONTRIBUTING.ko.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/CONTRIBUTING.pt-BR.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/CONTRIBUTING.th.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/CONTRIBUTING.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/i18n/MAINTAINERS.de.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/MAINTAINERS.fr.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/MAINTAINERS.ja-JP.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/MAINTAINERS.ko.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/MAINTAINERS.pt-BR.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/MAINTAINERS.th.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/MAINTAINERS.zh-CN.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.de.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.fr.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.ja-JP.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.ko.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.pt-BR.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.th.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.zh-CN.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/QUICKSTART.zh-TW.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.ar.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.de.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.es.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.fr.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.ja-JP.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.ko.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.pt-BR.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.ru.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.th.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.tr.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.uk.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.zh-CN.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/i18n/README.zh-TW.md	delete	Unmaintained upstream translation; only the Chinese contributing guide is retained	false
+docs/images/opend-3516/c1-owner-same-text-unmatched.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/images/opend-3516/c1-viewer-same-text-unmatched.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/images/opend-3516/owner-anchor-lost.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/images/opend-3516/owner-anchor-restored.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/images/share-preparation-removal/preflight.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/images/share-preparation-removal/uploading.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/install-guide.md	delete	Removed upstream installer or release/notification automation	false
+docs/M0-CODEX-VERIFICATION.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/MOCKS-CONTRACT-CHECK.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/modes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/motion-template-sources.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/new-agent-runtime-acp.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/notebooklm.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/observability/drafts/project-ready.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/observability/update-lifecycle.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/OPENPIXO-ROADMAP.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/ART-DIRECTION.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/ASSETS.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/assets/assets-ready/icons-painted.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/icons-pixel.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/pbr-stone.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/plx-far.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/plx-mid.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/plx-near.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/sky-sunset.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/tile-cobble.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/tile-lava.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/turn-kaia.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/turn-knight.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/ui-wood.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/vfx-fire-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/vfx-ice-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/vfx-magic-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/walk-kaia-b-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/walk-kaia-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/assets-ready/walk-knight-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/kv/finale-1672.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/kv/finale-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/kv/hero-1672.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/kv/hero-2400.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/kv/hero-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/manifest.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/assets/ops/pixelate-after.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/ops/pixelate-before.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/ops/removebg-after.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/ops/removebg-before.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/character-turnaround.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/item-icon-set.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/parallax-layers.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/pbr-texture.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/skybox.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/sprite-walk-8dir.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/tileset-seamless.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/ui-nine-slice.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/recipes/vfx-sequence.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/anime-party-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/anime-party-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/chibi-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/chibi-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/cozy-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/cozy-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/cyberpunk-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/cyberpunk-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/dark-fantasy-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/dark-fantasy-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/dragon-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/dragon-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/icons-painted.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/icons-pixel.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/icons-scifi.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/inkwash-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/inkwash-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/iso-study-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/iso-study-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/lowpoly-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/lowpoly-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/mecha-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/mecha-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/pixel-harbor-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/pixel-harbor-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/scifi-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/scifi-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/stylized3d-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/stylized3d-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/turn-bolt-card.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/turn-kaia-card.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/turn-knight-card.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/turn-pip-card.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/underwater-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/underwater-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/vfx-fire-peak.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/vfx-ice-peak.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/vfx-magic-peak.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/voxel-560.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/voxel-960.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/assets/wall/walk-kaia-sheet.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/changelog.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/changelog.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/checkout/cancel.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/checkout/cancel.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/checkout/success.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/checkout/success.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/download.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/download.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/fonts/albert-sans-latin.woff	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/openpixo-site/fonts/OFL.txt	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/index.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/pricing.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/pricing.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/privacy.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/privacy.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/README.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/recipes.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/recipes.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/refund.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/refund.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/site.css	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/store.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/store.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/support.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/support.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/terms.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/terms.zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/openpixo-site/zh.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/orchestrator-workspaces.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/plans/2026-06-01-sandbox-orchestration-hardening-architecture.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/plans/amr-vela-cli-ci-integration.md	delete	Retired upstream cloud runtime packaging plan	false
+docs/plans/manual-edit-mode-implementation.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/plans/plugin-registry.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/plans/plugins-implementation.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/plugins-spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/plugins-spec.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/PRODUCT-DISCOVERY.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/PROJECT-MAP.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/prompt-composition.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/publishing-a-plugin.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/publishing-a-plugin.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/qa/cms-codex-handoff-20260910.md	delete	Deleted upstream campaign/account integration handoff and screenshots	false
+docs/qa/cms-language-en.jpg	delete	Deleted upstream campaign/account integration handoff and screenshots	false
+docs/qa/cms-language-settings.jpg	delete	Deleted upstream campaign/account integration handoff and screenshots	false
+docs/qa/cms-language-zh.jpg	delete	Deleted upstream campaign/account integration handoff and screenshots	false
+docs/qa/screenshots/chat-artifact-actions-restored.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/references.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/RELEASE-PLAN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/research/AGENT-WORKBENCH-ALTERNATIVES.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/research/PROVIDER-SUPPORT.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/rfc-drafts/agent-ready-cross-project.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/rfc-drafts/agent-ready.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/rfc-drafts/dev-server-auto-detect.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/roadmap.md	delete	Archived upstream product baseline	false
+docs/RUNNING.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/schemas/openpixo.marketplace.v1.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/schemas/openpixo.plugin.v1.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/screenshots/01-entry-view.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/01-entry-view.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/02-question-form.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/02-question-form.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/03-direction-picker.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/03-direction-picker.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/04-todo-progress.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/04-todo-progress.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/05-preview-iframe.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/05-preview-iframe.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/06-design-systems-library.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/06-design-systems-library.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/07-magazine-deck.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/07-magazine-deck.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/08-mobile-app.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/08-mobile-app.svg	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/bugs/opend-3888-fresh.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/bugs/opend-3888-two-hours.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/comment-ui-restoration/avatar-parity.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/screenshots/comment-ui-restoration/comment-active-colored-pin.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/comment-ui-restoration/comment-colored-avatar-panel.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/comment-ui-restoration/comment-colored-avatars.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/comment-ui-restoration/comment-entry.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/comment-ui-restoration/comment-panel.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/pixo-app-preview.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/pixo-design-dashboard.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/pixo-design-mobile.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/pixo-design-reverie.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/pixo-home-sidebar.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/pixo-home.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/current-2026-06/qoder-design-canvas.webp	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/deployment/docker/01-openpixo-home.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/deployment/docker/02-docker-desktop-container-running.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/deployment/docker/03-openpixo-mobile.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/deployment/docker/04-docker-compose-ps-healthy.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/deployment/docker/05-curl-http-200-proof.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/all-projects-2026-09-30-220900.webp	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/design-system.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/design-systems-stripe-2026-09-30-220910.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/home-workspace-2026-09-30-220844.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/home.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/plugins-skills-2026-09-30-220917.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/plugins.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/share-popup-comment-sync-unboxed.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-deck.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-document.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-hyperframe.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-hyperframes-2026.mp4	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/studio-hyperframes-poster-2026.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/studio-image-2026.webp	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/studio-image.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-mobile-app.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-prototype-2026.webp	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/product-tour/studio-prototype.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/product-tour/studio-slides-2026.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/skills/dating-web.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/deck-guizang-editorial.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/deck-swiss-international.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/skills/digital-eguide.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/doc-kami-parchment.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/email-marketing.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/flowai-live-dashboard-template.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/skills/gamified-app.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/github-dashboard.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/skills/live-dashboard.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/skills/magazine-poster.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/mobile-onboarding.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/motion-frames.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/research-decision-room.png	delete	Orphaned image/video referenced only by deleted documents	false
+docs/screenshots/skills/social-carousel.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/sprite-animation.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/video-hyperframes.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/screenshots/skills/waitlist-page.png	keep-rewrite	Asset retained while a surviving document, product source, or retained reference uses it	false
+docs/self-hosting-a-registry.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/SESSION-HANDOFF.md	preserve	Protected provenance, migration source, or historical coordination record	false
+docs/skills-contributing.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/skills-protocol.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/spec.md	delete	Archived upstream product baseline	false
+docs/superpowers/plans/2026-05-10-linux-client-parity.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/superpowers/plans/2026-08-21-pricing-deepseek-v4-flash-vision-exp.md	delete	Deleted upstream landing-page pricing, subscription and AMR analytics work	false
+docs/superpowers/plans/2026-08-23-restore-migrated-pricing-analytics.md	delete	Deleted upstream landing-page pricing, subscription and AMR analytics work	false
+docs/superpowers/plans/2026-08-23-vela-pricing-analytics-bridge.md	delete	Deleted upstream landing-page pricing, subscription and AMR analytics work	false
+docs/superpowers/specs/2026-08-21-pricing-deepseek-v4-flash-vision-exp-design.md	delete	Deleted upstream landing-page pricing, subscription and AMR analytics work	false
+docs/superpowers/specs/2026-08-23-restore-pricing-plan-exposure-design.md	delete	Deleted upstream landing-page pricing, subscription and AMR analytics work	false
+docs/telemetry/crash-and-exit.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/telemetry/preview-and-navigation.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/telemetry/responsiveness.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/telemetry/stability-metrics.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/telemetry/update-lifecycle.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/amr-auth-sync-rules.zh-CN.md	delete	Removed upstream cloud runtime, account, wallet, and packaged bridge flows	false
+docs/testing/amr-functional-test-cases.md	delete	Removed upstream cloud runtime, account, wallet, and packaged bridge flows	false
+docs/testing/amr-functional-test-cases.zh-CN.md	delete	Removed upstream cloud runtime, account, wallet, and packaged bridge flows	false
+docs/testing/amr-runtime-contract.md	delete	Removed upstream cloud runtime, account, wallet, and packaged bridge flows	false
+docs/testing/amr-smoke-p0.zh-CN.md	delete	Removed upstream cloud runtime, account, wallet, and packaged bridge flows	false
+docs/testing/codex-patch-streaming.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/diagnostics-environment.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/desktop.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/entry.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/project-management.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/README.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/settings.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/status.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/e2e-coverage/workspace.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/home-entry-coverage-summary.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/html-preview-coverage-summary.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/launch-review-e2e-regressions.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/main-ci-alerts.zh-CN.md	delete	Removed upstream installer or release/notification automation	false
+docs/testing/opend-3516-c1-lost-comment-publication.md	delete	Removed upstream cloud publication and identity-comment acceptance flow	false
+docs/testing/plugin-registry-eval-cases.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/plugin-system-test-suite.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/share-chain-probe.md	delete	Removed upstream cloud publication and identity-comment acceptance flow	false
+docs/testing/syntax-acceptance.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/test-efficiency.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/tool-argument-streaming.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/testing/updater-lifecycle.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/typescript-7.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/v0.8.0-announcement.md	delete	Upstream product launch announcement	false
+docs/v0.8.0-announcement.zh-CN.md	delete	Upstream product launch announcement	false
+docs/whats-new.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/whats-new.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/windows-troubleshooting.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/wsl-setup.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+MAINTAINERS.md	delete	Upstream organization governance and promotion rules	false
+RELEASE-NOTES-0.10.0.md	delete	Upstream release announcement	false
+specs/2026-04-29-live-artifacts/checklist.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/invalid-credential-like-fields/artifact.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/invalid-credential-like-fields/data.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/invalid-credential-like-fields/template.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/invalid-forbidden-raw-fields/artifact.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/invalid-forbidden-raw-fields/data.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/invalid-forbidden-raw-fields/template.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/minimal-static/artifact.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/minimal-static/data.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/minimal-static/provenance.json	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/examples/minimal-static/template.html	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/2026-04-29-live-artifacts/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/change/20260430-implement-maintainability-w2-w3/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-agents-ts-split/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/phase1-notes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/phase2-notes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/phase3-notes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/phase4-notes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/phase5-notes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/phase6-notes.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260509-token-first-tailwind/token.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260511-default-english-resource-i18n-fallback/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260511-issue-138-conversation-run-isolation/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260511-issue-145-unit-test-reproduction/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260511-issue-564-claude-diagnostics/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260513-optional-content-i18n/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260522-pr-explore-agent/spec.md	delete	Unimplemented upstream advisory workflow; not OpenPixo PR CI policy	false
+specs/change/20260529-claude-session-resume/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260601-amr-model-loading-cache/spec.md	delete	Removed upstream cloud runtime/account behavior	false
+specs/change/20260608-hidden-packaged-amr-profile-menu/spec.md	delete	Removed upstream cloud runtime/account behavior	false
+specs/change/20260618-plugin-preview-bake-pipeline/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260618-stability-performance-3408/agent-cli-session-resume.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/coordination/archive/agent-startup-latency-profiling.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260618-stability-performance-3408/amr-latency-session-reuse-prompt-cache.md	delete	Upstream AMR production latency, billing and external-cloud implementation plan	false
+specs/change/20260618-stability-performance-3408/engineering-failure-reduction.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+docs/coordination/archive/stability-performance-3408.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260622-openpixo-account-avatar/spec.md	delete	Removed upstream cloud runtime/account behavior	false
+specs/change/20260627-agent-cli-contract-registry/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/change/20260707-agent-session-map-contract/spec.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	true
+specs/current/ai-native-observability-loop.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/architecture-boundaries.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/automation-self-evolution.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-artifact-versioning-design.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-ai-handoff.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-component-gap-2026-09-02.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-decisions-sheet.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-dev-design.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-dispatch-2026-09-02.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-edge-audit.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-feedback.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-handoff.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-input-audit.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-issue-log-2026-08-28.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-manual-qa.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-next-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-next-review.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-next.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-observability.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-outro-audit.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/chat-panel-pr7170-design-diff.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-panel-text-selection-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/chat-stream-scroll-research.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/ci.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/cli-rename-pixo.md	preserve	Protected provenance, migration source, or historical coordination record	false
+specs/current/creative-memory-integration-shape.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/critique-theater-plan.md	delete	Specification for deleted design-system or jury UI	false
+specs/current/critique-theater.md	delete	Specification for deleted design-system or jury UI	false
+specs/current/daemon-http-adapter.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/decouple-skipped-domains.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/deepseek-harness-phase-one-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/deepseek-harness-profile-adapter.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/deepseek-harness-sdk-adapter.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/deepseek-harness-sdk-implementation-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/design-system-2-backfill-plan.md	delete	Specification for deleted design-system or jury UI	false
+specs/current/design-system-import-project.md	delete	Specification for deleted design-system or jury UI	false
+specs/current/evidence/plane-chatpanel-2026-09-01/attachments/manifest.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/maintainability-roadmap.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/manual-edit-direct-manipulation.zh-CN.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/manual-edit-mode-requirements.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-phase1-game-harness.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-phase2-multi-agent.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-phase3-assets.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-phase4-studio.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-phase6-store.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-phase7-site-release.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/openpixo-session-sidebar.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/plugin-authoring-flow-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/plugin-driven-flow-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/plugin-registry-strategy-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/remove-upstream-traces.md	preserve	Protected provenance, migration source, or historical coordination record	false
+specs/current/research-feature.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/run-analytics-v4-test-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/run-error-catalog.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+docs/coordination/archive/run-failure-action-mismatch-2026-09-02.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/run-reliability-optimization-plan.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/run-scoped-media-execution-policy.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/run.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/runtime-adapter.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/skills-and-design-templates.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/status.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/studio-chat-response-information-architecture.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/current/studio-chat-visual-discovery.md	keep-rewrite	Retained runtime, tooling, product plan, API/schema, test contract, or craft reference	false
+specs/pixo-clipper.md	delete	Removed browser clipper domain	false

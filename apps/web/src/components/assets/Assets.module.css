@@ -1,0 +1,40 @@
+.meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; color: var(--text-muted); font-size: 12px; }
+.dialogContent { display: flex; flex-direction: column; height: 100%; max-height: inherit; }
+.dialogHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); }
+.dialogHeader h2 { font-size: 16px; margin: 0; }
+.dialogBody { min-height: 0; padding: 16px; overflow: auto; }
+.dialogBody label { display: grid; gap: 4px; font-size: 13px; color: var(--text-muted); }
+.dialogBody a { color: var(--accent); }
+.detailPath { margin: 0 0 12px; overflow-wrap: anywhere; font-size: 14px; }
+.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.inline > label { flex: 1; min-width: 80px; }
+.inline > input { flex: 1; min-width: 120px; width: 120px; }
+.largePreview { display: block; width: 100%; max-height: 360px; object-fit: contain; margin: 16px 0; border-radius: 4px; background: var(--bg-elevated); }
+.audio { width: 100%; }
+.waveform { display: block; width: 100%; height: 120px; margin: 16px 0; background: var(--bg-elevated); border-radius: 4px; }
+.waveform path { stroke: var(--accent); stroke-width: 1; fill: none; }
+.sprite { display: block; flex: none; max-width: none; background: var(--bg-elevated); image-rendering: pixelated; }
+.sprite image { image-rendering: pixelated; }
+.pixelViewport { display: flex; align-items: safe center; justify-content: safe center; width: 100%; min-width: 0; overflow: auto; }
+.pixelViewport > img { flex: none; max-width: none; object-fit: contain; }
+.frameCell { fill: none; stroke: var(--white, #fff); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .65; }
+.frameCell[data-current='true'] { stroke: var(--violet); stroke-width: 2; opacity: 1; }
+.detailSection { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 16px; }
+.detailSection h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.facts { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, 3fr); gap: 8px 12px; font-size: 13px; }
+.facts dt { color: var(--text-muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.prompt { white-space: pre-wrap; }
+.hash { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.semanticList, .reportList { list-style: none; padding: 0; display: grid; gap: 12px; font-size: 13px; }
+.semanticList li, .reportList li { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+.tag button { padding: 2px 4px; min-height: 24px; }
+.gridForm, .operationForm { display: grid; gap: 12px; margin-top: 12px; }
+.operationFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; padding: 0; border: 0; min-width: 0; margin: 0; }
+.provenance + .provenance { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.muted { color: var(--text-muted); font-size: 13px; }
+.warning { color: var(--amber); font-size: 13px; }
+.error { color: var(--red); overflow-wrap: anywhere; }
+
+.pixelViewport.compactPreview[class] { display: flex; height: auto; aspect-ratio: 1; overflow: hidden; }

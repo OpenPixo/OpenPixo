@@ -1,0 +1,70 @@
+/* Panel header row (specs/current/openpixo-game-panel.md §3). One 48px row;
+   the shell stylesheet's `.app .ws-tabs-shell` rule wraps, this one does not:
+   the switcher shrinks before anything leaves the row. */
+:global(.app) .header:global(.ws-tabs-shell) {
+  flex-wrap: nowrap;
+  height: var(--shell-header-height);
+  min-height: var(--shell-header-height);
+}
+
+.actions:global(.ws-tabs-actions) {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* Quiet segmented control: no well, the selected view carries the only fill. */
+:global(.app) .switcher {
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 2px;
+  padding: 0;
+  border-radius: var(--shell-radius);
+  background: transparent;
+  box-shadow: none;
+  scrollbar-width: none;
+}
+:global(.app) .switcher::-webkit-scrollbar { display: none; }
+
+:global(.app) .switcher [role='tab'] {
+  gap: 6px;
+  height: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  padding: 0 10px;
+  border-radius: var(--shell-radius);
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  font: var(--shell-meta-font);
+  transition: background 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+:global(.app) .switcher [role='tab']:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-strong);
+  transition-duration: 200ms;
+}
+:global(.app) .switcher [role='tab'][aria-selected='true'],
+:global(.app) .switcher [role='tab'][aria-selected='true']:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: none;
+  font-weight: 600;
+}
+:global(.app) .switcher [role='tab']:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: 600 11px/16px var(--mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.app) .switcher [role='tab'] { transition: none; }
+}

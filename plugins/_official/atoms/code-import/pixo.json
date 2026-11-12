@@ -1,0 +1,33 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "code-import",
+  "title": "Code import",
+  "version": "0.1.0",
+  "publishedAt": "2026-05-09T14:22:18Z",
+  "description": "Inspect an existing project and record a reusable snapshot of its structure.",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "atom",
+    "first-party"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "atom",
+    "scenario": "general",
+    "mode": "import",
+    "capabilities": [
+      "prompt:inject",
+      "fs:read"
+    ]
+  }
+}

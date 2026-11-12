@@ -1,0 +1,150 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "pixo-media-generation",
+  "title": "Media generation (default scenario)",
+  "title_i18n": {
+    "en": "Media generation (default scenario)",
+    "zh-CN": "媒体生成（默认场景）",
+    "zh-TW": "媒體生成（預設場景）",
+    "ja": "メディア生成（デフォルトシナリオ）",
+    "ko": "미디어 생성 (기본 시나리오)",
+    "de": "Medienerzeugung (Standard-Szenario)",
+    "fr": "Génération de médias (scénario par défaut)",
+    "ru": "Генерация медиа (сценарий по умолчанию)",
+    "es": "Generación de medios (escenario predeterminado)",
+    "pt-BR": "Geração de mídia (cenário padrão)",
+    "it": "Generazione media (scenario predefinito)",
+    "vi": "Tạo media (kịch bản mặc định)",
+    "pl": "Generowanie mediów (scenariusz domyślny)",
+    "id": "Pembuatan media (skenario default)",
+    "nl": "Mediageneratie (standaardscenario)",
+    "ar": "توليد الوسائط (السيناريو الافتراضي)",
+    "tr": "Medya üretimi (varsayılan senaryo)",
+    "uk": "Генерація медіа (типовий сценарій)"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-05-12T12:54:33Z",
+  "description": "Default scenario plugin for image, video, and audio projects.",
+  "description_i18n": {
+    "en": "Default scenario plugin for image, video, and audio projects.",
+    "zh-CN": "面向图像、视频和音频项目的默认场景插件。",
+    "zh-TW": "面向影像、影片和音訊專案的預設場景外掛。",
+    "ja": "画像、動画、音声プロジェクト向けのデフォルトシナリオプラグイン。",
+    "ko": "이미지, 비디오, 오디오 프로젝트를 위한 기본 시나리오 플러그인.",
+    "de": "Standardszenario-Plugin für Bild-, Video- und Audio-Projekte.",
+    "fr": "Plugin de scénario par défaut pour les projets image, vidéo et audio.",
+    "ru": "Плагин сценария по умолчанию для проектов с изображением, видео и аудио.",
+    "es": "Plugin de escenario por defecto para proyectos de imagen, video y audio.",
+    "pt-BR": "Plugin de cenário padrão para projetos de imagem, vídeo e áudio.",
+    "it": "Plugin scenario predefinito per progetti immagine, video e audio.",
+    "vi": "Plugin kịch bản mặc định cho dự án hình ảnh, video và âm thanh.",
+    "pl": "Domyślna wtyczka scenariusza dla projektów obrazu, wideo i audio.",
+    "id": "Plugin skenario default untuk proyek gambar, video, dan audio.",
+    "nl": "Standaardscenarioplug-in voor beeld-, video- en audioprojecten.",
+    "ar": "إضافة سيناريو افتراضية لمشاريع الصور والفيديو والصوت.",
+    "tr": "Görsel, video ve ses projeleri için varsayılan senaryo eklentisi.",
+    "uk": "Типовий плагін сценарію для проєктів зображень, відео та аудіо."
+  },
+  "license": "MIT",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "scenario",
+    "first-party",
+    "media-generation",
+    "image",
+    "video",
+    "audio"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "scenario": "media-generation",
+    "mode": "scenario",
+    "pipeline": {
+      "stages": [
+        {
+          "id": "plan",
+          "atoms": [
+            "todo-write"
+          ]
+        },
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image",
+            "media-video",
+            "media-audio"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image",
+      "media:video",
+      "media:audio",
+      "fs:write"
+    ],
+    "useCase": {
+      "query": {
+        "en": "Generate a game-ready {{mediaKind}} of {{subject}}. Style: {{style}}. Aspect: {{aspect}}. Use the configured media capability for this kind, save the result in the project workspace, and report the output file path.",
+        "zh-CN": "生成可用于游戏的 {{mediaKind}}，内容为 {{subject}}。风格：{{style}}。画幅：{{aspect}}。使用已配置的对应媒体能力，将结果保存在项目工作区，并报告输出文件路径。"
+      },
+      "exampleOutputs": []
+    },
+    "inputs": [
+      {
+        "name": "mediaKind",
+        "type": "string",
+        "required": false,
+        "label": "Media kind",
+        "placeholder": "image",
+        "options": [
+          "image",
+          "video",
+          "audio"
+        ],
+        "default": "image"
+      },
+      {
+        "name": "subject",
+        "type": "string",
+        "required": true,
+        "label": "Subject",
+        "placeholder": "A torchlit stone doorway for a dungeon level"
+      },
+      {
+        "name": "style",
+        "type": "string",
+        "required": false,
+        "label": "Style",
+        "placeholder": "cinematic, soft volumetric light"
+      },
+      {
+        "name": "aspect",
+        "type": "string",
+        "required": false,
+        "label": "Aspect",
+        "placeholder": "16:9",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ]
+  }
+}

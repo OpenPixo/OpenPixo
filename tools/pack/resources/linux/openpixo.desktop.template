@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=OpenPixo (@@NAMESPACE@@)
+GenericName=OpenPixo
+Comment=OpenPixo packaged build (@@NAMESPACE@@)
+Exec=env -u ELECTRON_RUN_AS_NODE PIXO_PACKAGED_NAMESPACE=@@NAMESPACE@@ @@EXEC_PATH@@ --appimage-extract-and-run %U
+Icon=@@ICON_PATH@@
+Categories=Development;Utility;
+StartupWMClass=OpenPixo
+StartupNotify=true
+Terminal=false
+MimeType=x-scheme-handler/openpixo;

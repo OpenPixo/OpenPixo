@@ -1,0 +1,74 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/phaser-game-dev",
+  "title": "Phaser 3 game development craft",
+  "title_i18n": {
+    "en": "Phaser 3 game development craft",
+    "zh-CN": "Phaser 3 游戏开发规范"
+  },
+  "version": "0.1.0",
+  "description": "Write engine-correct Phaser 3 + Vite + TypeScript game code in an OpenPixo game project — scene lifecycle and data passing, loader keys, spritesheets and TexturePacker atlases, Arcade physics, keyboard and gamepad input, registry state, localStorage saves, scaling, Vite public-dir asset paths — and verify with `pixo game verify`.",
+  "description_i18n": {
+    "en": "Write engine-correct Phaser 3 + Vite + TypeScript game code in an OpenPixo game project — scene lifecycle and data passing, loader keys, spritesheets and TexturePacker atlases, Arcade physics, keyboard and gamepad input, registry state, localStorage saves, scaling, Vite public-dir asset paths — and verify with `pixo game verify`.",
+    "zh-CN": "在 OpenPixo 游戏项目里编写符合规范的 Phaser 3 + Vite + TypeScript 代码：场景生命周期与传参、加载键、精灵表与 TexturePacker 图集、Arcade 物理、键盘与手柄输入、registry 全局状态、localStorage 存档、缩放配置、Vite public 目录资源路径，并用 `pixo game verify` 验证。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "engines": [
+    "phaser"
+  ],
+  "tags": [
+    "skill",
+    "first-party",
+    "openpixo",
+    "game-development",
+    "phaser"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Separate menu and gameplay",
+      "title_i18n": {
+        "zh-CN": "拆分菜单与玩法场景"
+      },
+      "prompt": "Split the Phaser sample platformer into Menu and Game scenes. Add Start and Restart actions, preserve its assets and coin rules, and verify restarting five times creates no duplicate listeners.",
+      "prompt_i18n": {
+        "zh-CN": "把 Phaser 示例平台游戏拆成 Menu 和 Game 场景。加入开始和重开操作，保留素材与金币规则，并验证连续重开五次不会重复注册监听。"
+      }
+    },
+    {
+      "title": "Add gamepad movement",
+      "title_i18n": {
+        "zh-CN": "加入手柄移动"
+      },
+      "prompt": "Add gamepad movement and jump to the Phaser sample platformer alongside the existing keyboard controls. Apply a stick deadzone, handle disconnection, and verify the TypeScript build.",
+      "prompt_i18n": {
+        "zh-CN": "在 Phaser 示例平台游戏的现有键盘操作之外加入手柄移动和跳跃。设置摇杆死区，处理断连，并验证 TypeScript 构建。"
+      }
+    },
+    {
+      "title": "Build a persistent score HUD",
+      "title_i18n": {
+        "zh-CN": "构建持久最高分 HUD"
+      },
+      "prompt": "Move the Phaser sample platformer's score display into a parallel HUD scene using registry events. Persist the best score with guarded localStorage access, clean up on shutdown, and run pixo game verify.",
+      "prompt_i18n": {
+        "zh-CN": "用 registry 事件把 Phaser 示例平台游戏的分数显示移入并行 HUD 场景。通过带错误处理的 localStorage 保存最高分，在场景关闭时清理，并运行 pixo game verify。"
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "gameplay-trailer-30s-beat-sheet",
+  "surface": "video",
+  "title": "Gameplay Trailer - 30s Beat Sheet",
+  "summary": "A 30-second indie gameplay trailer planned as six shots: hook, core loop, variety, escalation, climax and a clean end-card hold for the logo and wishlist call to action. Each shot is generated as its own short clip under one shared style lock, then cut to the music in an editor.",
+  "category": "Cinematic",
+  "tags": [
+    "trailer",
+    "gameplay",
+    "steam",
+    "beat-sheet",
+    "marketing",
+    "shot-list"
+  ],
+  "model": "doubao-seedance-2-0-260128",
+  "aspect": "16:9",
+  "prompt": "A 30-second gameplay trailer for an indie game, planned as six shots. Generate each shot as its own clip (4 to 6 seconds) using the shared style lock below, then cut them together on the music beats in an editor. The trailer must look like the actual game: same camera, same art style, same HUD in every shot.\n\nGame: {argument name=\"game_pitch\" default=\"a fast top-down action roguelite where a clockwork knight fights through a collapsing sky fortress\"}.\n\n# Style lock (repeat in every shot)\n- Art style: {argument name=\"art_style\" default=\"crisp hand-painted 2D sprites on detailed tiled environments, top-down three-quarter camera\"}.\n- Camera: the real gameplay camera, smooth follow, only small push-ins for emphasis. No cinematic angles the game cannot produce.\n- Palette and light: {argument name=\"palette\" default=\"sunset gold and deep blue, bright cyan player effects, enemies in warm reds\"}.\n- Minimal HUD present and consistent (health top-left, abilities bottom-centre). No subtitles or burned-in captions.\n\n# Shot list\n1. HOOK (0-4s): the single most striking moment of play with no context: {argument name=\"hook_moment\" default=\"the knight parries a giant laser beam back into a flying war machine, which explodes in slow motion\"}. Starts mid-action on frame one.\n2. CORE LOOP (4-9s): one clean, readable example of the core loop: {argument name=\"core_loop\" default=\"dash in, three-hit combo, dodge an attack, collect the dropped gears\"}. Calm camera so new viewers understand the verbs.\n3. VARIETY (9-15s): two quick contrasting beats showing different places and enemies: {argument name=\"variety\" default=\"a wind-swept bridge with flying enemies, then a dark engine room full of turrets\"}.\n4. ESCALATION (15-21s): the build getting powerful: {argument name=\"escalation\" default=\"chained upgrades make every hit spawn spinning saw blades that shred a crowded room\"}. Fastest cutting, most on-screen action.\n5. CLIMAX (21-26s): a boss or set piece: {argument name=\"climax\" default=\"a towering clockwork dragon rises behind the fortress spire and roars, the knight charges at it\"}. Hold the widest framing of the trailer.\n6. END CARD HOLD (26-30s): the action cuts to a calm, slowly drifting key-art-like frame with a clear empty centre for the logo and the line Wishlist on Steam, to be added in the editor. No text generated in the clip.\n\n# Pacing and sound\n- Cut on the beat of {argument name=\"music\" default=\"a driving synth-orchestral track at about 128 BPM\"}, a short silence right before the climax, the biggest hit on the boss roar.\n- Diegetic impacts and whooshes audible under the music.\n\n# Avoid\nGenerated text, logos or captions, slow cinematic fly-throughs that do not match gameplay, flickering or morphing sprites, inconsistent character design between shots, real game or brand logos, watermarks.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

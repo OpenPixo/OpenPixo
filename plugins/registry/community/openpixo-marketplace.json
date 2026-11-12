@@ -1,0 +1,14 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo-community",
+  "version": "0.1.0",
+  "owner": {
+    "name": "OpenPixo Community"
+  },
+  "metadata": {
+    "description": "No community items are bundled with OpenPixo.",
+    "version": "0.1.0",
+    "bundledPreinstallCount": 0
+  },
+  "plugins": []
+}

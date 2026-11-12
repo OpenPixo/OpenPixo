@@ -1,0 +1,64 @@
+/* Fills its cell; sizes and blur follow the cell, from a 52px card thumbnail to a large image slot. */
+.root {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  container-type: size;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(14cqmin);
+  will-change: transform;
+}
+
+.violet {
+  top: -30%;
+  left: -8%;
+  width: 62%;
+  background: var(--violet);
+  animation: generating-glow-violet 7s ease-in-out infinite alternate;
+}
+
+.lilac {
+  right: -10%;
+  bottom: -40%;
+  width: 58%;
+  background: color-mix(in srgb, var(--violet) 50%, var(--bg-panel));
+  animation: generating-glow-lilac 8s ease-in-out infinite alternate;
+}
+
+.lime {
+  top: 30%;
+  left: 40%;
+  width: 30%;
+  background: var(--lime);
+  opacity: 0.8;
+  animation: generating-glow-lime 6s ease-in-out infinite alternate;
+}
+
+@keyframes generating-glow-violet {
+  to { transform: translate(70%, 38%) scale(0.86); }
+}
+
+@keyframes generating-glow-lilac {
+  to { transform: translate(-85%, -42%) scale(1.1); }
+}
+
+@keyframes generating-glow-lime {
+  from { transform: translate(-90%, 30%); }
+  to { transform: translate(80%, -40%) scale(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob {
+    animation: none;
+    will-change: auto;
+  }
+}

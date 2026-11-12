@@ -1,0 +1,42 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/save-load-and-settings",
+  "version": "0.1.0",
+  "title": "Save evolution and persistent settings",
+  "title_i18n": {
+    "en": "Save evolution and persistent settings",
+    "zh-CN": "存档演进与持久化设置"
+  },
+  "description": "Extend an existing save system with migration fixtures, future-version protection, corruption recovery and settings independent of progression in Godot 4 and Phaser 3.",
+  "description_i18n": {
+    "en": "Extend an existing save system with migration fixtures, future-version protection, corruption recovery and settings independent of progression in Godot 4 and Phaser 3.",
+    "zh-CN": "为 Godot 4 与 Phaser 3 的现有存档系统补充迁移样例、新版本保护、损坏恢复，以及独立于游戏进度的设置。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "engines": ["godot", "unity", "phaser"],
+  "tags": ["game-development", "first-party", "openpixo", "godot", "unity", "phaser", "saves", "settings"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    {
+      "title": "Migrate an existing save",
+      "title_i18n": { "zh-CN": "迁移现有存档" },
+      "prompt": "Inspect this game's existing save manager and move the current format to version 2 without losing coin totals or checkpoint progress. Add invented old/current/future save fixtures, preserve unsupported future saves, and verify the game.",
+      "prompt_i18n": { "zh-CN": "检查这个游戏现有的存档管理器，把当前格式升级到第 2 版且不丢失金币总数或存档点进度。加入虚构的旧版、当前版和未来版存档样例，保留不支持的未来版本存档，然后验证游戏。" }
+    },
+    {
+      "title": "Keep settings through New Game",
+      "title_i18n": { "zh-CN": "开始新游戏时保留设置" },
+      "prompt": "Separate volume and language preferences from the existing progression save. New Game should reset progress while keeping settings, Reset Settings should not delete progress, and failed writes should show an honest message. Test a restart and verify the build.",
+      "prompt_i18n": { "zh-CN": "把音量和语言偏好从现有进度存档中分离。开始新游戏只重置进度并保留设置，重置设置不能删除进度，写入失败时要如实提示。检查一次重启并验证构建。" }
+    },
+    {
+      "title": "Exercise corrupt-save recovery",
+      "title_i18n": { "zh-CN": "检查损坏存档恢复" },
+      "prompt": "Harden the current save loader against truncated JSON and invalid field types using isolated fixture slots. Recover from a validated backup when possible, preserve unreadable data, and show the recovered checkpoint or a clear recovery choice. Run regression checks and pixo game verify.",
+      "prompt_i18n": { "zh-CN": "用隔离的样例存档槽检查现有读取器对截断 JSON 和错误字段类型的处理。能够恢复时使用验证过的备份，保留无法读取的数据，并显示恢复的存档点或明确的恢复选项。运行回归检查和 pixo game verify。" }
+    }
+  ]
+}

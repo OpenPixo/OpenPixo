@@ -1,0 +1,185 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/ui-sfx-pack",
+  "title": "UI sound effect",
+  "title_i18n": {
+    "en": "UI sound effect",
+    "zh-CN": "UI 音效"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Variations of one short UI sound (click, confirm, error, pickup), trimmed, loudness-normalized and converted for the engine. Run once per sound to build a pack.",
+  "description_i18n": {
+    "en": "Variations of one short UI sound (click, confirm, error, pickup), trimmed, loudness-normalized and converted for the engine. Run once per sound to build a pack.",
+    "zh-CN": "一种短 UI 音效（点击、确认、错误、拾取）的多个变体，裁掉静音、响度规整并转换格式。每种音效运行一次即可组成音效包。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "audio",
+    "sfx"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "audio",
+      "category": "sfx",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "sound",
+          "label": "Sound",
+          "label_i18n": {
+            "zh-CN": "音效"
+          },
+          "type": "select",
+          "options": [
+            "button click",
+            "hover tick",
+            "confirm",
+            "cancel",
+            "error buzz",
+            "notification chime",
+            "coin pickup",
+            "purchase",
+            "level up",
+            "menu open",
+            "menu close"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "button click": "按钮点击",
+              "hover tick": "悬停提示音",
+              "confirm": "确认",
+              "cancel": "取消",
+              "error buzz": "错误提示音",
+              "notification chime": "通知铃声",
+              "coin pickup": "拾取金币",
+              "purchase": "购买",
+              "level up": "升级",
+              "menu open": "打开菜单",
+              "menu close": "关闭菜单"
+            }
+          },
+          "default": "button click"
+        },
+        {
+          "name": "timbre",
+          "label": "Sound character",
+          "label_i18n": {
+            "zh-CN": "音色"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "soft wooden tap",
+          "placeholder_i18n": {
+            "zh-CN": "轻柔的木质敲击"
+          }
+        },
+        {
+          "name": "lufs",
+          "label": "Loudness target (LUFS)",
+          "label_i18n": {
+            "zh-CN": "目标响度（LUFS）"
+          },
+          "type": "select",
+          "options": [
+            "-14",
+            "-16",
+            "-18"
+          ],
+          "default": "-16"
+        },
+        {
+          "name": "format",
+          "label": "Format",
+          "label_i18n": {
+            "zh-CN": "格式"
+          },
+          "type": "select",
+          "options": [
+            "ogg",
+            "wav"
+          ],
+          "default": "ogg"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "ui_click"
+        }
+      ],
+      "prompt": "Short video game UI sound effect: {{sound}}. Sound character: {{timbre}}. One clean one-shot under one second with a sharp attack and a quick natural decay. No reverb tail, no music, no voice, no background noise.",
+      "models": {
+        "requires": [
+          "sfx"
+        ],
+        "recommended": [
+          "elevenlabs-sfx"
+        ],
+        "fallback": [
+          "audiocraft"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 4,
+          "max": 8
+        }
+      },
+      "postprocess": [
+        {
+          "op": "audio-trim",
+          "params": {
+            "silenceThreshold": -50
+          }
+        },
+        {
+          "op": "audio-normalize",
+          "params": {
+            "lufs": "{{lufs}}"
+          }
+        },
+        {
+          "op": "audio-convert",
+          "params": {
+            "format": "{{format}}"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "loudness-range",
+          "params": {
+            "minLufs": -19,
+            "maxLufs": -13
+          }
+        },
+        {
+          "check": "duration-range",
+          "params": {
+            "minMs": 30,
+            "maxMs": 2000
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.audioRoot}}/sfx/ui",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

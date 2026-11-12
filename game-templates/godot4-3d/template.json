@@ -1,0 +1,8 @@
+{
+  "id": "godot4-3d",
+  "name": "Godot 4 · 3D",
+  "engine": "godot",
+  "description": "A 3D cube with a title screen, settings, gamepad support, key rebinding, saves and a string table. GDScript.",
+  "nameZhCN": "Godot 4 · 3D",
+  "descriptionZhCN": "使用 GDScript 编写的 3D 方块，自带标题画面、设置、手柄与改键、存档和多语言字符串表。"
+}

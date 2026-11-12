@@ -1,0 +1,23 @@
+{
+  "id": "pixel-sprite-3d-diorama",
+  "surface": "image",
+  "title": "Pixel Sprite 3D Diorama (Tilt-Shift 2.5D)",
+  "summary": "A 2.5D diorama scene that places crisp pixel-art character sprites inside a lit, low-detail 3D environment with tilt-shift depth of field, bloom and volumetric light, the look popular in modern retro-inspired RPGs. Slots for location, party, time of day and palette.",
+  "category": "Illustration",
+  "tags": [
+    "pixel-art",
+    "2-5d",
+    "diorama",
+    "jrpg",
+    "tilt-shift",
+    "environment"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "An in-game screenshot of a retro-inspired RPG that combines 2D pixel-art sprites with a 3D diorama environment.\n\nLocation: {argument name=\"location\" default=\"a canal-side harbour town at dusk, stone bridges, stacked timber houses and moored fishing boats\"}.\nParty: {argument name=\"party\" default=\"four adventurers walking in a line across a bridge: a knight, a mage in a wide hat, a scout and a small alchemist\"}.\nTime and weather: {argument name=\"time_of_day\" default=\"blue-hour dusk with lanterns just lit and light drifting mist\"}.\n\n# Look\n- Characters and NPCs are flat, front-facing pixel sprites (about 32 pixels tall, crisp nearest-neighbour pixels, limited palette) standing upright inside the 3D world, casting soft real-time shadows on the ground.\n- The environment is simple 3D geometry with pixel-art textures on every surface, so it feels like a miniature model set.\n- Strong tilt-shift depth of field: the band containing the party is sharp, foreground and far background melt into soft bokeh.\n- Modern lighting on retro assets: warm lantern point lights with bloom, cool ambient sky light, volumetric light shafts through the mist, gentle reflections in the canal water.\n\n# Camera and composition\n- Elevated three-quarter camera at about 30 degrees, slightly zoomed like a diorama photographed from above.\n- Party on the lower-third line, walking left to right toward a glowing focal landmark ({argument name=\"landmark\" default=\"a lighthouse on the far pier\"}).\n- Clear foreground framing elements (rooftops, hanging lanterns) out of focus at the edges.\n\n# Palette\n{argument name=\"palette\" default=\"deep blues and teal shadows against warm orange lantern light, small pink accents in the sky\"}.\n\n# Avoid\nHigh-poly realistic characters, blurry or smeared sprites, mixed sprite resolutions, photographic textures, UI, dialogue boxes, text, watermarks, and any recognisable existing game characters.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

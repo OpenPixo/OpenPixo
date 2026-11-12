@@ -1,0 +1,26 @@
+.section { min-width: 0; scroll-margin-top: 24px; }
+.toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; color: var(--ink-2); font-size: 14px; }
+.toggle > input { width: 16px; height: 16px; padding: 0; margin: 0; }
+.group + .group { margin-top: 24px; }
+.group > h4 { margin: 0 0 12px; color: var(--ink-2); font-size: 14px; font-weight: 600; }
+.card[data-suggested="true"] { border-color: var(--violet); }
+.suggestedTag { color: var(--violet-strong); background: var(--violet-soft); white-space: normal; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.header h3.embeddedTitle { margin: 0; }
+.header h3 { margin: 8px 0 6px; color: var(--ink); font: 600 22px/1.2 var(--sans); letter-spacing: -.025em; }
+.header p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.6; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); gap: 12px; }
+.card { min-width: 0; overflow: hidden; }
+.card[data-selected="true"] { box-shadow: 0 0 0 1px var(--violet), var(--sh-1); }
+.cover { position: relative; background: var(--violet-soft); }
+.cover > img, .cover > svg { aspect-ratio: 16 / 10; }
+.defaultTag { position: absolute; left: 10px; bottom: 10px; background: white; color: var(--violet); }
+.info { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; }
+.info h4 { margin: 0; color: var(--ink); font: 600 15px/1.35 var(--sans); letter-spacing: -.015em; }
+.info p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-height: 38px; margin: 0 0 4px; overflow: hidden; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
+.info > button { margin-top: auto; }
+.status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--ink-2); font-size: 14px; line-height: 1.6; }
+.error { color: var(--danger); font-size: 14px; }
+@container (max-width: 860px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 600px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .header { align-items: flex-start; flex-direction: column; } }
+@container (max-width: 340px) { .grid { grid-template-columns: minmax(0, 1fr); } }

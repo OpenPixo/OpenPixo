@@ -1,0 +1,20 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo/enemy-ai-state-machines",
+  "version": "0.1.0",
+  "title": "Enemy AI state machines",
+  "title_i18n": { "en": "Enemy AI state machines", "zh-CN": "敌人 AI 状态机" },
+  "description": "Create patrol, chase, attack and flee behavior with explicit transitions, safe movement, attack timing and debug overlays.",
+  "description_i18n": { "en": "Create patrol, chase, attack and flee behavior with explicit transitions, safe movement, attack timing and debug overlays.", "zh-CN": "构建巡逻、追击、攻击和逃跑行为，明确状态转换、安全移动和攻击时序，并加入调试显示。" },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "tags": ["game-development", "first-party", "openpixo", "godot", "unity", "phaser", "enemy-ai", "state-machine"],
+  "engines": ["godot", "unity", "phaser"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    { "title": "Add a patrol enemy", "title_i18n": { "zh-CN": "加入巡逻敌人" }, "prompt": "Add one enemy to the ground strip in this Phaser sample platformer. Make it patrol between two safe points, chase nearby players and stop at attack range. Show its state with a debug label and verify the build.", "prompt_i18n": { "zh-CN": "给这个 Phaser 平台跳跃示例的地面加入一个敌人，让它在两个安全点之间巡逻、追击附近玩家并在攻击距离停下，用调试标签显示状态，然后验证构建。" } },
+    { "title": "Make attacks readable and single-hit", "title_i18n": { "zh-CN": "让攻击可读且只命中一次" }, "prompt": "Give this Godot 2D enemy a 0.2-second attack windup, one strike and recovery until 0.55 seconds. Cancel cleanly if it dies or the player respawns, and add transition logging before running the Godot check.", "prompt_i18n": { "zh-CN": "给这个 Godot 2D 敌人加入 0.2 秒攻击前摇、一次打击和持续到 0.55 秒的后摇，在敌人死亡或玩家重生时正确取消，并加入状态转换日志，然后运行 Godot 检查。" } },
+    { "title": "Add a low-health flee state", "title_i18n": { "zh-CN": "加入低生命逃跑状态" }, "prompt": "Make the enemy flee when it has one health point and the player is nearby. Keep it from walking off platforms, show patrol/chase/attack/flee in a debug overlay and give me a manual transition checklist.", "prompt_i18n": { "zh-CN": "让敌人在只剩一点生命且玩家靠近时逃跑，防止它走下平台，在调试显示中标出巡逻、追击、攻击和逃跑，并给出手动状态转换检查表。" } }
+  ]
+}

@@ -1,0 +1,19 @@
+OpenPixo
+Copyright 2026 OpenPixo contributors.
+
+This product contains software developed by the OpenDesign project and its
+contributors: https://github.com/nexu-io/open-design
+
+OpenPixo is derived from OpenDesign commit
+9724c44142ea0afaee3d207f37901b31c66a44ad (version 0.25.1).
+OpenPixo contributors modified the application identity, local game-project
+workflow, asset selection, project extensions and native Codex integration.
+
+The repository root LICENSE is Apache-2.0. Bundled skills, templates, assets
+and dependencies retain their own licenses and copyright notices. In
+particular, design-templates/guizang-ppt, design-templates/html-ppt, and
+skills/web-clone retain their bundled MIT licenses. See docs/references.md
+for upstream provenance and each bundled component's LICENSE file.
+
+OpenDesign's trademarks, hosted services, update infrastructure and accounts
+are not operated by OpenPixo. OpenPixo is an independent downstream fork.

@@ -1,0 +1,99 @@
+.collapsible {
+  flex: none;
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 0 8px 6px;
+  min-width: 0;
+  /* The composer slot lets clicks through to the chat log behind it. */
+  pointer-events: auto;
+  font-size: var(--chat-t-mini);
+  line-height: 20px;
+  color: var(--chat-text-muted);
+}
+
+.summary {
+  min-width: 0;
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.input {
+  width: 72px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: var(--chat-t-mini);
+}
+
+.hint {
+  min-width: 0;
+  color: var(--chat-text-faint);
+}
+
+/* The spending mode next to the usage: quiet, it is a setting, not news. */
+.mode {
+  min-width: 0;
+  color: var(--chat-text-muted);
+}
+
+.mode::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--chat-text-faint);
+}
+
+/*
+ * Two plain radio choices: "Ask me first" / "Spend within budget". They take a row of
+ * their own under the credits and buttons, or the narrow chat pane squeezes them to
+ * one character a line.
+ */
+.modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-basis: 100%;
+  order: 1;
+  gap: 2px 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  float: left;
+  margin-right: 2px;
+  white-space: nowrap;
+  padding: 0;
+  color: var(--chat-text-faint);
+}
+
+.choice {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--chat-text);
+}
+
+.choice input {
+  margin: 0;
+  accent-color: var(--chat-accent);
+}
+
+.modeHint {
+  flex-basis: 100%;
+  order: 2;
+  min-width: 0;
+  color: var(--chat-text-faint);
+}

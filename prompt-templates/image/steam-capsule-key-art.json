@@ -1,0 +1,23 @@
+{
+  "id": "steam-capsule-key-art",
+  "surface": "image",
+  "title": "Steam Capsule Key Art (Text-Free Master)",
+  "summary": "Text-free master key art for Steam store capsules, composed so one painting crops cleanly to the header (460x215, uploaded at 920x430), main (616x353, uploaded at 1232x706), small (231x87, uploaded at 462x174) and library (600x900) capsules. It keeps a calm logo zone, one readable focal silhouette and strong value contrast so the art still reads as a tiny thumbnail; the logo is composited afterwards.",
+  "category": "Marketing",
+  "tags": [
+    "steam",
+    "capsule",
+    "key-art",
+    "store-page",
+    "thumbnail",
+    "marketing"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "Text-free master key art for the Steam store capsules of an indie game. This single painting will be cropped into every capsule size and the game logo is composited later, so the image must contain no lettering of any kind.\n\nGame: {argument name=\"game_pitch\" default=\"a hand-drawn action roguelite about a lantern-carrying fox exploring a flooded underground city\"}.\nArt style: {argument name=\"art_style\" default=\"painterly 2D illustration with crisp graphic shapes, soft rim light and a limited palette\"}.\n\n# Focal subject\n- {argument name=\"hero_subject\" default=\"the fox hero mid-leap, lantern thrust forward, cloak trailing behind\"} as the single dominant silhouette: large in frame and still recognisable if filled solid black.\n- One clear action or emotion that sells the genre at a glance. No row of equally weighted characters.\n- Secondary element: {argument name=\"secondary_element\" default=\"a looming stone guardian half-submerged in glowing water behind the hero\"}, smaller and lower in contrast so it never competes with the hero.\n\n# Composition and safe areas (critical)\n- Keep the hero inside the centre-right half of the width and the middle 70% of the height so the same art survives every crop: header 460x215 (about 2.14:1), main 616x353 (about 1.75:1), small 231x87 (about 2.66:1, a very thin strip) and library 600x900 (2:3 portrait taken from the centre). Steam now asks for double-resolution uploads (920x430, 1232x706, 462x174), so paint at full detail.\n- Reserve a calm, low-detail logo zone in the {argument name=\"logo_zone\" default=\"left third\"} of the frame: an even background value with no faces, hands or key props, big enough for a logo about 40% of the capsule width.\n- Keep at least 6% of plain background at every edge. Nothing important touches the border.\n- Extend the environment generously above and below the hero so the portrait library crop still has art to work with.\n\n# Readability at thumbnail size\n- Three clear value groups: dark background, mid-tone environment, and the brightest values reserved for the hero and its light source.\n- Bold, simple shapes. No fine texture or tiny details that carry meaning. Squint test: at 120 pixels wide it must still read as hero plus mood.\n- Palette: {argument name=\"palette\" default=\"deep teal and indigo shadows, warm amber light, one saturated complementary accent on the hero\"}. Avoid muddy mid-greys and evenly lit scenes.\n\n# Camera and lighting\n- Slightly low camera, 35mm feel, dramatic key light from the subject's light source plus a cool rim light separating the hero from the background.\n- Gentle depth: background a touch softer than the hero.\n\n# Do not include\nNo text, letters, numbers, logos, watermarks or signatures. No award laurels, review quotes, price or discount badges, platform icons, UI, borders or frames: Steam capsules may show only game art plus the logo added later. No extra limbs or warped hands, no busy pattern behind the logo zone, no photobashed stock elements.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

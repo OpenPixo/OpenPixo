@@ -1,0 +1,166 @@
+﻿/* Flat by decision: solid fills, no gradients, no drop shadows, no hover lift.
+   Hierarchy comes from fill and ink alone; `--button-shadow` only ever carries
+   the hairline ring of the outlined default, which reads as a border. */
+.button {
+  --button-shadow: inset 0 0 0 1px var(--line-2, rgba(20, 17, 40, 0.14));
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8, 8px);
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 var(--spacing-16, 16px);
+  border: 0;
+  border-radius: var(--radius-control, 10px);
+  color: var(--text-strong, #141128);
+  background: var(--bg-panel, #fff);
+  box-shadow: var(--button-shadow);
+  font-family: var(--sans, inherit);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: normal;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    color 140ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    box-shadow 140ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+.button:where(:hover:not(:disabled)) {
+  background: var(--bg-muted, #eeecf5);
+  transition-duration: 200ms;
+}
+
+.button:where(:active:not(:disabled)) {
+  background: var(--bg-hover, #e7e4f0);
+  transition-duration: 140ms;
+}
+
+.primary {
+  --button-shadow: 0 0 0 0 transparent;
+  color: var(--accent-contrast, #fff);
+  background: var(--accent, #6c4bff);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--accent-hover, #4a2de0);
+}
+
+.primary:active:not(:disabled) {
+  background: var(--accent-strong, #4a2de0);
+}
+
+.primaryGhost,
+.ghost,
+.subtle {
+  --button-shadow: 0 0 0 0 transparent;
+}
+
+.primaryGhost {
+  color: var(--violet, #6c4bff);
+  background: var(--violet-soft, #f1eeff);
+}
+
+.primaryGhost:hover:not(:disabled) {
+  color: var(--violet-strong, #4a2de0);
+  background: color-mix(in srgb, var(--violet, #6c4bff) 12%, var(--violet-soft, #f1eeff));
+}
+
+.primaryGhost:active:not(:disabled) {
+  color: var(--violet-strong, #4a2de0);
+  background: color-mix(in srgb, var(--violet, #6c4bff) 18%, var(--violet-soft, #f1eeff));
+}
+
+.ghost {
+  color: var(--text, #3b3757);
+  background: transparent;
+}
+
+.ghost:hover:not(:disabled),
+.subtle:hover:not(:disabled) {
+  color: var(--text-strong, #141128);
+  background: var(--bg-muted, #eeecf5);
+}
+
+.ghost:active:not(:disabled),
+.subtle:active:not(:disabled) {
+  background: var(--bg-hover, #e7e4f0);
+}
+
+.subtle {
+  color: var(--text-strong, #141128);
+  background: var(--bg-subtle, #f6f5fa);
+}
+
+.secondary {
+  color: var(--text-strong, #141128);
+  background: var(--bg-panel, #fff);
+}
+
+.danger {
+  --button-shadow: 0 0 0 0 transparent;
+  color: var(--on-danger, #fff);
+  background: var(--red, #d63d54);
+}
+
+.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red, #d63d54) 85%, var(--text-strong, #141128));
+}
+
+.danger:active:not(:disabled) {
+  background: color-mix(in srgb, var(--red, #d63d54) 75%, var(--text-strong, #141128));
+}
+
+.icon {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.sm {
+  height: 26px;
+  padding: 0 11px;
+  gap: var(--spacing-6, 6px);
+  border-radius: 8px;
+  font-size: var(--font-size-13, 13px);
+}
+
+.sm svg {
+  width: 11px;
+  height: 11px;
+}
+
+.lg {
+  height: 46px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 15.5px;
+}
+
+/* Preserve the shared selection hook even for quiet variants without borders.
+   Keep one-class specificity so an app can supply its own selected treatment. */
+.button:where([aria-pressed='true'], :global(.is-selected)):where(:not(.primary, .danger, :disabled)) {
+  box-shadow: inset 0 0 0 1px var(--violet, #6c4bff), var(--button-shadow);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--violet, #6c4bff), 0 0 0 4px var(--violet-soft, #f1eeff), var(--button-shadow);
+}
+
+.button:disabled {
+  --button-shadow: 0 0 0 0 transparent;
+  color: var(--text-muted, #6e6a88);
+  background: var(--bg-subtle, #f6f5fa);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}

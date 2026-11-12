@@ -1,0 +1,2281 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo-official",
+  "version": "0.1.0",
+  "owner": {
+    "name": "OpenPixo"
+  },
+  "metadata": {
+    "description": "Curated OpenPixo game catalog with free local resources and paid Workshop asset packs. MCP presets require manually installed external servers.",
+    "version": "0.1.0",
+    "bundledPreinstallCount": 62
+  },
+  "plugins": [
+    {
+      "name": "openpixo/godot-gdscript",
+      "title": "Godot 4 GDScript craft",
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/godot-gdscript",
+      "engines": [
+        "godot"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Write engine-correct Godot 4.x GDScript in an OpenPixo game project — scene composition, signals, typed code, autoload state, input actions with gamepad, CharacterBody2D movement, resources, AnimatedSprite2D with packed SpriteFrames, user:// saves — and verify with `pixo game verify`.",
+      "title_i18n": {
+        "en": "Godot 4 GDScript craft",
+        "zh-CN": "Godot 4 GDScript 开发规范"
+      },
+      "description_i18n": {
+        "en": "Write engine-correct Godot 4.x GDScript in an OpenPixo game project — scene composition, signals, typed code, autoload state, input actions with gamepad, CharacterBody2D movement, resources, AnimatedSprite2D with packed SpriteFrames, user:// saves — and verify with `pixo game verify`.",
+        "zh-CN": "在 OpenPixo 游戏项目里编写符合 Godot 4.x 规范的 GDScript：场景组合、信号、类型标注、autoload 全局状态、含手柄的输入动作、CharacterBody2D 移动、资源文件、配合打包 SpriteFrames 的 AnimatedSprite2D、user:// 存档，并用 `pixo game verify` 验证。"
+      },
+      "tags": [
+        "skill",
+        "first-party",
+        "openpixo",
+        "game-development",
+        "godot"
+      ],
+      "examples": [
+        {
+          "title": "Add a gamepad dash",
+          "title_i18n": {
+            "zh-CN": "加入手柄冲刺"
+          },
+          "prompt": "In this Godot 2D project, add a short horizontal dash with a 0.6-second cooldown. Bind it to Shift and the gamepad shoulder button, expose tuning values, and run pixo game verify.",
+          "prompt_i18n": {
+            "zh-CN": "在这个 Godot 2D 项目里加入短距离横向冲刺，冷却 0.6 秒。绑定 Shift 和手柄肩键，暴露调节参数，并运行 pixo game verify。"
+          }
+        },
+        {
+          "title": "Connect pickups to the HUD",
+          "title_i18n": {
+            "zh-CN": "把拾取物连接到 HUD"
+          },
+          "prompt": "Add three simple pickups to the Godot 2D template using Area2D. Emit a collected signal, show the count in a CanvasLayer HUD, and verify restarting the scene does not duplicate connections.",
+          "prompt_i18n": {
+            "zh-CN": "用 Area2D 给 Godot 2D 模板加入三个简单拾取物。发出 collected 信号，在 CanvasLayer HUD 显示数量，并验证重开场景不会重复连接信号。"
+          }
+        },
+        {
+          "title": "Extract player tuning data",
+          "title_i18n": {
+            "zh-CN": "提取玩家调节数据"
+          },
+          "prompt": "Move this Godot player's speed, acceleration and jump tuning into a typed Resource. Create two presets without sharing mutable runtime state, keep the current preset as the default, and verify the project parses.",
+          "prompt_i18n": {
+            "zh-CN": "把这个 Godot 玩家的速度、加速度和跳跃参数移到带类型的 Resource。创建两套预设，避免共享可变运行时状态，保留当前预设为默认，并验证项目解析通过。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/phaser-game-dev",
+      "title": "Phaser 3 game development craft",
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/phaser-game-dev",
+      "engines": [
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Write engine-correct Phaser 3 + Vite + TypeScript game code in an OpenPixo game project — scene lifecycle and data passing, loader keys, spritesheets and TexturePacker atlases, Arcade physics, keyboard and gamepad input, registry state, localStorage saves, scaling, Vite public-dir asset paths — and verify with `pixo game verify`.",
+      "title_i18n": {
+        "en": "Phaser 3 game development craft",
+        "zh-CN": "Phaser 3 游戏开发规范"
+      },
+      "description_i18n": {
+        "en": "Write engine-correct Phaser 3 + Vite + TypeScript game code in an OpenPixo game project — scene lifecycle and data passing, loader keys, spritesheets and TexturePacker atlases, Arcade physics, keyboard and gamepad input, registry state, localStorage saves, scaling, Vite public-dir asset paths — and verify with `pixo game verify`.",
+        "zh-CN": "在 OpenPixo 游戏项目里编写符合规范的 Phaser 3 + Vite + TypeScript 代码：场景生命周期与传参、加载键、精灵表与 TexturePacker 图集、Arcade 物理、键盘与手柄输入、registry 全局状态、localStorage 存档、缩放配置、Vite public 目录资源路径，并用 `pixo game verify` 验证。"
+      },
+      "tags": [
+        "skill",
+        "first-party",
+        "openpixo",
+        "game-development",
+        "phaser"
+      ],
+      "examples": [
+        {
+          "title": "Separate menu and gameplay",
+          "title_i18n": {
+            "zh-CN": "拆分菜单与玩法场景"
+          },
+          "prompt": "Split the Phaser sample platformer into Menu and Game scenes. Add Start and Restart actions, preserve its assets and coin rules, and verify restarting five times creates no duplicate listeners.",
+          "prompt_i18n": {
+            "zh-CN": "把 Phaser 示例平台游戏拆成 Menu 和 Game 场景。加入开始和重开操作，保留素材与金币规则，并验证连续重开五次不会重复注册监听。"
+          }
+        },
+        {
+          "title": "Add gamepad movement",
+          "title_i18n": {
+            "zh-CN": "加入手柄移动"
+          },
+          "prompt": "Add gamepad movement and jump to the Phaser sample platformer alongside the existing keyboard controls. Apply a stick deadzone, handle disconnection, and verify the TypeScript build.",
+          "prompt_i18n": {
+            "zh-CN": "在 Phaser 示例平台游戏的现有键盘操作之外加入手柄移动和跳跃。设置摇杆死区，处理断连，并验证 TypeScript 构建。"
+          }
+        },
+        {
+          "title": "Build a persistent score HUD",
+          "title_i18n": {
+            "zh-CN": "构建持久最高分 HUD"
+          },
+          "prompt": "Move the Phaser sample platformer's score display into a parallel HUD scene using registry events. Persist the best score with guarded localStorage access, clean up on shutdown, and run pixo game verify.",
+          "prompt_i18n": {
+            "zh-CN": "用 registry 事件把 Phaser 示例平台游戏的分数显示移入并行 HUD 场景。通过带错误处理的 localStorage 保存最高分，在场景关闭时清理，并运行 pixo game verify。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/game-assets-batch",
+      "title": "Game asset batch processing",
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/game-assets-batch",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Process selected game-project images or audio in batches with OpenPixo's deterministic `pixo asset` operations (local tools only for unsupported operations), preserve originals, and produce derived files with a per-input result report.",
+      "title_i18n": {
+        "en": "Game asset batch processing",
+        "zh-CN": "游戏素材批处理"
+      },
+      "description_i18n": {
+        "en": "Process selected game-project images or audio in batches with OpenPixo's deterministic `pixo asset` operations (local tools only for unsupported operations), preserve originals, and produce derived files with a per-input result report.",
+        "zh-CN": "优先用 OpenPixo 的确定性 `pixo asset` 命令批量处理项目中选定的图片或音频（仅在命令不支持时回退到本机工具），保留原文件并生成逐项结果报告。"
+      },
+      "tags": [
+        "skill",
+        "first-party",
+        "openpixo",
+        "game-development",
+        "game-assets"
+      ],
+      "examples": [
+        {
+          "title": "Resize selected pixel sprites",
+          "title_i18n": {
+            "zh-CN": "缩放选定像素精灵"
+          },
+          "prompt": "Create 2x nearest-neighbor PNG copies of the sample platformer's public/assets/player.png and public/assets/coin.png with pixo asset. Preserve the originals, keep transparency, and link the per-input report without changing game references.",
+          "prompt_i18n": {
+            "zh-CN": "用 pixo asset 为示例平台游戏的 public/assets/player.png 和 public/assets/coin.png 创建两倍最近邻缩放 PNG 副本。保留原文件与透明度，给出逐项报告链接，暂不修改游戏引用。"
+          }
+        },
+        {
+          "title": "Normalize bundled sound effects",
+          "title_i18n": {
+            "zh-CN": "统一模板音效响度"
+          },
+          "prompt": "Normalize public/assets/jump.wav and public/assets/coin.wav in the Phaser sample platformer to -18 LUFS with pixo asset audio, then create OGG copies of the reported outputs. Preserve the originals and report durations and failures.",
+          "prompt_i18n": {
+            "zh-CN": "用 pixo asset audio 把 Phaser 示例平台游戏的 public/assets/jump.wav 和 public/assets/coin.wav 统一到 -18 LUFS，再把报告中的输出转换为 OGG 副本。保留原文件，报告时长与失败项。"
+          }
+        },
+        {
+          "title": "Slice and pack a walk cycle",
+          "title_i18n": {
+            "zh-CN": "切分并打包行走动画"
+          },
+          "prompt": "Slice my selected 6-column by 1-row walk sheet with pixo asset, inspect the six frames in order, and pack a Godot SpriteFrames atlas. Preserve the source and report the actual PNG and TRES paths.",
+          "prompt_i18n": {
+            "zh-CN": "用 pixo asset 切分我选定的六列一行行走精灵表，按顺序检查六帧，并打包为 Godot SpriteFrames 图集。保留源文件，报告真实 PNG 与 TRES 路径。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/game-design-doc",
+      "title": "One-page game design document",
+      "title_i18n": {
+        "en": "One-page game design document",
+        "zh-CN": "单页游戏设计文档"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/game-design-doc",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turn a rough game idea into a project-owned one-page GDD with a testable core loop, player verbs, win and loss rules, scope cuts, and a small playable milestone.",
+      "description_i18n": {
+        "en": "Turn a rough game idea into a project-owned one-page GDD with a testable core loop, player verbs, win and loss rules, scope cuts, and a small playable milestone.",
+        "zh-CN": "把粗略游戏想法整理成保存在项目中的单页 GDD，明确核心循环、玩家动作、胜负条件、范围取舍和可试玩里程碑。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "game-design"
+      ],
+      "examples": [
+        {
+          "title": "Scope the sample platformer",
+          "title_i18n": {
+            "zh-CN": "收敛示例平台跳跃游戏的范围"
+          },
+          "prompt": "Read this Phaser sample platformer and save a one-page docs/GDD.md describing its current core loop, controls and win rule. Propose one 90-second level with three teaching beats, optional coins and explicit scope cuts; mark proposed changes separately from existing behavior.",
+          "prompt_i18n": {
+            "zh-CN": "阅读这个 Phaser 示例平台跳跃项目，将当前核心循环、操作和胜利规则写成单页 docs/GDD.md。提出一个 90 秒关卡，包含三个教学段、可选金币和明确的范围取舍，并区分提议的改动与现有行为。"
+          }
+        },
+        {
+          "title": "Turn an idea into a first playable",
+          "title_i18n": {
+            "zh-CN": "把想法整理成首个可试玩版本"
+          },
+          "prompt": "Use this Godot 2D project as the starting point for a tiny game about carrying a lantern through dark rooms. Save docs/GDD.md with the loop, four player verbs at most, win/lose/retry rules and one-room acceptance cases. Keep the first slice achievable with placeholder art and do not implement it yet.",
+          "prompt_i18n": {
+            "zh-CN": "以这个 Godot 2D 项目为起点，设计一个提灯穿过黑暗房间的小游戏。将核心循环、最多四个玩家动作、胜负与重试规则、单房间验收用例保存到 docs/GDD.md。首个版本只用占位素材，暂不实现代码。"
+          }
+        },
+        {
+          "title": "Cut an oversized prototype plan",
+          "title_i18n": {
+            "zh-CN": "精简过大的原型计划"
+          },
+          "prompt": "Compare the game's existing design notes with the playable project. Rewrite docs/GDD.md around one complete 2D level, list what is already implemented, move crafting and progression out of the first slice, and add observable acceptance cases for success, failure and restart.",
+          "prompt_i18n": {
+            "zh-CN": "对照现有设计笔记和可运行项目，把 docs/GDD.md 收敛为一个完整的 2D 关卡。列出现已实现的内容，将制作系统和长期成长移出首个版本，并添加成功、失败和重试的可观察验收用例。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/game-feel-juice",
+      "title": "Game feel and impact feedback",
+      "title_i18n": {
+        "en": "Game feel and impact feedback",
+        "zh-CN": "游戏手感与打击反馈"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/game-feel-juice",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Add adjustable shake, hit-stop, squash, tweens, particles and camera smoothing to existing gameplay events.",
+      "description_i18n": {
+        "en": "Add adjustable shake, hit-stop, squash, tweens, particles and camera smoothing to existing gameplay events.",
+        "zh-CN": "为既有玩法事件加入可调节的震屏、顿帧、挤压拉伸、补间、粒子和镜头平滑。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "game-feel",
+        "effects"
+      ],
+      "examples": [
+        {
+          "title": "Make coins feel satisfying",
+          "title_i18n": {
+            "zh-CN": "让金币拾取更有反馈"
+          },
+          "prompt": "In this Phaser sample platformer, add a small visual pop and four short-lived particles when I collect a coin. Keep the score and collision rules unchanged and verify the build.",
+          "prompt_i18n": {
+            "zh-CN": "给这个 Phaser 平台跳跃示例的金币拾取加入轻微视觉弹跳和四个短寿命粒子，保留分数与碰撞规则，并验证构建。"
+          }
+        },
+        {
+          "title": "Give landings some weight",
+          "title_i18n": {
+            "zh-CN": "增加落地重量感"
+          },
+          "prompt": "Add a 120 ms squash-and-recover animation and subtle camera shake to landings in my Godot platformer. Keep the collision body stable and add an intensity setting that can disable motion.",
+          "prompt_i18n": {
+            "zh-CN": "给我的 Godot 平台跳跃游戏加入 120 毫秒落地挤压回弹和轻微震屏，保持碰撞体稳定，并加入可关闭动态效果的强度设置。"
+          }
+        },
+        {
+          "title": "Add controlled impact hit-stop",
+          "title_i18n": {
+            "zh-CN": "加入可控的命中顿帧"
+          },
+          "prompt": "Add about 45 ms of hit-stop when the player takes damage in this Godot 2D game. Make repeated hits, pausing and restarting restore the normal time scale correctly, then run the Godot check.",
+          "prompt_i18n": {
+            "zh-CN": "给这个 Godot 2D 游戏的玩家受伤加入约 45 毫秒顿帧，确保连续受击、暂停和重开后正确恢复时间倍率，然后运行 Godot 检查。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/level-design-tilemap",
+      "title": "2D level and tilemap design",
+      "title_i18n": {
+        "en": "2D level and tilemap design",
+        "zh-CN": "2D 关卡与瓦片地图设计"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/level-design-tilemap",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Build readable 2D levels with Godot TileMapLayer, Tiled or LDtk data, measured jump distances, collision layers, safe introductions and deliberate difficulty ramps.",
+      "description_i18n": {
+        "en": "Build readable 2D levels with Godot TileMapLayer, Tiled or LDtk data, measured jump distances, collision layers, safe introductions and deliberate difficulty ramps.",
+        "zh-CN": "用 Godot TileMapLayer、Tiled 或 LDtk 数据构建易读的 2D 关卡，量化跳跃距离，设置碰撞层、安全教学段和难度递进。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "level-design"
+      ],
+      "examples": [
+        {
+          "title": "Build a three-beat platforming level",
+          "title_i18n": {
+            "zh-CN": "构建三个教学段的平台跳跃关卡"
+          },
+          "prompt": "Extend this Phaser sample platformer's level into a short route that teaches a low jump, repeats it with a wider landing, then offers an optional coin detour before the flag. Budget gaps from the current controller, keep a safe first landing, and verify check/build/run with a screenshot.",
+          "prompt_i18n": {
+            "zh-CN": "把这个 Phaser 示例平台跳跃关卡扩展为一条短路线：先教低跳，再用更宽的落点重复练习，最后在旗帜前提供可选金币支路。根据当前控制器量化间隙，保留安全的第一个落点，并执行 check/build/run 验证和截图。"
+          }
+        },
+        {
+          "title": "Add a Godot tilemap room",
+          "title_i18n": {
+            "zh-CN": "添加 Godot 瓦片地图房间"
+          },
+          "prompt": "In this Godot 2D project, build one readable room with a solid TileMapLayer, a separate decoration layer, a safe spawn and an exit. Reuse the existing tiles if available; otherwise use a small consistent placeholder tileset. Check collision masks and verify the room loads before testing the route.",
+          "prompt_i18n": {
+            "zh-CN": "在这个 Godot 2D 项目中构建一个易读的房间，包含实体 TileMapLayer、独立装饰层、安全出生点和出口。优先复用已有瓦片，否则使用风格一致的小型占位瓦片集。检查碰撞掩码，先验证房间能加载，再试玩路线。"
+          }
+        },
+        {
+          "title": "Repair a map import",
+          "title_i18n": {
+            "zh-CN": "修复地图导入问题"
+          },
+          "prompt": "Inspect this project's Tiled or LDtk map and its existing loader. Fix misaligned spawn objects and missing solid-tile collisions without changing the authoring format. Document the tile size, layer offsets and entity anchors, then verify and play the route from spawn to exit.",
+          "prompt_i18n": {
+            "zh-CN": "检查项目中的 Tiled 或 LDtk 地图及现有加载器。保持创作格式不变，修复出生对象错位和实体瓦片碰撞缺失的问题。记录瓦片大小、层偏移和实体锚点，然后验证并从出生点试玩到出口。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/player-controller-2d",
+      "title": "Responsive 2D player controllers",
+      "title_i18n": {
+        "en": "Responsive 2D player controllers",
+        "zh-CN": "灵敏的 2D 玩家控制器"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/player-controller-2d",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Build and tune platformer or top-down movement with jump grace, input buffering, variable jump height and acceleration.",
+      "description_i18n": {
+        "en": "Build and tune platformer or top-down movement with jump grace, input buffering, variable jump height and acceleration.",
+        "zh-CN": "构建和调校平台跳跃或俯视角移动，实现跳跃宽容、输入缓冲、可变跳高与加速度。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "player-controller",
+        "platformer"
+      ],
+      "examples": [
+        {
+          "title": "Add coyote time and a jump buffer",
+          "title_i18n": {
+            "zh-CN": "加入土狼时间和跳跃缓冲"
+          },
+          "prompt": "In this Phaser sample platformer, add 0.1 seconds of coyote time and a 0.12-second jump buffer. Keep the existing collisions and verify the build.",
+          "prompt_i18n": {
+            "zh-CN": "给这个 Phaser 平台跳跃示例加入 0.1 秒土狼时间和 0.12 秒跳跃缓冲，保留现有碰撞，并验证构建。"
+          }
+        },
+        {
+          "title": "Make jump height respond to release",
+          "title_i18n": {
+            "zh-CN": "松开按键控制跳跃高度"
+          },
+          "prompt": "Make the player in this Godot 2D project jump higher when I hold jump and lower when I tap it. Preserve gamepad support and give me a short ledge-and-ceiling playtest checklist.",
+          "prompt_i18n": {
+            "zh-CN": "让这个 Godot 2D 项目的玩家长按时跳得更高、轻点时跳得更低，保留手柄支持，并给出简短的悬崖和低天花板试玩检查表。"
+          }
+        },
+        {
+          "title": "Create smooth top-down movement",
+          "title_i18n": {
+            "zh-CN": "实现平滑俯视角移动"
+          },
+          "prompt": "Turn this Godot 2D template into a top-down movement test with acceleration, fast braking and equal diagonal speed. Add keyboard and left-stick controls, then run the Godot check.",
+          "prompt_i18n": {
+            "zh-CN": "把这个 Godot 2D 模板改成俯视角移动测试，加入加速度、快速刹停和等速斜向移动，支持键盘与左摇杆，然后运行 Godot 检查。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/enemy-ai-state-machines",
+      "title": "Enemy AI state machines",
+      "title_i18n": {
+        "en": "Enemy AI state machines",
+        "zh-CN": "敌人 AI 状态机"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/enemy-ai-state-machines",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Create patrol, chase, attack and flee behavior with explicit transitions, safe movement, attack timing and debug overlays.",
+      "description_i18n": {
+        "en": "Create patrol, chase, attack and flee behavior with explicit transitions, safe movement, attack timing and debug overlays.",
+        "zh-CN": "构建巡逻、追击、攻击和逃跑行为，明确状态转换、安全移动和攻击时序，并加入调试显示。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "enemy-ai",
+        "state-machine"
+      ],
+      "examples": [
+        {
+          "title": "Add a patrol enemy",
+          "title_i18n": {
+            "zh-CN": "加入巡逻敌人"
+          },
+          "prompt": "Add one enemy to the ground strip in this Phaser sample platformer. Make it patrol between two safe points, chase nearby players and stop at attack range. Show its state with a debug label and verify the build.",
+          "prompt_i18n": {
+            "zh-CN": "给这个 Phaser 平台跳跃示例的地面加入一个敌人，让它在两个安全点之间巡逻、追击附近玩家并在攻击距离停下，用调试标签显示状态，然后验证构建。"
+          }
+        },
+        {
+          "title": "Make attacks readable and single-hit",
+          "title_i18n": {
+            "zh-CN": "让攻击可读且只命中一次"
+          },
+          "prompt": "Give this Godot 2D enemy a 0.2-second attack windup, one strike and recovery until 0.55 seconds. Cancel cleanly if it dies or the player respawns, and add transition logging before running the Godot check.",
+          "prompt_i18n": {
+            "zh-CN": "给这个 Godot 2D 敌人加入 0.2 秒攻击前摇、一次打击和持续到 0.55 秒的后摇，在敌人死亡或玩家重生时正确取消，并加入状态转换日志，然后运行 Godot 检查。"
+          }
+        },
+        {
+          "title": "Add a low-health flee state",
+          "title_i18n": {
+            "zh-CN": "加入低生命逃跑状态"
+          },
+          "prompt": "Make the enemy flee when it has one health point and the player is nearby. Keep it from walking off platforms, show patrol/chase/attack/flee in a debug overlay and give me a manual transition checklist.",
+          "prompt_i18n": {
+            "zh-CN": "让敌人在只剩一点生命且玩家靠近时逃跑，防止它走下平台，在调试显示中标出巡逻、追击、攻击和逃跑，并给出手动状态转换检查表。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/procedural-generation",
+      "title": "Seeded procedural game generation",
+      "title_i18n": {
+        "en": "Seeded procedural game generation",
+        "zh-CN": "带种子的游戏程序生成"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/procedural-generation",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Build reproducible rooms, dungeons or noise terrain with isolated seeded randomness, bounded generation, connectivity checks and recorded failing seeds.",
+      "description_i18n": {
+        "en": "Build reproducible rooms, dungeons or noise terrain with isolated seeded randomness, bounded generation, connectivity checks and recorded failing seeds.",
+        "zh-CN": "用独立的带种子随机数、有界生成、连通性检查和失败种子记录，构建可复现的房间、地牢或噪声地形。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "procedural-generation"
+      ],
+      "examples": [
+        {
+          "title": "Generate connected dungeon rooms",
+          "title_i18n": {
+            "zh-CN": "生成连通的地牢房间"
+          },
+          "prompt": "In this Godot 2D project, add a seeded six-room dungeon generator that keeps map data separate from TileMapLayer rendering. Connect every room, place a reachable spawn and exit, show the seed, and validate a fixed seed corpus plus a bounded sweep before running pixo game verify.",
+          "prompt_i18n": {
+            "zh-CN": "在这个 Godot 2D 项目中添加带种子的六房间地牢生成器，将地图数据与 TileMapLayer 渲染分开。连接所有房间，放置相互可达的出生点和出口，显示种子，并先验证固定种子集和有界种子遍历，再运行 pixo game verify。"
+          }
+        },
+        {
+          "title": "Reproduce a broken generated level",
+          "title_i18n": {
+            "zh-CN": "复现生成关卡的故障"
+          },
+          "prompt": "Find why this project's recorded failing seed creates an unreachable exit. Reproduce it without changing the seed, add the smallest connectivity or placement fix, preserve the seed as a regression case, and verify generation plus a manual route through the repaired map.",
+          "prompt_i18n": {
+            "zh-CN": "找出项目中记录的失败种子为何生成了无法到达的出口。保持种子不变进行复现，用最小的连通性或放置修复解决问题，将该种子保留为回归用例，并验证生成结果和修复后的手动通关路线。"
+          }
+        },
+        {
+          "title": "Keep terrain deterministic",
+          "title_i18n": {
+            "zh-CN": "保持地形生成的确定性"
+          },
+          "prompt": "Refactor this Phaser project's existing terrain generator to use its own seeded random stream. Make repeated generation with the same seed produce the same sorted cell data, prevent cosmetic randomness from changing the map, and validate spawn clearance and exit reachability before rendering.",
+          "prompt_i18n": {
+            "zh-CN": "重构这个 Phaser 项目现有的地形生成器，使其使用独立的带种子随机流。同一种子重复生成时应得到相同的排序后格子数据，特效随机数不能影响地图，并在渲染前验证出生点空间和出口可达性。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/game-ui-hud",
+      "title": "Game HUD, menus and input focus",
+      "title_i18n": {
+        "en": "Game HUD, menus and input focus",
+        "zh-CN": "游戏 HUD、菜单与输入焦点"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/game-ui-hud",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Build readable HUDs, pause and settings menus with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4 and Phaser 3.",
+      "description_i18n": {
+        "en": "Build readable HUDs, pause and settings menus with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4 and Phaser 3.",
+        "zh-CN": "为 Godot 4 与 Phaser 3 构建清晰的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "ui",
+        "hud",
+        "accessibility"
+      ],
+      "examples": [
+        {
+          "title": "Pause the sample platformer",
+          "title_i18n": {
+            "zh-CN": "暂停示例平台跳跃游戏"
+          },
+          "prompt": "Add a pause overlay to this sample platformer with Resume and Settings. Escape and controller Start should open it, the world should freeze, and all menu actions should work by keyboard or controller. Verify the game and inspect a screenshot.",
+          "prompt_i18n": {
+            "zh-CN": "给这个示例平台跳跃游戏加入包含继续和设置的暂停遮罩。Escape 和手柄 Start 都能打开，世界暂停，所有菜单操作均支持键盘和手柄。验证游戏并检查截图。"
+          }
+        },
+        {
+          "title": "Keep the coin HUD readable",
+          "title_i18n": {
+            "zh-CN": "让金币 HUD 始终清晰"
+          },
+          "prompt": "Move the existing coin counter into a screen-space HUD that stays fixed when the camera follows the player. Keep safe margins at narrow and wide window sizes and update it from the real collection event. Verify the build and preview.",
+          "prompt_i18n": {
+            "zh-CN": "把现有金币计数器移到屏幕空间 HUD，让它在镜头跟随玩家时保持固定。窄窗口和宽窗口都保留安全边距，并由真实拾取事件更新。验证构建和预览。"
+          }
+        },
+        {
+          "title": "Add a focused settings panel",
+          "title_i18n": {
+            "zh-CN": "加入支持焦点导航的设置面板"
+          },
+          "prompt": "Add a Master volume slider to the pause menu, show its current value, and save the choice across restarts. Make controller and keyboard focus visible and return focus to Settings when the panel closes. Check two pause/resume cycles and verify the game.",
+          "prompt_i18n": {
+            "zh-CN": "在暂停菜单加入主音量滑块，显示当前数值并在重启后保留选择。让手柄和键盘焦点清晰可见，关闭面板时把焦点还给设置按钮。检查两次暂停和继续，再验证游戏。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/pixel-art-consistency",
+      "title": "Pixel art consistency",
+      "title_i18n": {
+        "en": "Pixel art consistency",
+        "zh-CN": "像素美术一致性"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/pixel-art-consistency",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Align selected sprites to an approved palette, native pixel grid, canvas and outline rule with deterministic asset operations and engine import checks.",
+      "description_i18n": {
+        "en": "Align selected sprites to an approved palette, native pixel grid, canvas and outline rule with deterministic asset operations and engine import checks.",
+        "zh-CN": "通过确定性素材操作与引擎导入检查，统一选定精灵的调色板、原生像素网格、画布与描边规则。"
+      },
+      "tags": [
+        "game-development",
+        "game-assets",
+        "pixel-art",
+        "godot",
+        "phaser",
+        "first-party",
+        "openpixo"
+      ],
+      "examples": [
+        {
+          "title": "Audit the platformer's pixel grid",
+          "title_i18n": {
+            "zh-CN": "检查平台跳跃游戏的像素网格"
+          },
+          "prompt": "Inspect public/assets/player.png and ground.png in this Phaser sample platformer. Record their native pixel sizes, palette and filtering rules in art/pixel-style.md, flag inconsistencies, and verify the game builds.",
+          "prompt_i18n": {
+            "zh-CN": "检查这个 Phaser 平台跳跃示例中的 public/assets/player.png 和 ground.png，把原生像素尺寸、调色板与过滤规则记录到 art/pixel-style.md，指出不一致之处，并验证游戏能构建。"
+          }
+        },
+        {
+          "title": "Remap sprites to the approved palette",
+          "title_i18n": {
+            "zh-CN": "将精灵映射到已确认的调色板"
+          },
+          "prompt": "Use art/palette.hex to remap the selected 32x32 player frames with pixo asset pixelate, without changing their dimensions or originals. Keep dithering off, inspect the derivatives, and report outline or alpha defects that the operation cannot repair.",
+          "prompt_i18n": {
+            "zh-CN": "用 art/palette.hex 和 pixo asset pixelate 将选中的 32×32 玩家帧映射到调色板，不改变尺寸或原文件。关闭抖动，检查派生文件，并报告该操作无法修复的描边或透明度问题。"
+          }
+        },
+        {
+          "title": "Fix blurry Godot sprites",
+          "title_i18n": {
+            "zh-CN": "修复 Godot 精灵模糊"
+          },
+          "prompt": "Check the selected Godot player sprites against the project's pixel-art rules, correct nearest filtering and integer display scale where needed, preserve collision sizes, and run pixo game verify with a screenshot.",
+          "prompt_i18n": {
+            "zh-CN": "按项目的像素美术规则检查选中的 Godot 玩家精灵，必要时修正最近邻过滤与整数显示缩放，保留碰撞尺寸，并运行 pixo game verify 获取截图。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/sprite-animation-pipeline",
+      "title": "Sprite animation pipeline",
+      "title_i18n": {
+        "en": "Sprite animation pipeline",
+        "zh-CN": "精灵动画流水线"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/sprite-animation-pipeline",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Slice and pack existing sprite frames into Godot SpriteFrames or Phaser atlases while preserving order, shared pivots and deliberate frame timing.",
+      "description_i18n": {
+        "en": "Slice and pack existing sprite frames into Godot SpriteFrames or Phaser atlases while preserving order, shared pivots and deliberate frame timing.",
+        "zh-CN": "将已有精灵帧切分并打包为 Godot SpriteFrames 或 Phaser 图集，保留帧顺序、统一轴心并设定帧时长。"
+      },
+      "tags": [
+        "game-development",
+        "game-assets",
+        "sprite-animation",
+        "godot",
+        "phaser",
+        "first-party",
+        "openpixo"
+      ],
+      "examples": [
+        {
+          "title": "Tune the sample player's run cycle",
+          "title_i18n": {
+            "zh-CN": "调整示例玩家的跑步循环"
+          },
+          "prompt": "In this Phaser sample platformer, keep player idle frames 0-1 and run frames 2-5, play run at 10 FPS with the first frame held for 200ms, preserve the player's feet alignment and collisions, then verify the build and run it.",
+          "prompt_i18n": {
+            "zh-CN": "在这个 Phaser 平台跳跃示例中，保留玩家待机帧 0–1 与跑步帧 2–5，跑步设为 10 FPS、首帧停留 200 毫秒，保留脚底对齐和碰撞，然后验证构建并运行。"
+          }
+        },
+        {
+          "title": "Import a Godot walk sheet",
+          "title_i18n": {
+            "zh-CN": "导入 Godot 行走精灵表"
+          },
+          "prompt": "Slice the selected 32x32-cell walk sheet with pixo asset, pack its walk frames as godot-tres in the intended order, attach the reported SpriteFrames to AnimatedSprite2D at 8 FPS, and verify resource imports and feet alignment.",
+          "prompt_i18n": {
+            "zh-CN": "用 pixo asset 切分选中的 32×32 单元行走精灵表，按预期顺序将行走帧打包为 godot-tres，把报告返回的 SpriteFrames 接到 AnimatedSprite2D 并设为 8 FPS，验证资源导入和脚底对齐。"
+          }
+        },
+        {
+          "title": "Replace a Phaser sheet with an atlas",
+          "title_i18n": {
+            "zh-CN": "将 Phaser 精灵表替换为图集"
+          },
+          "prompt": "Convert the Phaser sample's existing player sheet into a TexturePacker JSON atlas using pixo asset slice and pack. Read actual frame keys, preserve idle/run timing and hitboxes, and verify the game after repeated scene restarts.",
+          "prompt_i18n": {
+            "zh-CN": "用 pixo asset slice 和 pack 将 Phaser 示例现有玩家精灵表转为 TexturePacker JSON 图集。读取实际帧键，保留待机与跑步时序和碰撞盒，并在多次重启场景后验证游戏。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/sfx-and-music-integration",
+      "title": "SFX and music integration",
+      "title_i18n": {
+        "en": "SFX and music integration",
+        "zh-CN": "音效与音乐接入"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/sfx-and-music-integration",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Wire existing game audio with voice limits, variation, separate mix preferences, music ducking, clean loops and browser unlock handling.",
+      "description_i18n": {
+        "en": "Wire existing game audio with voice limits, variation, separate mix preferences, music ducking, clean loops and browser unlock handling.",
+        "zh-CN": "接入已有游戏音频，处理声部上限、音色变化、独立混音偏好、音乐闪避、循环接缝与浏览器解锁。"
+      },
+      "tags": [
+        "game-development",
+        "audio",
+        "godot",
+        "phaser",
+        "first-party",
+        "openpixo"
+      ],
+      "examples": [
+        {
+          "title": "Improve the platformer's sound effects",
+          "title_i18n": {
+            "zh-CN": "改进平台跳跃游戏的音效"
+          },
+          "prompt": "Reuse the Phaser sample platformer's jump.wav and coin.wav. Add bounded jump pitch variation, an SFX volume control that survives scene restarts, and a voice limit for rapid pickups; verify the build and test browser audio unlock.",
+          "prompt_i18n": {
+            "zh-CN": "复用 Phaser 平台跳跃示例的 jump.wav 和 coin.wav，加入有限的跳跃音高变化、场景重启后保留的音效音量控制，以及快速拾取时的声部上限；验证构建并测试浏览器音频解锁。"
+          }
+        },
+        {
+          "title": "Duck Godot music under effects",
+          "title_i18n": {
+            "zh-CN": "让 Godot 音乐为音效闪避"
+          },
+          "prompt": "Route this Godot project's existing music and effects through Music and SFX buses. Add gentle SFX-sidechain music ducking, keep saved volume and mute independent, then verify and listen through overlapping effects and pause/resume.",
+          "prompt_i18n": {
+            "zh-CN": "将这个 Godot 项目已有的音乐和音效路由到 Music 与 SFX 总线，加入温和的 SFX 侧链音乐闪避，保持已保存的音量与静音独立，然后验证并试听音效叠加和暂停恢复。"
+          }
+        },
+        {
+          "title": "Repair an ambience loop",
+          "title_i18n": {
+            "zh-CN": "修复环境音循环"
+          },
+          "prompt": "Inspect the selected ambience recording, make a new loop-ready copy with a 60ms crossfade using pixo asset audio loop, preserve the original, enable looping in the current engine, and listen across two loop boundaries before reporting the result.",
+          "prompt_i18n": {
+            "zh-CN": "检查选中的环境音录音，用 pixo asset audio loop 制作带 60 毫秒交叉淡化的循环副本，保留原文件，在当前引擎启用循环，并在试听两个循环接点后报告结果。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/save-load-and-settings",
+      "title": "Save evolution and persistent settings",
+      "title_i18n": {
+        "en": "Save evolution and persistent settings",
+        "zh-CN": "存档演进与持久化设置"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/save-load-and-settings",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Extend an existing save system with migration fixtures, future-version protection, corruption recovery and settings independent of progression in Godot 4 and Phaser 3.",
+      "description_i18n": {
+        "en": "Extend an existing save system with migration fixtures, future-version protection, corruption recovery and settings independent of progression in Godot 4 and Phaser 3.",
+        "zh-CN": "为 Godot 4 与 Phaser 3 的现有存档系统补充迁移样例、新版本保护、损坏恢复，以及独立于游戏进度的设置。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "saves",
+        "settings"
+      ],
+      "examples": [
+        {
+          "title": "Migrate an existing save",
+          "title_i18n": {
+            "zh-CN": "迁移现有存档"
+          },
+          "prompt": "Inspect this game's existing save manager and move the current format to version 2 without losing coin totals or checkpoint progress. Add invented old/current/future save fixtures, preserve unsupported future saves, and verify the game.",
+          "prompt_i18n": {
+            "zh-CN": "检查这个游戏现有的存档管理器，把当前格式升级到第 2 版且不丢失金币总数或存档点进度。加入虚构的旧版、当前版和未来版存档样例，保留不支持的未来版本存档，然后验证游戏。"
+          }
+        },
+        {
+          "title": "Keep settings through New Game",
+          "title_i18n": {
+            "zh-CN": "开始新游戏时保留设置"
+          },
+          "prompt": "Separate volume and language preferences from the existing progression save. New Game should reset progress while keeping settings, Reset Settings should not delete progress, and failed writes should show an honest message. Test a restart and verify the build.",
+          "prompt_i18n": {
+            "zh-CN": "把音量和语言偏好从现有进度存档中分离。开始新游戏只重置进度并保留设置，重置设置不能删除进度，写入失败时要如实提示。检查一次重启并验证构建。"
+          }
+        },
+        {
+          "title": "Exercise corrupt-save recovery",
+          "title_i18n": {
+            "zh-CN": "检查损坏存档恢复"
+          },
+          "prompt": "Harden the current save loader against truncated JSON and invalid field types using isolated fixture slots. Recover from a validated backup when possible, preserve unreadable data, and show the recovered checkpoint or a clear recovery choice. Run regression checks and pixo game verify.",
+          "prompt_i18n": {
+            "zh-CN": "用隔离的样例存档槽检查现有读取器对截断 JSON 和错误字段类型的处理。能够恢复时使用验证过的备份，保留无法读取的数据，并显示恢复的存档点或明确的恢复选项。运行回归检查和 pixo game verify。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/playtest-bug-triage",
+      "title": "Playtest bug triage",
+      "title_i18n": {
+        "en": "Playtest bug triage",
+        "zh-CN": "试玩问题定位与修复"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/playtest-bug-triage",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Reproduce game bugs from logs, screenshots and input steps, apply a minimal fix, and check nearby regressions.",
+      "description_i18n": {
+        "en": "Reproduce game bugs from logs, screenshots and input steps, apply a minimal fix, and check nearby regressions.",
+        "zh-CN": "根据日志、截图和操作步骤复现游戏问题，做最小修复，并检查相邻回归。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "testing"
+      ],
+      "examples": [
+        {
+          "title": "Find a restart callback leak",
+          "title_i18n": {
+            "zh-CN": "排查重开后的回调累积"
+          },
+          "prompt": "In the sample Phaser platformer, win and restart five times using the mouse. Check whether one click triggers multiple restart callbacks, reproduce any leak before fixing it, and verify keyboard restart still works.",
+          "prompt_i18n": {
+            "zh-CN": "在 Phaser 示例平台游戏中获胜并用鼠标重开五次。检查一次点击是否触发多个重开回调，先复现可能的泄漏再修复，并验证键盘重开仍正常。"
+          }
+        },
+        {
+          "title": "Fix a stuck pause menu",
+          "title_i18n": {
+            "zh-CN": "修复无法退出的暂停菜单"
+          },
+          "prompt": "In my Godot 2D game, pressing pause opens the menu but pressing it again does nothing. Reproduce the input sequence, inspect pause processing, make the smallest fix, and verify movement freezes and resumes correctly.",
+          "prompt_i18n": {
+            "zh-CN": "我的 Godot 2D 游戏按暂停能打开菜单，再按却没有反应。请复现这个操作，检查暂停时的处理模式，做最小修复，并验证角色移动能正确冻结和恢复。"
+          }
+        },
+        {
+          "title": "Investigate duplicate coin rewards",
+          "title_i18n": {
+            "zh-CN": "排查金币重复计分"
+          },
+          "prompt": "A coin sometimes adds two points in my game. Use the pickup callback and logs to reproduce it, make collection idempotent if needed, then check two different coins and a fresh restart with pixo game verify.",
+          "prompt_i18n": {
+            "zh-CN": "我的游戏偶尔一枚金币加两分。请结合拾取回调与日志复现，必要时保证每枚金币只结算一次，再检查两枚不同金币与重开后的表现，并运行 pixo game verify。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/performance-profiling",
+      "title": "Game performance profiling",
+      "title_i18n": {
+        "en": "Game performance profiling",
+        "zh-CN": "游戏性能分析"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/performance-profiling",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Measure frame time, rendering, physics, memory and asset weight, then compare a targeted optimization under the same workload.",
+      "description_i18n": {
+        "en": "Measure frame time, rendering, physics, memory and asset weight, then compare a targeted optimization under the same workload.",
+        "zh-CN": "测量帧耗时、渲染、物理、内存与资源体积，在相同负载下对比针对性的优化结果。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "performance"
+      ],
+      "examples": [
+        {
+          "title": "Profile a busy Godot room",
+          "title_i18n": {
+            "zh-CN": "分析 Godot 高负载房间"
+          },
+          "prompt": "Make a disposable 200-pickup stress scene from my Godot 2D project. Measure script, physics and draw-call cost, optimize one demonstrated bottleneck, and save a before/after report without adding the stress scene to normal startup.",
+          "prompt_i18n": {
+            "zh-CN": "基于我的 Godot 2D 项目创建一个临时的 200 拾取物压力场景，测量脚本、物理和绘制调用开销，优化一个已证实的瓶颈，并保存优化前后报告，保持正常启动场景不变。"
+          }
+        },
+        {
+          "title": "Check memory after repeated restarts",
+          "title_i18n": {
+            "zh-CN": "检查反复重开后的内存"
+          },
+          "prompt": "Profile the bundled Phaser platformer across 20 win-and-restart cycles. Look for retained scenes, input listeners and timers, fix a confirmed leak if present, and compare memory and callback counts after the same 20 cycles.",
+          "prompt_i18n": {
+            "zh-CN": "分析内置 Phaser 平台游戏连续 20 次获胜并重开后的内存，检查残留场景、输入监听器和计时器，修复确认存在的泄漏，再用相同 20 次循环对比内存与回调数量。"
+          }
+        },
+        {
+          "title": "Reduce an oversized browser build",
+          "title_i18n": {
+            "zh-CN": "缩小过大的浏览器构建"
+          },
+          "prompt": "Inspect my game's ten largest exported assets, identify one oversized texture that can be reduced safely, and compare build bytes and cold-load time while preserving pixel-art readability. Verify the game after the change.",
+          "prompt_i18n": {
+            "zh-CN": "检查游戏导出后最大的十个资源，找出一张可安全缩小的过大纹理，在保持像素画清晰度的前提下比较构建体积和首次加载时间，并验证修改后的游戏。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/web-export-and-itch",
+      "title": "Web export and itch.io packaging",
+      "title_i18n": {
+        "en": "Web export and itch.io packaging",
+        "zh-CN": "Web 导出与 itch.io 打包"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/web-export-and-itch",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Build and locally test an itch.io-ready HTML5 ZIP with portable assets, browser controls, audio checks and an export handoff checklist.",
+      "description_i18n": {
+        "en": "Build and locally test an itch.io-ready HTML5 ZIP with portable assets, browser controls, audio checks and an export handoff checklist.",
+        "zh-CN": "构建并本地测试可供 itch.io 使用的 HTML5 ZIP，检查资源路径、浏览器操作和音频，并附导出交付清单。"
+      },
+      "tags": [
+        "game-development",
+        "first-party",
+        "openpixo",
+        "godot",
+        "phaser",
+        "export"
+      ],
+      "examples": [
+        {
+          "title": "Package the sample platformer",
+          "title_i18n": {
+            "zh-CN": "打包示例平台游戏"
+          },
+          "prompt": "Build the bundled Phaser sample platformer for itch.io. Test the production output, preserve relative asset paths, make a ZIP with index.html at its root, and give me a local checklist. Do not upload it.",
+          "prompt_i18n": {
+            "zh-CN": "将内置 Phaser 示例平台游戏构建为 itch.io 用的 Web 包。测试生产构建，保留相对资源路径，生成根目录含 index.html 的 ZIP，并给出本地检查清单，不上传。"
+          }
+        },
+        {
+          "title": "Export the Godot 2D game to Web",
+          "title_i18n": {
+            "zh-CN": "将 Godot 2D 游戏导出为 Web"
+          },
+          "prompt": "Prepare a local Web export of my Godot 2D template project using matching installed export templates. Check browser rendering, focus return and sound after a Start gesture, then package all export files into an itch.io-ready ZIP.",
+          "prompt_i18n": {
+            "zh-CN": "使用已安装且版本匹配的导出模板，为我的 Godot 2D 模板项目准备本地 Web 导出。检查浏览器渲染、焦点恢复和点击开始后的声音，再将全部导出文件打包为可供 itch.io 使用的 ZIP。"
+          }
+        },
+        {
+          "title": "Fix assets under a hosted subpath",
+          "title_i18n": {
+            "zh-CN": "修复子路径托管时的资源加载"
+          },
+          "prompt": "My Phaser game works in development but shows missing images when hosted under a subpath. Reproduce the exported-build failure locally, fix the asset URLs or relative base, rebuild the ZIP, and verify images and audio load.",
+          "prompt_i18n": {
+            "zh-CN": "我的 Phaser 游戏开发时正常，托管到子路径后图片缺失。请在本地复现导出构建的问题，修复资源 URL 或相对 base，重新打包 ZIP，并验证图片和音频均能加载。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/game-localization",
+      "title": "Game localization",
+      "title_i18n": {
+        "en": "Game localization",
+        "zh-CN": "游戏本地化"
+      },
+      "version": "0.1.0",
+      "kind": "skill",
+      "source": "./skills/game-localization",
+      "engines": [
+        "godot",
+        "unity",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Localize Godot and Phaser UI with string tables, runtime language switching, CJK fonts and layout checks.",
+      "description_i18n": {
+        "en": "Localize Godot and Phaser UI with string tables, runtime language switching, CJK fonts and layout checks.",
+        "zh-CN": "通过字符串表、运行时语言切换、中文字体与布局检查，为 Godot 和 Phaser 游戏界面加入本地化。"
+      },
+      "tags": [
+        "skill",
+        "first-party",
+        "openpixo",
+        "game-development",
+        "godot",
+        "phaser",
+        "localization"
+      ],
+      "examples": [
+        {
+          "title": "Translate the platformer HUD",
+          "title_i18n": {
+            "zh-CN": "翻译平台游戏 HUD"
+          },
+          "prompt": "Add English and Simplified Chinese string tables for the Phaser sample platformer's score HUD and restart instructions. Include a language control, save the preference, handle 1 coin versus 12 coins, and run pixo game verify.",
+          "prompt_i18n": {
+            "zh-CN": "给 Phaser 示例平台游戏的分数 HUD 和重开提示加入英文与简体中文字符串表。加入语言切换控件并保存偏好，处理 1 枚与 12 枚金币的文案，然后运行 pixo game verify。"
+          }
+        },
+        {
+          "title": "Add a bilingual Godot pause menu",
+          "title_i18n": {
+            "zh-CN": "加入双语 Godot 暂停菜单"
+          },
+          "prompt": "In the Godot 2D template, add a pause menu with Resume and language buttons in English and Simplified Chinese. Switch languages without resetting the level, preserve keyboard focus, save the preference, and verify the project.",
+          "prompt_i18n": {
+            "zh-CN": "在 Godot 2D 模板中加入包含继续游戏和语言按钮的中英文暂停菜单。切换语言时保留关卡进度与键盘焦点，保存语言偏好，并验证项目。"
+          }
+        },
+        {
+          "title": "Repair CJK fonts and cramped labels",
+          "title_i18n": {
+            "zh-CN": "修复中文字体和拥挤文案"
+          },
+          "prompt": "Inspect this game's English and Simplified Chinese menus for missing glyphs and clipped text. Use an available redistributable CJK font, preserve readable text size, fix wrapping at the project's narrowest supported resolution, and verify both languages in the exported game.",
+          "prompt_i18n": {
+            "zh-CN": "检查这个游戏的英文与简体中文菜单是否缺字或裁切文字。使用已有的可再分发中文字体，保持文字清晰可读，修复最窄支持分辨率下的换行，并在导出游戏中验证两种语言。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "openpixo/sprite-walk-8dir",
+      "title": "8-direction walk sprite sheet",
+      "title_i18n": {
+        "en": "8-direction walk sprite sheet",
+        "zh-CN": "8 方向行走精灵图"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/sprite-walk-8dir",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "An 8-direction walk cycle on a strict grid, generated on a transparent background and sliced into per-frame PNGs."
+    },
+    {
+      "name": "openpixo/character-turnaround",
+      "title": "Character turnaround",
+      "title_i18n": {
+        "en": "Character turnaround",
+        "zh-CN": "角色三视图"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/character-turnaround",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Front, side and back views of one character at identical scale on a transparent background, ready to use as character-card reference images."
+    },
+    {
+      "name": "openpixo/tileset-seamless",
+      "title": "Seamless tile texture",
+      "title_i18n": {
+        "en": "Seamless tile texture",
+        "zh-CN": "无缝地砖贴图"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/tileset-seamless",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A tileable ground or wall texture (grass, stone, sand, floorboards) that wraps on all four edges, resized to tile size and checked for seams."
+    },
+    {
+      "name": "openpixo/item-icon-set",
+      "title": "Item icon set",
+      "title_i18n": {
+        "en": "Item icon set",
+        "zh-CN": "道具图标组"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/item-icon-set",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A matching set of inventory icons generated on one sheet, sliced into single icons and resized to a fixed size."
+    },
+    {
+      "name": "openpixo/ui-nine-slice",
+      "title": "Nine-slice UI element",
+      "title_i18n": {
+        "en": "Nine-slice UI element",
+        "zh-CN": "九宫格 UI 元素"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/ui-nine-slice",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A button, panel or frame designed so its corners stay fixed and its edges and center stretch cleanly, keyed to transparency and trimmed."
+    },
+    {
+      "name": "openpixo/bgm-loop",
+      "title": "Looping background music",
+      "title_i18n": {
+        "en": "Looping background music",
+        "zh-CN": "循环背景音乐"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/bgm-loop",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine. Needs a music provider."
+    },
+    {
+      "name": "openpixo/feature-save-system",
+      "title": "Save system",
+      "title_i18n": {
+        "en": "Save system",
+        "zh-CN": "存档系统"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/feature-save-system",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Adds versioned save slots that survive corrupt files, wired into the game's real state and checkpoints."
+    },
+    {
+      "name": "openpixo/starter-platformer",
+      "title": "Platformer starter",
+      "title_i18n": {
+        "en": "Platformer starter",
+        "zh-CN": "横版跳跃起步"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-platformer",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turns a Godot 2D or Phaser template into a side-scrolling platformer with tight jumps, collectibles, enemies and a goal.",
+      "description_i18n": {
+        "en": "Turns a Godot 2D or Phaser template into a side-scrolling platformer with tight jumps, collectibles, enemies and a goal.",
+        "zh-CN": "把 Godot 2D 或 Phaser 模板变成横版跳跃游戏：紧凑的跳跃手感、收集物、敌人和终点。"
+      }
+    },
+    {
+      "name": "openpixo/godot4-2d",
+      "title": "Godot 4 · 2D",
+      "version": "0.1.0",
+      "kind": "project-template",
+      "source": "./game-templates/godot4-2d",
+      "engines": [
+        "godot"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A GDScript CharacterBody2D with arrow-key movement and a simple scene.",
+      "tags": [
+        "godot",
+        "2d",
+        "gdscript",
+        "movement"
+      ]
+    },
+    {
+      "name": "openpixo/godot4-3d",
+      "title": "Godot 4 · 3D",
+      "version": "0.1.0",
+      "kind": "project-template",
+      "source": "./game-templates/godot4-3d",
+      "engines": [
+        "godot"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Minimal 3D starter: camera, light and a cube.",
+      "tags": [
+        "godot",
+        "3d",
+        "camera",
+        "lighting"
+      ]
+    },
+    {
+      "name": "openpixo/phaser3-vite",
+      "title": "Phaser 3 · 2D",
+      "version": "0.1.0",
+      "kind": "project-template",
+      "source": "./game-templates/phaser3-vite",
+      "engines": [
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A TypeScript scene with a procedural sprite and arrow-key movement.",
+      "tags": [
+        "phaser",
+        "typescript",
+        "2d",
+        "movement"
+      ]
+    },
+    {
+      "name": "openpixo/threejs-vite",
+      "title": "Three.js · 3D",
+      "version": "0.1.0",
+      "kind": "project-template",
+      "source": "./game-templates/threejs-vite",
+      "engines": [
+        "threejs"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Minimal 3D starter: camera, light and a spinning cube.",
+      "tags": [
+        "threejs",
+        "3d",
+        "camera",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/godot-mcp",
+      "title": "Godot MCP (Coding-Solo)",
+      "version": "0.1.0",
+      "kind": "mcp",
+      "source": "github:Coding-Solo/godot-mcp",
+      "mcpTemplateId": "godot-mcp",
+      "engines": [
+        "godot"
+      ],
+      "license": "MIT",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Built-in Godot MCP preset. Requires a manually installed Godot executable and @coding-solo/godot-mcp server.",
+      "tags": [
+        "godot",
+        "mcp",
+        "editor"
+      ]
+    },
+    {
+      "name": "openpixo/unity-mcp",
+      "title": "MCP for Unity (CoplayDev)",
+      "version": "0.1.0",
+      "kind": "mcp",
+      "source": "github:CoplayDev/unity-mcp",
+      "mcpTemplateId": "unity-mcp",
+      "engines": [
+        "unity"
+      ],
+      "license": "MIT",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Built-in Unity MCP preset. Requires the manually installed MCP for Unity server and Unity editor bridge.",
+      "tags": [
+        "unity",
+        "mcp",
+        "editor"
+      ]
+    },
+    {
+      "name": "openpixo/blender-mcp",
+      "title": "MCP for Blender (ahujasid)",
+      "version": "0.1.0",
+      "kind": "mcp",
+      "source": "github:ahujasid/mcp-for-blender",
+      "mcpTemplateId": "blender-mcp",
+      "engines": [
+        "any"
+      ],
+      "license": "MIT",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Built-in Blender MCP preset. Requires the manually installed mcp-for-blender server and Blender add-on.",
+      "tags": [
+        "blender",
+        "mcp",
+        "3d"
+      ]
+    },
+    {
+      "name": "openpixo/pixel-16-bit",
+      "title": "Retro pixel · 16-bit",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/pixel-16-bit",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Classic 16-bit console pixel art: crisp, richly shaded sprites, props and tiles that stay easy to read."
+    },
+    {
+      "name": "openpixo/pixel-8-bit",
+      "title": "Retro pixel · 8-bit",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/pixel-8-bit",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "The strict tier of the retro pixel family: four colors per sprite, chunky clusters and early-console charm, down to two-tone 1-bit art."
+    },
+    {
+      "name": "openpixo/isometric-pixel",
+      "title": "Isometric pixel",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/isometric-pixel",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Neat diamond-grid pixel props and scenes with a consistent elevated viewpoint."
+    },
+    {
+      "name": "openpixo/sprite-diorama",
+      "title": "Sprite diorama 2.5D",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/sprite-diorama",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Crisp pixel sprites standing in a miniature 3D set with tilt-shift depth of field, bloom and warm dynamic light."
+    },
+    {
+      "name": "openpixo/painted-fantasy",
+      "title": "Hand-painted fantasy",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/painted-fantasy",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Warm brushwork and clear material shapes for story-rich fantasy worlds."
+    },
+    {
+      "name": "openpixo/painted-cutout",
+      "title": "Paper cutout",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/painted-cutout",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Hand-painted 2D characters and props made of flat cut-out pieces, like a puppet show."
+    },
+    {
+      "name": "openpixo/cel-anime",
+      "title": "Cel-shaded anime",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/cel-anime",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Clean linework, graphic shadows and vibrant accents for expressive game characters."
+    },
+    {
+      "name": "openpixo/chibi-cute",
+      "title": "Chibi cute",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/chibi-cute",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Rounded, tiny heroes and cheerful props with expressive faces and soft colors."
+    },
+    {
+      "name": "openpixo/cozy-pastel",
+      "title": "Cozy pastel",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/cozy-pastel",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Calm domestic spaces and gentle objects in warm, low-contrast pastel colors."
+    },
+    {
+      "name": "openpixo/flat-vector",
+      "title": "Flat vector",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/flat-vector",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Geometric shapes and carefully limited colors for scalable, readable game assets."
+    },
+    {
+      "name": "openpixo/ink-woodcut",
+      "title": "Ink & woodcut",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/ink-woodcut",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Carved contours and expressive hatching for tactile folklore-inspired game art."
+    },
+    {
+      "name": "openpixo/watercolor-storybook",
+      "title": "Watercolor storybook",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/watercolor-storybook",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Translucent washes and gentle pencil contours for quiet, story-led adventures."
+    },
+    {
+      "name": "openpixo/dark-gothic",
+      "title": "Dark gothic",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/dark-gothic",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Weathered stone, candlelit metal and disciplined silhouettes for somber fantasy."
+    },
+    {
+      "name": "openpixo/horde-topdown",
+      "title": "Horde top-down",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/horde-topdown",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Chunky, color-coded units on a calm ground so players, swarms and pickups stay readable on crowded screens."
+    },
+    {
+      "name": "openpixo/crt-card-table",
+      "title": "CRT retro pixel",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/crt-card-table",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Chunky pixel cards and menus seen through an old CRT screen, with soft glow and scanlines: the look of recent card roguelites."
+    },
+    {
+      "name": "openpixo/vaporwave-crt",
+      "title": "Vaporwave / CRT",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/vaporwave-crt",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Dusk colors, geometric horizons and restrained screen texture for retro game worlds."
+    },
+    {
+      "name": "openpixo/low-poly-3d",
+      "title": "Low-poly 3D",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/low-poly-3d",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Faceted forms, matte materials and soft light for cohesive stylized 3D asset concepts."
+    },
+    {
+      "name": "openpixo/retro-low-poly",
+      "title": "Retro 32-bit 3D",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/retro-low-poly",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Late-1990s console 3D with chunky texels, warped textures and dense fog; a natural fit for lo-fi horror and mystery."
+    },
+    {
+      "name": "openpixo/toon-3d",
+      "title": "Toon-shaded 3D",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/toon-3d",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Stepped ramp lighting, clean ink outlines and chunky friendly forms for bright stylized 3D adventures."
+    },
+    {
+      "name": "openpixo/voxel-3d",
+      "title": "Voxel 3D",
+      "version": "0.1.0",
+      "kind": "style",
+      "source": "./plugins/_official/styles/voxel-3d",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Grid-built cubic forms and restrained colors for playful, consistent voxel assets."
+    },
+    {
+      "name": "openpixo/starter-roguelike-dungeon",
+      "title": "Roguelike dungeon starter",
+      "title_i18n": {
+        "en": "Roguelike dungeon starter",
+        "zh-CN": "Roguelike 地牢起步"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-roguelike-dungeon",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turns a Godot 2D or Phaser template into a seeded dungeon crawler with grid movement, field of view, enemies and stairs.",
+      "description_i18n": {
+        "en": "Turns a Godot 2D or Phaser template into a seeded dungeon crawler with grid movement, field of view, enemies and stairs.",
+        "zh-CN": "把 Godot 2D 或 Phaser 模板变成带种子的地牢探索：网格移动、视野、敌人和楼梯。"
+      }
+    },
+    {
+      "name": "openpixo/starter-tower-defense",
+      "title": "Tower defense starter",
+      "title_i18n": {
+        "en": "Tower defense starter",
+        "zh-CN": "塔防起步"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-tower-defense",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turns a Godot 2D or Phaser template into tower defense with a winding path, data-driven waves, buildable towers and an economy.",
+      "description_i18n": {
+        "en": "Turns a Godot 2D or Phaser template into tower defense with a winding path, data-driven waves, buildable towers and an economy.",
+        "zh-CN": "把 Godot 2D 或 Phaser 模板变成塔防游戏：蜿蜒路径、数据驱动的波次、可建造的塔和经济系统。"
+      }
+    },
+    {
+      "name": "openpixo/starter-match3",
+      "title": "Match-3 starter",
+      "title_i18n": {
+        "en": "Match-3 starter",
+        "zh-CN": "三消起步"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-match3",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turns a Godot 2D or Phaser template into match-3 with a pure board model, cascades, combos and a win/lose loop.",
+      "description_i18n": {
+        "en": "Turns a Godot 2D or Phaser template into match-3 with a pure board model, cascades, combos and a win/lose loop.",
+        "zh-CN": "把 Godot 2D 或 Phaser 模板变成三消解谜：独立棋盘模型、连锁下落、连击和胜负循环。"
+      }
+    },
+    {
+      "name": "openpixo/starter-card-battler",
+      "title": "Card battler starter",
+      "title_i18n": {
+        "en": "Card battler starter",
+        "zh-CN": "卡牌战斗起步"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-card-battler",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turns a Godot 2D or Phaser template into a card battler with data-driven cards, enemy intents and pure battle rules.",
+      "description_i18n": {
+        "en": "Turns a Godot 2D or Phaser template into a card battler with data-driven cards, enemy intents and pure battle rules.",
+        "zh-CN": "把 Godot 2D 或 Phaser 模板变成卡牌战斗：数据驱动的卡牌、敌人意图和独立战斗规则。"
+      }
+    },
+    {
+      "name": "openpixo/starter-topdown-shooter",
+      "title": "Top-down shooter starter",
+      "title_i18n": {
+        "en": "Top-down shooter starter",
+        "zh-CN": "俯视角射击起步"
+      },
+      "version": "0.2.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-topdown-shooter",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Turns a Godot 2D or Phaser template into a wave shooter with pooled bullets, chasing enemies, a HUD and a restart loop.",
+      "description_i18n": {
+        "en": "Turns a Godot 2D or Phaser template into a wave shooter with pooled bullets, chasing enemies, a HUD and a restart loop.",
+        "zh-CN": "把 Godot 2D 或 Phaser 模板变成波次射击游戏：子弹对象池、追击敌人、HUD 和重开循环。"
+      }
+    },
+    {
+      "name": "openpixo/starter-survivors",
+      "title": "Survivors starter",
+      "title_i18n": {
+        "en": "Survivors starter",
+        "zh-CN": "幸存者玩法起步"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-survivors",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Builds a Godot 2D or Phaser survivors loop with auto-attacks, XP gems, three-choice upgrades and pooled escalating hordes.",
+      "description_i18n": {
+        "en": "Builds a Godot 2D or Phaser survivors loop with auto-attacks, XP gems, three-choice upgrades and pooled escalating hordes.",
+        "zh-CN": "在 Godot 2D 或 Phaser 中构建幸存者循环：自动攻击、经验宝石、三选一升级和对象池驱动的递增敌潮。"
+      }
+    },
+    {
+      "name": "openpixo/starter-deckbuilder-roguelite",
+      "title": "Deckbuilder roguelite starter",
+      "title_i18n": {
+        "en": "Deckbuilder roguelite starter",
+        "zh-CN": "肉鸽构筑卡牌起步"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-deckbuilder-roguelite",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Builds score/combo card runs in Godot 2D or Phaser with between-round shops, joker-like modifiers and data-driven cards.",
+      "description_i18n": {
+        "en": "Builds score/combo card runs in Godot 2D or Phaser with between-round shops, joker-like modifiers and data-driven cards.",
+        "zh-CN": "在 Godot 2D 或 Phaser 中构建计分与组合驱动的卡牌闯关：回合间商店、类似小丑牌的修饰卡和数据驱动卡牌。"
+      }
+    },
+    {
+      "name": "openpixo/starter-cozy-farm",
+      "title": "Cozy farm starter",
+      "title_i18n": {
+        "en": "Cozy farm starter",
+        "zh-CN": "休闲农场起步"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-cozy-farm",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Builds a Godot 2D or Phaser farm with tile tilling, planting, day-based crop growth, inventory and selling.",
+      "description_i18n": {
+        "en": "Builds a Godot 2D or Phaser farm with tile tilling, planting, day-based crop growth, inventory and selling.",
+        "zh-CN": "在 Godot 2D 或 Phaser 中构建休闲农场：耕地、播种、按日生长的作物、背包和出售。"
+      }
+    },
+    {
+      "name": "openpixo/starter-idle-incremental",
+      "title": "Idle incremental starter",
+      "title_i18n": {
+        "en": "Idle incremental starter",
+        "zh-CN": "放置增量起步"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/starter-idle-incremental",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Builds a Godot 2D or Phaser idle game with generators, prestige, capped offline progress, big-number formatting and saves.",
+      "description_i18n": {
+        "en": "Builds a Godot 2D or Phaser idle game with generators, prestige, capped offline progress, big-number formatting and saves.",
+        "zh-CN": "在 Godot 2D 或 Phaser 中构建放置游戏：生产器、转生、限时离线收益、大数格式化和存档。"
+      }
+    },
+    {
+      "name": "openpixo/pixel-dungeon-kit",
+      "title": "Pixel Dungeon Kit",
+      "title_i18n": {
+        "en": "Pixel Dungeon Kit",
+        "zh-CN": "像素地牢套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:pixel-dungeon-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 600,
+        "sku": "workshop.pixel-dungeon-kit"
+      },
+      "description": "Build readable roguelike rooms with 256 dungeon tiles at 16×16 px, 12 doors and 8 chests with 4-frame animations, 16 traps and 8 torches with 6-frame animations, plus 47-tile autotile rules. Transparent PNG sheets and tile maps are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Build readable roguelike rooms with 256 dungeon tiles at 16?16 px, 12 doors and 8 chests with 4-frame animations, 16 traps and 8 torches with 6-frame animations, plus 47-tile autotile rules. Transparent PNG sheets and tile maps are Godot and Phaser ready.",
+        "zh-CN": "用 256 块 16×16 像素地牢图块搭建清晰易读的肉鸽房间：12 扇门和 8 个宝箱（4 帧动画）、16 种陷阱和 8 支火把（6 帧动画），附 47 块自动拼接规则。透明 PNG 图集与瓦片地图可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "dungeon",
+        "roguelike"
+      ]
+    },
+    {
+      "name": "openpixo/forest-platformer-kit",
+      "title": "Forest Platformer Kit",
+      "title_i18n": {
+        "en": "Forest Platformer Kit",
+        "zh-CN": "森林平台跳跃套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:forest-platformer-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 800,
+        "sku": "workshop.forest-platformer-kit"
+      },
+      "description": "Create a woodland platformer with 192 tiles at 16×16 px, a 4-layer 2048×512 px parallax background, and a 32×32 px hero with idle (4 frames), run (8), jump (4) and attack (6). Transparent PNG sheets and animation maps are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Create a woodland platformer with 192 tiles at 16?16 px, a 4-layer 2048?512 px parallax background, and a 32?32 px hero with idle (4 frames), run (8), jump (4) and attack (6). Transparent PNG sheets and animation maps are Godot and Phaser ready.",
+        "zh-CN": "打造林地平台跳跃游戏：192 块 16×16 像素图块、4 层 2048×512 像素视差背景，以及 32×32 像素主角，含待机（4 帧）、奔跑（8 帧）、跳跃（4 帧）和攻击（6 帧）。透明 PNG 图集与动画映射可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "platformer",
+        "parallax",
+        "character"
+      ]
+    },
+    {
+      "name": "openpixo/retro-bestiary",
+      "title": "Retro Bestiary",
+      "title_i18n": {
+        "en": "Retro Bestiary",
+        "zh-CN": "复古怪物图鉴"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:retro-bestiary",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 900,
+        "sku": "workshop.retro-bestiary"
+      },
+      "description": "Populate encounters with 32 animated enemies on 32×32 px frames: idle (4), move (6), hit (2) and death (6), for 576 animation frames in total. Transparent PNG sheets with named animation maps are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Populate encounters with 32 animated enemies on 32?32 px frames: idle (4), move (6), hit (2) and death (6), for 576 animation frames in total. Transparent PNG sheets with named animation maps are Godot and Phaser ready.",
+        "zh-CN": "32 种带动画的敌人，32×32 像素帧：待机（4 帧）、移动（6 帧）、受击（2 帧）和死亡（6 帧），共 576 帧动画。透明 PNG 图集附命名动画映射，可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "enemies",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/cozy-farm-village",
+      "title": "Cozy Farm Village",
+      "title_i18n": {
+        "en": "Cozy Farm Village",
+        "zh-CN": "治愈农场小镇"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:cozy-farm-village",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 700,
+        "sku": "workshop.cozy-farm-village"
+      },
+      "description": "Grow a welcoming top-down village with 256 tiles at 16×16 px, 12 crops with 6 growth stages each, 16 buildings, and 8 villagers on 32×32 px frames with 4-direction, 6-frame walks. PNG sheets, tile maps and animation maps are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Grow a welcoming top-down village with 256 tiles at 16?16 px, 12 crops with 6 growth stages each, 16 buildings, and 8 villagers on 32?32 px frames with 4-direction, 6-frame walks. PNG sheets, tile maps and animation maps are Godot and Phaser ready.",
+        "zh-CN": "营造温馨的俯视角小镇：256 块 16×16 像素图块、12 种作物各 6 个生长阶段、16 座建筑，以及 8 位村民（32×32 像素帧，四方向 6 帧行走）。PNG 图集、瓦片地图与动画映射可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "top-down",
+        "farming",
+        "cozy",
+        "tileset"
+      ]
+    },
+    {
+      "name": "openpixo/sci-fi-hud-kit",
+      "title": "Sci-Fi HUD Kit",
+      "title_i18n": {
+        "en": "Sci-Fi HUD Kit",
+        "zh-CN": "科幻 HUD 界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:sci-fi-hud-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 400,
+        "sku": "workshop.sci-fi-hud-kit"
+      },
+      "description": "Assemble a consistent sci-fi HUD with 24 resizable 9-slice panels, 12 resource bars, 24 buttons in 3 states, 8 cursors and 80 icons at 32×32 and 64×64 px. Transparent PNG assets and slice-margin guides are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Assemble a consistent sci-fi HUD with 24 resizable 9-slice panels, 12 resource bars, 24 buttons in 3 states, 8 cursors and 80 icons at 32?32 and 64?64 px. Transparent PNG assets and slice-margin guides are Godot and Phaser ready.",
+        "zh-CN": "组装风格统一的科幻 HUD：24 个可缩放九宫格面板、12 种资源条、24 个三态按钮、8 种光标，以及 80 个 32×32 和 64×64 像素图标。透明 PNG 素材附切片边距说明，可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "hud",
+        "sci-fi"
+      ]
+    },
+    {
+      "name": "openpixo/fantasy-item-icons",
+      "title": "Fantasy Item Icons",
+      "title_i18n": {
+        "en": "Fantasy Item Icons",
+        "zh-CN": "奇幻道具图标"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:fantasy-item-icons",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 500,
+        "sku": "workshop.fantasy-item-icons"
+      },
+      "description": "Fill an RPG inventory with 200 painted icons: 80 weapons, 40 potions, 40 armor pieces and 40 loot items. Every icon ships at 64×64 and 128×128 px as transparent PNGs, with atlas sheets and named indexes that are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Fill an RPG inventory with 200 painted icons: 80 weapons, 40 potions, 40 armor pieces and 40 loot items. Every icon ships at 64?64 and 128?128 px as transparent PNGs, with atlas sheets and named indexes that are Godot and Phaser ready.",
+        "zh-CN": "用 200 个手绘图标填满 RPG 背包：80 件武器、40 瓶药水、40 件护甲和 40 件战利品。每个图标都提供 64×64 和 128×128 像素透明 PNG，附图集与命名索引，可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "icons",
+        "rpg",
+        "inventory"
+      ]
+    },
+    {
+      "name": "openpixo/chiptune-sfx-pack",
+      "title": "Chiptune SFX Pack",
+      "title_i18n": {
+        "en": "Chiptune SFX Pack",
+        "zh-CN": "芯片音效包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:chiptune-sfx-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 300,
+        "sku": "workshop.chiptune-sfx-pack"
+      },
+      "description": "Give retro actions a crisp response with 120 8-bit sounds: 24 jumps, 24 coin pickups, 24 hits, 24 UI cues and 24 explosions. Includes 44.1 kHz mono 16-bit WAV masters and OGG copies, trimmed and named by action, Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Give retro actions a crisp response with 120 8-bit sounds: 24 jumps, 24 coin pickups, 24 hits, 24 UI cues and 24 explosions. Includes 44.1 kHz mono 16-bit WAV masters and OGG copies, trimmed and named by action, Godot and Phaser ready.",
+        "zh-CN": "120 个 8-bit 音效让复古操作反馈清脆利落：跳跃、拾取金币、受击、界面提示和爆炸各 24 个。含 44.1 kHz 单声道 16 位 WAV 原始文件和 OGG 副本，已裁剪并按动作命名，可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "audio",
+        "sfx",
+        "retro"
+      ]
+    },
+    {
+      "name": "openpixo/topdown-hero-creator",
+      "title": "Top-Down Hero Creator",
+      "title_i18n": {
+        "en": "Top-Down Hero Creator",
+        "zh-CN": "俯视角角色生成器"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:topdown-hero-creator",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 1000,
+        "sku": "workshop.topdown-hero-creator"
+      },
+      "description": "Build a modular RPG cast from 8 bodies, 16 hairstyles, 20 outfits and 12 weapons, aligned on layered 32×32 px sprite frames. Each layer supports 4-direction idle (4 frames), walk (6) and attack (6). PNG layers and animation maps are Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Build a modular RPG cast from 8 bodies, 16 hairstyles, 20 outfits and 12 weapons, aligned on layered 32?32 px sprite frames. Each layer supports 4-direction idle (4 frames), walk (6) and attack (6). PNG layers and animation maps are Godot and Phaser ready.",
+        "zh-CN": "用 8 种身体、16 种发型、20 套服装和 12 种武器组合出模块化 RPG 角色，全部对齐到分层 32×32 像素精灵帧。每一层都支持四方向待机（4 帧）、行走（6 帧）和攻击（6 帧）。PNG 图层与动画映射可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "top-down",
+        "character",
+        "rpg",
+        "modular"
+      ]
+    }
+  ]
+}

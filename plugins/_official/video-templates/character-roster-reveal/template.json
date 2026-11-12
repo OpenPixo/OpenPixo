@@ -1,0 +1,23 @@
+{
+  "id": "character-roster-reveal",
+  "surface": "video",
+  "title": "Character Roster Reveal",
+  "summary": "A 10-12 second hero lineup reveal for a trailer or announcement: each playable character gets a short beat with a signature pose and ability flash, then all of them snap into a final lineup hold. Works from text descriptions or attached character reference images.",
+  "category": "Motion Graphics",
+  "tags": [
+    "characters",
+    "roster",
+    "lineup",
+    "reveal",
+    "trailer",
+    "motion-graphics"
+  ],
+  "model": "doubao-seedance-2-0-260128",
+  "aspect": "16:9",
+  "prompt": "A 10 to 12 second character roster reveal for an indie game trailer.\n\nGame: {argument name=\"game_pitch\" default=\"a co-op dungeon crawler starring a band of misfit animal adventurers\"}.\nArt style: {argument name=\"art_style\" default=\"stylised toon-shaded 3D with clean outlines and bold colour blocking\"}.\nReference images: {argument name=\"reference_mode\" default=\"if character reference images are attached, keep each character exactly on model, matching proportions, colours and costume details\"}.\nCharacters, in order: {argument name=\"characters\" default=\"1) a badger knight with a door-sized shield, 2) a heron archer with a longbow, 3) a raccoon tinkerer with a backpack of gadgets, 4) a moth mystic trailing glowing dust\"}.\n\n# Timeline\n- 0-1s: an empty stage with a coloured light sweep and a hint of each character's colour.\n- 1-9s: one beat of about 2 seconds per character: they step or leap into frame, strike a signature pose, and trigger a quick ability flash ({argument name=\"ability_flashes\" default=\"a shield slam shockwave, an arrow volley, a gadget burst, a swirl of dust\"}). Each beat uses that character's accent colour for the light.\n- 9-12s: all characters snap into a final lineup side by side on one shared platform, equal spacing, heroic low-angle camera, and hold still for at least 1.5 seconds with a clean empty band above them for the game logo, added later.\n\n# Look\n- Camera: punchy push-ins on each pose, smooth whip transitions between characters.\n- Palette: {argument name=\"palette\" default=\"each character with one signature accent colour against a dark neutral stage\"}.\n- Sound: one rhythmic hit per character on the beat, a big chord on the lineup.\n\n# Avoid\nGenerated names, text or stat panels, characters drifting off model between beats, extra or merged characters, real game or brand logos, watermarks.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

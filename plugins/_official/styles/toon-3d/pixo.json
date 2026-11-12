@@ -1,0 +1,83 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/toon-3d",
+  "title": "Toon-shaded 3D",
+  "title_i18n": {
+    "en": "Toon-shaded 3D",
+    "zh-CN": "卡通渲染 3D"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:41:23Z",
+  "description": "Stepped ramp lighting, clean ink outlines and chunky friendly forms for bright stylized 3D adventures.",
+  "description_i18n": {
+    "en": "Stepped ramp lighting, clean ink outlines and chunky friendly forms for bright stylized 3D adventures.",
+    "zh-CN": "阶梯式色阶光照、干净的描边和敦实友好的造型，适合明亮的风格化 3D 冒险游戏。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "3d",
+    "3d-render",
+    "toon",
+    "cel-shaded"
+  ],
+  "examples": [
+    {
+      "title": "Island explorer",
+      "title_i18n": {
+        "zh-CN": "海岛探险者"
+      },
+      "prompt": "Generate an original island explorer character concept using the toon-3d art style: oversized satchel, rolled-up trousers, a compass on a cord and a short wooden staff. Use a neutral three-quarter pose, two-tone ramp shading and consistent outlines.",
+      "prompt_i18n": {
+        "zh-CN": "使用 toon-3d 美术风格生成原创海岛探险者角色概念：超大挎包、卷起的裤腿、挂绳指南针和短木杖。采用中性的四分之三姿势、双色阶明暗和统一粗细的描边。"
+      }
+    },
+    {
+      "title": "Cliffside lighthouse",
+      "title_i18n": {
+        "zh-CN": "悬崖灯塔"
+      },
+      "prompt": "Create a cliffside lighthouse level prop concept using the toon-3d art style, with a chunky striped tower, a wooden stair path and a few rounded bushes. Keep shapes simple, outlines even and the sky bright and open.",
+      "prompt_i18n": {
+        "zh-CN": "使用 toon-3d 美术风格制作悬崖灯塔关卡道具概念：敦实的条纹塔身、木质台阶小路和几丛圆润灌木。造型简洁，描边均匀，天空明亮开阔。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "toon-3d",
+      "dimension": [
+        "3d"
+      ],
+      "medium": [
+        "3d-render",
+        "toon",
+        "cel-shaded"
+      ],
+      "prompt": "Real-time stylized 3D game render of rounded, volumetric polygon models lit by a toon shader: stepped two- or three-tone ramp lighting with crisp shadow terminators, post-process ink outlines of consistent screen-space width around every silhouette, chunky simplified proportions and flat painted-color textures. Visible 3D depth, perspective and form-following cast shadows, saturated but balanced colors from the shared palette, a soft rim light, minimal specular highlights and a bright open sky. Keep shapes bold and readable from a gameplay camera with a cheerful adventure tone; it must read as a 3D engine scene, not a flat 2D drawing.",
+      "negativePrompt": "flat 2D illustration, hand-drawn anime drawing, photorealism, realistic PBR materials, noisy high-frequency textures, smooth gradient shading, soft blurry shadows, missing or uneven outlines, gritty grime, desaturated palette, heavy bloom, glossy plastic, text, logo, watermark",
+      "palette": [
+        "#263248",
+        "#3F6E8C",
+        "#6CC3D5",
+        "#FFF4D6",
+        "#FFC857",
+        "#F27D52",
+        "#7BC67E",
+        "#E85D75"
+      ],
+      "constraints": {
+        "outline": "Even dark screen-space outline around every silhouette; thinner interior lines.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

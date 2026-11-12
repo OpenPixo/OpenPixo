@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/vaporwave-crt",
+    "title":  "Vaporwave / CRT",
+    "title_i18n":  {
+                       "en":  "Vaporwave / CRT",
+                       "zh-CN":  "复古蒸汽波 / CRT"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Dusk colors, geometric horizons and restrained screen texture for retro game worlds.",
+    "description_i18n":  {
+                             "en":  "Dusk colors, geometric horizons and restrained screen texture for retro game worlds.",
+                             "zh-CN":  "以暮色色调、几何地平线和克制屏幕纹理，打造复古游戏世界。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "retro",
+                 "crt"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Arcade shoreline",
+                         "title_i18n":  {
+                                            "zh-CN":  "街机海岸"
+                                        },
+                         "prompt":  "Generate a retro-futurist shoreline background using the vaporwave-crt art style, with a geometric sun, distant angular cliffs and calm reflective water. Keep scanlines faint and leave a clear gameplay foreground.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 vaporwave-crt 美术风格生成复古未来海岸背景：几何太阳、远处棱角悬崖和平静反光水面。扫描线保持轻微，并为玩法前景留出清晰空间。"
+                                         }
+                     },
+                     {
+                         "title":  "Neon pickup set",
+                         "title_i18n":  {
+                                            "zh-CN":  "霓虹拾取物组"
+                                        },
+                         "prompt":  "Create four matching arcade pickup icons using the vaporwave-crt art style: energy prism, cassette-shaped data chip, crystal key and shield cell. Use clean silhouettes with restrained cyan and coral glow.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 vaporwave-crt 美术风格制作四枚配套街机拾取物图标：能量棱晶、磁带形数据芯片、水晶钥匙和护盾电池。轮廓干净，青色与珊瑚色辉光保持克制。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "vaporwave-crt",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "retro",
+                                              "crt"
+                                          ],
+                               "prompt":  "Retro-futurist game artwork in a dusk violet, muted cyan and coral palette. Bold geometric silhouettes, simple stepped gradients and a low distant horizon, with controlled emissive accents. Apply only a faint consistent horizontal CRT scanline texture and a tiny color-fringe at bright edges; keep the underlying asset clean and its silhouette sharp.",
+                               "negativePrompt":  "photorealism, dense glitch noise, heavy scanlines, unreadable bloom, excessive chromatic aberration, muddy black levels, brand logos, real product names, text, watermark",
+                               "palette":  [
+                                               "#20213E",
+                                               "#46305F",
+                                               "#79517D",
+                                               "#C47A9F",
+                                               "#EDABAA",
+                                               "#73B5BC",
+                                               "#B2D7CD",
+                                               "#F0D5AF"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Sharp graphic contours with restrained emissive edge accents.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

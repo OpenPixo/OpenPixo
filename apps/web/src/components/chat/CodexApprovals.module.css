@@ -1,0 +1,58 @@
+.root {
+  margin-block: 12px;
+  color: var(--chat-text);
+  text-align: start;
+}
+
+.request {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--chat-amber-border);
+  border-radius: 12px;
+  background: var(--chat-confirm-surface);
+}
+
+.request + .request {
+  margin-block-start: 8px;
+}
+
+.request p,
+.request pre,
+.error {
+  margin: 0;
+}
+
+.request pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.path {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request small {
+  color: var(--chat-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.error {
+  padding: 8px 0;
+  color: var(--chat-red);
+}

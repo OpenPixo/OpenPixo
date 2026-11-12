@@ -1,0 +1,146 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/pbr-texture",
+  "title": "Seamless PBR albedo",
+  "title_i18n": {
+    "en": "Seamless PBR albedo",
+    "zh-CN": "无缝 PBR 材质贴图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "A seamless, shadowless base-color (albedo) map for a 3D material, resized and checked for seams.",
+  "description_i18n": {
+    "en": "A seamless, shadowless base-color (albedo) map for a 3D material, resized and checked for seams.",
+    "zh-CN": "用于 3D 材质的无缝、无阴影基础色（漫反射）贴图，缩放并检查接缝。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "texture"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "texture",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "material",
+          "label": "Material",
+          "label_i18n": {
+            "zh-CN": "材质"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "worn red brick wall",
+          "placeholder_i18n": {
+            "zh-CN": "破旧的红砖墙"
+          }
+        },
+        {
+          "name": "style",
+          "label": "Style",
+          "label_i18n": {
+            "zh-CN": "风格"
+          },
+          "type": "select",
+          "options": [
+            "realistic",
+            "stylized hand-painted"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "realistic": "写实",
+              "stylized hand-painted": "风格化手绘"
+            }
+          },
+          "default": "realistic"
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution (px)",
+          "label_i18n": {
+            "zh-CN": "分辨率（像素）"
+          },
+          "type": "select",
+          "options": [
+            "512",
+            "1024"
+          ],
+          "default": "1024"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "brick_red"
+        }
+      ],
+      "prompt": "Albedo (base color) map of {{material}} for a PBR game material: a seamless, tileable texture filling the whole image, viewed straight down with an orthographic camera. Pure surface color only: completely flat, evenly diffuse, shadowless lighting with no baked shadows, no ambient occlusion, no specular highlights, no reflections and no lighting gradient. Detail is spread evenly with no focal point, and the edges wrap seamlessly left to right and top to bottom. Consistent real-world scale. Style: {{style}}.",
+      "negative": "shadows, highlights, reflections, glossy shine, lighting gradient, vignette, perspective, horizon, visible seam, border, text, watermark, logo, objects, large unique features, dirt concentrated in one area",
+      "models": {
+        "requires": [
+          "t2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "flux-pro-ultra"
+        ],
+        "fallback": [
+          "gemini-3-pro-image-preview",
+          "flux-dev-gateway",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 3,
+          "max": 6
+        },
+        "aspect": "1:1"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": "{{resolution}}",
+            "height": "{{resolution}}"
+          }
+        },
+        {
+          "op": "seamless-check"
+        }
+      ],
+      "checks": [
+        {
+          "check": "seamless"
+        },
+        {
+          "check": "dimensions",
+          "params": {
+            "width": "{{resolution}}",
+            "height": "{{resolution}}"
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.textureRoot}}/materials/{{name}}",
+        "name": "{{name}}_albedo"
+      }
+    }
+  }
+}

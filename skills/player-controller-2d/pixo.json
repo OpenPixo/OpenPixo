@@ -1,0 +1,20 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo/player-controller-2d",
+  "version": "0.1.0",
+  "title": "Responsive 2D player controllers",
+  "title_i18n": { "en": "Responsive 2D player controllers", "zh-CN": "灵敏的 2D 玩家控制器" },
+  "description": "Build and tune platformer or top-down movement with jump grace, input buffering, variable jump height and acceleration.",
+  "description_i18n": { "en": "Build and tune platformer or top-down movement with jump grace, input buffering, variable jump height and acceleration.", "zh-CN": "构建和调校平台跳跃或俯视角移动，实现跳跃宽容、输入缓冲、可变跳高与加速度。" },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "tags": ["game-development", "first-party", "openpixo", "godot", "unity", "phaser", "player-controller", "platformer"],
+  "engines": ["godot", "unity", "phaser"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    { "title": "Add coyote time and a jump buffer", "title_i18n": { "zh-CN": "加入土狼时间和跳跃缓冲" }, "prompt": "In this Phaser sample platformer, add 0.1 seconds of coyote time and a 0.12-second jump buffer. Keep the existing collisions and verify the build.", "prompt_i18n": { "zh-CN": "给这个 Phaser 平台跳跃示例加入 0.1 秒土狼时间和 0.12 秒跳跃缓冲，保留现有碰撞，并验证构建。" } },
+    { "title": "Make jump height respond to release", "title_i18n": { "zh-CN": "松开按键控制跳跃高度" }, "prompt": "Make the player in this Godot 2D project jump higher when I hold jump and lower when I tap it. Preserve gamepad support and give me a short ledge-and-ceiling playtest checklist.", "prompt_i18n": { "zh-CN": "让这个 Godot 2D 项目的玩家长按时跳得更高、轻点时跳得更低，保留手柄支持，并给出简短的悬崖和低天花板试玩检查表。" } },
+    { "title": "Create smooth top-down movement", "title_i18n": { "zh-CN": "实现平滑俯视角移动" }, "prompt": "Turn this Godot 2D template into a top-down movement test with acceleration, fast braking and equal diagonal speed. Add keyboard and left-stick controls, then run the Godot check.", "prompt_i18n": { "zh-CN": "把这个 Godot 2D 模板改成俯视角移动测试，加入加速度、快速刹停和等速斜向移动，支持键盘与左摇杆，然后运行 Godot 检查。" } }
+  ]
+}

@@ -1,0 +1,261 @@
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.item.item {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: auto;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 4px 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-2);
+  font: 500 14px/1.4 var(--sans);
+  text-align: left;
+  overflow: hidden;
+  transition: background 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+
+/* No fill of its own: the row always sits in its conversation group's header,
+   whose hover fill spans the chevron, the name and the trailing slot alike. */
+.row:hover .item,
+.row .item:hover:not(:disabled),
+.row:focus-within .item {
+  background: transparent;
+  color: var(--ink);
+  transition-duration: 200ms;
+}
+
+.item:active {
+  transform: none;
+}
+
+/* Inset, so the list's scrollport cannot clip the ring. */
+.item.item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--violet);
+}
+
+.thumbnail.thumbnail {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--violet-soft);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--violet);
+}
+
+.thumbnail[data-engine='godot'] {
+  background: color-mix(in srgb, #478cbf 20%, var(--bg-panel));
+  color: #356c95;
+}
+
+.thumbnail[data-engine='phaser'] {
+  background: color-mix(in srgb, #ffa51f 22%, var(--bg-panel));
+  color: #9b610d;
+}
+
+.thumbnail[data-engine='three'],
+.thumbnail[data-engine='threejs'] {
+  background: color-mix(in srgb, var(--violet) 18%, var(--bg-panel));
+  color: var(--violet);
+}
+
+.thumbnail[data-engine='unity'],
+.thumbnail[data-engine='unreal'] {
+  background: color-mix(in srgb, var(--ink) 12%, var(--bg-panel));
+  color: var(--ink-2);
+}
+
+.thumbnail[data-live='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.name:has(.nameHead) {
+  display: flex;
+}
+
+.nameHead {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameTail {
+  flex: 0 0 auto;
+  white-space: pre;
+}
+
+.unread {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--violet);
+}
+
+/* The trailing slot: time and ⋮ share one grid cell, so the slot is as wide
+   as the wider of the two and the name keeps the rest. */
+.trail {
+  display: grid;
+  flex: none;
+  align-items: center;
+  justify-items: end;
+  margin-right: 4px;
+}
+
+.trail > * {
+  grid-area: 1 / 1;
+}
+
+.time {
+  max-width: 44px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font: 400 11px/1 var(--mono);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 140ms var(--ease-out);
+}
+
+.more.more {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.row:hover .more,
+.row:focus-within .more,
+.more[aria-expanded='true'] {
+  opacity: 1;
+  transition-duration: 200ms;
+}
+
+.row:has(.more):hover .time,
+.row:has(.more):focus-within .time,
+.row:has(.more[aria-expanded='true']) .time {
+  opacity: 0;
+}
+
+.more.more:hover:not(:disabled) {
+  background: var(--sidebar-hover);
+  color: var(--ink);
+  transition-duration: 200ms;
+}
+
+.more.more:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-shadow);
+}
+
+.rename {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font: 500 14px/1.4 var(--sans);
+}
+
+.rename:focus {
+  outline: none;
+  border-color: var(--violet);
+  box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft);
+}
+
+.menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 152px;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 1px var(--line), var(--sh-2);
+  transform: translateY(-50%);
+}
+
+.menuItem.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-2);
+  font: 500 14px/1.4 var(--sans);
+  text-align: left;
+}
+
+.menu .menuItem:hover:not(:disabled) {
+  background: var(--sidebar-hover);
+  color: var(--ink);
+}
+
+.menuItem.danger {
+  color: var(--red);
+}
+
+.menu .menuItem.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: var(--red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item.item,
+  .more.more,
+  .time {
+    transition: none;
+  }
+}

@@ -1,0 +1,112 @@
+/* The art card inside an assistant reply. Owner: ArtRequestCard. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius-lg);
+  background: var(--chat-bg);
+  color: var(--chat-text);
+  animation: art-request-enter var(--chat-dur-enter) var(--chat-ease-out);
+}
+
+@keyframes art-request-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+}
+
+.title {
+  font-weight: 600;
+  color: var(--chat-text-strong);
+}
+
+.total {
+  font-size: var(--chat-t-mini);
+  color: var(--chat-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.items {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: var(--chat-t-body);
+  line-height: var(--chat-lh-body);
+}
+
+.items li + li {
+  margin-top: 2px;
+}
+
+.more {
+  list-style: none;
+  margin-left: -18px;
+  color: var(--chat-text-faint);
+}
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--chat-border-soft);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note,
+.quiet,
+.error,
+.approved {
+  margin: 0;
+  font-size: var(--chat-t-mini);
+  line-height: var(--chat-lh-row);
+}
+
+.note {
+  color: var(--chat-text-muted);
+}
+
+.quiet {
+  color: var(--chat-text-faint);
+}
+
+.error {
+  color: var(--chat-text-strong);
+}
+
+.approved {
+  padding-top: 8px;
+  border-top: 1px solid var(--chat-border-soft);
+  color: var(--chat-green);
+  font-weight: 500;
+}
+
+.card[data-status='stale'] .items {
+  color: var(--chat-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}

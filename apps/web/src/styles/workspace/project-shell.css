@@ -1,0 +1,119 @@
+/* Project workspace shell — owner: the workspace shell
+   (specs/current/openpixo-ui-cleanup.md). This file is the last word on the
+   project frame: conversation column, the hairline between it and the side
+   panel, and the panel's header row. It loads after viewer/routines.css so the
+   older floating-card rules there no longer decide the frame. Panel bodies
+   (files, assets, generation) and chat internals are styled by their owners.
+
+   Global on purpose: `.split`, `.split-chat-slot`, `.workspace` and
+   `.ws-tabs-*` are shared selectors used by ProjectView, FileWorkspace and the
+   creation frame, and the cascade above them is global. */
+
+/* ── Frame: flat columns divided by one hairline ─────────────────────────── */
+.app .split {
+  background: var(--bg);
+}
+.app .split-chat-slot {
+  padding: 0;
+  background: var(--bg);
+}
+.app .workspace,
+.app .split.split-focus .workspace {
+  margin: 0;
+  border-radius: 0;
+  background: var(--bg-panel);
+}
+/* The divider is always drawn now (columns touch). viewer/routines.css hides
+   the handle's strip for the old floating-card layout, so this rule carries
+   the extra `.split >` to win; hover and drag turn it violet. */
+.app .split > .split-resize-handle::after {
+  display: block;
+  background: var(--line);
+}
+.app .split > .split-resize-handle:hover::after,
+.app .split > .split-resize-handle:focus-visible::after,
+.app .split.is-resizing-chat > .split-resize-handle::after {
+  background: color-mix(in srgb, var(--accent) 70%, var(--border));
+}
+
+/* ── Side panel hidden: the conversation takes the window ────────────────── */
+.app .split.split-panel-hidden {
+  grid-template-columns: minmax(0, 1fr) 0 0;
+}
+.app .split.split-panel-hidden > .workspace {
+  visibility: hidden;
+  pointer-events: none;
+}
+.app .split.split-panel-hidden .split-chat-slot > .pane {
+  width: 100%;
+  max-width: var(--shell-conversation-max-width);
+  margin-inline: auto;
+}
+
+/* ── Panel header: one 48px row, the same height as the conversation's ──── */
+.app .ws-tabs-shell {
+  flex-wrap: wrap;
+  row-gap: 0;
+  gap: var(--shell-gap);
+  height: auto;
+  min-height: var(--shell-header-height);
+  padding: 0 calc(var(--shell-gutter) - 4px);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel);
+}
+/* Tabs size to their content (the + stays beside them) but keep a usable
+   minimum; when the row cannot also hold the game actions, the actions wrap
+   to a second row instead of clipping the tabs. */
+.app .ws-tabs-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-height: var(--shell-header-height);
+  gap: 6px;
+}
+.app .ws-tabs-project-actions {
+  gap: 6px;
+}
+.app .ws-focus-expand,
+.app .ws-focus-maximize {
+  display: inline-grid;
+  place-items: center;
+  width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--shell-radius);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.app .ws-focus-expand:hover:not(:disabled),
+.app .ws-focus-maximize:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-strong);
+}
+/* A narrow panel keeps tabs and game actions on one row by dropping the
+   engine chip, which returns once the panel is wider (FileWorkspace measures
+   the header). */
+.app .ws-tabs-shell[data-compact] [data-engine-chip] {
+  display: none;
+}
+/* The game actions share one control height with the tabs. */
+.app .ws-tabs-project-actions :is(button, [role="button"]) {
+  height: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+}
+
+/* An update-ready control floats at the window's top-right (no chrome row);
+   keep it clear of the panel's last action while it is showing. */
+.workspace-shell:has(.entry-top-right-cluster) .app .ws-tabs-shell {
+  padding-right: calc(var(--pixo-window-controls-inset, 0px) + 136px);
+}
+.workspace-shell:has(.entry-top-right-cluster) .app .split-panel-hidden [data-testid="project-conversation-head"],
+.workspace-shell:has(.entry-top-right-cluster) .app .split-focus .ws-tabs-shell {
+  padding-right: calc(var(--pixo-window-controls-inset, 0px) + 136px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app .split { transition: none; }
+}

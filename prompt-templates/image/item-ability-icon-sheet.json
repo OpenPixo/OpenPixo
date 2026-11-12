@@ -1,0 +1,23 @@
+{
+  "id": "item-ability-icon-sheet",
+  "surface": "image",
+  "title": "Item and Ability Icon Sheet",
+  "summary": "A grid sheet of consistent game icons for items or abilities: one subject per cell on a flat background for easy slicing, distinct silhouettes, shared light direction and outline weight, readable down to 32-64 px. Slots for theme, icon list, style and background colour.",
+  "category": "Game Assets",
+  "tags": [
+    "icons",
+    "items",
+    "abilities",
+    "sprite-sheet",
+    "game-assets",
+    "ui"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "1:1",
+  "prompt": "A game asset sheet of {argument name=\"grid\" default=\"16 icons in a 4x4 grid\"} for {argument name=\"theme\" default=\"a fantasy roguelite: weapons, potions, relics and spell abilities\"}.\n\nIcons, in reading order: {argument name=\"icon_list\" default=\"iron sword, flame dagger, frost bow, thunder hammer, red health potion, blue mana potion, green poison vial, golden elixir, cracked skull relic, feather charm, eye amulet, clockwork heart, fireball spell, ice shard spell, healing light spell, shadow step spell\"}.\n\nStyle: {argument name=\"style\" default=\"hand-painted icons with a thick dark outline, soft cel shading and a small rim highlight\"}.\n\n# Sheet rules (for clean slicing)\n- Perfectly even grid, every cell the same size, separated by generous empty gutters. No grid lines drawn.\n- Each icon centred in its cell, filling about 75% of it, never crossing into a neighbouring cell.\n- Flat, uniform background colour: {argument name=\"background\" default=\"solid mid grey #808080\"}, no gradients, no vignette, no texture.\n\n# Consistency\n- Same camera angle for every object (slight three-quarter view), same light direction from the top-left, same outline weight and same level of detail.\n- Each icon has a distinct, instantly recognisable silhouette; no two icons share the same overall shape.\n- Category colour coding: {argument name=\"colour_coding\" default=\"weapons steel and warm metal, potions saturated liquid colours, relics bone and gold, spells glowing elemental colours\"}.\n\n# Readability\n- Must stay readable when each icon is shrunk to 32x32 and 64x64 pixels: bold shapes, high value contrast between object and background, minimal tiny detail.\n\n# Avoid\nText, numbers, labels, rarity borders or frames, drop shadows touching neighbouring cells, inconsistent perspectives, photoreal rendering, watermarks, existing franchise items.",
+  "source": {
+    "repo": "openpixo/openpixo",
+    "license": "Apache-2.0",
+    "author": "openpixo contributors"
+  }
+}

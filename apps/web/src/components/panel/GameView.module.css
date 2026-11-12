@@ -1,0 +1,190 @@
+/* 游戏 view (specs/current/openpixo-game-panel.md §4). The body is one column
+   that never scrolls itself: on top the inline notices and the stage, which
+   takes the remaining height; below, the last verify / playtest rows and the
+   调参 and 日志 disclosures, which scroll inside their own area. While a
+   disclosure is open a divider sits between the two and the bottom area takes
+   the height in --game-panel-height (game-split.ts clamps it). */
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.top {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  /* Matches GAME_SPLIT_STAGE_MIN, so long rows below cannot squeeze the stage away. */
+  min-height: 160px;
+  overflow: auto;
+}
+
+.bottom {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.bottom[data-split='true'] {
+  flex: 0 0 var(--game-panel-height, 280px);
+}
+.top:has(+ .splitHandle) {
+  /* The split's clamp keeps the stage's share; a tiny window shares the height instead. */
+  min-height: 0;
+}
+
+/* The divider takes no height: the bottom area's top border is its line, and
+   a taller invisible hit area straddles it. */
+.splitHandle {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  height: 0;
+  outline: none;
+  cursor: row-resize;
+  touch-action: none;
+}
+.splitHandle::before {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.splitHandle::after {
+  content: '';
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 2px;
+  background: var(--violet);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms var(--ease-out);
+}
+.splitHandle:hover::after,
+.splitHandle:focus-visible::after,
+.splitResizing .splitHandle::after {
+  opacity: 1;
+  transition-duration: 200ms;
+}
+
+/* On the root for the length of a drag: the pointer keeps its shape wherever it
+   wanders, text stays unselected, and the game iframe cannot take the pointer. */
+.splitResizing {
+  cursor: row-resize;
+  user-select: none;
+}
+.splitResizing iframe {
+  pointer-events: none;
+}
+
+/* 验证 and its ▾ read as one control. */
+.split {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+:global(.app) .split > button {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+:global(.app) .split > div > button {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-muted);
+  font: var(--shell-meta-font);
+}
+.statusText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spinner { flex-shrink: 0; animation: game-view-spin 1s linear infinite; }
+@keyframes game-view-spin { to { transform: rotate(360deg); } }
+
+:global(.app) .iconButton {
+  flex-shrink: 0;
+  width: var(--shell-control-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--shell-radius);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+:global(.app) .iconButton:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-strong);
+}
+
+.logs { padding: 0 var(--shell-gutter) 12px; }
+.logsTitle { margin: 0 0 6px; color: var(--text-muted); font-size: 13px; }
+.logs pre {
+  max-height: 260px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: var(--shell-radius);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-muted);
+  font: 400 13px/18px var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.disclosure {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+}
+
+.disclosureToggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  height: var(--shell-subheader-height);
+  min-height: var(--shell-subheader-height);
+  padding: 0 var(--shell-gutter);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  font: var(--shell-meta-font);
+  text-align: start;
+  cursor: pointer;
+}
+.disclosureToggle:hover {
+  background: var(--bg-fill-tertiary);
+  color: var(--text-strong);
+}
+.disclosureToggle:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.chevron {
+  color: var(--text-muted);
+  transition: transform 140ms var(--ease-out);
+}
+.disclosureToggle[aria-expanded='true'] .chevron {
+  transform: rotate(90deg);
+  transition-duration: 200ms;
+}
+
+.collapsible {
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron, .splitHandle::after { transition: none; }
+  .spinner { animation: none; }
+}

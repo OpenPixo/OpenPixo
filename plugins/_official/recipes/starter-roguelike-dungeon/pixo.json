@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-roguelike-dungeon",
+  "title": "Roguelike dungeon starter",
+  "title_i18n": {
+    "en": "Roguelike dungeon starter",
+    "zh-CN": "Roguelike 地牢起步"
+  },
+  "version": "0.2.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Turns a Godot 2D or Phaser template into a seeded dungeon crawler with grid movement, field of view, enemies and stairs.",
+  "description_i18n": {
+    "en": "Turns a Godot 2D or Phaser template into a seeded dungeon crawler with grid movement, field of view, enemies and stairs.",
+    "zh-CN": "把 Godot 2D 或 Phaser 模板变成带种子的地牢探索：网格移动、视野、敌人和楼梯。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a damp crypt beneath an abandoned chapel",
+          "default_i18n": {
+            "zh-CN": "废弃教堂下潮湿的地穴"
+          }
+        },
+        {
+          "name": "turns",
+          "label": "Time model",
+          "label_i18n": {
+            "zh-CN": "时间模式"
+          },
+          "type": "select",
+          "options": [
+            "turn-based: enemies act after each player move",
+            "real-time movement on the grid"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "turn-based: enemies act after each player move": "回合制：玩家每次行动后敌人行动",
+              "real-time movement on the grid": "网格上的即时移动"
+            }
+          },
+          "default": "turn-based: enemies act after each player move"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable roguelike dungeon crawler. Theme: {{theme}}. Time model: {{turns}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- Generate rooms connected by corridors on a tile grid with a seedable RNG. Keep map cells, room bounds, enemy definitions and floor scaling as data separate from rendering. Flood-fill from the entrance to ensure every room and the stairs are reachable. Display the seed; R regenerates with a new seed.\n- Place the player, enemies, healing potions and stairs on distinct walkable cells. Descending creates a harder floor while preserving HP. Grid movement advances one tile at a time; bumping into an enemy attacks. Enemies chase only within range and line of sight.\n- Honor the time model: turn-based enemies act once after each valid player move, attack or wait action, never for a blocked wall input; real-time mode uses a fixed grid-step cooldown. Prevent overlapping actors and repeated actions from one held key in turn-based mode.\n- Field of view with a visibility radius and wall occlusion; explored but unseen cells remain dim. HUD shows HP, floor, seed, controls and a short event log. Death shows floor reached and offers a new seeded run.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Use a seeded RandomNumberGenerator and a RefCounted dungeon model. Render with TileMapLayer plus a generated placeholder TileSet, or simple per-tile shapes. Replace free-moving player.gd with grid movement; keep actor cells authoritative and animate visuals between cells.\n\nGenre-specific Phaser implementation: Use a seeded model in src/dungeon/ with no Phaser imports. Render cells with generated textures or Graphics and actors in GameScene. Grid occupancy handles collisions without Arcade Physics. Tween visuals after committing the model action and block input until the action resolves.\n\nRules checks:\n- A fixed seed reproduces the map and spawns; several fixed seeds produce reachable stairs with no overlapping spawns.\n- Walls block movement and line of sight; explored state persists after leaving visibility.\n- A valid turn consumes exactly one enemy action, blocked movement consumes none, and descending/restarting resets the intended floor state.\n\nPlaytest hints: Use arrows/WASD for grid movement, Space to wait, and R to regenerate. Walk into a wall, attack by bumping an enemy, pick up a potion and descend the stairs. Confirm the selected time model, hidden rooms, seed display and death/restart loop.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

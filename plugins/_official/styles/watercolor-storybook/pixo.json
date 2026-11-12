@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/watercolor-storybook",
+    "title":  "Watercolor storybook",
+    "title_i18n":  {
+                       "en":  "Watercolor storybook",
+                       "zh-CN":  "水彩绘本"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Translucent washes and gentle pencil contours for quiet, story-led adventures.",
+    "description_i18n":  {
+                             "en":  "Translucent washes and gentle pencil contours for quiet, story-led adventures.",
+                             "zh-CN":  "以透明水色和轻柔铅笔轮廓，表现安静、叙事驱动的冒险世界。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "watercolor",
+                 "illustration"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Meadow campsite",
+                         "title_i18n":  {
+                                            "zh-CN":  "草地营地"
+                                        },
+                         "prompt":  "Generate a quiet meadow campsite illustration using the watercolor-storybook art style, with a small canvas tent, a kettle and wildflowers beside a narrow stream. Leave airy space around the scene.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 watercolor-storybook 美术风格生成安静的草地营地插画：小帆布帐篷、水壶和溪边野花。场景周围保留通透留白。"
+                                         }
+                     },
+                     {
+                         "title":  "Woodland companions",
+                         "title_i18n":  {
+                                            "zh-CN":  "林间伙伴"
+                                        },
+                         "prompt":  "Create two original woodland companion portraits using the watercolor-storybook art style: a curious mouse with a scarf and a patient tortoise with a leaf satchel. Match their paper texture and soft pencil contours.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 watercolor-storybook 美术风格制作两张原创林间伙伴肖像：围围巾的好奇小鼠、背叶片挎包的耐心乌龟。统一纸张质感和柔和铅笔轮廓。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "watercolor-storybook",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "watercolor",
+                                              "illustration"
+                                          ],
+                               "prompt":  "Watercolor storybook game illustration with translucent layered washes, softly pooled pigment at edges and subtle cold-press paper grain. Gentle pencil contours, simplified friendly forms and airy negative space. Use muted botanical colors with warm ochre accents; keep the focal subject clearly separated from softer surrounding washes and avoid muddy overpainting.",
+                               "negativePrompt":  "photorealism, glossy digital rendering, thick black contours, hard cel shadows, neon colors, dense texture, muddy opaque paint, vector-perfect edges, text, signature, watermark",
+                               "palette":  [
+                                               "#F2EBDD",
+                                               "#D9CBAA",
+                                               "#C8A47B",
+                                               "#A7BA9B",
+                                               "#7F9F9A",
+                                               "#9AAEC9",
+                                               "#C9979C",
+                                               "#6C7777"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Light broken pencil contours; let watercolor edges remain visible.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

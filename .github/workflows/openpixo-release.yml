@@ -1,0 +1,223 @@
+name: OpenPixo release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Public version: MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-beta.N'
+        type: string
+        required: true
+      channel:
+        description: Release channel
+        type: choice
+        options: [beta, stable]
+        default: beta
+        required: true
+      publish:
+        description: Upload to R2 (unchecked = dry run that only prints the plan and public URLs)
+        type: boolean
+        default: false
+      allow_unsigned:
+        description: Publish even if the installer is not Authenticode-signed (recorded as signed=false)
+        type: boolean
+        default: false
+      min_version:
+        description: Optional. Apps below this version must update before they can be used (serious bugs only)
+        type: string
+        required: false
+      min_version_message_en:
+        description: Reason shown to English users when min_version is set
+        type: string
+        required: false
+      min_version_message_zh:
+        description: Reason shown to zh-CN users when min_version is set
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  # Azure Artifact Signing signs through an OIDC login; unused by the PFX path.
+  id-token: write
+
+concurrency:
+  group: openpixo-release-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    # Configure required reviewers and allowed branches on this environment.
+    environment: openpixo-release
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      OPENPIXO_VERSION: ${{ inputs.version }}
+      OPENPIXO_CHANNEL: ${{ inputs.channel }}
+      # Public identity: release-stable-win installs as "OpenPixo", release-beta-win as "OpenPixo Beta".
+      OPENPIXO_NAMESPACE: release-${{ inputs.channel }}-win
+      # Optional; tools-release defaults to https://downloads.openpixo.com.
+      RELEASE_PUBLIC_ORIGIN: ${{ vars.OPENPIXO_RELEASE_PUBLIC_ORIGIN }}
+      SIGNING_METHOD: >-
+        ${{ vars.OPENPIXO_AZURE_SIGNING_ACCOUNT != '' && 'azure-artifact-signing'
+        || (secrets.OPENPIXO_WIN_SIGN_PFX_BASE64 != '' && secrets.OPENPIXO_WIN_SIGN_PFX_PASSWORD != '') && 'certificate'
+        || 'none' }}
+
+    steps:
+      # `runner.temp` is not available in job-level env.
+      - name: Set runner paths
+        run: |
+          "PACK_ROOT=$env:RUNNER_TEMP/opx-pack" >> $env:GITHUB_ENV
+          "RELEASE_ARTIFACTS=$env:RUNNER_TEMP/opx-release" >> $env:GITHUB_ENV
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.33.2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+          cache: pnpm
+
+      - name: Validate release inputs
+        run: >-
+          node --input-type=module -e 'import { validateRelease, allowedUrl } from "./tools/release/src/openpixo/common.ts";
+          validateRelease(process.env.OPENPIXO_VERSION, process.env.OPENPIXO_CHANNEL);
+          if (process.env.RELEASE_PUBLIC_ORIGIN) allowedUrl(process.env.RELEASE_PUBLIC_ORIGIN);'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm guard
+      - run: pnpm typecheck
+      - run: pnpm --filter @openpixo/tools-release exec vitest run tests/openpixo-release.test.ts tests/openpixo-registry.test.ts
+
+      - name: Azure login for Artifact Signing
+        if: env.SIGNING_METHOD == 'azure-artifact-signing'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.OPENPIXO_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.OPENPIXO_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.OPENPIXO_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build Windows NSIS release with the baked update feed
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.OPENPIXO_WIN_SIGN_PFX_BASE64 }}
+          SIGN_PFX_PASSWORD: ${{ secrets.OPENPIXO_WIN_SIGN_PFX_PASSWORD }}
+          PIXO_WIN_SIGN_AZURE_ENDPOINT: ${{ vars.OPENPIXO_AZURE_SIGNING_ENDPOINT }}
+          PIXO_WIN_SIGN_AZURE_ACCOUNT: ${{ vars.OPENPIXO_AZURE_SIGNING_ACCOUNT }}
+          PIXO_WIN_SIGN_AZURE_PROFILE: ${{ vars.OPENPIXO_AZURE_SIGNING_PROFILE }}
+        run: |
+          $buildArgs = @('--to', 'nsis', '--portable', '--release-channel', $env:OPENPIXO_CHANNEL,
+            '--app-version', $env:OPENPIXO_VERSION, '--namespace', $env:OPENPIXO_NAMESPACE, '--dir', $env:PACK_ROOT, '--json')
+          $certificate = $null
+          $certificateFile = Join-Path $env:RUNNER_TEMP 'openpixo-signing.pfx'
+          try {
+            if ($env:SIGNING_METHOD -ne 'none') {
+              $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+                Where-Object FullName -Match '\\x64\\' | Sort-Object FullName | Select-Object -Last 1
+              if (!$signtool) { throw 'Windows SDK signtool.exe is required' }
+              $env:PIXO_WIN_SIGNTOOL_PATH = $signtool.FullName
+              $env:PIXO_WIN_SIGN_METHOD = $env:SIGNING_METHOD
+              $buildArgs += '--signed'
+            }
+            if ($env:SIGNING_METHOD -eq 'certificate') {
+              [IO.File]::WriteAllBytes($certificateFile, [Convert]::FromBase64String($env:SIGN_PFX_BASE64))
+              $password = ConvertTo-SecureString $env:SIGN_PFX_PASSWORD -AsPlainText -Force
+              $certificate = Import-PfxCertificate -FilePath $certificateFile -CertStoreLocation Cert:\CurrentUser\My -Password $password |
+                Where-Object HasPrivateKey | Select-Object -First 1
+              if (!$certificate) { throw 'Signing certificate must include a private key' }
+              $env:PIXO_WIN_SIGN_CERT_SHA1 = $certificate.Thumbprint
+            } elseif ($env:SIGNING_METHOD -eq 'azure-artifact-signing') {
+              $dlibRoot = Join-Path $env:RUNNER_TEMP 'artifact-signing'
+              nuget install Microsoft.ArtifactSigning.Client -Version 1.0.128 -OutputDirectory $dlibRoot -NonInteractive
+              if ($LASTEXITCODE -ne 0) { throw 'Artifact Signing client install failed' }
+              $dlib = Get-ChildItem $dlibRoot -Filter Azure.CodeSigning.Dlib.dll -Recurse |
+                Where-Object FullName -Match '\\x64\\' | Select-Object -First 1
+              if (!$dlib) { throw 'x64 Azure.CodeSigning.Dlib.dll not found in the Artifact Signing client' }
+              $env:PIXO_WIN_SIGN_AZURE_DLIB = $dlib.FullName
+            } else {
+              Write-Warning 'No signing configured: this build is UNSIGNED and can only be published with allow_unsigned.'
+            }
+            $result = (pnpm --silent tools-pack win build @buildArgs | Out-String) | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or !$result.installerPath -or !$result.payloadPath) { throw 'Windows build failed or produced no installer/payload' }
+            "OPENPIXO_BUILT_INSTALLER=$($result.installerPath)" >> $env:GITHUB_ENV
+            "OPENPIXO_BUILT_PAYLOAD=$($result.payloadPath)" >> $env:GITHUB_ENV
+          } finally {
+            if ($certificate) { Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" }
+            Remove-Item -LiteralPath $certificateFile -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Install for smoke check
+        id: install
+        run: pnpm tools-pack win install --silent --namespace "$env:OPENPIXO_NAMESPACE" --dir "$env:PACK_ROOT"
+
+      - name: Start and inspect without model calls
+        run: |
+          pnpm tools-pack win start --namespace "$env:OPENPIXO_NAMESPACE" --dir "$env:PACK_ROOT"
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged startup failed' }
+          $inspection = pnpm --silent tools-pack win inspect --namespace "$env:OPENPIXO_NAMESPACE" --dir "$env:PACK_ROOT" --expr '({title: document.title, readyState: document.readyState})' --json
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged inspect failed' }
+          $snapshot = ($inspection | Out-String) | ConvertFrom-Json
+          if (!$snapshot.eval.ok -or !$snapshot.status.windowVisible -or !$snapshot.daemonStatus -or !$snapshot.webStatus -or
+              $snapshot.eval.value.title -ne 'OpenPixo' -or $snapshot.eval.value.readyState -ne 'complete') {
+            throw 'Packaged renderer or sidecar status did not pass smoke checks'
+          }
+
+      - name: Uninstall smoke instance
+        if: always() && steps.install.outcome == 'success'
+        run: |
+          try {
+            pnpm tools-pack win stop --namespace "$env:OPENPIXO_NAMESPACE" --dir "$env:PACK_ROOT"
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged stop failed' }
+          } finally {
+            pnpm tools-pack win uninstall --silent --remove-data --remove-logs --remove-sidecars --namespace "$env:OPENPIXO_NAMESPACE" --dir "$env:PACK_ROOT"
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged uninstall failed' }
+          }
+
+      - name: Stage public installer and update payload
+        run: |
+          New-Item -ItemType Directory -Path $env:RELEASE_ARTIFACTS -Force | Out-Null
+          Copy-Item -LiteralPath $env:OPENPIXO_BUILT_INSTALLER -Destination (Join-Path $env:RELEASE_ARTIFACTS "OpenPixo-$($env:OPENPIXO_VERSION)-win-x64-setup.exe")
+          Copy-Item -LiteralPath $env:OPENPIXO_BUILT_PAYLOAD -Destination (Join-Path $env:RELEASE_ARTIFACTS "OpenPixo-$($env:OPENPIXO_VERSION)-win-x64-payload.7z")
+
+      - name: Generate metadata and SHA256SUMS.txt
+        env:
+          MIN_VERSION: ${{ inputs.min_version }}
+          MIN_VERSION_MESSAGE_EN: ${{ inputs.min_version_message_en }}
+          MIN_VERSION_MESSAGE_ZH: ${{ inputs.min_version_message_zh }}
+        run: |
+          $flags = @()
+          if ($env:MIN_VERSION) { $flags += '--min-version', $env:MIN_VERSION }
+          if ($env:MIN_VERSION_MESSAGE_EN) { $flags += '--min-version-message-en', $env:MIN_VERSION_MESSAGE_EN }
+          if ($env:MIN_VERSION_MESSAGE_ZH) { $flags += '--min-version-message-zh', $env:MIN_VERSION_MESSAGE_ZH }
+          pnpm tools-release openpixo metadata --artifacts "$env:RELEASE_ARTIFACTS" --version "$env:OPENPIXO_VERSION" --channel "$env:OPENPIXO_CHANNEL" @flags
+          if ($LASTEXITCODE -ne 0) { throw 'Metadata generation failed' }
+
+      - name: Preview upload plan and public URLs
+        run: |
+          $flags = @()
+          if ('${{ inputs.allow_unsigned }}' -eq 'true') { $flags += '--allow-unsigned' }
+          pnpm tools-release openpixo publish --artifacts "$env:RELEASE_ARTIFACTS" --version "$env:OPENPIXO_VERSION" --channel "$env:OPENPIXO_CHANNEL" @flags
+          if ($LASTEXITCODE -ne 0) { throw 'Publish preview failed' }
+
+      - name: Publish artifacts then latest metadata
+        if: inputs.publish
+        env:
+          RELEASE_STORAGE_BUCKET: ${{ vars.OPENPIXO_RELEASE_BUCKET }}
+          RELEASE_STORAGE_ENDPOINT: ${{ vars.OPENPIXO_RELEASE_ENDPOINT }}
+          RELEASE_STORAGE_REGION: ${{ vars.OPENPIXO_RELEASE_REGION || 'auto' }}
+          RELEASE_STORAGE_ACCESS_KEY_ID: ${{ secrets.OPENPIXO_RELEASE_ACCESS_KEY_ID }}
+          RELEASE_STORAGE_SECRET_ACCESS_KEY: ${{ secrets.OPENPIXO_RELEASE_SECRET_ACCESS_KEY }}
+          RELEASE_STORAGE_SESSION_TOKEN: ${{ secrets.OPENPIXO_RELEASE_SESSION_TOKEN }}
+        run: |
+          $flags = @('--execute')
+          if ('${{ inputs.allow_unsigned }}' -eq 'true') { $flags += '--allow-unsigned' }
+          pnpm tools-release openpixo publish --artifacts "$env:RELEASE_ARTIFACTS" --version "$env:OPENPIXO_VERSION" --channel "$env:OPENPIXO_CHANNEL" @flags
+          if ($LASTEXITCODE -ne 0) { throw 'Publish failed (an unsigned installer is refused unless allow_unsigned is set)' }
+
+      - name: Retain release files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openpixo-${{ inputs.version }}-windows
+          path: ${{ env.RELEASE_ARTIFACTS }}
+          if-no-files-found: ignore

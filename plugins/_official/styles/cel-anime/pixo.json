@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/cel-anime",
+    "title":  "Cel-shaded anime",
+    "title_i18n":  {
+                       "en":  "Cel-shaded anime",
+                       "zh-CN":  "赛璐璐动漫"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Clean linework, graphic shadows and vibrant accents for expressive game characters.",
+    "description_i18n":  {
+                             "en":  "Clean linework, graphic shadows and vibrant accents for expressive game characters.",
+                             "zh-CN":  "以干净线稿、块面阴影与鲜明点色，表现富有表情的游戏角色。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "cel-shaded",
+                 "illustration"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Sky courier",
+                         "title_i18n":  {
+                                            "zh-CN":  "天空信使"
+                                        },
+                         "prompt":  "Generate an original sky courier character using the cel-anime art style: cropped blue jacket, practical shoulder bag and a folded paper glider. Use a neutral three-quarter pose and clear cel shadows.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 cel-anime 美术风格生成一名原创天空信使：短款蓝夹克、实用单肩包和折叠纸滑翔机。采用自然的四分之三姿态，阴影块面清晰。"
+                                         }
+                     },
+                     {
+                         "title":  "Element badges",
+                         "title_i18n":  {
+                                            "zh-CN":  "元素徽章"
+                                        },
+                         "prompt":  "Create four matching elemental ability badges using the cel-anime art style: wind, ember, frost and thunder. Use bold silhouettes, clean outlines and one hard-edged shadow band.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 cel-anime 美术风格制作四枚配套的元素能力徽章：风、余烬、冰霜和雷电。使用醒目轮廓、干净描边和一层硬边阴影。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "cel-anime",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "cel-shaded",
+                                              "illustration"
+                                          ],
+                               "prompt":  "Original cel-shaded game illustration with confident clean linework, expressive but balanced proportions and broad graphic color shapes. Use one clear hard-edged shadow band, a small highlight band and controlled accent colors from the shared palette. Keep costume details organized into readable groups, consistent line weight and a neutral three-quarter presentation.",
+                               "negativePrompt":  "photorealism, painterly smudging, heavy gradients, excessive rim light, glossy plastic skin, tangled costume details, inconsistent line weights, text, logo, watermark",
+                               "palette":  [
+                                               "#24293F",
+                                               "#56638A",
+                                               "#A5B8D2",
+                                               "#F0DFC8",
+                                               "#D5A099",
+                                               "#CB5B64",
+                                               "#599A9B",
+                                               "#F2C66E"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "Clean tapered dark linework; interior lines lighter than the silhouette.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews":  ["previews/cover.webp"]
+                           }
+             }
+}

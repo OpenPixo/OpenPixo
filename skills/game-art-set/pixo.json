@@ -1,0 +1,38 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-art-set",
+  "version": "0.1.0",
+  "title": "Matching game art set",
+  "title_i18n": { "en": "Matching game art set", "zh-CN": "风格统一的游戏美术" },
+  "description": "Generate new sprites, props, tiles, icons, backgrounds and 3D concept images that match the game's style reference, using one style sheet and a fixed prompt template per asset family.",
+  "description_i18n": {
+    "en": "Generate new sprites, props, tiles, icons, backgrounds and 3D concept images that match the game's style reference, using one style sheet and a fixed prompt template per asset family.",
+    "zh-CN": "按游戏的风格参考图生成新的角色、道具、瓦片、图标、背景和 3D 概念图：一份风格说明，每类素材一个固定的提示词模板。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "tags": ["game-development", "game-assets", "art-style", "image-generation", "first-party", "openpixo"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-assets" },
+  "examples": [
+    {
+      "title": "Make one stage's art",
+      "title_i18n": { "zh-CN": "做一个阶段的美术" },
+      "prompt": "Make the stage 2 art from the style reference: the slime enemy, coin and key pickups, and a grass tile. List it with the credits first, then generate, review and wire it in.",
+      "prompt_i18n": { "zh-CN": "按风格参考图做第 2 阶段的美术：史莱姆敌人、金币和钥匙拾取物、一块草地瓦片。先列出清单和积分，再生成、检查并接进游戏。" }
+    },
+    {
+      "title": "Write the style sheet",
+      "title_i18n": { "zh-CN": "写风格说明" },
+      "prompt": "Look at the style reference in concept/ and write art/style-sheet.md: the style line, what to avoid, the view, sizes and heights for the characters in the plan. Do not generate anything yet.",
+      "prompt_i18n": { "zh-CN": "看 concept/ 里的风格参考图，写出 art/style-sheet.md：风格句、要避免的东西、视角，以及计划里各角色的尺寸和身高比例。先不要生成任何图。" }
+    },
+    {
+      "title": "Add an enemy variant",
+      "title_i18n": { "zh-CN": "加一个敌人变体" },
+      "prompt": "Make a blue, twice-as-wide version of assets/enemies/slime.png that matches the rest of the game, then add it to level 3.",
+      "prompt_i18n": { "zh-CN": "做一个蓝色、宽一倍的 assets/enemies/slime.png 变体，和游戏里其他美术风格一致，然后放进第 3 关。" }
+    }
+  ]
+}

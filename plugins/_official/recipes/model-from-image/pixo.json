@@ -1,0 +1,78 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/model-from-image",
+  "title": "3D model from image",
+  "title_i18n": {
+    "en": "3D model from image",
+    "zh-CN": "图生 3D 模型"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Turns one reference image of a prop or character into a textured 3D model (GLB). Needs a provider with image-to-3D support.",
+  "description_i18n": {
+    "en": "Turns one reference image of a prop or character into a textured 3D model (GLB). Needs a provider with image-to-3D support.",
+    "zh-CN": "把一张道具或角色参考图转成带贴图的 3D 模型（GLB），需要支持图生 3D 的供应商。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "model3d",
+    "3d"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "model3d",
+      "category": "3d",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "image",
+          "label": "Reference image",
+          "label_i18n": {
+            "zh-CN": "参考图"
+          },
+          "type": "image-ref",
+          "required": true
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "treasure_chest"
+        }
+      ],
+      "prompt": "A clean, game-ready 3D model of the single object in the reference image: one closed mesh, centered at the origin, standing upright on the ground plane, with real-world proportions and textures matching the image. Ignore the image background.",
+      "negative": "background, ground plane, pedestal, multiple objects, floating parts, holes, text",
+      "models": {
+        "requires": [
+          "image-to-3d"
+        ],
+        "recommended": ["tripo-v2.5-gateway", "meshy-6-gateway"],
+        "fallback": []
+      },
+      "generation": {
+        "count": {
+          "default": 1,
+          "max": 2
+        }
+      },
+      "output": {
+        "dir": "{{engine.modelRoot}}/{{name}}",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

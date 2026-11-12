@@ -1,0 +1,68 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-achievements",
+  "title": "Achievements",
+  "title_i18n": {
+    "en": "Achievements",
+    "zh-CN": "成就系统"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Adds event-driven achievements with progress, unlock toasts, an achievements screen and local persistence.",
+  "description_i18n": {
+    "en": "Adds event-driven achievements with progress, unlock toasts, an achievements screen and local persistence.",
+    "zh-CN": "加入事件驱动的成就：进度追踪、解锁提示、成就界面和本地持久化。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "list",
+          "label": "Achievements (title: condition; ...)",
+          "label_i18n": {
+            "zh-CN": "成就（名称：条件；…）"
+          },
+          "type": "text",
+          "default": "First Steps: finish the first level; Collector: collect 100 coins in total; Untouchable: finish a level without taking damage",
+          "default_i18n": {
+            "zh-CN": "初出茅庐：通过第一关；收藏家：累计收集 100 枚金币；毫发无伤：不受伤通过一关"
+          }
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add achievements to this {{engine.id}} game. Achievements: {{list}}.\n\nFirst read the project to find which existing events can drive each condition. If a condition needs an event the game does not have yet, add the smallest hook that emits it.\n\nRequirements:\n- Definitions are data: `id`, `title`, `description`, `hidden`, and an optional progress `target`.\n- An `AchievementManager` (Godot autoload; Phaser module) listens to gameplay events through signals or a small event bus instead of calls scattered through gameplay code, tracks progress, and unlocks each achievement once.\n- Unlocked achievements and progress persist locally (Godot `user://achievements.json`; Phaser `localStorage`), separately from save slots, and survive a restart.\n- An unlock toast queue that never overlaps toasts, and an achievements screen listing locked, unlocked and in-progress entries (hidden ones show as \"???\" until unlocked).\n- No platform SDK. Route unlocks through one small adapter (`unlock(id)`) so a store integration can be added later.\n- A debug action to reset all achievements.\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

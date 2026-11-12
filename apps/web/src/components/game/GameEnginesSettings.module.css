@@ -1,0 +1,24 @@
+.section {
+  display: grid;
+  gap: 16px;
+  max-width: 640px;
+}
+
+.section p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+}

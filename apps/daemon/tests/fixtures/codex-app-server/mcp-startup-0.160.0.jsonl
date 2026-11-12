@@ -1,0 +1,2 @@
+{"method":"mcpServer/startupStatus/updated","params":{"threadId":"01a1716c-5ff1-7970-8613-28435685e3a8","name":"openpixo_feedback_probe","status":"starting","error":null,"failureReason":null},"emittedAtMs":1792904290440}
+{"method":"mcpServer/startupStatus/updated","params":{"threadId":"01a1716c-5ff1-7970-8613-28435685e3a8","name":"openpixo_feedback_probe","status":"failed","error":"MCP client for `openpixo_feedback_probe` failed to start: MCP startup failed: 系统找不到指定的文件。 (os error 2)","failureReason":null},"emittedAtMs":1792904290440}

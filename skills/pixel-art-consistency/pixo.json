@@ -1,0 +1,39 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/pixel-art-consistency",
+  "version": "0.1.0",
+  "title": "Pixel art consistency",
+  "title_i18n": { "en": "Pixel art consistency", "zh-CN": "像素美术一致性" },
+  "description": "Align selected sprites to an approved palette, native pixel grid, canvas and outline rule with deterministic asset operations and engine import checks.",
+  "description_i18n": {
+    "en": "Align selected sprites to an approved palette, native pixel grid, canvas and outline rule with deterministic asset operations and engine import checks.",
+    "zh-CN": "通过确定性素材操作与引擎导入检查，统一选定精灵的调色板、原生像素网格、画布与描边规则。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "engines": ["godot", "unity", "phaser"],
+  "tags": ["game-development", "game-assets", "pixel-art", "godot", "unity", "phaser", "first-party", "openpixo"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-assets" },
+  "examples": [
+    {
+      "title": "Audit the platformer's pixel grid",
+      "title_i18n": { "zh-CN": "检查平台跳跃游戏的像素网格" },
+      "prompt": "Inspect public/assets/player.png and ground.png in this Phaser sample platformer. Record their native pixel sizes, palette and filtering rules in art/pixel-style.md, flag inconsistencies, and verify the game builds.",
+      "prompt_i18n": { "zh-CN": "检查这个 Phaser 平台跳跃示例中的 public/assets/player.png 和 ground.png，把原生像素尺寸、调色板与过滤规则记录到 art/pixel-style.md，指出不一致之处，并验证游戏能构建。" }
+    },
+    {
+      "title": "Remap sprites to the approved palette",
+      "title_i18n": { "zh-CN": "将精灵映射到已确认的调色板" },
+      "prompt": "Use art/palette.hex to remap the selected 32x32 player frames with pixo asset pixelate, without changing their dimensions or originals. Keep dithering off, inspect the derivatives, and report outline or alpha defects that the operation cannot repair.",
+      "prompt_i18n": { "zh-CN": "用 art/palette.hex 和 pixo asset pixelate 将选中的 32×32 玩家帧映射到调色板，不改变尺寸或原文件。关闭抖动，检查派生文件，并报告该操作无法修复的描边或透明度问题。" }
+    },
+    {
+      "title": "Fix blurry Godot sprites",
+      "title_i18n": { "zh-CN": "修复 Godot 精灵模糊" },
+      "prompt": "Check the selected Godot player sprites against the project's pixel-art rules, correct nearest filtering and integer display scale where needed, preserve collision sizes, and run pixo game verify with a screenshot.",
+      "prompt_i18n": { "zh-CN": "按项目的像素美术规则检查选中的 Godot 玩家精灵，必要时修正最近邻过滤与整数显示缩放，保留碰撞尺寸，并运行 pixo game verify 获取截图。" }
+    }
+  ]
+}

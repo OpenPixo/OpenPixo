@@ -1,0 +1,78 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-design-doc",
+  "title": "One-page game design document",
+  "title_i18n": {
+    "en": "One-page game design document",
+    "zh-CN": "单页游戏设计文档"
+  },
+  "version": "0.1.0",
+  "description": "Turn a rough game idea into a project-owned one-page GDD with a testable core loop, player verbs, win and loss rules, scope cuts, and a small playable milestone.",
+  "description_i18n": {
+    "en": "Turn a rough game idea into a project-owned one-page GDD with a testable core loop, player verbs, win and loss rules, scope cuts, and a small playable milestone.",
+    "zh-CN": "把粗略游戏想法整理成保存在项目中的单页 GDD，明确核心循环、玩家动作、胜负条件、范围取舍和可试玩里程碑。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "game-development",
+    "first-party",
+    "openpixo",
+    "godot",
+    "unity",
+    "phaser",
+    "game-design"
+  ],
+  "engines": [
+    "godot",
+    "unity",
+    "phaser"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Scope the sample platformer",
+      "title_i18n": {
+        "zh-CN": "收敛示例平台跳跃游戏的范围"
+      },
+      "prompt": "Read this Phaser sample platformer and save a one-page docs/GDD.md describing its current core loop, controls and win rule. Propose one 90-second level with three teaching beats, optional coins and explicit scope cuts; mark proposed changes separately from existing behavior.",
+      "prompt_i18n": {
+        "zh-CN": "阅读这个 Phaser 示例平台跳跃项目，将当前核心循环、操作和胜利规则写成单页 docs/GDD.md。提出一个 90 秒关卡，包含三个教学段、可选金币和明确的范围取舍，并区分提议的改动与现有行为。"
+      }
+    },
+    {
+      "title": "Turn an idea into a first playable",
+      "title_i18n": {
+        "zh-CN": "把想法整理成首个可试玩版本"
+      },
+      "prompt": "Use this Godot 2D project as the starting point for a tiny game about carrying a lantern through dark rooms. Save docs/GDD.md with the loop, four player verbs at most, win/lose/retry rules and one-room acceptance cases. Keep the first slice achievable with placeholder art and do not implement it yet.",
+      "prompt_i18n": {
+        "zh-CN": "以这个 Godot 2D 项目为起点，设计一个提灯穿过黑暗房间的小游戏。将核心循环、最多四个玩家动作、胜负与重试规则、单房间验收用例保存到 docs/GDD.md。首个版本只用占位素材，暂不实现代码。"
+      }
+    },
+    {
+      "title": "Cut an oversized prototype plan",
+      "title_i18n": {
+        "zh-CN": "精简过大的原型计划"
+      },
+      "prompt": "Compare the game's existing design notes with the playable project. Rewrite docs/GDD.md around one complete 2D level, list what is already implemented, move crafting and progression out of the first slice, and add observable acceptance cases for success, failure and restart.",
+      "prompt_i18n": {
+        "zh-CN": "对照现有设计笔记和可运行项目，把 docs/GDD.md 收敛为一个完整的 2D 关卡。列出现已实现的内容，将制作系统和长期成长移出首个版本，并添加成功、失败和重试的可观察验收用例。"
+      }
+    }
+  ]
+}

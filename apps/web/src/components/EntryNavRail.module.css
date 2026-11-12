@@ -1,0 +1,70 @@
+﻿.rail:global(.entry-nav-rail) {
+  --rail-ink-quiet: var(--ink-2);
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: var(--sidebar-bg);
+  color: var(--ink-2);
+  pointer-events: auto;
+}
+.rail::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(260px 200px at 0 0, color-mix(in srgb, var(--violet) 10%, transparent), transparent 70%);
+}
+.panel { position: relative; display: flex; flex: 1; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; padding: 18px 12px 14px; }
+.group { display: flex; flex: 1 1 auto; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; }
+.actions { display: flex; flex: none; flex-direction: column; gap: 3px; }
+.group .newGame { display: flex; flex: none; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 38px; min-height: 38px; padding: 0 10px 0 8px; border: 0; border-radius: 10px; background: var(--violet-soft); color: var(--ink); box-shadow: none; text-align: left; font: 600 14px var(--sans); transition: background 140ms var(--ease-out); }
+.group .newGame:hover:not(:disabled) { background: color-mix(in srgb, var(--violet) 14%, var(--violet-soft)); color: var(--ink); transition-duration: 200ms; }
+.group .newGame:disabled { opacity: .55; }
+.newGameIcon { display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px; border-radius: 6px; background: var(--accent); color: var(--accent-contrast); }
+.header { display: flex; flex: none; align-items: center; gap: 4px; min-width: 0; height: 40px; }
+.header .brand { display: flex; align-items: center; justify-content: flex-start; flex: 1; gap: 10px; min-width: 0; height: 40px; padding: 2px 8px; border: 0; border-radius: var(--radius-control, 10px); background: transparent; color: var(--ink); box-shadow: none; font: 700 16px var(--sans); letter-spacing: -.01em; }
+.header .toggle { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); box-shadow: none; -webkit-app-region: no-drag; transition: background 140ms var(--ease-out), color 140ms var(--ease-out); }
+.header .toggle:hover:not(:disabled) { background: var(--sidebar-hover); color: var(--ink); transition-duration: 200ms; }
+.toggleGlyph { position: absolute; opacity: 0; transition: opacity 140ms var(--ease-out); }
+.currentGlyph { opacity: 1; transition-duration: 200ms; }
+.body { display: flex; flex: 1; flex-direction: column; gap: 16px; width: calc(min(var(--entry-rail-width, 244px), 50vw) - 24px); min-height: 0; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity 140ms var(--ease-out), visibility 0s 140ms; }
+.bodyOpen { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 200ms var(--ease-out), visibility 0s; }
+.rail:not(:global(.is-open)) .panel { padding-right: 8px; padding-left: 8px; }
+.rail:not(:global(.is-open)) .brand { display: none; }
+.rail:not(:global(.is-open)) .header { justify-content: center; }
+.shortcut { margin-left: auto; color: var(--text-muted); font: 400 11px var(--mono); white-space: nowrap; }
+.brand svg { flex: none; }
+.brandPixel { fill: var(--lime); }
+.destinations { display: flex; flex: none; flex-direction: column; gap: 3px; }
+.group .navButton { position: relative; display: flex; flex: none; align-items: center; justify-content: flex-start; gap: 11px; width: 100%; height: 36px; min-height: 36px; padding: 0 24px 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); box-shadow: none; text-align: left; font: 500 14px var(--sans); transition: background 140ms var(--ease-out), color 140ms var(--ease-out), box-shadow 140ms var(--ease-out); }
+.group .navButton:hover:not(:disabled) { background: var(--sidebar-hover); color: var(--ink); transition-duration: 200ms; }
+.group .navButton.active, .group .navButton.active:hover:not(:disabled) { background: var(--bg-muted); color: var(--ink); box-shadow: none; font-weight: 600; }
+.active::after { content: ''; position: absolute; right: 10px; width: 6px; height: 6px; background: var(--lime); }
+.navIcon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 17px; color: var(--text-muted); font: 500 15px var(--mono); }
+.navIcon svg { width: 17px; height: 17px; }
+.active .navIcon { color: var(--violet); }
+.navLabel { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.recent { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.recent .recentHead { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 28px; min-height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); box-shadow: none; text-align: left; transition: background 140ms var(--ease-out), color 140ms var(--ease-out); }
+.recent .recentHead:hover:not(:disabled) { background: var(--sidebar-hover); color: var(--ink); transition-duration: 200ms; }
+.recentTitle { overflow: hidden; font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; text-overflow: ellipsis; }
+.recentChevron { display: inline-flex; flex: none; }
+.recentDisclosure { flex: 0 1 auto; min-height: 0; }
+.recentDisclosure > :global(.accordion-collapsible-inner) { display: flex; flex-direction: column; min-height: 0; }
+/* No row cap: the list takes whatever height the rail leaves between the
+   destinations and the foot, and scrolls inside itself past that. */
+.recent .recentList { display: flex; flex: 0 1 auto; flex-direction: column; gap: 2px; min-height: 0; margin: 0; padding: 2px; overflow-y: auto; overscroll-behavior: contain; list-style: none; scrollbar-width: thin; }
+.footer { display: flex; flex: none; flex-direction: column; gap: 10px; margin-top: auto; }
+.accountDock { display: flex; flex-direction: column; gap: 7px; }
+.dockActions { display: flex; flex: none; align-items: center; gap: 2px; }
+.dockActions .dockButton { width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); box-shadow: none; transition: background 140ms var(--ease-out), color 140ms var(--ease-out); }
+.dockActions .dockButton:hover:not(:disabled) { background: var(--sidebar-hover); color: var(--ink); transition-duration: 200ms; }
+.account { display: flex; min-width: 0; }
+.account .accountTrigger { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-width: 0; height: 36px; padding: 4px 6px; border: 0; background: transparent; color: var(--ink-2); box-shadow: none; text-align: left; transition: background 140ms var(--ease-out); }
+.account .accountTrigger:hover:not(:disabled) { background: var(--sidebar-hover); transition-duration: 200ms; }
+.accountAvatar { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 7px; background: var(--violet-soft); color: var(--violet-strong); }
+.accountName { overflow: hidden; color: var(--ink-2); font: 500 13px var(--sans); text-overflow: ellipsis; white-space: nowrap; }
+.rail .navButton:focus-visible, .rail .newGame:focus-visible, .rail .brand:focus-visible, .rail .toggle:focus-visible, .recent .recentHead:focus-visible, .dockActions .dockButton:focus-visible, .account .accountTrigger:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .rail *, .recent * { transition: none; animation: none; }
+}

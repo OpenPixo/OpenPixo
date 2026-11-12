@@ -1,0 +1,84 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/retro-low-poly",
+  "title": "Retro 32-bit 3D",
+  "title_i18n": {
+    "en": "Retro 32-bit 3D",
+    "zh-CN": "32 位复古 3D"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:41:23Z",
+  "description": "Late-1990s console 3D with chunky texels, warped textures and dense fog; a natural fit for lo-fi horror and mystery.",
+  "description_i18n": {
+    "en": "Late-1990s console 3D with chunky texels, warped textures and dense fog; a natural fit for lo-fi horror and mystery.",
+    "zh-CN": "九十年代末主机 3D 质感：粗颗粒贴图、扭曲纹理与浓雾，适合低保真恐怖和悬疑游戏。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "3d",
+    "3d-render",
+    "low-poly",
+    "retro",
+    "horror"
+  ],
+  "examples": [
+    {
+      "title": "Roadside motel at night",
+      "title_i18n": {
+        "zh-CN": "深夜公路汽车旅馆"
+      },
+      "prompt": "Generate a roadside motel exterior concept using the retro-low-poly art style: a single-storey row of doors, one flickering sodium lamp, a parked boxy car and thick fog swallowing the road. Keep the building silhouette readable from a fixed game camera.",
+      "prompt_i18n": {
+        "zh-CN": "使用 retro-low-poly 美术风格生成一张公路汽车旅馆外景概念图：一排单层客房门、一盏闪烁的钠灯、一辆方正的老式汽车，浓雾吞没道路。在固定游戏机位下保持建筑轮廓清晰可读。"
+      }
+    },
+    {
+      "title": "Investigation props",
+      "title_i18n": {
+        "zh-CN": "调查道具"
+      },
+      "prompt": "Create four matching item props using the retro-low-poly art style: a handheld flashlight, a cassette tape, a rusted key on a ring and a small first-aid tin. Use very low polygon counts, tiny nearest-neighbor textures and vertex lighting.",
+      "prompt_i18n": {
+        "zh-CN": "使用 retro-low-poly 美术风格制作四个配套道具：手电筒、磁带、挂在钥匙圈上的生锈钥匙和小急救盒。使用极低面数、最近邻采样的小尺寸贴图和顶点光照。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "retro-low-poly",
+      "dimension": [
+        "3d"
+      ],
+      "medium": [
+        "3d-render",
+        "low-poly",
+        "retro"
+      ],
+      "prompt": "Late-1990s 32-bit console 3D game render: very low polygon models, small low-resolution textures with visible blocky texels and no texture filtering, slight affine texture warping across large polygons, faint vertex wobble, vertex-colored Gouraud lighting and limited color depth with soft ordered dithering. Short draw distance fading into dense colored fog, a low internal resolution upscaled with nearest-neighbor. Quiet, slightly uncanny mood; keep the focal silhouette readable against the fog.",
+      "negativePrompt": "modern PBR materials, high polygon count, smooth subdivision surfaces, sharp high-resolution textures, bilinear texture smoothing, ray-traced reflections, soft global illumination, anti-aliasing, depth of field, lens flare, photorealism, explicit gore, text, logo, watermark",
+      "palette": [
+        "#0E1112",
+        "#23292A",
+        "#3E4A45",
+        "#66705F",
+        "#9A9A7C",
+        "#C9BE95",
+        "#B5652F",
+        "#6E2F2B"
+      ],
+      "constraints": {
+        "outline": "No ink contour; flat-shaded polygon silhouettes separate from the fog.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

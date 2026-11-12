@@ -1,0 +1,44 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+}
+
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search {
+  position: relative;
+  flex: 0 1 220px;
+  min-width: 140px;
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  display: inline-flex;
+  color: var(--text-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.search input {
+  box-sizing: border-box;
+  width: 100%;
+  padding-left: 30px;
+}
+
+/* The active pill's own shadow would otherwise hide the shared focus ring. */
+.toolbar :global(.subtab-pill) button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-shadow);
+}

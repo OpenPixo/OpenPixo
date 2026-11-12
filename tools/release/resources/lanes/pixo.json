@@ -1,0 +1,29 @@
+{
+  "lanes": {
+    "beta": {
+      "channel": "beta",
+      "storagePrefix": "beta",
+      "productName": "OpenPixo Beta"
+    },
+    "betas": {
+      "channel": "betas",
+      "storagePrefix": "betas",
+      "productName": "OpenPixo Betas"
+    },
+    "prerelease": {
+      "channel": "prerelease",
+      "storagePrefix": "prerelease",
+      "productName": "OpenPixo Prerelease"
+    },
+    "preview": {
+      "channel": "preview",
+      "storagePrefix": "preview",
+      "productName": "OpenPixo Preview"
+    },
+    "stable": {
+      "channel": "stable",
+      "storagePrefix": "stable",
+      "productName": "OpenPixo"
+    }
+  }
+}

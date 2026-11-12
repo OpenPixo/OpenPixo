@@ -1,0 +1,87 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-save-system",
+  "title": "Save system",
+  "title_i18n": {
+    "en": "Save system",
+    "zh-CN": "存档系统"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Adds versioned save slots that survive corrupt files, wired into the game's real state and checkpoints.",
+  "description_i18n": {
+    "en": "Adds versioned save slots that survive corrupt files, wired into the game's real state and checkpoints.",
+    "zh-CN": "加入带版本号的存档槽，能扛住损坏文件，并接入游戏真实状态与存档点。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "data",
+          "label": "What to save",
+          "label_i18n": {
+            "zh-CN": "要保存的内容"
+          },
+          "type": "text",
+          "default": "player position, health, collected items, current level and unlocked levels",
+          "default_i18n": {
+            "zh-CN": "玩家位置、生命值、已收集物品、当前关卡和已解锁关卡"
+          }
+        },
+        {
+          "name": "slots",
+          "label": "Slots",
+          "label_i18n": {
+            "zh-CN": "存档位"
+          },
+          "type": "select",
+          "options": [
+            "one autosave slot",
+            "three manual slots plus an autosave"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "one autosave slot": "一个自动存档位",
+              "three manual slots plus an autosave": "三个手动存档位加一个自动存档位"
+            }
+          },
+          "default": "one autosave slot"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add a save system to this {{engine.id}} game. Save: {{data}}. Slots: {{slots}}.\n\nFirst read the project and find where each piece of that state lives today. Save only state the game really has; list anything requested that does not exist yet instead of inventing it.\n\nRequirements:\n- One plain-data save model (ids, numbers, strings, arrays; never engine objects or node references) with an explicit `version` field and a migration step that upgrades older saves.\n- Godot: a `SaveManager` autoload registered in `project.godot`, one JSON file per slot under `user://saves/`, written to a temporary file first and then renamed so a crash mid-write cannot corrupt the slot.\n- Phaser: a `SaveManager` module over `localStorage` with one namespaced key per slot, wrapped in try/catch for quota and parse errors.\n- A missing, corrupt or newer-version save never crashes the game: fall back to defaults and tell the player.\n- Wire it in: save at the moments that matter in this game (checkpoint, level complete, quitting or the page being hidden), load on start or from a Continue/Load menu, and add a debug key to save and load instantly.\n- Add a round-trip check that saves, loads and compares the data (a headless GDScript in Godot; a unit test if the Phaser project has a runner, otherwise a dev-only self-check).\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-tower-defense",
+  "title": "Tower defense starter",
+  "title_i18n": {
+    "en": "Tower defense starter",
+    "zh-CN": "塔防起步"
+  },
+  "version": "0.2.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Turns a Godot 2D or Phaser template into tower defense with a winding path, data-driven waves, buildable towers and an economy.",
+  "description_i18n": {
+    "en": "Turns a Godot 2D or Phaser template into tower defense with a winding path, data-driven waves, buildable towers and an economy.",
+    "zh-CN": "把 Godot 2D 或 Phaser 模板变成塔防游戏：蜿蜒路径、数据驱动的波次、可建造的塔和经济系统。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a medieval valley defended against goblin raiders",
+          "default_i18n": {
+            "zh-CN": "抵御哥布林袭击的中世纪山谷"
+          }
+        },
+        {
+          "name": "towers",
+          "label": "Towers",
+          "label_i18n": {
+            "zh-CN": "防御塔"
+          },
+          "type": "select",
+          "options": [
+            "two towers: fast single-target and slow splash",
+            "three towers: fast single-target, slow splash and slowing"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "two towers: fast single-target and slow splash": "两种塔：快速单体和慢速范围伤害",
+              "three towers: fast single-target, slow splash and slowing": "三种塔：快速单体、慢速范围伤害和减速"
+            }
+          },
+          "default": "two towers: fast single-target and slow splash"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable tower defense game. Theme: {{theme}}. Towers: {{towers}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- Keep path waypoints, enemy types (HP, speed, gold reward), tower types (range, cooldown, damage, cost) and waves (type, count, interval) in data. Enemies follow a winding path from entrance to exit. Remove the template free-moving player.\n- Click a marked build spot to open a tower menu. Reject occupied or unaffordable builds without spending gold. Towers target the enemy furthest along the path within range and attack on a cooldown. Show the selected tower range and cost. Selling refunds half the paid cost, rounded down.\n- Provide fast single-target and slow splash towers, plus a slowing tower when requested. Splash hits each nearby enemy once; slowing does not stack without a documented cap. Projectiles cannot award a second kill reward for an already removed target.\n- Gold is earned per kill; an escaped enemy costs one life. A Next wave button starts a wave only once and remains disabled until all scheduled spawns and live enemies finish. Win after the last wave; lose at zero lives. HUD shows gold, lives and wave; result overlay supports restart.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Use Path2D/PathFollow2D for the route, Area2D enemies/towers/projectiles, a CanvasLayer HUD and Control build/Next wave buttons. Route mouse actions through named InputMap actions; Control clicks must not also build in the world. Read progress along the path for targeting.\n\nGenre-specific Phaser implementation: Use Phaser.Curves.Path or a waypoint-following model with accumulated path distance. Render enemies/towers in GameScene and clickable HUD objects with setInteractive(). Use scene-clock cooldowns or delta timers, remove event listeners on shutdown, and stop world clicks when a menu consumes the pointer.\n\nRules checks:\n- Insufficient funds or occupied spots never spend gold; a sell returns floor(cost / 2) exactly once.\n- Targeting chooses the furthest in-range live enemy; duplicate damage never duplicates gold or splash damage.\n- A wave cannot finish while queued spawns remain; escape reduces lives once; restart clears spawns, towers and projectiles.\n\nPlaytest hints: Use mouse clicks: click a build spot, choose a tower, click Next wave, inspect a tower range, sell it and build again. Try an unaffordable tower and double-click Next wave. Play to a loss or final-wave victory and click Restart. Capture a wave with enemies moving and gold/lives changing.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

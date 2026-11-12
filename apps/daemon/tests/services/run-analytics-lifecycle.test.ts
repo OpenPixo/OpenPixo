@@ -1,0 +1,539 @@
+// The physical-Run analytics lifecycle, driven directly.
+//
+// The real-server chain test proves the lifecycle is installed for every Run
+// of an automatic chain; this one proves what it reports once a Run settles.
+// Cancellation is the case that motivated it: a Run the user stopped has to
+// land as `cancelled`, not as a missing row, or the cancellation rate is
+// computed against a smaller denominator than the truth.
+
+import Database from 'better-sqlite3';
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  createRunAnalyticsLifecycle,
+  inheritedRunLineageHints,
+} from '../../src/services/run-analytics-lifecycle.js';
+import {
+  createRunSideEffectLedger,
+  foldEventIntoRunSideEffectLedger,
+} from '../../src/runtimes/run-lifecycle-analytics.js';
+import { createChatRunService } from '../../src/runtimes/runs.js';
+
+type Captured = {
+  eventName: string;
+  properties: Record<string, unknown>;
+  insertId: string;
+  context: { deviceId: string };
+};
+
+function harness(finishCaptureResult: unknown = {
+  status: 'queued',
+  acknowledgement: 'local_buffer',
+  errorType: null,
+}, db: unknown = {}) {
+  const captured: Captured[] = [];
+  const recoveries: Array<{ runId: string; properties: Record<string, unknown>; insertId: string }> = [];
+  const completed: string[] = [];
+  const deliveryBegun: string[] = [];
+  const deliveryFinalized: Array<{ runId: string; result: unknown }> = [];
+  let settle: (status: { status: string; errorCode?: string | null; exitCode?: number | null }) => void = () => {};
+  const terminal = new Promise<{ status: string }>((resolve) => {
+    settle = (status) => resolve(status as { status: string });
+  });
+
+  const lifecycle = createRunAnalyticsLifecycle({
+    db: db as never,
+    design: {
+      runs: {
+        wait: () => terminal as never,
+        setAnalyticsRecovery: (run, recovery) => {
+          recoveries.push({
+            runId: run.id,
+            properties: recovery.properties,
+            insertId: recovery.insertId,
+          });
+        },
+        beginAnalyticsDelivery: (run) => { deliveryBegun.push(run.id); },
+        finalizeAnalyticsDelivery: (run, result) => {
+          deliveryFinalized.push({ runId: run.id, result });
+        },
+        markAnalyticsCompleted: (run) => { completed.push(run.id); },
+        setDeliverableValidation: () => {},
+      },
+      analytics: {
+        capture: (args) => {
+          captured.push(args as Captured);
+          return args.eventName === 'run_finished'
+            ? finishCaptureResult
+            : { status: 'queued', acknowledgement: 'local_buffer', errorType: null };
+        },
+      },
+      getAppVersion: () => '0.0.0-test',
+    },
+    paths: { PROJECTS_DIR: '/nonexistent/projects', RUNTIME_DATA_DIR: '/nonexistent/data' },
+    agents: { detectAgents: async () => [] },
+    telemetry: {
+      resolveRunProjectKindForAnalytics: () => null,
+      runArtifactBaselines: { take: () => undefined },
+      runRetryEventsForAnalytics: () => [],
+    },
+  });
+
+  return {
+    captured,
+    completed,
+    deliveryBegun,
+    deliveryFinalized,
+    lifecycle,
+    recoveries,
+    settle,
+  };
+}
+
+function fakeRun(overrides: Record<string, unknown> = {}) {
+  const now = Date.now();
+  return {
+    id: 'run-under-test',
+    projectId: null,
+    conversationId: null,
+    assistantMessageId: null,
+    clientRequestId: 'client-request-1',
+    agentId: 'codex',
+    status: 'running',
+    createdAt: now,
+    updatedAt: now,
+    events: [],
+    clients: new Set(),
+    ...overrides,
+  } as never;
+}
+
+const CONTEXT = { deviceId: 'device-1', sessionId: 'session-1', clientType: 'web', locale: 'en' };
+
+async function settled(h: ReturnType<typeof harness>, eventName: string) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const found = h.captured.find((event) => event.eventName === eventName);
+    if (found) return found;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(
+    `no ${eventName} captured; saw ${JSON.stringify(h.captured.map((e) => e.eventName))}`,
+  );
+}
+
+describe('run analytics lifecycle', () => {
+
+  it('records text-only settlement as a normal successful reply', async () => {
+    const h = harness();
+    h.lifecycle.install({
+      run: fakeRun(),
+      body: { agentId: 'codex' }, requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status: 'succeeded' });
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties).toMatchObject({ result: 'success' });
+    expect(Object.keys(finished.properties).some(key => key.startsWith('pixo_next_'))).toBe(false);
+  });
+
+  it('reports an ordinary physical failure', async () => {
+    const h = harness();
+    h.lifecycle.install({
+      run: fakeRun(),
+      body: { agentId: 'codex' }, requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status: 'failed' });
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties).toMatchObject({ result: 'failed' });
+    expect(Object.keys(finished.properties).some(key => key.startsWith('pixo_next_'))).toBe(false);
+  });
+
+  it('reports a created run and pairs its finish under the same insert id', async () => {
+    const h = harness();
+    h.lifecycle.install({
+      run: fakeRun(),
+      body: { agentId: 'codex' },
+      requestAnalyticsContext: CONTEXT as never,
+    });
+
+    const created = await settled(h, 'run_created');
+    expect(created.context.deviceId).toBe('device-1');
+    h.settle({ status: 'succeeded' });
+
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties.result).toBe('success');
+    // The replay in `reconcileDurableRunTerminals` appends `-finish` to the
+    // stored id, so the stored id must stay the base one.
+    expect(finished.insertId).toBe(`${created.insertId}-finish`);
+    expect(h.recoveries.at(-1)?.insertId).toBe(created.insertId);
+    expect(h.completed).toEqual(['run-under-test']);
+  });
+
+  it('keeps failed PostHog enqueue delivery recoverable instead of marking analytics complete', async () => {
+    const deliveryFailure = {
+      status: 'failed',
+      acknowledgement: 'none',
+      errorType: 'enqueue_failed',
+    };
+    const h = harness(deliveryFailure);
+    h.lifecycle.install({
+      run: fakeRun(),
+      body: { agentId: 'codex' },
+      requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+
+    h.settle({ status: 'failed', errorCode: 'AGENT_EXIT_1' });
+    await settled(h, 'run_finished');
+    await vi.waitFor(() => expect(h.deliveryFinalized).toHaveLength(1));
+
+    expect(h.deliveryBegun).toEqual(['run-under-test']);
+    expect(h.deliveryFinalized).toEqual([{
+      runId: 'run-under-test',
+      result: deliveryFailure,
+    }]);
+    expect(h.completed).toEqual([]);
+  });
+
+  it('publishes the bounded terminal lifecycle envelope for the current attempt', async () => {
+    const h = harness();
+    h.lifecycle.install({
+      run: fakeRun({
+        terminalLifecycle: {
+          version: 1,
+          runAttempt: 2,
+          runtimeGenerationId: '0f2d4d9e-f034-4ed5-8330-314bd1d525cc',
+          terminationOrigin: 'watchdog_cleanup',
+          terminalIntegrity: 'late',
+          terminalPersistence: { status: 'acknowledged', errorType: null },
+          posthogDelivery: {
+            status: 'in_flight',
+            acknowledgement: 'none',
+            attemptCount: 1,
+            errorType: null,
+          },
+          unfinishedState: 'recovery_pending',
+          duplicateTerminalCount: 1,
+          lateTerminalCount: 1,
+        },
+      }),
+      body: { agentId: 'amr' },
+      requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+
+    h.settle({ status: 'failed', errorCode: 'AGENT_EXIT_1' });
+    const finished = await settled(h, 'run_finished');
+
+    expect(finished.properties).toMatchObject({
+      terminal_integrity: 'late',
+      run_attempt: 2,
+      runtime_generation_id: '0f2d4d9e-f034-4ed5-8330-314bd1d525cc',
+      termination_origin: 'watchdog_cleanup',
+      terminal_persistence_status: 'acknowledged',
+      terminal_persistence_error_type: null,
+      posthog_delivery_status: 'queued',
+      posthog_acknowledgement: 'local_buffer',
+      posthog_delivery_attempt_count: 1,
+      posthog_error_type: null,
+      mature_unfinished_state: 'unknown',
+      duplicate_terminal_count: 1,
+      late_terminal_count: 1,
+    });
+  });
+
+  it.each(['noop', 'recording', 'throwing', 'pending'] as const)('keeps real Run terminal state intact with %s measurement', async (measurement) => {
+    const captured: Captured[] = [];
+    const runs = createChatRunService({
+      createSseResponse: () => ({
+        send: vi.fn(() => true),
+        end: vi.fn(),
+        cleanup: vi.fn(),
+      }),
+      createSseErrorPayload: (code: string, message: string) => ({
+        error: { code, message },
+      }),
+      shutdownGraceMs: 10,
+      ttlMs: 60_000,
+    });
+    const lifecycle = createRunAnalyticsLifecycle({
+      db: {} as never,
+      design: {
+        runs: {
+          ...runs,
+          beginAnalyticsDelivery: (run: ReturnType<typeof runs.create>) => {
+            runs.beginAnalyticsDelivery(run);
+            queueMicrotask(() => {
+              runs.finish(run, 'failed', 1, null);
+              runs.finish(run, 'succeeded', 0, null);
+            });
+          },
+        } as never,
+        analytics: {
+          capture: (args) => {
+            captured.push(args as Captured);
+            if (measurement === 'noop') return undefined;
+            if (args.eventName === 'run_finished' && measurement === 'throwing') throw new Error('measurement only');
+            if (args.eventName === 'run_finished' && measurement === 'pending') return new Promise(() => {});
+            return {
+              status: 'queued',
+              acknowledgement: 'local_buffer',
+              errorType: null,
+            };
+          },
+        },
+        getAppVersion: () => '0.0.0-test',
+      },
+      paths: {
+        PROJECTS_DIR: '/nonexistent/projects',
+        RUNTIME_DATA_DIR: '/nonexistent/data',
+      },
+      agents: { detectAgents: async () => [] },
+      telemetry: {
+        resolveRunProjectKindForAnalytics: () => null,
+        runArtifactBaselines: { take: () => undefined },
+        runRetryEventsForAnalytics: () => [],
+      },
+    });
+    const run = runs.create({
+      projectId: null,
+      conversationId: null,
+      agentId: 'amr',
+    });
+    lifecycle.install({
+      run: run as never,
+      body: { agentId: 'amr', },
+      requestAnalyticsContext: CONTEXT as never,
+    });
+    await vi.waitFor(() => {
+      expect(captured.some((event) => event.eventName === 'run_created')).toBe(true);
+    });
+
+    runs.finish(run, 'failed', 1, null);
+
+    await vi.waitFor(() => {
+      expect(captured.some((event) => event.eventName === 'run_finished')).toBe(true);
+    });
+    const finished = captured.find((event) => event.eventName === 'run_finished');
+    expect(await runs.wait(run)).toMatchObject({ status: 'failed' });
+    expect(finished?.properties).toMatchObject({
+      terminal_integrity: 'late',
+      duplicate_terminal_count: 1,
+      late_terminal_count: 1,
+    });
+  });
+
+  it.each([
+    ['canceled', 'cancelled'],
+    ['failed', 'failed'],
+    ['succeeded', 'success'],
+  ])('reports a %s run as result %s', async (status, result) => {
+    const h = harness();
+    h.lifecycle.install({
+      run: fakeRun(),
+      body: {},
+      requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status, errorCode: status === 'failed' ? 'AGENT_EXIT_1' : null });
+
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties.result).toBe(result);
+    if (result === 'failed') {
+      // Dashboards keyed on error_code must never see a blank cell.
+      expect(finished.properties.error_code).toBeTruthy();
+    }
+  });
+
+  it('publishes current-attempt admission evidence with legacy failure fields intact', async () => {
+    const h = harness();
+    const message = '[code=model_limit_exceeded] model usage limit exceeded';
+    h.lifecycle.install({
+      run: fakeRun({ agentId: 'amr', events: [
+        { event: 'start', data: { model: 'example-chat-model', streamFormat: 'codex-jsonl' } },
+        { event: 'agent', data: { type: 'status', label: 'waiting_for_first_output' } },
+        { event: 'agent', data: { type: 'text_delta', delta: 'Example output' } },
+        { event: 'error', data: { error: { code: 'RATE_LIMITED', message } } },
+      ] }),
+      body: { agentId: 'amr' }, requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status: 'failed', errorCode: 'RATE_LIMITED' });
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties).toMatchObject({
+      result: 'failed', error_code: 'RATE_LIMITED',
+      failure_category: 'rate_limit', failure_detail: 'model_window_limit',
+      classifier_version: 'run-failure-v3', policy_reason: 'model_window_limit',
+      admission_phase: 'during_execution', admission_status: 'admitted',
+    });
+    expect(h.recoveries.at(-1)?.properties).toMatchObject({ classifier_version: 'run-failure-v3', admission_status: 'admitted' });
+  });
+
+  it('preserves early admission evidence beyond the event ring-buffer cap', async () => {
+    const h = harness();
+    const message = '[code=model_limit_exceeded] model usage limit exceeded';
+    const fullEvents = [
+      { event: 'start', data: { agentId: 'amr', model: 'example-chat-model', streamFormat: 'codex-jsonl' } },
+      { event: 'agent', data: { type: 'status', label: 'waiting_for_first_output' } },
+      { event: 'agent', data: { type: 'text_delta', delta: 'Example output' } },
+      ...Array.from({ length: 2_001 }, (_, index) => ({
+        event: 'diagnostic', data: { index },
+      })),
+      { event: 'error', data: { message } },
+    ];
+    const sideEffectLedger = createRunSideEffectLedger();
+    for (const event of fullEvents) foldEventIntoRunSideEffectLedger(sideEffectLedger, event);
+    h.lifecycle.install({
+      run: fakeRun({
+        agentId: 'amr', sideEffectLedger, events: fullEvents.slice(-2_000),
+      }),
+      body: { agentId: 'amr' }, requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status: 'failed', errorCode: 'AGENT_EXECUTION_FAILED' });
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties).toMatchObject({
+      policy_reason: 'model_window_limit', admission_phase: 'during_execution',
+      admission_status: 'admitted',
+    });
+  });
+
+  it('stays silent for a run nobody asked for', async () => {
+    // A scheduled Automation has no caller to attribute the Run to. Silence is
+    // the correct outcome — inventing an identity would be worse than a gap.
+    const h = harness();
+    h.lifecycle.install({ run: fakeRun(), body: { }, requestAnalyticsContext: null });
+    h.settle({ status: 'succeeded' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(h.captured).toEqual([]);
+    expect(h.recoveries).toEqual([]);
+  });
+
+  it('publishes per-request usage count, sums, and reconciliation invariant to run_finished', async () => {
+    const h = harness();
+    const run = fakeRun({
+      agentId: 'claude',
+      events: [
+        {
+          event: 'agent',
+          data: {
+            type: 'request_usage',
+            requestId: 'msg_1',
+            usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 2 },
+          },
+        },
+        {
+          event: 'agent',
+          data: {
+            type: 'request_usage',
+            requestId: 'msg_2',
+            usage: { input_tokens: 20, output_tokens: 15, cache_read_input_tokens: 3 },
+          },
+        },
+        {
+          event: 'agent',
+          data: {
+            type: 'usage',
+            usage: { input_tokens: 30, output_tokens: 20, cache_read_input_tokens: 5 },
+          },
+        },
+      ],
+    });
+    h.lifecycle.install({
+      run,
+      body: { agentId: 'claude' },
+      requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status: 'succeeded' });
+
+    const finished = await settled(h, 'run_finished');
+    expect(finished.properties.request_usage_count).toBe(2);
+    expect(finished.properties.request_usage_input_tokens_sum).toBe(30);
+    expect(finished.properties.request_usage_output_tokens_sum).toBe(20);
+    expect(finished.properties.request_usage_reconciles_aggregate).toBe(true);
+  });
+});
+
+describe('run_finished storage observability', () => {
+  it('adds storage fields to the emitted run_finished only, never to the recovery snapshot', async () => {
+    const db = new Database(':memory:');
+    db.exec(`CREATE TABLE messages (id TEXT PRIMARY KEY, content TEXT NOT NULL DEFAULT '', events_json TEXT);`);
+    db.prepare(`INSERT INTO messages (id, content, events_json) VALUES ('assistant-1', 'done', '[]')`).run();
+    try {
+      const h = harness(undefined, db);
+      h.lifecycle.install({
+        run: fakeRun({ assistantMessageId: 'assistant-1' }),
+        body: { agentId: 'codex' },
+        requestAnalyticsContext: CONTEXT as never,
+      });
+      await settled(h, 'run_created');
+      h.settle({ status: 'succeeded' });
+      const finished = await settled(h, 'run_finished');
+      expect(finished.properties).toMatchObject({
+        storage_schema_version: 1,
+        storage_events_json_bytes: 2,
+        storage_content_bytes: 4,
+      });
+      const recovery = h.recoveries.at(-1)!.properties;
+      expect(Object.keys(recovery).filter((key) => key.startsWith('storage_'))).toEqual([]);
+      // Every recovery property reaches PostHog unchanged.
+      for (const [key, value] of Object.entries(recovery)) expect(finished.properties[key]).toEqual(value);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('emits exactly the pre-existing properties when storage cannot be measured', async () => {
+    const h = harness();
+    h.lifecycle.install({
+      run: fakeRun({ assistantMessageId: 'assistant-1' }),
+      body: { agentId: 'codex' },
+      requestAnalyticsContext: CONTEXT as never,
+    });
+    await settled(h, 'run_created');
+    h.settle({ status: 'succeeded' });
+    const finished = await settled(h, 'run_finished');
+    expect(Object.keys(finished.properties).filter((key) => key.startsWith('storage_'))).toEqual([]);
+    expect(finished.properties).toEqual(h.recoveries.at(-1)!.properties);
+  });
+});
+
+describe('inherited run lineage', () => {
+  it('carries the source run resolved lineage onto the next physical run', () => {
+    expect(
+      inheritedRunLineageHints(
+        { id: 'run-2', clientRequestId: 'pixonext_run_b' },
+        { analyticsHints: { taskExecutionId: 'task-1', initialRunId: 'run-1' } },
+        2,
+      ),
+    ).toEqual({
+      taskExecutionId: 'task-1',
+      initialRunId: 'run-1',
+      taskRunIndex: 2,
+      sourceRunId: 'run-2',
+    });
+  });
+
+  it('falls back the same way the lifecycle does when the source carried no hints', () => {
+    // The first Run of a task resolves its own id from `clientRequestId`, so
+    // inheriting must land on the same value — otherwise the second Run starts
+    // a second task in the warehouse.
+    expect(
+      inheritedRunLineageHints({ id: 'run-1', clientRequestId: 'client-request-1' }, {}, 1),
+    ).toEqual({
+      taskExecutionId: 'client-request-1',
+      initialRunId: 'run-1',
+      taskRunIndex: 1,
+      sourceRunId: 'run-1',
+    });
+  });
+
+  it('falls back to the run id when there is no client request id either', () => {
+    expect(inheritedRunLineageHints({ id: 'run-1' }, undefined, 1)).toMatchObject({
+      taskExecutionId: 'run-1',
+      initialRunId: 'run-1',
+    });
+  });
+});

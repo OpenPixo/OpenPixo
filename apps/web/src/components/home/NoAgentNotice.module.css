@@ -1,0 +1,55 @@
+/* Above the Home composer when no AI can build a game yet. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--border));
+  border-radius: var(--radius-lg);
+  background: var(--amber-bg);
+  color: var(--text);
+}
+
+.icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--amber);
+}
+
+.copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.body {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .notice {
+    flex-wrap: wrap;
+  }
+
+  .actions {
+    width: 100%;
+  }
+}

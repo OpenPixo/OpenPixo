@@ -1,0 +1,358 @@
+/* Shared CSS entrance animations — zero JS overhead.
+   Uses the product ease: cubic-bezier(0.23, 1, 0.32, 1). */
+
+/* ================================================================
+   Keyframes
+   ================================================================ */
+
+@keyframes pixo-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pixo-fade-slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pixo-fade-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pixo-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pixo-popover-in {
+  from { opacity: 0; transform: scale(0.93) translateY(-3px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes pixo-slide-left {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ================================================================
+   Page / section entrance
+   ================================================================ */
+
+.app,
+.entry-shell {
+  animation: pixo-fade-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Home hero
+   ================================================================ */
+
+.home-hero__input-card {
+  animation: pixo-fade-slide-up 350ms cubic-bezier(0.23, 1, 0.32, 1) 100ms both;
+}
+
+/* ================================================================
+   Recent projects strip
+   ================================================================ */
+
+/* ================================================================
+   Plugin cards grid
+   ================================================================ */
+
+/* ================================================================
+   Design grid
+   ================================================================ */
+
+/* ================================================================
+   Automations template grid
+   ================================================================ */
+
+/* ================================================================
+   Integrations view
+   ================================================================ */
+
+.integrations-view__hero {
+  animation: pixo-fade-slide-up 350ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.integrations-view__tabs {
+  animation: pixo-fade-in 300ms cubic-bezier(0.23, 1, 0.32, 1) 60ms both;
+}
+
+.integrations-view__panel {
+  animation: pixo-fade-slide-up 300ms cubic-bezier(0.23, 1, 0.32, 1) 100ms both;
+}
+
+/* ================================================================
+   Nav rail
+   ================================================================ */
+
+.entry-nav-rail__btn {
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+
+/* ================================================================
+   Popovers & dropdowns
+   ================================================================ */
+
+.pixo-select-menu {
+  animation: pixo-popover-in 140ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.chat-history-menu {
+  animation: pixo-popover-in 160ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Live artifact badges
+   ================================================================ */
+
+/* ================================================================
+   Chat pane
+   ================================================================ */
+
+.chat-empty-wrap {
+  animation: pixo-fade-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   File viewer & workspace
+   ================================================================ */
+
+.viewer-empty {
+  animation: pixo-fade-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Inspector & comment panels (slide in from right)
+   ================================================================ */
+
+/* ================================================================
+   Settings dialog
+   ================================================================ */
+
+.settings-section {
+  animation: pixo-fade-slide-up 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Memory panels
+   ================================================================ */
+
+.memory-suggestion-panel {
+  animation: pixo-fade-slide-up 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.memory-management-panel {
+  animation: pixo-fade-slide-up 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   MCP section
+   ================================================================ */
+
+.mcp-picker {
+  animation: pixo-fade-slide-up 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Marketplace
+   ================================================================ */
+
+.marketplace-view__header {
+  animation: pixo-fade-slide-up 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.marketplace-view__empty {
+  animation: pixo-fade-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Design files panel
+   ================================================================ */
+
+/* ================================================================
+   Workspace tabs
+   ================================================================ */
+
+.workspace-tab {
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out), transform 100ms var(--ease-out);
+}
+.workspace-tab:active {
+  transform: scale(0.98);
+}
+
+/* ================================================================
+   Updater popup
+   ================================================================ */
+
+.updater-popup {
+  animation: pixo-fade-slide-up 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Design card interactions
+   ================================================================ */
+
+/* Marketplace card hover (no existing hover in stylesheet) */
+.marketplace-view__card {
+  transition: border-color 120ms var(--ease-out), box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.marketplace-view__card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+.marketplace-view__card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Card press feedback */
+.design-card:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 80ms;
+}
+
+/* ================================================================
+   Comment card
+   ================================================================ */
+
+/* ================================================================
+   Empty states
+   ================================================================ */
+
+.chat-history-empty {
+  animation: pixo-fade-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Automation / routine history rows
+   ================================================================ */
+
+/* ================================================================
+   Example cards (ExamplesTab)
+   ================================================================ */
+
+/* ================================================================
+   Entry sections (Home tabs)
+   ================================================================ */
+
+/* ================================================================
+   Tab content panels
+   ================================================================ */
+
+/* ================================================================
+   Agent / model cards
+   ================================================================ */
+
+/* ================================================================
+   Connector drawer & sections
+   ================================================================ */
+
+/* ================================================================
+   Error / alert banners
+   ================================================================ */
+
+.home-hero__error,
+.export-error,
+.library-import-error,
+.library-install-error,
+.memory-disabled-banner,
+.memory-noprovider-banner,
+.df-upload-banner,
+.mcp-error {
+  animation: pixo-fade-slide-down 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.field-error {
+  animation: pixo-fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Skills section rows
+   ================================================================ */
+
+/* ================================================================
+   New project panels
+   ================================================================ */
+
+.newproj-section {
+  animation: pixo-fade-slide-up 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Design system detail / evidence / revision
+   ================================================================ */
+
+.ds-evidence-panel {
+  animation: pixo-slide-left 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Share menu items
+   ================================================================ */
+
+/* ================================================================
+   Staged rows (attachments, files)
+   ================================================================ */
+
+/* ================================================================
+   Mention / slash autocomplete items
+   ================================================================ */
+
+/* ================================================================
+   Code viewer
+   ================================================================ */
+
+/* ================================================================
+   Live artifact panels
+   ================================================================ */
+
+/* ================================================================
+   Use everywhere sections
+   ================================================================ */
+
+.use-everywhere-section {
+  animation: pixo-fade-slide-up 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Notification cards in settings
+   ================================================================ */
+
+/* ================================================================
+   Preview modal
+   ================================================================ */
+
+.ds-modal-backdrop {
+  animation: pixo-fade-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.ds-modal {
+  animation: pixo-scale-in 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   Plugin detail view
+   ================================================================ */
+
+.plugin-details-modal {
+  animation: pixo-fade-slide-up 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* ================================================================
+   DS picker items
+   ================================================================ */
+
+/* ================================================================
+   Reduce motion preference
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

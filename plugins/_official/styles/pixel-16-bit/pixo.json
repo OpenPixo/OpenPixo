@@ -1,0 +1,79 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/pixel-16-bit",
+  "title": "Retro pixel · 16-bit",
+  "title_i18n": {
+    "en": "Retro pixel · 16-bit",
+    "zh-CN": "复古像素 · 16 位"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-30T15:28:43+09:00",
+  "description": "Classic 16-bit console pixel art: crisp, richly shaded sprites, props and tiles that stay easy to read.",
+  "description_i18n": {
+    "en": "Classic 16-bit console pixel art: crisp, richly shaded sprites, props and tiles that stay easy to read.",
+    "zh-CN": "经典 16 位主机的像素画：像素边缘清晰、明暗层次丰富，角色、道具和地块都一眼看得清。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "style",
+    "first-party",
+    "openpixo",
+    "2d",
+    "pixel"
+  ],
+  "examples": [
+    {
+      "title": "Knight sprite",
+      "title_i18n": {
+        "zh-CN": "骑士精灵"
+      },
+      "prompt": "Generate a single 32x32 knight idle sprite using the pixel-16-bit art style, with an iron helmet, teal cloak and a readable wooden shield. Export a transparent PNG at native size and a nearest-neighbor enlarged preview.",
+      "prompt_i18n": {
+        "zh-CN": "使用 pixel-16-bit 美术风格生成一张 32x32 骑士待机精灵：铁盔、青绿色披风、轮廓清晰的木盾。导出原生尺寸透明 PNG 和最近邻放大的预览图。"
+      }
+    },
+    {
+      "title": "Forest pickups",
+      "title_i18n": {
+        "zh-CN": "森林拾取物"
+      },
+      "prompt": "Create six matching forest pickup icons using the pixel-16-bit art style: acorn, herb, amber shard, wooden key, mushroom and small potion. Keep one consistent pixel scale and light direction.",
+      "prompt_i18n": {
+        "zh-CN": "使用 pixel-16-bit 美术风格制作六枚配套的森林拾取物图标：橡果、草药、琥珀碎片、木钥匙、蘑菇和小药水。保持统一像素尺度和光照方向。"
+      }
+    }
+  ],
+  "pixo": {
+    "kind": "style",
+    "style": {
+      "id": "pixel-16-bit",
+      "dimension": [
+        "2d"
+      ],
+      "medium": [
+        "pixel"
+      ],
+      "prompt": "16-bit game pixel art with deliberate square-pixel clusters, a compact shared palette, three-step material shading and crisp stair-step contours. Clear silhouettes, restrained dithering only in broad shadow transitions, consistent upper-left light and a stable three-quarter view. Keep highlights and details readable at native sprite scale; use nearest-neighbor scaling.",
+      "negativePrompt": "photorealism, smooth vector curves, subpixel detail, anti-aliased edges, painterly brushwork, gradients between individual pixels, noisy dithering, mixed pixel scales, blurry pixels, text, watermark",
+      "palette": [
+        "#182238",
+        "#354A68",
+        "#647D89",
+        "#A9BC99",
+        "#F0D8A8",
+        "#C58956",
+        "#9A4C50",
+        "#593858"
+      ],
+      "constraints": {
+        "outline": "One native-pixel dark contour; selective lighter edges on lit surfaces.",
+        "recommendedResolution": "1024x1024"
+      },
+      "previews": ["previews/cover.webp"]
+    }
+  }
+}

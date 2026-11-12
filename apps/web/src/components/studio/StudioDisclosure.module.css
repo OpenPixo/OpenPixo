@@ -1,0 +1,9 @@
+.root { min-width: 0; border-top: 1px solid var(--line); scroll-margin-top: 16px; }
+.summary { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: auto; min-height: 44px; padding: 10px 4px; border-radius: 0; text-align: left; white-space: normal; }
+.title { color: var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+.meta { min-width: 0; margin-left: auto; overflow: hidden; color: var(--ink-2); font-size: 13px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.chevron { flex: none; width: 7px; height: 7px; margin: 0 4px 3px 0; border-right: 1.5px solid var(--ink-2); border-bottom: 1.5px solid var(--ink-2); transform: rotate(45deg); transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.meta + .chevron { margin-left: 0; }
+.title + .chevron { margin-left: auto; }
+.root[data-open="true"] .chevron { margin-bottom: -3px; transform: rotate(-135deg); }
+.body { padding: 4px 0 20px; }

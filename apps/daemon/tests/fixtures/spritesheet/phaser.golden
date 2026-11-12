@@ -1,0 +1,55 @@
+{
+  "frames": {
+    "down/0000": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 2
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 2
+      },
+      "sourceSize": {
+        "w": 2,
+        "h": 2
+      }
+    },
+    "up/0000": {
+      "frame": {
+        "x": 0,
+        "y": 2,
+        "w": 2,
+        "h": 2
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 2
+      },
+      "sourceSize": {
+        "w": 2,
+        "h": 2
+      }
+    }
+  },
+  "meta": {
+    "app": "OpenPixo",
+    "version": "1.0",
+    "image": "walk.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 2,
+      "h": 4
+    },
+    "scale": "1"
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-toon-shaded-character-turnaround",
+  "title": "Toon-Shaded 3D Character Turnaround",
+  "title_i18n": {
+    "en": "Toon-Shaded 3D Character Turnaround",
+    "zh-CN": "卡通渲染 3D 角色三视图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A modelling-ready character concept sheet for a toon-shaded 3D game: front, three-quarter and back views in a relaxed A-pose with cel shading, clean outlines, consistent proportions and a palette swatch row. Slots for character, role, silhouette motif and palette.",
+  "description_i18n": {
+    "en": "A modelling-ready character concept sheet for a toon-shaded 3D game: front, three-quarter and back views in a relaxed A-pose with cel shading, clean outlines, consistent proportions and a palette swatch row. Slots for character, role, silhouette motif and palette.",
+    "zh-CN": "为卡通渲染（toon-shaded）3D 游戏生成可直接用于建模的角色设定图：正面、四分之三侧面与背面三视图，放松的 A 字姿势，赛璐璐着色、干净描边、比例一致，并附配色色板。可调整角色、职业定位、剪影母题和配色。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "concept-art",
+    "character-design",
+    "turnaround",
+    "toon-shading",
+    "cel-shading",
+    "3d"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A character turnaround concept sheet for a stylised toon-shaded 3D game, ready to hand to a 3D modeller.\n\nCharacter: {argument name=\"character\" default=\"a young sky-courier with oversized goggles, a patched flight jacket and a mail satchel full of glowing letters\"}.\nGameplay role: {argument name=\"role\" default=\"agile traversal hero who glides and grapples\"}.\nSilhouette motif: {argument name=\"silhouette_motif\" default=\"a long scarf and swept-back wing-like jacket tails\"} that make the character recognisable from any angle.\n\n# Sheet layout\n- Three full-body views side by side on a plain light-grey background: front, three-quarter front, and back.\n- Relaxed A-pose, arms about 30 degrees from the body, feet shoulder-width apart, neutral expression.\n- All three views share an identical height, eye line, shoulder line and foot line, aligned to faint horizontal guide lines.\n- Below the figures, a single row of 6 flat colour swatches taken from the design. No written labels.\n\n# Rendering style\n- Cel shading with exactly two tones per material (lit and shadow), a hard shadow edge, and a thin rim highlight.\n- Clean, even-weight dark outlines like an inverted-hull outline shader.\n- Large, readable shapes and colour blocks; small details kept to a few deliberate accents so the model reads well at gameplay camera distance.\n- Proportions: {argument name=\"proportions\" default=\"slightly stylised, about 6 heads tall, large hands and boots\"}.\n\n# Palette\n{argument name=\"palette\" default=\"faded navy and mustard yellow with an off-white scarf and a teal glow accent\"}. Each material has its own distinct hue so it maps cleanly to texture regions.\n\n# Avoid\nDynamic action poses, perspective distortion, mismatched details between views, soft painterly rendering, photoreal skin, busy backgrounds, text labels, watermarks, and any resemblance to existing franchise characters.",
+        "zh-CN": "A character turnaround concept sheet for a stylised toon-shaded 3D game, ready to hand to a 3D modeller.\n\nCharacter: {argument name=\"character\" default=\"a young sky-courier with oversized goggles, a patched flight jacket and a mail satchel full of glowing letters\"}.\nGameplay role: {argument name=\"role\" default=\"agile traversal hero who glides and grapples\"}.\nSilhouette motif: {argument name=\"silhouette_motif\" default=\"a long scarf and swept-back wing-like jacket tails\"} that make the character recognisable from any angle.\n\n# Sheet layout\n- Three full-body views side by side on a plain light-grey background: front, three-quarter front, and back.\n- Relaxed A-pose, arms about 30 degrees from the body, feet shoulder-width apart, neutral expression.\n- All three views share an identical height, eye line, shoulder line and foot line, aligned to faint horizontal guide lines.\n- Below the figures, a single row of 6 flat colour swatches taken from the design. No written labels.\n\n# Rendering style\n- Cel shading with exactly two tones per material (lit and shadow), a hard shadow edge, and a thin rim highlight.\n- Clean, even-weight dark outlines like an inverted-hull outline shader.\n- Large, readable shapes and colour blocks; small details kept to a few deliberate accents so the model reads well at gameplay camera distance.\n- Proportions: {argument name=\"proportions\" default=\"slightly stylised, about 6 heads tall, large hands and boots\"}.\n\n# Palette\n{argument name=\"palette\" default=\"faded navy and mustard yellow with an off-white scarf and a teal glow accent\"}. Each material has its own distinct hue so it maps cleanly to texture regions.\n\n# Avoid\nDynamic action poses, perspective distortion, mismatched details between views, soft painterly rendering, photoreal skin, busy backgrounds, text labels, watermarks, and any resemblance to existing franchise characters."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "video-template-character-roster-reveal",
+  "title": "Character Roster Reveal",
+  "title_i18n": {
+    "en": "Character Roster Reveal",
+    "zh-CN": "角色阵容登场展示"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A 10-12 second hero lineup reveal for a trailer or announcement: each playable character gets a short beat with a signature pose and ability flash, then all of them snap into a final lineup hold. Works from text descriptions or attached character reference images.",
+  "description_i18n": {
+    "en": "A 10-12 second hero lineup reveal for a trailer or announcement: each playable character gets a short beat with a signature pose and ability flash, then all of them snap into a final lineup hold. Works from text descriptions or attached character reference images.",
+    "zh-CN": "一段 10–12 秒的英雄阵容展示，适用于预告片或公告：每个可玩角色依次登场，摆出招牌姿势并闪现技能，最后全部归位成阵容定格。可基于文字描述或附带的角色参考图生成。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "video-template",
+    "first-party",
+    "video",
+    "motion-graphics",
+    "characters",
+    "roster",
+    "lineup",
+    "reveal",
+    "trailer"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "video",
+    "scenario": "video",
+    "surface": "video",
+    "useCase": {
+      "query": {
+        "en": "A 10 to 12 second character roster reveal for an indie game trailer.\n\nGame: {argument name=\"game_pitch\" default=\"a co-op dungeon crawler starring a band of misfit animal adventurers\"}.\nArt style: {argument name=\"art_style\" default=\"stylised toon-shaded 3D with clean outlines and bold colour blocking\"}.\nReference images: {argument name=\"reference_mode\" default=\"if character reference images are attached, keep each character exactly on model, matching proportions, colours and costume details\"}.\nCharacters, in order: {argument name=\"characters\" default=\"1) a badger knight with a door-sized shield, 2) a heron archer with a longbow, 3) a raccoon tinkerer with a backpack of gadgets, 4) a moth mystic trailing glowing dust\"}.\n\n# Timeline\n- 0-1s: an empty stage with a coloured light sweep and a hint of each character's colour.\n- 1-9s: one beat of about 2 seconds per character: they step or leap into frame, strike a signature pose, and trigger a quick ability flash ({argument name=\"ability_flashes\" default=\"a shield slam shockwave, an arrow volley, a gadget burst, a swirl of dust\"}). Each beat uses that character's accent colour for the light.\n- 9-12s: all characters snap into a final lineup side by side on one shared platform, equal spacing, heroic low-angle camera, and hold still for at least 1.5 seconds with a clean empty band above them for the game logo, added later.\n\n# Look\n- Camera: punchy push-ins on each pose, smooth whip transitions between characters.\n- Palette: {argument name=\"palette\" default=\"each character with one signature accent colour against a dark neutral stage\"}.\n- Sound: one rhythmic hit per character on the beat, a big chord on the lineup.\n\n# Avoid\nGenerated names, text or stat panels, characters drifting off model between beats, extra or merged characters, real game or brand logos, watermarks.",
+        "zh-CN": "A 10 to 12 second character roster reveal for an indie game trailer.\n\nGame: {argument name=\"game_pitch\" default=\"a co-op dungeon crawler starring a band of misfit animal adventurers\"}.\nArt style: {argument name=\"art_style\" default=\"stylised toon-shaded 3D with clean outlines and bold colour blocking\"}.\nReference images: {argument name=\"reference_mode\" default=\"if character reference images are attached, keep each character exactly on model, matching proportions, colours and costume details\"}.\nCharacters, in order: {argument name=\"characters\" default=\"1) a badger knight with a door-sized shield, 2) a heron archer with a longbow, 3) a raccoon tinkerer with a backpack of gadgets, 4) a moth mystic trailing glowing dust\"}.\n\n# Timeline\n- 0-1s: an empty stage with a coloured light sweep and a hint of each character's colour.\n- 1-9s: one beat of about 2 seconds per character: they step or leap into frame, strike a signature pose, and trigger a quick ability flash ({argument name=\"ability_flashes\" default=\"a shield slam shockwave, an arrow volley, a gadget burst, a swirl of dust\"}). Each beat uses that character's accent colour for the light.\n- 9-12s: all characters snap into a final lineup side by side on one shared platform, equal spacing, heroic low-angle camera, and hold still for at least 1.5 seconds with a clean empty band above them for the game logo, added later.\n\n# Look\n- Camera: punchy push-ins on each pose, smooth whip transitions between characters.\n- Palette: {argument name=\"palette\" default=\"each character with one signature accent colour against a dark neutral stage\"}.\n- Sound: one rhythmic hit per character on the beat, a big chord on the lineup.\n\n# Avoid\nGenerated names, text or stat panels, characters drifting off model between beats, extra or merged characters, real game or brand logos, watermarks."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "seedance-2.0"
+        ],
+        "default": "seedance-2.0"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-video"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:video-generate"
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-card-battler",
+  "title": "Card battler starter",
+  "title_i18n": {
+    "en": "Card battler starter",
+    "zh-CN": "卡牌战斗起步"
+  },
+  "version": "0.2.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Turns a Godot 2D or Phaser template into a card battler with data-driven cards, enemy intents and pure battle rules.",
+  "description_i18n": {
+    "en": "Turns a Godot 2D or Phaser template into a card battler with data-driven cards, enemy intents and pure battle rules.",
+    "zh-CN": "把 Godot 2D 或 Phaser 模板变成卡牌战斗：数据驱动的卡牌、敌人意图和独立战斗规则。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "an arcane duel between rival mages",
+          "default_i18n": {
+            "zh-CN": "敌对法师之间的奥术对决"
+          }
+        },
+        {
+          "name": "scope",
+          "label": "Scope",
+          "label_i18n": {
+            "zh-CN": "范围"
+          },
+          "type": "select",
+          "options": [
+            "a single battle against one enemy",
+            "a run of three battles with a card reward after each"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "a single battle against one enemy": "与一个敌人的单场战斗",
+              "a run of three battles with a card reward after each": "三场战斗，每场结束后获得卡牌奖励"
+            }
+          },
+          "default": "a single battle against one enemy"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable turn-based card battler. Theme: {{theme}}. Scope: {{scope}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- About 12 card definitions are data: stable id, name, energy cost, attack/block/skill type, effect values and readable rules text. Start with a 10-card deck of card instances referring to these ids. Effects dispatch by known types, never executable strings.\n- Pure battle rules own seeded shuffling, draw pile, hand, discard/reshuffle, 3 energy per turn, damage and block. Block resets at the start of the owning side turn. Validate energy and target before removing a card; resolve each card only once.\n- An enemy shows next-turn intent with exact attack/block values and follows a data-driven repeating pattern. Lock card and End Turn input during resolution. Stop further enemy actions after lethal damage.\n- Mouse-driven hand along the bottom: readable cards at 800x600, hover lift, click a card then its target or drag to play. Dim unaffordable cards. Show HP, block, energy, pile counts, controls and End Turn. Single-battle scope ends on victory/defeat; three-battle scope offers choose-one-of-three card rewards between fights, preserves deck/HP and ends after battle three. Both offer restart.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Use Resources or JSON card definitions and a RefCounted battle model under game/battle/. Use Control cards, Buttons, HP ProgressBars and signals for UI. Remove the template player, isolate hand layout from battle rules, and consume Control clicks before board targeting.\n\nGenre-specific Phaser implementation: Use typed card data in src/cards/cards.ts and pure rules in src/battle/ without Phaser imports. Scenes render cards with Containers, text and setInteractive(), keeping target selection separate from card effects. No Arcade Physics is needed; clean scene listeners/tweens on restart.\n\nRules checks:\n- Seeded reshuffling preserves every card instance; drawing from an empty discard is safe.\n- An unaffordable or invalid-target card leaves energy/hand unchanged; valid cards deduct cost and resolve exactly once; block and damage ordering is correct.\n- End Turn advances intent once; lethal damage stops the turn; scoped rewards add exactly one card and new battles reset transient state.\n\nPlaytest hints: Use mouse clicks: select an affordable attack, click the enemy, play a block card and click End Turn. Attempt an unaffordable card, inspect enemy intent and pile counts, then click a reward when in three-battle scope. Click Restart on victory/defeat. Capture the hand and a changed HP/energy state.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+/* Update-ready prompt in the top-right cluster. The state behind it is the real
+   updater's `shouldShowControl`.
+
+   There is deliberately no progress here: the prompt only exists once the update
+   has finished downloading, so any percentage it drew would be invented. Download
+   progress belongs to Settings. */
+.rocketButton {
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.rocketIcon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}

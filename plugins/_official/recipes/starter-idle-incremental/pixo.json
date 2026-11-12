@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-idle-incremental",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a clockwork workshop powered by fireflies",
+          "default_i18n": {
+            "zh-CN": "由萤火虫驱动的发条工坊"
+          }
+        },
+        {
+          "name": "offlineCap",
+          "label": "Offline earnings cap",
+          "label_i18n": {
+            "zh-CN": "离线收益上限"
+          },
+          "type": "select",
+          "default": "eight hours",
+          "options": [
+            "eight hours",
+            "twenty-four hours"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "eight hours": "八小时",
+              "twenty-four hours": "二十四小时"
+            }
+          }
+        }
+      ],
+      "engines": [
+        "godot",
+        "phaser"
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable idle incremental game. Theme: {{theme}}. Offline earnings cap: {{offlineCap}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- Start with a clickable Gather action and four generator tiers unlocked progressively. Definitions are data: stable id, base cost, cost growth ratio, production per second and unlock threshold. Show owned count, next price and production; offer Buy 1 and Buy Max with an affordable, bounded calculation. Reject purchases without changing state if funds are insufficient.\n- Keep economy math in a pure model, separate from display text. Represent large values with a normalized mantissa/exponent (or a small equivalent helper) supporting comparison, add/subtract, multiplication and bounded geometric costs without Infinity/NaN. Format as readable K/M/B/T and scientific notation beyond the suffix table; never parse a formatted label back into money.\n- Prestige unlocks at a reachable lifetime-earnings threshold and requires a confirmation click. Preview the permanent multiplier gained. Prestige resets run currency, generators and run unlocks; preserves total prestige currency, settings and lifetime statistics. Award gain once, avoid a second award from double clicks, and distinguish run earnings from all-time earnings in the formula.\n- Use versioned saves with currency, generator counts, prestige totals, statistics and last-saved timestamp. Autosave periodically and on prestige/purchases where appropriate. On load, advance passive production once by clamp(now - savedAt, 0, selected offline cap); apply the multiplier exactly once and immediately checkpoint the consumed timestamp. Show an offline earnings summary. Wall-clock rollback grants zero, long absences are capped, and a repeated reload cannot claim the same interval twice.\n- Integrate visible foreground production with a clamped delta; reconcile hidden/suspended time on resume without counting it twice. Inject the clock into the model. Validate finite normalized numbers, nonnegative counts, ids and save version; corrupt/unsupported saves show a recovery notice and safe fresh state. Save failures keep the session playable and visibly warn that progress may not persist.\n- A compact 800x600 dashboard shows currency, per-second output, generator rows, prestige preview and save status. Include controls/help, a first-prestige milestone celebration and continued play, plus a confirmed New run/reset action. Tune starter prices so the first generator takes seconds and prestige is attainable within a short play session.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Replace the template player scene with a Control dashboard. Keep BigValue, economy, clock and save validation in RefCounted scripts; generator data uses Resources/JSON. Use Buttons/Labels and delta-driven updates. Store saves atomically via a temporary file plus rename under user:// and validate before replacing the prior save.\n\nGenre-specific Phaser implementation: Use pure TypeScript economy/number/save models in src/idle/ and typed generator data. Render interactive buttons/rows with Phaser text/containers, no physics. Guard localStorage exceptions and page visibility/pagehide handlers; checkpoint on resume and remove listeners on shutdown so scene restarts cannot double-tick.\n\nRules checks:\n- Purchase boundaries, geometric Buy Max and generator production use exact expected fixtures without negative currency; big-number normalization/comparison/formatting remains finite across 1e3, 1e6 and exponents beyond 308.\n- Injected timestamps cover offline time below the cap, above the cap, rollback and repeated load/resume without duplicate earnings or multiplier application.\n- Prestige resets only run state, preserves permanent state and awards once; save round trips preserve large values and corrupt/future-version saves recover safely.\n\nPlaytest hints: Use mouse clicks: Gather until affordable, buy a generator, click Buy Max and inspect changing production. Use an injected-clock check fixture for offline/rollback cases instead of waiting hours. Reload to see an offline summary once, reach prestige with a short deterministic fixture, click Prestige and Confirm, and verify the multiplier/save after reload. Capture generator purchase and prestige preview; do not substitute keyboard input for clicks.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  },
+  "title": "Idle incremental starter",
+  "title_i18n": {
+    "en": "Idle incremental starter",
+    "zh-CN": "放置增量起步"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:40:36Z",
+  "description": "Builds a Godot 2D or Phaser idle game with generators, prestige, capped offline progress, big-number formatting and saves.",
+  "description_i18n": {
+    "en": "Builds a Godot 2D or Phaser idle game with generators, prestige, capped offline progress, big-number formatting and saves.",
+    "zh-CN": "在 Godot 2D 或 Phaser 中构建放置游戏：生产器、转生、限时离线收益、大数格式化和存档。"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ]
+}

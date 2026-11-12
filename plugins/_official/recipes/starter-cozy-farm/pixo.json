@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-cozy-farm",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a tiny hillside farm supplying a village cafe",
+          "default_i18n": {
+            "zh-CN": "为村庄咖啡馆供货的山坡小农场"
+          }
+        },
+        {
+          "name": "pace",
+          "label": "Day length",
+          "label_i18n": {
+            "zh-CN": "每日时长"
+          },
+          "type": "select",
+          "default": "two-minute days with a Sleep button",
+          "options": [
+            "two-minute days with a Sleep button",
+            "five-minute days with a Sleep button"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "two-minute days with a Sleep button": "每天两分钟，可点击睡觉推进",
+              "five-minute days with a Sleep button": "每天五分钟，可点击睡觉推进"
+            }
+          }
+        }
+      ],
+      "engines": [
+        "godot",
+        "phaser"
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable cozy farming game. Theme: {{theme}}. Day length: {{pace}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- A compact tile grid has grass, paths, a small field, a shipping bin and a seed shop. Mouse clicks select a tool and act on a tile: till soil, plant the selected seed, water and harvest mature crops. Use a highlighted target and clear rejection hints. UI clicks must not also affect a tile.\n- Crop/item definitions are data: stable id, name, seed cost, stage durations in days, stage appearance, harvest yield, stack limit and sell price. Include three crops with different growth times/profits. Tile state stores tilled/watered/crop id/growth stage/elapsed growth days separately from visual nodes.\n- Advance a day automatically using the selected active-time day length, or by clicking Sleep once. Watered crops advance once at day rollover; unwatered crops wait without dying. Reset watering after growth. Pause the clock for menus and guard simultaneous Sleep/timer rollover from advancing twice. Show day, time and tool hints.\n- Inventory stores item ids and bounded counts, seeded with a few seeds. Planting consumes one seed only after validating the tile; harvesting removes a crop only if its yield fits. Selling at the bin removes selected produce once and adds the data-defined price. Buy seeds with earned coins and reject unaffordable/full-inventory purchases atomically.\n- Deliver a goal of earning 100 coins, then show a celebration with Continue farming or New farm. Include a visible economy loop: till, plant, water, sleep, harvest, sell, buy seeds. Save versioned tile/inventory/coin/day state between sessions; corrupt data falls back safely, and New farm requires an explicit in-game reset action.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Use a Node2D grid renderer or TileMapLayer with a placeholder atlas; keep farm/inventory/day models as RefCounted classes and crop definitions as Resources/JSON. Remove the template player or keep it decorative. Use CanvasLayer Control tool buttons and consume gui_input before the named world-click action. Save via FileAccess under user://.\n\nGenre-specific Phaser implementation: Use a pure src/farm/ model and typed crop/item data. Draw interactive tiles in GameScene, with HUD/tool/shop panels above them; convert pointer coordinates through the grid origin/scale and stop propagation from UI. No physics is required. Guard localStorage reads/writes and validate parsed save data.\n\nRules checks:\n- Invalid planting leaves seeds unchanged; harvest with a full inventory leaves the crop intact; sale/buy transactions cannot make counts or coins negative.\n- An injected clock grows watered crops exactly once per day, unwatered crops wait, and simultaneous Sleep/timer rollover does not double-grow crops.\n- Round-trip saves preserve tile/day/inventory state; unknown item ids, corrupt saves and repeated reset inputs are handled safely.\n\nPlaytest hints: Use mouse clicks throughout: choose Hoe and click soil, choose Seeds and click the tilled tile, choose Water and click it, then click Sleep for enough watered days. Harvest, click the shipping bin to sell, buy seeds and reload to check the save. Verify menu clicks do not also till or plant. Capture a changed crop stage, inventory and coin count.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  },
+  "title": "Cozy farm starter",
+  "title_i18n": {
+    "en": "Cozy farm starter",
+    "zh-CN": "休闲农场起步"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T10:40:36Z",
+  "description": "Builds a Godot 2D or Phaser farm with tile tilling, planting, day-based crop growth, inventory and selling.",
+  "description_i18n": {
+    "en": "Builds a Godot 2D or Phaser farm with tile tilling, planting, day-based crop growth, inventory and selling.",
+    "zh-CN": "在 Godot 2D 或 Phaser 中构建休闲农场：耕地、播种、按日生长的作物、背包和出售。"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ]
+}

@@ -1,0 +1,106 @@
+.layout {
+  display: grid;
+  grid-template-columns: min(var(--shell-sidebar-width), 50vw) minmax(0, 1fr);
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-app);
+  transition: grid-template-columns 200ms var(--ease-out);
+}
+
+.layout[data-sidebar-open="false"] {
+  grid-template-columns: var(--shell-sidebar-compact-width) minmax(0, 1fr);
+  transition-duration: 140ms;
+}
+
+/* The rail fills its track; its own module draws the surface and the
+   compact state (EntryNavRail.module.css). */
+.sidebar {
+  position: relative;
+  z-index: 50;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar > :global(.entry-nav-rail) { flex: 1; width: 100%; }
+
+/* Centre the rail's 40px brand row on the 48px column headers beside it. */
+.sidebar > :global(.entry-nav-rail) > div { padding-top: 4px; }
+
+/* The workbench fills exactly this box; `.app`'s own 100vh would overhang by
+   any chrome above it and let a focus() scroll the whole column. */
+.main { position: relative; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+.main > :global(.app) { height: 100%; }
+
+/* Compact windows keep the 52px rail in the grid and open the full rail over
+   the workbench, so expanding it never squeezes the conversation. */
+.layout[data-sidebar-compact="true"] { grid-template-columns: var(--shell-sidebar-compact-width) minmax(0, 1fr); }
+
+.layout[data-sidebar-compact="true"] .sidebar {
+  width: var(--shell-sidebar-compact-width);
+  transition: width 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+
+.layout[data-sidebar-compact="true"][data-sidebar-open="true"] .sidebar {
+  width: var(--shell-sidebar-width);
+  box-shadow: var(--sh-3);
+  transition-duration: 200ms;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  /* Above the body-portaled composer layer (chat.css, z-index 45). */
+  z-index: 46;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layout, .layout[data-sidebar-compact="true"] .sidebar { transition: none; }
+}
+
+/* No chrome row on the project route either (spec §2): the tab strip stays
+   mounted for its shortcuts but takes no height, and the account-actions host
+   (update-ready control) floats at the top-right like it does on Home. */
+:global(.workspace-shell):has(> :global(.workspace-shell__body) > .layout) {
+  grid-template-rows: 0 minmax(0, 1fr);
+}
+
+:global(.workspace-shell):has(> :global(.workspace-shell__body) > .layout) > :global(.workspace-tabs-chrome.app-chrome-header) {
+  position: relative;
+  z-index: 40;
+  height: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+:global(.workspace-shell):has(> :global(.workspace-shell__body) > .layout) > :global(.workspace-tabs-chrome) > :not(:global(.workspace-chrome-account-actions)) {
+  display: none;
+}
+
+:global(.workspace-shell):has(> :global(.workspace-shell__body) > .layout) :global(.workspace-chrome-account-actions) {
+  position: absolute;
+  top: 10px;
+  /* Left of the Windows caption buttons (window-titlebar.css). */
+  right: calc(var(--pixo-window-controls-inset, 0px) + 12px);
+  margin: 0;
+  -webkit-app-region: no-drag;
+}
+
+/* Frameless hosts still need a grab handle; keep it shallower than a header
+   control so it never swallows a click. */
+.layout::before {
+  content: "";
+  position: absolute;
+  z-index: 35;
+  inset: 0 0 auto;
+  height: 8px;
+  -webkit-app-region: drag;
+  pointer-events: none;
+}

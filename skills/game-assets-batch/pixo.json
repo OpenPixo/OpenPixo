@@ -1,0 +1,74 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-assets-batch",
+  "title": "Game asset batch processing",
+  "title_i18n": {
+    "en": "Game asset batch processing",
+    "zh-CN": "游戏素材批处理"
+  },
+  "version": "0.1.0",
+  "description": "Process selected game-project images or audio in batches with OpenPixo's deterministic `pixo asset` operations (local tools only for unsupported operations), preserve originals, and produce derived files with a per-input result report.",
+  "description_i18n": {
+    "en": "Process selected game-project images or audio in batches with OpenPixo's deterministic `pixo asset` operations (local tools only for unsupported operations), preserve originals, and produce derived files with a per-input result report.",
+    "zh-CN": "优先用 OpenPixo 的确定性 `pixo asset` 命令批量处理项目中选定的图片或音频（仅在命令不支持时回退到本机工具），保留原文件并生成逐项结果报告。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "engines": [
+    "any"
+  ],
+  "tags": [
+    "skill",
+    "first-party",
+    "openpixo",
+    "game-development",
+    "game-assets"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "pixo": {
+    "kind": "skill",
+    "mode": "utility",
+    "category": "game-development"
+  },
+  "examples": [
+    {
+      "title": "Resize selected pixel sprites",
+      "title_i18n": {
+        "zh-CN": "缩放选定像素精灵"
+      },
+      "prompt": "Create 2x nearest-neighbor PNG copies of the sample platformer's public/assets/player.png and public/assets/coin.png with pixo asset. Preserve the originals, keep transparency, and link the per-input report without changing game references.",
+      "prompt_i18n": {
+        "zh-CN": "用 pixo asset 为示例平台游戏的 public/assets/player.png 和 public/assets/coin.png 创建两倍最近邻缩放 PNG 副本。保留原文件与透明度，给出逐项报告链接，暂不修改游戏引用。"
+      }
+    },
+    {
+      "title": "Normalize bundled sound effects",
+      "title_i18n": {
+        "zh-CN": "统一模板音效响度"
+      },
+      "prompt": "Normalize public/assets/jump.wav and public/assets/coin.wav in the Phaser sample platformer to -18 LUFS with pixo asset audio, then create OGG copies of the reported outputs. Preserve the originals and report durations and failures.",
+      "prompt_i18n": {
+        "zh-CN": "用 pixo asset audio 把 Phaser 示例平台游戏的 public/assets/jump.wav 和 public/assets/coin.wav 统一到 -18 LUFS，再把报告中的输出转换为 OGG 副本。保留原文件，报告时长与失败项。"
+      }
+    },
+    {
+      "title": "Slice and pack a walk cycle",
+      "title_i18n": {
+        "zh-CN": "切分并打包行走动画"
+      },
+      "prompt": "Slice my selected 6-column by 1-row walk sheet with pixo asset, inspect the six frames in order, and pack a Godot SpriteFrames atlas. Preserve the source and report the actual PNG and TRES paths.",
+      "prompt_i18n": {
+        "zh-CN": "用 pixo asset 切分我选定的六列一行行走精灵表，按顺序检查六帧，并打包为 Godot SpriteFrames 图集。保留源文件，报告真实 PNG 与 TRES 路径。"
+      }
+    }
+  ]
+}

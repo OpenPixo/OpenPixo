@@ -1,0 +1,165 @@
+import { test } from 'vitest';
+import {
+  assert,
+  chmodSync,
+  detectAgents,
+  join,
+  mkdtempSync,
+  rmSync,
+  tmpdir,
+  withEnvSnapshot,
+  writeFileSync,
+} from './helpers/test-helpers.js';
+import { detectAgentsStream } from '../../src/runtimes/detection.js';
+import { buildAuthDiagnostic } from '../../src/runtimes/diagnostics.js';
+
+const posixTest = process.platform === 'win32' ? test.skip : test;
+
+
+function writeOpenCode(dir: string): string {
+  const bin = join(dir, 'opencode');
+  writeFileSync(
+    bin,
+    `#!/bin/sh\n` +
+      `if [ "$1" = "--version" ]; then echo "opencode 1.17.3"; exit 0; fi\n` +
+      `if [ "$1" = "models" ]; then echo "openai/gpt-5"; exit 0; fi\n` +
+      `exit 0\n`,
+  );
+  chmodSync(bin, 0o755);
+  return bin;
+}
+
+function writeNonExecutableCodex(dir: string): string {
+  const bin = join(dir, 'codex');
+  writeFileSync(
+    bin,
+    `#!/bin/sh\n` +
+      `if [ "$1" = "--version" ]; then echo "2026.05.07-test"; exit 0; fi\n` +
+      `exit 0\n`,
+  );
+  chmodSync(bin, 0o644);
+  return bin;
+}
+
+posixTest('detectAgents emits a not-on-path diagnostic with searched dirs + fix intents', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pixo-diag-notpath-'));
+  try {
+    await withEnvSnapshot(['PATH', 'PIXO_AGENT_HOME'], async () => {
+      process.env.PATH = dir;
+      process.env.PIXO_AGENT_HOME = dir;
+
+      const agents = await detectAgents();
+      const codex = agents.find((agent) => agent.id === 'codex');
+
+      assert.equal(codex?.available, false);
+      const diagnostic = codex?.diagnostics?.[0];
+      assert.ok(diagnostic, 'expected a diagnostic on the unavailable agent');
+      assert.equal(diagnostic?.reason, 'not-on-path');
+      assert.equal(diagnostic?.severity, 'error');
+      assert.ok(
+        (diagnostic?.searchedDirs ?? []).length > 0,
+        'expected searchedDirs to be populated',
+      );
+      const intents = (diagnostic?.fixActions ?? []).map((a) => a.kind);
+      assert.ok(intents.includes('openInstall'), 'expected openInstall fix intent');
+      assert.ok(intents.includes('rescan'), 'expected rescan fix intent');
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+posixTest('detectAgents finds OpenCode when npm exposes only the opencode binary', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pixo-opencode-npm-bin-'));
+  try {
+    await withEnvSnapshot(['PATH', 'PIXO_AGENT_HOME'], async () => {
+      const bin = writeOpenCode(dir);
+      process.env.PATH = dir;
+      process.env.PIXO_AGENT_HOME = dir;
+
+      const agents = await detectAgents();
+      const opencode = agents.find((agent) => agent.id === 'opencode');
+
+      assert.equal(opencode?.available, true);
+      assert.equal(opencode?.bin, 'opencode-cli');
+      assert.equal(opencode?.path, bin);
+      assert.equal(opencode?.version, 'opencode 1.17.3');
+      assert.equal(opencode?.diagnostics, undefined);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+posixTest('detectAgents emits a not-executable diagnostic for a PATH match without execute permission', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pixo-diag-notexec-'));
+  try {
+    await withEnvSnapshot(['PATH', 'PIXO_AGENT_HOME'], async () => {
+      const bin = writeNonExecutableCodex(dir);
+      process.env.PATH = dir;
+      process.env.PIXO_AGENT_HOME = dir;
+
+      const agents = await detectAgents();
+      const codex = agents.find((agent) => agent.id === 'codex');
+
+      assert.equal(codex?.available, false);
+      const diagnostic = codex?.diagnostics?.[0];
+      assert.ok(diagnostic, 'expected a diagnostic on the unavailable agent');
+      assert.equal(diagnostic?.reason, 'not-executable');
+      assert.equal(diagnostic?.severity, 'error');
+      assert.equal(diagnostic?.detail, bin);
+      assert.match(diagnostic?.message ?? '', /not executable/i);
+      const intents = (diagnostic?.fixActions ?? []).map((a) => a.kind);
+      assert.ok(intents.includes('rescan'), 'expected rescan fix intent');
+      assert.equal(
+        intents.includes('openDocs'),
+        false,
+        'permission diagnostics should not use shim repair advice',
+      );
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('auth diagnostics do not offer daemon OAuth without an active producer', () => {
+  const diagnostic = buildAuthDiagnostic(
+    { id: 'codex', name: 'Codex' },
+    {
+      status: 'missing',
+      message: 'Codex is installed but not authenticated.',
+    },
+  );
+
+  const intents = (diagnostic?.fixActions ?? []).map((a) => a.kind);
+  assert.deepEqual(intents, ['openDocs', 'rescan']);
+});
+
+posixTest('detectAgentsStream yields the same agent set as detectAgents', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pixo-diag-stream-'));
+  try {
+    await withEnvSnapshot(['PATH', 'PIXO_AGENT_HOME'], async () => {
+      process.env.PATH = dir;
+      process.env.PIXO_AGENT_HOME = dir;
+
+      const batch = await detectAgents();
+      const streamed: string[] = [];
+      for await (const agent of detectAgentsStream()) {
+        streamed.push(agent.id);
+      }
+
+      assert.equal(
+        streamed.length,
+        batch.length,
+        'stream should yield one event per agent',
+      );
+      assert.deepEqual(
+        [...streamed].sort(),
+        batch.map((agent) => agent.id).sort(),
+        'stream should cover exactly the same agent ids',
+      );
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

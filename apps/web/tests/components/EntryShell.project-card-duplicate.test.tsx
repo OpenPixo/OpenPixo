@@ -1,0 +1,145 @@
+// @vitest-environment jsdom
+//
+// OPEND-2686 (QA 2026-09-15 addendum): the Personal projects (/drafts) card
+// "more" menu offered only Rename / Delete. `RecentProjectsStrip` already
+// renders a Duplicate item between the two whenever it is handed an
+// `onDuplicate` — the rail row (F1, #7878) and the 项目 ProjectsPanel both wire
+// the shell's `onDuplicateProject` through — but the two strip mounts in
+// `EntryShell` (drafts and all-projects) never passed it, so the item silently
+// stayed out of the card menu.
+
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { EntryShell } from '../../src/components/EntryShell';
+import { I18nProvider } from '../../src/i18n';
+import type { AgentInfo, AppConfig, Project } from '../../src/types';
+
+
+
+const originalFetch = globalThis.fetch;
+const originalResizeObserver = globalThis.ResizeObserver;
+
+class ResizeObserverMock {
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+
+
+function cliAgent(): AgentInfo {
+  return {
+    id: 'claude-code',
+    name: 'Claude Code',
+    bin: 'claude',
+    available: true,
+    version: '1.0.0',
+    models: [{ id: 'sonnet', label: 'Sonnet' }],
+  };
+}
+
+function baseConfig(): AppConfig {
+  return {
+    mode: 'daemon',
+    agentId: 'claude-code',
+    agentModels: { 'claude-code': { model: 'sonnet' } },
+    apiProtocol: 'anthropic',
+    apiProtocolConfigs: {},
+    apiKey: '',
+    baseUrl: '',
+    model: '',
+    theme: 'system',
+  } as unknown as AppConfig;
+}
+
+function renderAt(path: string, overrides: Partial<React.ComponentProps<typeof EntryShell>> = {}) {
+  window.history.replaceState(null, '', path);
+  const props: React.ComponentProps<typeof EntryShell> = {
+    skills: [],
+
+    projects: [],
+
+    promptTemplates: [],
+    config: baseConfig(),
+    agents: [cliAgent()],
+    daemonLive: true,
+    onModeChange: vi.fn(),
+    onAgentChange: vi.fn(),
+    onAgentModelChange: vi.fn(),
+    onApiProtocolChange: vi.fn(),
+    onApiModelChange: vi.fn(),
+    onConfigPersist: vi.fn(),
+    onRefreshAgents: vi.fn(() => [cliAgent()]),
+    onCreateProject: vi.fn(() => Promise.resolve(true)),
+    onBeginProjectCreation: () => ({ projectId: 'optimistic-project', rollback: () => undefined }),
+
+    onCreatePluginShareProject: vi.fn(),
+
+    onOpenProject: vi.fn(),
+    onDeleteProject: vi.fn(),
+    onDuplicateProject: vi.fn(async () => {}),
+    onRenameProject: vi.fn(),
+    onOpenSettings: vi.fn(),
+    onCompleteOnboarding: vi.fn(),
+    ...overrides,
+  };
+  render(
+    <I18nProvider initial="en">
+      <EntryShell {...props} />
+    </I18nProvider>,
+  );
+  return props;
+}
+
+async function openCardMenu(): Promise<HTMLElement> {
+  const strip = await screen.findByTestId('recent-projects-strip');
+  fireEvent.click(within(strip).getByRole('button', { name: 'More actions' }));
+  return within(strip).getByRole('menu');
+}
+
+beforeEach(() => {
+  globalThis.ResizeObserver = ResizeObserverMock as typeof ResizeObserver;
+
+
+});
+
+afterEach(() => {
+  cleanup();
+  globalThis.fetch = originalFetch;
+  globalThis.ResizeObserver = originalResizeObserver;
+
+
+  vi.unstubAllGlobals();
+});
+
+describe('OPEND-2686 — project card menu offers Duplicate project', () => {
+  const localProject: Project = {
+    id: 'local-project',
+    name: 'Local project',
+    skillId: null,
+    createdAt: 1,
+    updatedAt: 1,
+  };
+
+  it('lists Rename / Duplicate project / Delete on a Personal projects card and hands the id to the shell', async () => {
+    globalThis.fetch = vi.fn(async () => jsonResponse({ context: null, projects: [], plugins: [] })) as typeof fetch;
+    const props = renderAt('/drafts', { projects: [localProject] });
+
+    const menu = await openCardMenu();
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(
+      ['Rename', 'Duplicate project', 'Delete'],
+    );
+
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Duplicate project' }));
+    expect(props.onDuplicateProject).toHaveBeenCalledWith('local-project');
+  });
+});

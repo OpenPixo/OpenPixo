@@ -1,0 +1,20 @@
+{
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-feel-juice",
+  "version": "0.1.0",
+  "title": "Game feel and impact feedback",
+  "title_i18n": { "en": "Game feel and impact feedback", "zh-CN": "游戏手感与打击反馈" },
+  "description": "Add adjustable shake, hit-stop, squash, tweens, particles and camera smoothing to existing gameplay events.",
+  "description_i18n": { "en": "Add adjustable shake, hit-stop, squash, tweens, particles and camera smoothing to existing gameplay events.", "zh-CN": "为既有玩法事件加入可调节的震屏、顿帧、挤压拉伸、补间、粒子和镜头平滑。" },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "tags": ["game-development", "first-party", "openpixo", "godot", "unity", "phaser", "game-feel", "effects"],
+  "engines": ["godot", "unity", "phaser"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },
+  "examples": [
+    { "title": "Make coins feel satisfying", "title_i18n": { "zh-CN": "让金币拾取更有反馈" }, "prompt": "In this Phaser sample platformer, add a small visual pop and four short-lived particles when I collect a coin. Keep the score and collision rules unchanged and verify the build.", "prompt_i18n": { "zh-CN": "给这个 Phaser 平台跳跃示例的金币拾取加入轻微视觉弹跳和四个短寿命粒子，保留分数与碰撞规则，并验证构建。" } },
+    { "title": "Give landings some weight", "title_i18n": { "zh-CN": "增加落地重量感" }, "prompt": "Add a 120 ms squash-and-recover animation and subtle camera shake to landings in my Godot platformer. Keep the collision body stable and add an intensity setting that can disable motion.", "prompt_i18n": { "zh-CN": "给我的 Godot 平台跳跃游戏加入 120 毫秒落地挤压回弹和轻微震屏，保持碰撞体稳定，并加入可关闭动态效果的强度设置。" } },
+    { "title": "Add controlled impact hit-stop", "title_i18n": { "zh-CN": "加入可控的命中顿帧" }, "prompt": "Add about 45 ms of hit-stop when the player takes damage in this Godot 2D game. Make repeated hits, pausing and restarting restore the normal time scale correctly, then run the Godot check.", "prompt_i18n": { "zh-CN": "给这个 Godot 2D 游戏的玩家受伤加入约 45 毫秒顿帧，确保连续受击、暂停和重开后正确恢复时间倍率，然后运行 Godot 检查。" } }
+  ]
+}

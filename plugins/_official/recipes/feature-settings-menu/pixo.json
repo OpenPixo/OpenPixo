@@ -1,0 +1,87 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-settings-menu",
+  "title": "Settings menu",
+  "title_i18n": {
+    "en": "Settings menu",
+    "zh-CN": "设置菜单"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Adds a settings menu for audio, display and controls that applies immediately and persists between sessions.",
+  "description_i18n": {
+    "en": "Adds a settings menu for audio, display and controls that applies immediately and persists between sessions.",
+    "zh-CN": "加入音频、显示和操作设置菜单，修改即时生效并跨会话保存。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "options",
+          "label": "Options",
+          "label_i18n": {
+            "zh-CN": "设置项"
+          },
+          "type": "text",
+          "default": "master, music and SFX volume; fullscreen; key rebinding; language (only if the game is localized)",
+          "default_i18n": {
+            "zh-CN": "主音量、音乐和音效音量；全屏；按键重绑定；语言（仅当游戏已本地化时）"
+          }
+        },
+        {
+          "name": "entry",
+          "label": "Opened from",
+          "label_i18n": {
+            "zh-CN": "打开入口"
+          },
+          "type": "select",
+          "options": [
+            "the title screen and the pause menu",
+            "the pause menu only"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "the title screen and the pause menu": "标题画面和暂停菜单",
+              "the pause menu only": "仅暂停菜单"
+            }
+          },
+          "default": "the title screen and the pause menu"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add a settings menu to this {{engine.id}} game, opened from {{entry}}. Options: {{options}}. Skip any option that does not apply to this project and say why.\n\nRequirements:\n- Godot: Master, Music and SFX audio buses (create `default_bus_layout.tres` if missing and route existing players to the right bus), sliders converted with `linear_to_db`; window mode through `DisplayServer`; key rebinding through `InputMap` with conflict detection; settings stored in a `ConfigFile` at `user://settings.cfg` and applied at startup by an autoload.\n- Phaser: separate music and SFX volume applied to the right sounds plus a master volume on `this.sound`; fullscreen through `this.scale.startFullscreen()` from a user gesture; key rebinding stored with the other settings in `localStorage` and applied at boot.\n- Changes apply immediately, persist across restarts, and a \"Reset to defaults\" button restores everything.\n- The menu is fully usable with keyboard and gamepad (visible focus, Back or Escape closes it) as well as the mouse, and pauses the game while open when opened from the pause menu.\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

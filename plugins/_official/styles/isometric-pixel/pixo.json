@@ -1,0 +1,81 @@
+{
+    "$schema":  "urn:openpixo:plugin:v1",
+    "specVersion":  "1.0.0",
+    "name":  "openpixo/isometric-pixel",
+    "title":  "Isometric pixel",
+    "title_i18n":  {
+                       "en":  "Isometric pixel",
+                       "zh-CN":  "等距像素"
+                   },
+    "version":  "0.1.0",
+    "publishedAt": "2026-10-30T15:28:43+09:00",
+    "description":  "Neat diamond-grid pixel props and scenes with a consistent elevated viewpoint.",
+    "description_i18n":  {
+                             "en":  "Neat diamond-grid pixel props and scenes with a consistent elevated viewpoint.",
+                             "zh-CN":  "以统一的俯视角度与菱形网格，制作整洁的像素道具和场景。"
+                         },
+    "license":  "Apache-2.0",
+    "author":  {
+                   "name":  "OpenPixo"
+               },
+    "tags":  [
+                 "style",
+                 "first-party",
+                 "openpixo",
+                 "2d",
+                 "pixel",
+                 "isometric"
+             ],
+    "examples":  [
+                     {
+                         "title":  "Village workshop",
+                         "title_i18n":  {
+                                            "zh-CN":  "村庄工坊"
+                                        },
+                         "prompt":  "Create an isometric village workshop using the isometric-pixel art style, with a mossy roof, a tiny forge and stacked timber. Keep every base aligned to one 2:1 diamond grid.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 isometric-pixel 美术风格制作一间等距村庄工坊：苔藓屋顶、小锻炉和成堆木材。让所有物体底座对齐同一个 2:1 菱形网格。"
+                                         }
+                     },
+                     {
+                         "title":  "Garden props",
+                         "title_i18n":  {
+                                            "zh-CN":  "花园道具"
+                                        },
+                         "prompt":  "Generate a matching isometric garden prop set using the isometric-pixel art style: planter, bench, water pump and short fence. Use the same elevated viewpoint and upper-left light for all four.",
+                         "prompt_i18n":  {
+                                             "zh-CN":  "使用 isometric-pixel 美术风格生成配套的等距花园道具：花盆、长椅、水泵和矮栅栏。四件道具保持相同俯视角和左上方光照。"
+                                         }
+                     }
+                 ],
+    "pixo":  {
+                 "kind":  "style",
+                 "style":  {
+                               "id":  "isometric-pixel",
+                               "dimension":  [
+                                                 "2d"
+                                             ],
+                               "medium":  [
+                                              "pixel",
+                                              "isometric"
+                                          ],
+                               "prompt":  "Isometric game pixel art on a consistent 2:1 diamond grid with parallel projection and no perspective vanishing point. Clean square-pixel clusters, crisp diagonals, compact stepped shading and a shared muted palette. Keep the top face lighter, the left face medium and the right face darkest under upper-left light. Align bases to the same ground plane and use nearest-neighbor scaling.",
+                               "negativePrompt":  "perspective distortion, mismatched camera angles, curved horizon, anti-aliasing, blurry pixels, smooth 3D render, noisy surface texture, inconsistent ground planes, text, watermark",
+                               "palette":  [
+                                               "#243545",
+                                               "#42636B",
+                                               "#6D8D7B",
+                                               "#A8B88A",
+                                               "#E6D3A3",
+                                               "#B68D68",
+                                               "#815E58",
+                                               "#C9A68B"
+                                           ],
+                               "constraints":  {
+                                                   "outline":  "One native-pixel contour; consistent 2:1 diagonal steps.",
+                                                   "recommendedResolution":  "1024x1024"
+                                               },
+                               "previews": ["previews/cover.webp"]
+                           }
+             }
+}

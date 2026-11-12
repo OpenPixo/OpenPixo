@@ -1,0 +1,10 @@
+/* "OpenPixo credits used" on a turn that ran on the credits agent model. Sits in
+   the assistant footer row, before its right-aligned time. */
+.label {
+  flex-shrink: 0;
+  margin-left: 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-soft);
+}

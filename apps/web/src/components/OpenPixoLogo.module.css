@@ -1,0 +1,28 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: var(--text-strong);
+  user-select: none;
+}
+
+.logo svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.wordmark {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.pixel { fill: var(--pixo-green); }
+
+.compact { gap: 8px; margin-bottom: 0; }
+.compact svg { width: 24px; height: 24px; }
+.compact .wordmark { font-size: 17px; letter-spacing: -0.02em; }

@@ -1,0 +1,96 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/feature-inventory",
+  "title": "Inventory",
+  "title_i18n": {
+    "en": "Inventory",
+    "zh-CN": "背包系统"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Adds data-driven items, a stacking inventory model, an inventory screen and world pickups.",
+  "description_i18n": {
+    "en": "Adds data-driven items, a stacking inventory model, an inventory screen and world pickups.",
+    "zh-CN": "加入数据驱动的物品、可堆叠的背包模型、背包界面和场景拾取物。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "feature",
+    "godot",
+    "phaser"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "feature",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "layout",
+          "label": "Layout",
+          "label_i18n": {
+            "zh-CN": "布局"
+          },
+          "type": "select",
+          "options": [
+            "slot grid with stacking",
+            "list grouped by category"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "slot grid with stacking": "可堆叠的格子网格",
+              "list grouped by category": "按类别分组的列表"
+            }
+          },
+          "default": "slot grid with stacking"
+        },
+        {
+          "name": "capacity",
+          "label": "Capacity (slots)",
+          "label_i18n": {
+            "zh-CN": "容量（格）"
+          },
+          "type": "number",
+          "default": 20
+        },
+        {
+          "name": "items",
+          "label": "Starter items",
+          "label_i18n": {
+            "zh-CN": "初始物品"
+          },
+          "type": "text",
+          "default": "health potion (stacks to 10), iron key, gold coin (stacks to 99), wooden sword",
+          "default_i18n": {
+            "zh-CN": "生命药水（最多叠加 10 个）、铁钥匙、金币（最多叠加 99 个）、木剑"
+          }
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Add an inventory to this {{engine.id}} game. Layout: {{layout}}. Capacity: {{capacity}} slots. Starter item definitions: {{items}}.\n\nRequirements:\n- Item definitions are data: `id`, `name`, `description`, `icon` texture key or path, `stackable`, `maxStack`, `type`. Godot: a custom `ItemData` `Resource` with one `.tres` per item (or JSON); Phaser: a typed data module.\n- The inventory model has no UI code: add with stacking (returns the amount that did not fit), remove, move and swap slots, count by id, and a change signal or event the UI listens to.\n- UI toggled with I or Tab (and a gamepad button if one is mapped): slots with an icon placeholder and stack count, a tooltip with name and description, drag to rearrange, and use and drop actions. Game input pauses while it is open.\n- World pickups that add items on contact and stay in the world if the inventory is full.\n- If the project has a save system, serialize the inventory as item ids and counts through it.\n- Add a check for stacking edge cases (exact fill, overflow, full inventory).\n\nFinish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix every failing step and run it again; do not re-run unchanged code. Open the screenshot and confirm the change is actually on screen with no error overlay or blank canvas. Report what passed, what failed, and what could not run."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

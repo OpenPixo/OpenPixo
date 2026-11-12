@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "video-template-devlog-intro-bumper",
+  "title": "Devlog Intro Bumper",
+  "title_i18n": {
+    "en": "Devlog Intro Bumper",
+    "zh-CN": "开发日志片头"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A 4-6 second intro bumper for a YouTube or Bilibili devlog series: a quick, friendly transition from the developer workspace into the game world, ending on a stable frame with a clean lower-third zone for the episode title. Built to be reused at the start of every episode.",
+  "description_i18n": {
+    "en": "A 4-6 second intro bumper for a YouTube or Bilibili devlog series: a quick, friendly transition from the developer workspace into the game world, ending on a stable frame with a clean lower-third zone for the episode title. Built to be reused at the start of every episode.",
+    "zh-CN": "为 YouTube 或 B 站开发日志系列生成一段 4–6 秒的片头：从开发者工作台快速、亲切地过渡到游戏世界，结尾停在稳定画面并留出干净的下三分之一区域放置每期标题。可在每期视频开头重复使用。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "video-template",
+    "first-party",
+    "video",
+    "motion-graphics",
+    "devlog",
+    "intro",
+    "youtube",
+    "bumper",
+    "indie-dev"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "video",
+    "scenario": "video",
+    "surface": "video",
+    "useCase": {
+      "query": {
+        "en": "A reusable 4 to 6 second intro bumper for an indie game devlog series.\n\nGame: {argument name=\"game_pitch\" default=\"a pixel-art farming game set on the back of a giant sleeping turtle\"}.\nArt style of the game world: {argument name=\"art_style\" default=\"warm 16-bit pixel art\"}.\nDeveloper workspace: {argument name=\"workspace\" default=\"a cozy desk at night with a glowing monitor showing a tile editor, sticky notes, a sketchbook and a mug of tea\"}.\n\n# Timeline\n- 0-1.5s: slow push-in on the workspace, the monitor glow lighting the desk.\n- 1.5-3.5s: the camera dives into the monitor and the screen expands into the living game world: {argument name=\"transition\" default=\"pixels on the monitor ripple outward and become the pixel-art landscape, with the player character waving at camera\"}.\n- 3.5-6s: settle on a calm, stable game-world frame with gentle ambient motion (swaying grass, drifting clouds). Keep the lower third of the frame visually quiet and evenly toned for the episode title, which is added in the editor.\n\n# Look and sound\n- Friendly, handmade, behind-the-scenes mood; soft light, slight camera ease in and out.\n- Palette: {argument name=\"palette\" default=\"warm desk-lamp orange fading into fresh greens and sky blue\"}.\n- Sound: {argument name=\"sound\" default=\"a short upbeat chiptune flourish ending on a soft chord\"}.\n\n# Avoid\nGenerated text, channel names or episode numbers, real software interfaces or brand logos on the monitor, faces of real people, jarring flashes, watermarks.",
+        "zh-CN": "A reusable 4 to 6 second intro bumper for an indie game devlog series.\n\nGame: {argument name=\"game_pitch\" default=\"a pixel-art farming game set on the back of a giant sleeping turtle\"}.\nArt style of the game world: {argument name=\"art_style\" default=\"warm 16-bit pixel art\"}.\nDeveloper workspace: {argument name=\"workspace\" default=\"a cozy desk at night with a glowing monitor showing a tile editor, sticky notes, a sketchbook and a mug of tea\"}.\n\n# Timeline\n- 0-1.5s: slow push-in on the workspace, the monitor glow lighting the desk.\n- 1.5-3.5s: the camera dives into the monitor and the screen expands into the living game world: {argument name=\"transition\" default=\"pixels on the monitor ripple outward and become the pixel-art landscape, with the player character waving at camera\"}.\n- 3.5-6s: settle on a calm, stable game-world frame with gentle ambient motion (swaying grass, drifting clouds). Keep the lower third of the frame visually quiet and evenly toned for the episode title, which is added in the editor.\n\n# Look and sound\n- Friendly, handmade, behind-the-scenes mood; soft light, slight camera ease in and out.\n- Palette: {argument name=\"palette\" default=\"warm desk-lamp orange fading into fresh greens and sky blue\"}.\n- Sound: {argument name=\"sound\" default=\"a short upbeat chiptune flourish ending on a soft chord\"}.\n\n# Avoid\nGenerated text, channel names or episode numbers, real software interfaces or brand logos on the monitor, faces of real people, jarring flashes, watermarks."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "seedance-2.0"
+        ],
+        "default": "seedance-2.0"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-video"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:video-generate"
+    ]
+  }
+}

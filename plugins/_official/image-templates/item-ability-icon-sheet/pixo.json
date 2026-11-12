@@ -1,0 +1,88 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-item-ability-icon-sheet",
+  "title": "Item and Ability Icon Sheet",
+  "title_i18n": {
+    "en": "Item and Ability Icon Sheet",
+    "zh-CN": "道具与技能图标表"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A grid sheet of consistent game icons for items or abilities: one subject per cell on a flat background for easy slicing, distinct silhouettes, shared light direction and outline weight, readable down to 32-64 px. Slots for theme, icon list, style and background colour.",
+  "description_i18n": {
+    "en": "A grid sheet of consistent game icons for items or abilities: one subject per cell on a flat background for easy slicing, distinct silhouettes, shared light direction and outline weight, readable down to 32-64 px. Slots for theme, icon list, style and background colour.",
+    "zh-CN": "生成风格统一的游戏道具或技能图标网格表：每格一个主体、纯色背景便于切图，剪影各不相同，光照方向与描边粗细一致，缩到 32–64 像素依然可读。可调整主题、图标清单、风格与背景色。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "game-assets",
+    "icons",
+    "items",
+    "abilities",
+    "sprite-sheet",
+    "ui"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "A game asset sheet of {argument name=\"grid\" default=\"16 icons in a 4x4 grid\"} for {argument name=\"theme\" default=\"a fantasy roguelite: weapons, potions, relics and spell abilities\"}.\n\nIcons, in reading order: {argument name=\"icon_list\" default=\"iron sword, flame dagger, frost bow, thunder hammer, red health potion, blue mana potion, green poison vial, golden elixir, cracked skull relic, feather charm, eye amulet, clockwork heart, fireball spell, ice shard spell, healing light spell, shadow step spell\"}.\n\nStyle: {argument name=\"style\" default=\"hand-painted icons with a thick dark outline, soft cel shading and a small rim highlight\"}.\n\n# Sheet rules (for clean slicing)\n- Perfectly even grid, every cell the same size, separated by generous empty gutters. No grid lines drawn.\n- Each icon centred in its cell, filling about 75% of it, never crossing into a neighbouring cell.\n- Flat, uniform background colour: {argument name=\"background\" default=\"solid mid grey #808080\"}, no gradients, no vignette, no texture.\n\n# Consistency\n- Same camera angle for every object (slight three-quarter view), same light direction from the top-left, same outline weight and same level of detail.\n- Each icon has a distinct, instantly recognisable silhouette; no two icons share the same overall shape.\n- Category colour coding: {argument name=\"colour_coding\" default=\"weapons steel and warm metal, potions saturated liquid colours, relics bone and gold, spells glowing elemental colours\"}.\n\n# Readability\n- Must stay readable when each icon is shrunk to 32x32 and 64x64 pixels: bold shapes, high value contrast between object and background, minimal tiny detail.\n\n# Avoid\nText, numbers, labels, rarity borders or frames, drop shadows touching neighbouring cells, inconsistent perspectives, photoreal rendering, watermarks, existing franchise items.",
+        "zh-CN": "A game asset sheet of {argument name=\"grid\" default=\"16 icons in a 4x4 grid\"} for {argument name=\"theme\" default=\"a fantasy roguelite: weapons, potions, relics and spell abilities\"}.\n\nIcons, in reading order: {argument name=\"icon_list\" default=\"iron sword, flame dagger, frost bow, thunder hammer, red health potion, blue mana potion, green poison vial, golden elixir, cracked skull relic, feather charm, eye amulet, clockwork heart, fireball spell, ice shard spell, healing light spell, shadow step spell\"}.\n\nStyle: {argument name=\"style\" default=\"hand-painted icons with a thick dark outline, soft cel shading and a small rim highlight\"}.\n\n# Sheet rules (for clean slicing)\n- Perfectly even grid, every cell the same size, separated by generous empty gutters. No grid lines drawn.\n- Each icon centred in its cell, filling about 75% of it, never crossing into a neighbouring cell.\n- Flat, uniform background colour: {argument name=\"background\" default=\"solid mid grey #808080\"}, no gradients, no vignette, no texture.\n\n# Consistency\n- Same camera angle for every object (slight three-quarter view), same light direction from the top-left, same outline weight and same level of detail.\n- Each icon has a distinct, instantly recognisable silhouette; no two icons share the same overall shape.\n- Category colour coding: {argument name=\"colour_coding\" default=\"weapons steel and warm metal, potions saturated liquid colours, relics bone and gold, spells glowing elemental colours\"}.\n\n# Readability\n- Must stay readable when each icon is shrunk to 32x32 and 64x64 pixels: bold shapes, high value contrast between object and background, minimal tiny detail.\n\n# Avoid\nText, numbers, labels, rarity borders or frames, drop shadows touching neighbouring cells, inconsistent perspectives, photoreal rendering, watermarks, existing franchise items."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "1:1"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

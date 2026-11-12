@@ -1,0 +1,91 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/starter-platformer",
+  "title": "Platformer starter",
+  "title_i18n": {
+    "en": "Platformer starter",
+    "zh-CN": "横版跳跃起步"
+  },
+  "version": "0.2.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Turns a Godot 2D or Phaser template into a side-scrolling platformer with tight jumps, collectibles, enemies and a goal.",
+  "description_i18n": {
+    "en": "Turns a Godot 2D or Phaser template into a side-scrolling platformer with tight jumps, collectibles, enemies and a goal.",
+    "zh-CN": "把 Godot 2D 或 Phaser 模板变成横版跳跃游戏：紧凑的跳跃手感、收集物、敌人和终点。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "code",
+    "starter",
+    "godot",
+    "phaser",
+    "template:godot4-2d",
+    "template:phaser3-vite"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "code",
+      "category": "starter",
+      "engines": [
+        "godot",
+        "phaser"
+      ],
+      "inputs": [
+        {
+          "name": "theme",
+          "label": "Theme",
+          "label_i18n": {
+            "zh-CN": "主题"
+          },
+          "type": "string",
+          "default": "a fox exploring an overgrown temple",
+          "default_i18n": {
+            "zh-CN": "一只探索荒草丛生的神庙的狐狸"
+          }
+        },
+        {
+          "name": "scope",
+          "label": "Scope",
+          "label_i18n": {
+            "zh-CN": "范围"
+          },
+          "type": "select",
+          "options": [
+            "coins and a goal flag",
+            "coins, patrolling enemies and a goal flag",
+            "coins, moving platforms, double jump and a goal flag"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "coins and a goal flag": "金币和终点旗帜",
+              "coins, patrolling enemies and a goal flag": "金币、巡逻敌人和终点旗帜",
+              "coins, moving platforms, double jump and a goal flag": "金币、移动平台、二段跳和终点旗帜"
+            }
+          },
+          "default": "coins, patrolling enemies and a goal flag"
+        }
+      ]
+    },
+    "useCase": {
+      "query": "Turn this {{engine.id}} project into a playable side-scrolling platformer. Theme: {{theme}}. Gameplay scope: {{scope}}. Project engine: {{engine.id}}.\n\nUse the existing godot4-2d (Godot 4 2D) or phaser3-vite (Phaser 3) template. Inspect project files first, follow only the matching engine section and its skill, and never migrate engines. If this is a 3D or incompatible project, report that before replacing any scenes.\n\nRequirements:\n- Player: gravity, acceleration and friction, variable jump height on early release, 0.1 seconds of coyote time and 0.1 seconds of jump buffering. Map move_left/move_right to arrows and A/D, jump to Space/Up/W. Tune the jump arc so every gap is reachable.\n- Keep platforms, collectible positions, checkpoints, hazards and enemy patrol endpoints in level data separate from rendering. Build one level about three screens wide, with solid platforms, a bounded following camera and a visible goal at the far end.\n- Falling or touching a hazard respawns at the last checkpoint. Reaching the goal shows Level complete and allows restart. Show collectible count and controls on the HUD. Reset timers, velocity, collectibles and enemies on a full restart.\n- Honor the selected scope: patrol enemies can be stomped from above; moving platforms carry the standing player; double jump resets on landing only when requested. Keep these variations in the level/player data.\n\nEngine-specific implementation (use only the matching engine):\n- Godot 4 2D / godot4-2d / godot-gdscript: Keep the GL Compatibility renderer, the starter's 1280x720 viewport and its title screen as the entry. Build the game in game/game.tscn and keep its PauseMenu node. Put player-facing text in i18n/strings.csv, and add new rebindable actions to REBINDABLE in autoload/settings.gd. Keep the title screen, settings, pause menu and saves working; a SceneTree check script cannot name their autoloads. Use typed GDScript, focused scene scripts and separate pure model/data scripts. Any written .tscn uses Godot 4 format=3 and correct res:// paths; never edit .godot/. Preserve ui_* input and add named actions for gameplay. Use child Polygon2D/ColorRect shapes and readable Control text as replaceable placeholder visuals. Expose tuning via @export variables or Resources. For CharacterBody2D, velocity is pixels/second and move_and_slide() integrates it; do not multiply velocity by delta again.\n- Phaser 3 / phaser3-vite / phaser-game-dev: Keep Phaser 3.90.0, Vite, strict TypeScript and the 800x600 game. Leave src/main.ts as game config, put scenes in src/scenes/, views/objects in src/objects/ and pure rules/data in their own modules. Generate placeholder textures once in BootScene using Graphics.generateTexture; keep texture keys centralized. Preserve src/tuning.ts and src/tuning.json for adjustable values. Use Arcade Physics only when needed; its velocity is pixels/second, while manual movement/timers use delta seconds. Keep the existing pnpm check/build scripts and pinned dependencies; add no new dependencies. Install the declared project dependencies if missing.\n- Shared presentation: one consistent palette, clear labels/controls and distinct shapes, with visuals replaceable independently of gameplay. Keep state transitions explicit and clean up timers, tweens and input handlers on restart.\n\nGenre-specific Godot implementation: Rework game/player.gd as CharacterBody2D with move_and_slide() and is_on_floor(). Use StaticBody2D/AnimatableBody2D platforms, Area2D pickups and goal, Camera2D smoothing with limits, and a CanvasLayer HUD.\n\nGenre-specific Phaser implementation: Enable Arcade Physics with world gravity. Use a Player Arcade sprite, static platform bodies and overlap callbacks for pickups/goal. Use body.blocked.down or touching.down for grounded state, an immovable moving platform for that scope, and camera/world bounds wider than the viewport.\n\nRules checks:\n- Coyote-time and buffered-jump boundaries with an injected delta; early release shortens jump height.\n- Collecting the same pickup twice counts once; respawn clears velocity and jump timers; restart resets level state.\n- Level data places the start/checkpoints/goal on safe surfaces; scoped double jump resets only on landing.\n\nPlaytest hints: Use arrows or A/D to move, Space to jump, release Space early to compare jump height, collect a coin, fall and respawn, then reach the goal and restart. Check scoped enemy stomps, moving platforms and double jump. Capture the HUD and a mid-level jump, not only the start screen.\n\nVerification wiring:\n- Implement the rules checks above on fresh isolated state with fixed seeds and an injected clock/delta; no real waits, providers or gameplay-state mutations. Phaser: put them in src/checks/rules-check.ts, call them at dev boot before accepting input, and throw on failure so the verify run records an error. Godot: share a reusable check routine between debug boot and a checks/rules_check.gd SceneTree runner; report failures with push_error and exit nonzero. After import, run godot --headless --path . --script checks/rules_check.gd using the configured Godot executable. Verification must exercise these checks, not just typecheck them.\n- Finish by running `pixo game verify --steps check,build,run --screenshot --json`. Fix each failing step, then rerun after changes; do not rerun unchanged code. Open the screenshot and confirm playable content and HUD with no errors or blank canvas. Report passed, failed and unavailable steps honestly: a missing Godot executable, export preset/template or capture tool is unavailable, never a pass. Do not manufacture export settings just to silence an unavailable build.\n- Follow the playtest hints with actual gameplay input. Use mouse clicks for mouse-driven controls and upgrade/shop menus. If the current playtest adapter cannot inject native Godot input, report that limitation and supply the manual click/key sequence; do not claim the interaction was tested. Record screenshots and any playtest report alongside verification."
+    },
+    "context": {
+      "skills": [
+        {
+          "ref": "godot-gdscript"
+        },
+        {
+          "ref": "phaser-game-dev"
+        }
+      ]
+    }
+  }
+}

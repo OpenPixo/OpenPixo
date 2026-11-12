@@ -1,0 +1,40 @@
+.list {
+  padding: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.icon,
+.name,
+.meta {
+  display: block;
+  background: var(--bg-muted);
+  border-radius: 4px;
+}
+
+.icon {
+  width: 20px;
+  height: 24px;
+  flex: none;
+}
+
+.name {
+  width: 45%;
+  max-width: 280px;
+  height: 12px;
+}
+
+.row:nth-child(even) .name {
+  width: 30%;
+}
+
+.meta {
+  width: 48px;
+  height: 10px;
+  margin-left: auto;
+}

@@ -1,0 +1,729 @@
+// @vitest-environment jsdom
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { StrictMode } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  RecentProjectsStrip,
+} from '../../src/components/RecentProjectsStrip';
+import {
+  fetchProjectFiles,
+  fetchProjectFileText,
+  invalidateProjectFilesCache,
+} from '../../src/providers/registry';
+import type { Project } from '../../src/types';
+
+const recentWorkspaceState = vi.hoisted(() => ({
+  context: {
+    
+    workspaceType: 'team',
+    workspaceMemberId: 'wm-1',
+    role: 'member',
+    memberStatus: 'active',
+    lifecycleState: 'active',
+    billingState: 'active',
+    providerMode: 'platform_credits',
+    planId: null,
+    seatSummary: { seatLimit: 5, usedSeats: 2, availableSeats: 3 },
+    permissions: {},
+    teamId: 'team-1',
+  },
+}));
+
+
+
+vi.mock('../../src/providers/registry', () => ({
+  fetchProjectFileText: vi.fn(async (projectId: string, name: string) => {
+    if (projectId === 'project-ds' && name === 'brand.json') {
+      return JSON.stringify({
+        logo: { primary: 'logos/favicon-1.png' },
+        imagery: { samples: [{ file: 'imagery/cover-0.png', kind: 'cover' }] },
+      });
+    }
+    if (projectId === 'project-ds-fallback' && name === 'brand.json') {
+      return JSON.stringify({
+        logo: {
+          primary: 'logos/favicon-1.png',
+          alternates: ['logos/wordmark.svg'],
+        },
+      });
+    }
+    return null;
+  }),
+  fetchProjectFiles: vi.fn(async (projectId: string) => {
+    if (projectId === 'project-ds') {
+      return [
+        { name: 'favicon-1.png', path: 'logos/favicon-1.png', kind: 'image', mtime: 4, size: 0, mime: 'image/png' },
+        { name: 'cover-0.png', path: 'imagery/cover-0.png', kind: 'image', mtime: 3, size: 0, mime: 'image/png' },
+      ];
+    }
+    if (projectId === 'project-ds-fallback') {
+      return [
+        { name: 'favicon-1.png', path: 'logos/favicon-1.png', kind: 'image', mtime: 4, size: 0, mime: 'image/png' },
+        { name: 'wordmark.svg', path: 'logos/wordmark.svg', kind: 'image', mtime: 3, size: 0, mime: 'image/svg+xml' },
+      ];
+    }
+    if (projectId === 'project-html') {
+      return [{ name: 'index.html', kind: 'html', mtime: 200, size: 0, mime: 'text/html' }];
+    }
+    if (projectId === 'project-deck') {
+      return [{ name: 'index.html', kind: 'html', mtime: 400, size: 0, mime: 'text/html' }];
+    }
+    return [];
+  }),
+  invalidateProjectFilesCache: vi.fn(),
+  projectFileUrl: (
+    projectId: string,
+    fileName: string,
+    workspaceContext?: { workspaceId: string; workspaceMemberId: string } | null,
+  ) => {
+    const base = `/api/projects/${projectId}/files/${fileName}`;
+    return workspaceContext
+      ? `${base}?workspaceId=${workspaceContext.workspaceId}&workspaceMemberId=${workspaceContext.workspaceMemberId}`
+      : base;
+  },
+}));
+
+afterEach(() => {
+  cleanup();
+  Object.assign(recentWorkspaceState.context, {
+    displayName: undefined,
+    avatarUrl: undefined,
+  });
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.mocked(invalidateProjectFilesCache).mockClear();
+  vi.mocked(fetchProjectFiles).mockReset().mockImplementation(async (projectId: string) => {
+    if (projectId === 'project-ds') {
+      return [
+        { name: 'favicon-1.png', path: 'logos/favicon-1.png', kind: 'image', mtime: 4, size: 0, mime: 'image/png' },
+        { name: 'cover-0.png', path: 'imagery/cover-0.png', kind: 'image', mtime: 3, size: 0, mime: 'image/png' },
+      ];
+    }
+    if (projectId === 'project-ds-fallback') {
+      return [
+        { name: 'favicon-1.png', path: 'logos/favicon-1.png', kind: 'image', mtime: 4, size: 0, mime: 'image/png' },
+        { name: 'wordmark.svg', path: 'logos/wordmark.svg', kind: 'image', mtime: 3, size: 0, mime: 'image/svg+xml' },
+      ];
+    }
+    if (projectId === 'project-html') {
+      return [{ name: 'index.html', kind: 'html', mtime: 200, size: 0, mime: 'text/html' }];
+    }
+    if (projectId === 'project-deck') {
+      return [{ name: 'index.html', kind: 'html', mtime: 400, size: 0, mime: 'text/html' }];
+    }
+    return [];
+  });
+});
+
+function project(overrides: Partial<Project>): Project {
+  return {
+    id: 'project-1',
+    name: 'Project',
+    skillId: null,
+    createdAt: 1,
+    updatedAt: 2,
+    status: { value: 'not_started' },
+    ...overrides,
+  };
+}
+
+function projects(count: number): Project[] {
+  return Array.from({ length: count }, (_, index) =>
+    project({
+      id: `project-${index + 1}`,
+      name: `Project ${index + 1}`,
+      updatedAt: count - index,
+    }),
+  );
+}
+
+function stubCoverProbe(status = 200, statusText = 'OK', body = '<html><body>slide</body></html>') {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText,
+    // Deck cards read the cover document (GET) to build their first-slide
+    // srcDoc; plain HTML cards only HEAD-probe it.
+    text: async () => body,
+    } as Response;
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+type EventSourceListener = (event: unknown) => void;
+class MockWorkspaceEventSource {
+  static instances: MockWorkspaceEventSource[] = [];
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  listeners = new Map<string, Set<EventSourceListener>>();
+
+  constructor(readonly url: string) {
+    MockWorkspaceEventSource.instances.push(this);
+  }
+
+  addEventListener(name: string, listener: EventSourceListener): void {
+    if (!this.listeners.has(name)) this.listeners.set(name, new Set());
+    this.listeners.get(name)!.add(listener);
+  }
+
+  removeEventListener(name: string, listener: EventSourceListener): void {
+    this.listeners.get(name)?.delete(listener);
+  }
+
+  dispatch(name: string, data: unknown): void {
+    for (const listener of this.listeners.get(name) ?? []) {
+      listener({ data: JSON.stringify(data) });
+    }
+  }
+
+  close(): void {}
+}
+
+describe('RecentProjectsStrip', () => {
+  it('lets a 16:9 project cover determine its grid-card height without a taller minimum', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src/styles/home/recent-projects.css'),
+      'utf8',
+    );
+    const gridThumb = css.match(
+      /\.recent-projects__row--grid \.recent-projects__card-thumb\s*\{([^}]*)\}/u,
+    )?.[1];
+    expect(gridThumb).toContain('min-height: 0');
+    expect(gridThumb).not.toContain('min-height: 108px');
+  });
+
+  it('aborts an unresolved background cover read when Home unmounts for a reopen', async () => {
+    let coverSignal: AbortSignal | undefined;
+    vi.mocked(fetchProjectFiles).mockImplementation((_projectId, options) => {
+      coverSignal = options?.signal;
+      return new Promise((resolve) => {
+        options?.signal?.addEventListener('abort', () => resolve([]), { once: true });
+      });
+    });
+
+    const { unmount } = render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-reopen', name: 'Reopen project' })]}
+        onOpen={() => {}}
+        heading="All projects"
+      />,
+    );
+    await waitFor(() => expect(fetchProjectFiles).toHaveBeenCalledTimes(1));
+
+    unmount();
+
+    expect(coverSignal).toBeDefined();
+    expect(coverSignal?.aborted).toBe(true);
+  });
+
+  it('bounds a large cover scan and aborts it before opening a foreground project', async () => {
+    const activeSignals = new Set<AbortSignal>();
+    const startedSignals: AbortSignal[] = [];
+    vi.mocked(fetchProjectFiles).mockImplementation((_projectId, options) => {
+      const signal = options?.signal;
+      if (!signal) throw new Error('cover request must be cancellable');
+      activeSignals.add(signal);
+      startedSignals.push(signal);
+      return new Promise((resolve) => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            activeSignals.delete(signal);
+            resolve([]);
+          },
+          { once: true },
+        );
+      });
+    });
+    const onOpen = vi.fn(() => {
+      expect(activeSignals.size).toBe(0);
+      expect(startedSignals.every((signal) => signal.aborted)).toBe(true);
+    });
+
+    render(
+      <RecentProjectsStrip
+        projects={projects(20)}
+        limit={1000}
+        onOpen={onOpen}
+        heading="All projects"
+      />,
+    );
+
+    await waitFor(() => expect(fetchProjectFiles).toHaveBeenCalled());
+    expect(fetchProjectFiles).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByTitle('Project 1'));
+
+    expect(onOpen).toHaveBeenCalledWith('project-1');
+    expect(activeSignals.size).toBe(0);
+    await act(async () => {});
+    expect(fetchProjectFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('resumes the bounded cover scan when a shared-project foreground open fails', async () => {
+    const activeSignals = new Set<AbortSignal>();
+    vi.mocked(fetchProjectFiles).mockImplementation((_projectId, options) => {
+      const signal = options?.signal;
+      if (!signal) throw new Error('cover request must be cancellable');
+      activeSignals.add(signal);
+      return new Promise((resolve) => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            activeSignals.delete(signal);
+            resolve([]);
+          },
+          { once: true },
+        );
+      });
+    });
+    let finishOpen!: (opened: boolean) => void;
+    const onOpen = vi.fn(() => new Promise<boolean>((resolve) => {
+      finishOpen = resolve;
+    }));
+
+    render(
+      <RecentProjectsStrip
+        projects={projects(20)}
+        limit={1000}
+        onOpen={onOpen}
+        heading="All projects"
+      />,
+    );
+    await waitFor(() => expect(fetchProjectFiles).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByTitle('Project 1'));
+    expect(activeSignals.size).toBe(0);
+    expect(fetchProjectFiles).toHaveBeenCalledTimes(2);
+
+    act(() => finishOpen(false));
+
+    await waitFor(() => expect(fetchProjectFiles).toHaveBeenCalledTimes(4));
+    expect(activeSignals.size).toBe(2);
+  });
+
+  it('keeps HTML cover probes inside the same bounded queue and aborts them before open', async () => {
+    vi.mocked(fetchProjectFiles).mockImplementation(async (projectId) => [{
+      name: 'index.html',
+      path: 'index.html',
+      kind: 'html',
+      mtime: Number(projectId.replace('project-', '')),
+      size: 1,
+      mime: 'text/html',
+    }]);
+    const activeCoverSignals = new Set<AbortSignal>();
+    const coverFetch = vi.fn<typeof fetch>((input, init) => {
+      const signal = init?.signal;
+      if (!signal) throw new Error('HTML cover probe must be cancellable');
+      activeCoverSignals.add(signal);
+      return new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          activeCoverSignals.delete(signal);
+          reject(new DOMException('Aborted', 'AbortError'));
+        }, { once: true });
+      });
+    });
+    vi.stubGlobal('fetch', coverFetch);
+    const onOpen = vi.fn(() => {
+      expect(activeCoverSignals.size).toBe(0);
+    });
+
+    render(
+      <RecentProjectsStrip
+        projects={projects(20)}
+        limit={1000}
+        onOpen={onOpen}
+        heading="All projects"
+      />,
+    );
+
+    await waitFor(() => expect(activeCoverSignals.size).toBeGreaterThan(0));
+    expect(coverFetch.mock.calls.filter(([input]) => String(input).includes('/api/projects/')))
+      .toHaveLength(2);
+
+    fireEvent.click(screen.getByTitle('Project 1'));
+
+    expect(onOpen).toHaveBeenCalledWith('project-1');
+    expect(activeCoverSignals.size).toBe(0);
+    await act(async () => {});
+    expect(coverFetch.mock.calls.filter(([input]) => String(input).includes('/api/projects/')))
+      .toHaveLength(2);
+  });
+
+  
+
+  it('shows seven projects when the row has room for a seventh card', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+      return {
+        x: 0,
+        y: 0,
+        width: this.classList.contains('recent-projects__row') ? 1332 : 180,
+        height: 100,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        toJSON: () => ({}),
+      };
+    });
+
+    const { container } = render(
+      <RecentProjectsStrip
+        projects={projects(8)}
+        onOpen={() => {}}
+        onViewAll={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.recent-projects__card')).toHaveLength(7);
+    });
+  });
+
+  it('keeps six projects when the row is below the wide-card threshold', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+      return {
+        x: 0,
+        y: 0,
+        width: this.classList.contains('recent-projects__row') ? 1331 : 180,
+        height: 100,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        toJSON: () => ({}),
+      };
+    });
+
+    const { container } = render(
+      <RecentProjectsStrip
+        projects={projects(8)}
+        onOpen={() => {}}
+        onViewAll={() => {}}
+      />,
+    );
+
+    expect(container.querySelectorAll('.recent-projects__card')).toHaveLength(6);
+  });
+
+  it('remeasures when projects arrive after the initial empty render', () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1400,
+    });
+
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
+      return {
+        x: 0,
+        y: 0,
+        width: this.classList.contains('recent-projects__row') ? 1331 : 180,
+        height: 100,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        toJSON: () => ({}),
+      };
+    });
+
+    const { container, rerender } = render(
+      <RecentProjectsStrip
+        projects={[]}
+        onOpen={() => {}}
+        onViewAll={() => {}}
+      />,
+    );
+
+    rerender(
+      <RecentProjectsStrip
+        projects={projects(8)}
+        onOpen={() => {}}
+        onViewAll={() => {}}
+      />,
+    );
+
+    expect(container.querySelectorAll('.recent-projects__card')).toHaveLength(6);
+  });
+
+  
+
+  
+
+  it('renders HTML covers from the current file URL for current and retired project kinds', async () => {
+    const fetchMock = stubCoverProbe();
+
+    const { container } = render(
+      <RecentProjectsStrip
+        projects={[
+          project({
+            id: 'project-deck',
+            name: 'Simple Deck',
+            updatedAt: 4,
+            metadata: { kind: 'deck' },
+          }),
+          project({
+            id: 'project-html',
+            name: 'Web Prototype',
+            updatedAt: 3,
+          }),
+        ]}
+        onOpen={() => {}}
+        onViewAll={() => {}}
+      />,
+    );
+
+    const deckCard = container.querySelector('[data-project-id="project-deck"]');
+    const htmlCard = container.querySelector('[data-project-id="project-html"]');
+
+    await waitFor(() => {
+      expect(deckCard?.querySelector('iframe')?.getAttribute('src')).toBe(
+        '/api/projects/project-deck/files/index.html?v=400&pixoMotionThumbnail=1',
+      );
+      expect(deckCard?.querySelector('.design-card-tag')?.textContent).toBe('Game');
+      expect(htmlCard?.querySelector('iframe')?.getAttribute('src')).toBe(
+        '/api/projects/project-html/files/index.html?v=200&pixoMotionThumbnail=1',
+      );
+      expect(deckCard?.querySelector('.recent-projects__card-glyph')).toBeNull();
+      expect(htmlCard?.querySelector('.recent-projects__card-glyph')).toBeNull();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/projects/project-deck/files/index.html?v=400',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        method: 'HEAD',
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/projects/project-html/files/index.html?v=200',
+      expect.objectContaining({
+        cache: 'no-store',
+        method: 'HEAD',
+      }),
+    );
+  });
+
+  it('falls back to the glyph and logs when an HTML cover is unavailable', async () => {
+    stubCoverProbe(404, 'Not Found');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { container } = render(
+      <RecentProjectsStrip
+        projects={[
+          project({
+            id: 'project-html',
+            name: 'Web Prototype',
+            updatedAt: 3,
+          }),
+        ]}
+        onOpen={() => {}}
+        onViewAll={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      const htmlThumb = container.querySelector('.recent-projects__card-thumb');
+      expect(htmlThumb?.querySelector('iframe')).toBeNull();
+      expect(htmlThumb?.querySelector('.recent-projects__card-glyph')?.textContent).toBe('W');
+      expect(warn).toHaveBeenCalledWith(
+        '[project-cover] HTML cover unavailable (404 Not Found):',
+        'project-html:index.html',
+      );
+    });
+  });
+});
+
+describe('recvqbipG9QDTt — a narrowing type filter stays visible and resettable', () => {
+  // RecentProjectsStrip mounts once per host view and stays alive across
+  // EntryShell tab switches — Home's instance in particular is only ever
+  // hidden via `content-visibility`, never unmounted — so kindFilter /
+  // ownerFilter state survives a round trip through another tab. The cue is
+  // the filter trigger printing the picked value, and the reset is picking
+  // "Any type" back; OPEND-3107 keeps the row at the Demo's three controls,
+  // so there is no separate clear chip to look for.
+  it('prints the picked type on the trigger once the filter hides every project, and Any type restores the grid', () => {
+    render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-1', name: 'Only Project' })]}
+        onOpen={() => {}}
+        heading="All projects"
+      />,
+    );
+
+    // Every project here falls back to the 'prototype' filter bucket
+    // (projectKindFilterCategory's default), so filtering to Image leaves zero
+    // matches — exactly the "did my projects disappear?" scenario reported.
+    fireEvent.click(screen.getByRole('button', { name: 'Any type' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Image' }));
+
+    expect(screen.queryByText('Only Project')).toBeNull();
+    expect(screen.queryByTestId('recent-projects-clear-filters')).toBeNull();
+    const trigger = screen.getByRole('button', { name: 'Image' });
+    expect(trigger.classList.contains('recent-projects__filter')).toBe(true);
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Any type' }));
+
+    expect(screen.getByText('Only Project')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Any type' })).toBeTruthy();
+  });
+});
+
+describe('recvqaRqM0dv2x — per-card Duplicate menu item', () => {
+  // Duplicating a project you did not create always 403s (the daemon's
+  // canDuplicate mirrors canMutate: privileged-or-selfCreated only). The item
+  // used to render without the same ownedBySelf gate Rename/Delete already
+  // carry, so it stayed enabled on a foreign team-shared card and looked like
+  // a dead click when pressed.
+  
+
+  it('keeps Duplicate enabled and wired for a project the current member created', () => {
+    const onDuplicate = vi.fn();
+    render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-1', name: 'My project' })]}
+        onOpen={() => {}}
+        onDuplicate={onDuplicate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    const duplicateItem = screen.getByRole('menuitem', { name: 'Duplicate project' });
+    expect((duplicateItem as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(duplicateItem);
+    expect(onDuplicate).toHaveBeenCalledWith('project-1');
+  });
+});
+
+function stubUnsharedProjectDelete() {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const projectId = String(input).match(/\/api\/projects\/([^/]+)\/share-state/)?.[1];
+    if (!projectId) throw new Error(`Unexpected fetch: ${String(input)}`);
+    return new Response(JSON.stringify({
+      projectId, hasEverShared: false, bindingExists: false, publications: [],
+    }), { headers: { 'Content-Type': 'application/json' } });
+  }));
+}
+
+describe('A5 — main no-share delete baseline', () => {
+  // Recorded before A5 implementation; production dialog and translations are
+  // byte-identical to main 8e372744dda55f3b2d090d5bcdfd6ceabdc119b5.
+  it('preserves the no-share dialog DOM and cancelling never deletes', async () => {
+    stubUnsharedProjectDelete();
+    const onDelete = vi.fn();
+    render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-1', name: 'My project' })]}
+        onOpen={() => {}}
+        onDelete={onDelete}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    const dialog = screen.getByRole('alertdialog');
+    await within(dialog).findByText('Delete "My project"?');
+    // React useId depends on prior renders, not product state. Preserve every
+    // other byte, including the title/aria-labelledby relationship.
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(within(dialog).getByRole('button', { name: /Delete/ })).toBeEnabled();
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe('recvqbh189zBY6 — single-card delete confirmation', () => {
+  // commitDelete used to await onDelete and drop the result either way, so a
+  // 403/network failure closed the confirm dialog exactly like a success —
+  // the project stayed put with no signal anything had gone wrong.
+  it('keeps the dialog open with a visible error when the delete request fails', async () => {
+    stubUnsharedProjectDelete();
+    const onDelete = vi.fn(async () => false);
+    render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-1', name: 'My project' })]}
+        onOpen={() => {}}
+        onDelete={onDelete}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    await within(dialog).findByText('Delete "My project"?');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith('project-1');
+      expect(within(dialog).getByRole('alert')).toBeTruthy();
+    });
+    // The dialog is still open — nothing pretended the project was gone.
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+  });
+
+  it('closes the dialog on a successful delete', async () => {
+    stubUnsharedProjectDelete();
+    const onDelete = vi.fn(async () => true);
+    render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-1', name: 'My project' })]}
+        onOpen={() => {}}
+        onDelete={onDelete}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    await within(dialog).findByText('Delete "My project"?');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith('project-1');
+    });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+
+  it('submits at most one delete while the request is pending', async () => {
+    stubUnsharedProjectDelete();
+    let resolveDelete!: (value: true) => void;
+    const pendingDelete = new Promise<true>((resolve) => {
+      resolveDelete = resolve;
+    });
+    const onDelete = vi.fn(() => pendingDelete);
+    render(
+      <RecentProjectsStrip
+        projects={[project({ id: 'project-1', name: 'My project' })]}
+        onOpen={() => {}}
+        onDelete={onDelete}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    await within(dialog).findByText('Delete "My project"?');
+    const deleteButton = within(dialog).getByRole('button', { name: 'Delete' });
+    fireEvent.click(deleteButton);
+    fireEvent.click(deleteButton);
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect((deleteButton as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(dialog.parentElement as HTMLElement);
+    expect(screen.getByRole('alertdialog')).toBe(dialog);
+    expect(within(dialog).getByText(/My project/)).toBeTruthy();
+
+    await act(async () => resolveDelete(true));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+});

@@ -1,0 +1,66 @@
+{
+  "sourceCase": "SYNTAX-ORDER-STRESS-R01",
+  "sourceProject": "eval-b529b848-ee2a-4849-8174-d735a909f04e",
+  "sourceArtifactScope": "Complete original and original reference are retained locally only and excluded by exact .gitignore entries.",
+  "originalSha256": "01ff51e01ff1f4970416cee81fb7884eb990f8e0b184c697bbc4caf99e2a312a",
+  "referenceSha256": "c29e45a9817b2711c274426f1a56bbf383c6a6c1a869e288fe7fb09b9c8cfa34",
+  "originalBytes": 1295581,
+  "referenceBytes": 1295587,
+  "sanitizedFile": "order-stress-r01.sanitized.html",
+  "sanitizedReferenceFile": "order-stress-r01.sanitized-reference.html",
+  "sanitizedSha256": "a853c068a5d679e237465ed1d8a3567812dfbf36ff02a5cbcadafe357c14ba47",
+  "sanitizedReferenceSha256": "c82b4df26c75d06932caf7d2659d85bee60e7cf3f1502ae40f0f1c30b3a92e4c",
+  "sanitizedBytes": 120925,
+  "sanitizedReferenceBytes": 120931,
+  "sanitization": {
+    "embeddedPhotographsReplaced": 12,
+    "replacementImage": "Fixed transparent 1x1 GIF placeholder; no original photo bytes retained in the derivative.",
+    "contactSeedReplacement": "Explicit synthetic test name, all-zero phone and non-real test address.",
+    "linePositionsPreserved": true,
+    "completeJavaScriptRetainedExceptSyntheticContactSeed": true,
+    "sameSixQuoteErrorLocations": true,
+    "notByteIdenticalToOriginal": true
+  },
+  "referenceKind": "manually-inferred-minimal-quote-repair-not-an-original-correct-answer",
+  "validation": "All inline JavaScript strictly parsed without executing artifact code. No visual or behavioral correctness claim.",
+  "diagnosticLocations": 6,
+  "edits": [
+    {
+      "line": 1633,
+      "before": "</div></div>\" +",
+      "after": "</div></div>' +",
+      "rule": "normalize_mismatched_string_quote"
+    },
+    {
+      "line": 1807,
+      "before": "</button></div>\" :",
+      "after": "</button></div>' :",
+      "rule": "normalize_mismatched_string_quote"
+    },
+    {
+      "line": 2086,
+      "before": "</p>\" +",
+      "after": "</p>' +",
+      "rule": "normalize_mismatched_string_quote"
+    },
+    {
+      "line": 2115,
+      "before": "class=\"line-total pixo-nowrap\"",
+      "after": "class=\\\"line-total pixo-nowrap\\\"",
+      "rule": "normalize_html_attribute_quotes"
+    },
+    {
+      "line": 2145,
+      "before": "</div></div>\" +",
+      "after": "</div></div>' +",
+      "rule": "normalize_mismatched_string_quote"
+    },
+    {
+      "line": 2152,
+      "before": "class=\"pixo-truncate\" style=\"flex:1;text-align:right;\"",
+      "after": "class=\\\"pixo-truncate\\\" style=\\\"flex:1;text-align:right;\\\"",
+      "rule": "normalize_html_attribute_quotes"
+    }
+  ],
+  "identifierCleanup": "Phase 5 mechanically renames CSS classes in the sanitized derivatives only; hashes and byte counts use LF text. Historical original/reference hashes and all six syntax-error locations are preserved. Phase 7 renames the remaining owned CSS layer and comment markers; the same canonical-LF hash convention applies."
+}

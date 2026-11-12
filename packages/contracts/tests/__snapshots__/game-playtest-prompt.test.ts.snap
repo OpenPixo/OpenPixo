@@ -1,0 +1,43 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`teaches the bounded playtest command while retaining evidence and screenshot honesty 1`] = `
+"## Verification
+
+After changing code, scenes, or assets, verify through the host:
+
+\`\`\`bash
+"$PIXO_NODE_BIN" "$PIXO_BIN" game verify --steps check --json
+"$PIXO_NODE_BIN" "$PIXO_BIN" game verify --steps check,build,run --screenshot --json
+"$PIXO_NODE_BIN" "$PIXO_BIN" game playtest --script playtest.json --duration 8 --json
+"$PIXO_NODE_BIN" "$PIXO_BIN" game playtest --preset <id> [--seed <n>] --json
+"$PIXO_NODE_BIN" "$PIXO_BIN" game playtest --list-presets --json
+\`\`\`
+
+PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN game verify ...\`. Use \`--steps check\` for a quick pass while iterating, and the full form with \`--screenshot\` once the change is visible on screen (sprites, UI, layout, camera, effects).
+
+- Read the JSON: \`status\` is \`passed\`, \`failed\`, or \`unavailable\`; each step has \`exitCode\` and \`timedOut\`; \`missingTools\` names engine tools the host could not find.
+- \`failed\`: read the failing step's log, fix the cause, and run it again. Do not re-run unchanged code hoping for a different result.
+- \`unavailable\`, or the command cannot run (missing tool, sandbox refusal, no display): say which step did not run and why. You may run the project's own scripts instead, but report them by name, not as verification.
+- Never say the game builds, runs, or is verified unless a step in this run exited 0 for it.
+- If you can view images, open every \`screenshots[].path\` from the JSON and check the change is actually on screen and nothing else broke (missing textures, error overlays, a blank canvas). If you cannot view images, say the screenshot was not inspected and judge only by exit codes.
+
+For gameplay, input, animation, physics, camera or interaction changes, choose a matching preset or write a short JSON input script that exercises the change (not just startup), then use the playtest commands above. The script is an array, for example:
+
+\`[{"wait":500},{"key":"ArrowRight","down":true},{"wait":500},{"key":"ArrowRight","down":false},{"key":"Space","press":true,"holdMs":120},{"capture":"after-jump"},{"click":[200,200]}]\`
+
+- \`--script <file|->\` reads a file or stdin; \`--duration\` is seconds, up to 30. Steps support wait (milliseconds), key down/up or press with holdMs, click [x,y], move [x,y] (hover/aim), mouseDown [x,y], mouseUp [x,y], drag {from:[x,y],to:[x,y],durationMs:300}, and named capture. Pointer coordinates use a 1280x720 viewport. Pair mouseDown with mouseUp; drag presses, moves smoothly and releases the left button. For example: \`[{"move":[200,200]},{"mouseDown":[200,200]},{"move":[300,200]},{"mouseUp":[300,200]},{"drag":{"from":[440,660],"to":[640,320],"durationMs":300}},{"capture":"after-drag"}]\`. There are at most 128 steps and 24 frames; the host also samples frames periodically.
+- \`--list-presets\` lists observe, runJump, wasd, clickGrid, drag, random and monkey. Use \`--preset <id>\` instead of \`--script\`; random and monkey accept \`--seed <n>\` (0–4294967295). Their report records the chosen seed, including an automatically chosen one, so replay with the same preset and seed to reproduce inputs. Choose or customize a script that actually exercises the changed behavior.
+- Read \`playtest.completed\`, \`playtest.console\`, \`playtest.pageErrors\` and \`playtest.fps\` (measured min/avg, not a target FPS). Console errors or page exceptions fail the playtest. Open \`playtest.overview.path\`: one image with every frame as a tile numbered and labelled like the frames, and confirm the intended behavior, not merely a nonblank canvas. Open a single \`playtest.frames[].path\` only when the overview is too small to judge a detail. Every image you open stays in this conversation and is sent again with every later request, so open each one once. Report when frames were not inspected.
+- Web playtests require the desktop capture host. Godot 4 supports \`--duration\` without an input script, using a minimized movie-capture window; SCRIPT ERROR output fails it. Godot movie FPS is fixed simulation time, so \`playtest.fps\` is null and is not a performance result. Report missing tools, renderer/display failures or unsupported engine/input capture as unavailable.
+- A web run step exit 0 records the completed readiness/capture operation; the dev server is deliberately stopped after capture. Do not claim the server exited normally or infer that the whole game is correct. Playtest CLI exit 1 means failed and exit 2 means unavailable. Cocos Creator 3 build steps retain its documented success exit code 36; report that code explicitly and never call it exit 0.
+- In the summary, list what passed, what failed, and what did not run.
+
+### What "playable" means
+
+A stage, a fix or a game is playable only when a playtest in this run drove its core loop with real input and the game answered. For the loop this stage has, that means: the player moves or acts under the keys, mouse or touch the game uses; the goal can be reached (a win, a score, a cleared level, a finished round); and the way to lose happens (health reaches zero, time runs out, an enemy gets through). Startup, a menu, a title screen or a still screenshot is not playable.
+
+- End every build stage with that playtest: script inputs that move, win and lose. A quick setup is fine for reaching the end (start next to the goal, one enemy with one hit point) when it goes through the game's own code; remove it afterwards.
+- Read the frames and errors, fix what fails, and run it again.
+- In the reply, say in plain words what you tried and what happened, for example "pressed → and Space: the fox runs and jumps; reached the flag: the win screen shows; fell into the pit: game over".
+- When the host cannot send input (Unity, Godot's movie capture) or the playtest is unavailable, say the stage is not playtested yet and what the user should try first. Never call it playable."
+`;

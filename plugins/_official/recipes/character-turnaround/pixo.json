@@ -1,0 +1,143 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/character-turnaround",
+  "title": "Character turnaround",
+  "title_i18n": {
+    "en": "Character turnaround",
+    "zh-CN": "角色三视图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-27T18:47:39+09:00",
+  "description": "Front, side and back views of one character at identical scale on a transparent background, ready to use as character-card reference images.",
+  "description_i18n": {
+    "en": "Front, side and back views of one character at identical scale on a transparent background, ready to use as character-card reference images.",
+    "zh-CN": "同一角色的正面、侧面、背面视图，比例一致、透明背景，可直接作为角色卡参考图。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "inputs": [
+        {
+          "name": "character",
+          "label": "Character",
+          "label_i18n": {
+            "zh-CN": "角色"
+          },
+          "type": "character-ref",
+          "required": true
+        },
+        {
+          "name": "views",
+          "label": "Views",
+          "label_i18n": {
+            "zh-CN": "视角"
+          },
+          "type": "select",
+          "options": [
+            "front, side and back",
+            "front, three-quarter, side and back"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "front, side and back": "正面、侧面和背面",
+              "front, three-quarter, side and back": "正面、四分之三侧面、侧面和背面"
+            }
+          },
+          "default": "front, side and back"
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "match the reference images",
+            "pixel art",
+            "hand-painted 2D",
+            "clean cartoon with bold outlines",
+            "chibi 2D",
+            "low-poly 3D render"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "match the reference images": "与参考图一致",
+              "pixel art": "像素风",
+              "hand-painted 2D": "2D 手绘",
+              "clean cartoon with bold outlines": "粗描边的简洁卡通",
+              "chibi 2D": "2D Q 版",
+              "low-poly 3D render": "低多边形 3D 渲染"
+            }
+          },
+          "default": "match the reference images"
+        }
+      ],
+      "prompt": "Character turnaround reference sheet of {{character.name}}: {{character.description}}. Show the same character in {{views}} views, arranged left to right in a single row with equal spacing. Neutral relaxed standing A-pose, arms slightly away from the body. Every view at exactly the same scale, feet on one shared baseline, head at the same height. Orthographic camera, no perspective, flat even studio lighting. Identical outfit, colors, proportions and details in every view; where reference images are provided, follow them exactly. Full body visible in every view with clear space around it; views never overlap. Style: {{style}}. Background: one perfectly flat, uniform solid magenta #FF00FF fill from edge to edge, with no gradient, texture, floor, cast shadow or vignette. Do not use magenta, hot pink or purple anywhere on the subject.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, magenta or pink on the subject, different outfits between views, inconsistent proportions, perspective camera, dynamic action pose, overlapping views, turnaround labels, color swatches, multiple characters",
+      "models": {
+        "requires": [
+          "t2i",
+          "i2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "16:9"
+      },
+      "postprocess": [
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "#FF00FF",
+            "tolerance": 32
+          }
+        },
+        {
+          "op": "trim",
+          "params": {
+            "padding": 8
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/{{character.slug}}/reference",
+        "name": "{{character.slug}}_turnaround"
+      }
+    }
+  }
+}

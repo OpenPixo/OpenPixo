@@ -1,0 +1,1775 @@
+/* -------- Floating caret layer (shared shell: mention + slash) ------ */
+/* position/left/top/width/--cfl-max-h come from the inline style set by
+   CaretFloatingLayer; this rule only owns stacking + the enter animation. */
+.caret-floating-layer {
+  z-index: 1600; /* above the composer's own popover-elevation tier (1500) */
+}
+@keyframes cflEnterAbove {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+@keyframes cflEnterBelow {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.caret-floating-layer[data-placement='above'] > * {
+  transform-origin: bottom left;
+  animation: cflEnterAbove 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.caret-floating-layer[data-placement='below'] > * {
+  transform-origin: top left;
+  animation: cflEnterBelow 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .caret-floating-layer > * { animation: none; }
+}
+
+/* -------- Mention popover (FLOATING — no order/flex/margin) --------- */
+.mention-popover {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: var(--cfl-max-h, 460px);
+  max-height: var(--cfl-max-h, 460px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.mention-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  align-content: flex-start;
+  /* All filter tabs stay on ONE line; overflow scrolls horizontally
+     (scrollbar hidden below) instead of wrapping to a second row. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 2px;
+  min-height: 0;
+  padding: 6px;
+  /* Divider separating the filter strip from the results below. */
+  border-bottom: 1px solid var(--border-soft);
+}
+.mention-tabs::-webkit-scrollbar {
+  display: none;
+}
+/* Keep each pill at its natural width — shrinking would ellipsize the tab
+   labels instead of scrolling the strip. */
+.mention-tabs > .mention-tab {
+  flex: 0 0 auto;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.mention-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: max-content;
+  min-height: 26px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+/* Scoped with the parent class so these outrank the global button primitives
+   (the bare `.mention-tab` tied with them and let a grey fill leak onto
+   unselected pills). Only the SELECTED tab is filled; the rest are bare. */
+.mention-tabs .mention-tab {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.mention-tabs .mention-tab:hover {
+  color: var(--text);
+  background: var(--bg-panel);
+}
+.mention-tabs .mention-tab.active {
+  background: var(--bg-subtle);
+  color: var(--text-strong);
+  border-color: transparent;
+  box-shadow: none;
+}
+.mention-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 5px;
+  scroll-padding-block: 6px;
+}
+.mention-empty {
+  padding: 22px 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.5;
+}
+.mention-item {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) max-content;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  font-size: 13px;
+  text-align: left;
+  column-gap: 8px;
+  color: var(--text);
+  min-height: 42px;
+  cursor: pointer;
+  transition: background-color 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.mention-item:hover { background: var(--bg-subtle); }
+.mention-item[aria-selected='true'],
+.mention-item.is-active {
+  background: var(--accent-tint);
+  border-color: var(--accent-soft);
+}
+.mention-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  padding: 8px 9px 3px;
+}
+.mention-section-label:first-child { padding-top: 3px; }
+.mention-section-label + .mention-section-label,
+.mention-item + .mention-section-label {
+  margin-top: 2px;
+  border-top: none;
+}
+.mention-item--plugin { align-items: center; }
+.mention-item-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+}
+.mention-item-body strong {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mention-meta--desc {
+  align-self: stretch;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.mention-meta--path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--text-soft));
+}
+.mention-item code {
+  flex: 1;
+  font-size: 13px;
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mention-item > svg {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-subtle) 74%, transparent);
+  flex: 0 0 24px;
+  color: var(--text-muted);
+}
+.mention-item[aria-selected='true'] > svg,
+.mention-item.is-active > svg {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.mention-meta {
+  min-width: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  align-self: center;
+}
+/* The base align-self: center above wins over .mention-meta--desc by source
+   order alone, re-centering row descriptions (and clipping them at BOTH ends
+   under overflow: hidden). Doubled class so the description always stretches
+   and left-aligns with its title. */
+.mention-meta.mention-meta--desc {
+  align-self: stretch;
+  text-align: left;
+}
+.mention-item-kind {
+  justify-self: end;
+  max-inline-size: 86px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-subtle) 72%, transparent);
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .mention-tabs {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .mention-tab {
+    min-height: 26px;
+    padding: 3px 9px;
+    font-size: 13px;
+    line-height: 16px;
+  }
+}
+
+/* Section header inside the @-popover when both skills and files appear. */
+.mention-skill-desc {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Staged skill chips above the textarea. Reuse the staged-chip baseline
+   so they line up with attachment chips. */
+.staged-chip.staged-skill-user {
+  background: color-mix(in oklab, var(--accent) 14%, var(--bg-subtle));
+}
+
+/* ===========================================================
+   Modal / Settings
+   =========================================================== */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: var(--scrim-tint);
+  -webkit-backdrop-filter: var(--scrim-backdrop);
+  backdrop-filter: var(--scrim-backdrop);
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1700;
+  animation: fade-in 160ms ease-out;
+}
+.modal {
+  background: var(--bg-elevated);
+  -webkit-app-region: no-drag;
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-lg);
+  animation: pop-in 220ms cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+.modal h2 { margin: 0; font-size: 18px; letter-spacing: -0.01em; font-weight: 600; }
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.modal .hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+.modal .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+.updater-popup {
+  z-index: 80;
+  position: absolute;
+  /* Anchor the panel's BOTTOM edge to the host, so it grows upward.
+     This base rule serves the signed-out fallback home, where the host
+     (`.entry-updater-menu`) sits in the rail footer at the bottom of the nav
+     rail — a top-anchored panel grew down past the window edge and the
+     「更新已就绪」 copy was clipped mid-sentence. The signed-in home (the
+     floating account row, top-right) opens downward via the override below. */
+  bottom: 0;
+  left: calc(100% + 12px);
+  width: min(360px, calc(100vw - var(--entry-rail-width, 56px) - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  /* Same panel radius as the what's-new dialog — the two update surfaces
+     share one visual language (white panel, black CTA pill with brand-green
+     ink). */
+  border-radius: var(--radius-lg, 12px);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  -webkit-app-region: no-drag;
+}
+
+/* Standalone updater slot (top-right cluster): the rocket rides right after
+   the account capsule, hugging the viewport's right edge, so the side-flyout
+   base rule would push the panel off-screen (and `bottom: 0` would grow it
+   past the top). Open DOWNWARD instead, right-aligned to the host. */
+.entry-top-right-cluster > .entry-nav-rail__account-updater .entry-updater-menu .updater-popup {
+  top: calc(100% + 10px);
+  bottom: auto;
+  right: 0;
+  left: auto;
+}
+
+.updater-popup__body {
+  min-width: 0;
+}
+
+.updater-popup__body h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.updater-popup__body p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.updater-popup__error {
+  margin: 0;
+  color: var(--red) !important;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* Operator-supplied reinstall explanation link (control.launcher.version.url). */
+.updater-popup__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.updater-popup__link:hover {
+  text-decoration: underline;
+}
+
+/* Footer stacks (what's-new dialog layout): the silent-update checkbox
+   gets the full panel width on its own row — the old single-row layout
+   squeezed its label into a skinny always-wrapping column once the pill
+   buttons widened — and the two action pills split the row below 50/50. */
+.updater-popup__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+}
+
+.updater-popup__preference {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.updater-popup__checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.updater-popup__checkbox input {
+  flex: 0 0 auto;
+  inline-size: auto;
+  width: auto;
+  margin: 2px 0 0;
+}
+
+.updater-popup__checkbox span {
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.updater-popup__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  min-height: 34px;
+}
+
+/* Buttons mirror the what's-new dialog: a soft white pill for the secondary
+   action, a black pill with brand-green ink for the CTA. */
+.updater-popup__button {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.updater-popup__button:hover {
+  border-color: var(--border-strong);
+}
+
+.updater-popup__button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.updater-popup__button--primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.updater-popup__button--primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--text-strong) 88%, var(--brand, var(--accent)));
+}
+
+@media (max-width: 560px) {
+  .updater-popup {
+    width: calc(100vw - var(--entry-rail-width, 56px) - 18px);
+  }
+}
+
+/* Compact rename modal */
+.modal-rename {
+  width: 420px;
+  gap: 14px;
+}
+.modal-rename input[type="text"] {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-strong);
+  font-size: 14px;
+  outline: none;
+}
+.modal-rename input[type="text"]:focus {
+  border-color: var(--accent);
+}
+.modal-rename .row button {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-strong);
+}
+.modal-rename .row button:hover { border-color: var(--border-strong); }
+.modal-rename .row button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.modal-rename .row button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Confirm modal — same shell, danger primary */
+.modal-confirm-error {
+  margin: 0;
+  font-size: 14px;
+  color: var(--red);
+  line-height: 1.55;
+}
+
+/* Project category tags */
+.design-card-tag {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.design-card-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.design-card-tag.tag-prototype {
+  color: var(--blue);
+  background: var(--blue-bg);
+  border-color: rgba(35, 72, 184, 0.18);
+}
+.design-card-tag.tag-media {
+  color: var(--green);
+  background: rgba(28, 138, 115, 0.12);
+  border-color: rgba(28, 138, 115, 0.28);
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+.modal-settings {
+  --modal-padding: 24px;
+  width: min(920px, calc(100vw - 48px));
+  /* Fixed height regardless of which section is active — short sections
+     pad out with empty space inside `.settings-content`, long sections
+     scroll internally. Keeps the dialog from jumping in size as the user
+     switches sidebar items. */
+  height: min(720px, calc(100vh - 64px));
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  /* Anchor for the absolutely-positioned `.settings-chrome` strip. Without
+     this the close/fullscreen controls would escape to the viewport on
+     long-scrolling sections. */
+  position: relative;
+}
+.modal-settings.settings-fullscreen {
+  width: calc(100vw - 24px);
+  height: calc(100vh - 24px);
+}
+.settings-page-shell {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
+  /* Translucent over the app wash, matching the home ground (app-wash.css
+     veil token restores the solid page in degraded modes). */
+  background: var(--veil-page);
+}
+.settings-page-shell .modal-settings.settings-page-surface {
+  width: 100%;
+  /* Fill the shell edge-to-edge. Without this, the base `.modal`
+     `max-width: calc(100vw - 32px)` leaks through and, because the surface is
+     left-aligned, dumps all 32px of slack on the right — inflating the panel's
+     right gutter to 56px while the left stays 24px. */
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+/* recvq4iEq1Esno: full-page Settings has its own back navigation, so hide only
+   the close/fullscreen buttons. Autosave feedback now lives outside this
+   strip in `.settings-autosave-layer` and remains visible in both
+   presentations. */
+.settings-page-shell .settings-chrome-btn,
+.settings-page-shell .settings-sidebar-toggle {
+  display: none;
+}
+.settings-page-shell .modal-head {
+  display: none;
+}
+.settings-page-shell .modal-head .kicker {
+  display: none;
+}
+.settings-page-shell .modal-head h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.settings-page-shell .modal-head .subtitle {
+  margin-top: 6px;
+  font-size: 14px;
+}
+@media (max-height: 600px) {
+  .modal-settings { height: 90vh; }
+  .modal-settings.settings-fullscreen { height: calc(100vh - 12px); }
+  .settings-page-shell .modal-settings.settings-page-surface {
+    height: 100%;
+    min-height: 0;
+  }
+}
+.modal-settings .modal-body {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+.settings-page-shell .modal-body {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  overflow-x: hidden;
+  /* Same ground as the home board: the page-level veil token from
+     app-wash.css (currently fully transparent, so the wash shows straight
+     through, exactly like the home scroll surface). The reduced-transparency
+     and no-backdrop-filter fallbacks restore it to solid --bg. */
+  background: var(--veil-page, var(--bg));
+}
+.modal-settings.settings-sidebar-collapsed .modal-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.modal-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: var(--modal-padding);
+}
+.modal-head .kicker {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.modal-head h2 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+.modal-head .subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  /* 72ch lets typical one-sentence English subtitles fit on a single
+   * line inside the 920px settings modal while still wrapping cleanly
+   * on narrow viewports (the modal width clamps to 100vw - 48px) and
+   * for the longest locales (German, French). 50ch was forcing even
+   * the English subtitle onto two lines. See inherited issue #743. */
+  max-width: 72ch;
+}
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px var(--modal-padding, 22px) 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+/* Top-right chrome strip for the Settings dialog. Autosave feedback has its
+   own viewport-level layer below, leaving this strip to the close/fullscreen
+   controls so status changes cannot expand across active Settings content. */
+.settings-chrome {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-chrome > * {
+  pointer-events: auto;
+}
+
+/* Close button. Minimal circular icon button with a hairline ring
+   that warms on hover and snaps to the accent on focus-visible.
+   Sized to read as a passive corner control rather than a primary
+   CTA — the autosave indicator next to it carries any system
+   feedback the user might need. */
+.settings-chrome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out), transform 140ms var(--ease-out);
+  -webkit-backdrop-filter: var(--material-thin-backdrop);
+  backdrop-filter: var(--material-thin-backdrop);
+}
+.settings-fullscreen-toggle {
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
+}
+.settings-chrome-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 22%, var(--border));
+  background: var(--bg-panel);
+}
+.settings-chrome-btn:active {
+}
+.settings-chrome-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--text);
+}
+.settings-fullscreen-toggle[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-chrome-btn { transition: color 80ms linear, border-color 80ms linear; transform: none !important; }
+}
+
+/* Keep passive save feedback out of dialog/page layout and below the
+   body-portaled model picker (z-index 10500). This leaves Local CLI controls
+   unobscured in dialog, page, and narrow presentations while the full status
+   copy remains readable.
+
+   It rides the app's TOP chrome row (52px — `.workspace-tabs-chrome`,
+   viewer/routines.css), centred on that row's line. OPEND-2148 originally
+   parked it at the bottom of the viewport to get it off the Local CLI
+   pickers; the chrome row clears them just as well and is the better home for
+   it — on the full page that band is empty, and in the dialog it sits above
+   the panel rather than over any of its content. What that ticket actually
+   guarantees is unchanged: a viewport-level layer, out of the controls' band,
+   and under the body-portaled model picker. */
+.settings-autosave-layer {
+  position: fixed;
+  left: 50%;
+  top: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  z-index: 9000;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+
+/* Autosave status pill. Renders nothing while idle, settles to a green check
+   on success and red on failure, and is announced via aria-live. */
+.settings-autosave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  border: 1px solid transparent;
+  -webkit-backdrop-filter: var(--material-thin-backdrop);
+  backdrop-filter: var(--material-thin-backdrop);
+  transition: opacity 160ms var(--ease-out), color 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+.settings-autosave.is-idle {
+  opacity: 0;
+  transform: translateY(-2px);
+  /* Collapse the detached feedback layer when nothing is happening. */
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  min-height: 0;
+}
+.settings-autosave.is-pending,
+.settings-autosave.is-saving {
+  opacity: 1;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 12%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--text-muted) 18%, transparent);
+}
+.settings-autosave.is-saved {
+  opacity: 1;
+  color: var(--green, #1f9d55);
+  background: color-mix(in srgb, var(--green, #1f9d55) 14%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--green, #1f9d55) 30%, transparent);
+  animation: settingsAutosavePop 220ms ease-out;
+}
+.settings-autosave.is-error {
+  opacity: 1;
+  color: var(--red, #d23434);
+  background: color-mix(in srgb, var(--red, #d23434) 14%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--red, #d23434) 32%, transparent);
+}
+@keyframes settingsAutosavePop {
+  from { transform: translateY(-2px) scale(0.98); }
+  to   { transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-autosave { transition: opacity 80ms linear; animation: none !important; }
+}
+
+/* Make sure header copy doesn't crash into the close button on
+   narrow viewports. The kicker/title/subtitle should keep their
+   normal width but reserve right-side gutter for the chrome. */
+.modal-settings .modal-head {
+  position: relative;
+  z-index: 2;
+  padding: var(--modal-padding) calc(var(--modal-padding) + 92px) var(--modal-padding) var(--modal-padding);
+  background: var(--bg-elevated);
+}
+
+/* Compact settings header: place subtitle on the same line as the h2
+   so opening the dialog doesn't burn 2-3 rows of header height. The
+   row uses baseline alignment so the smaller subtitle sits at the
+   h2 baseline and wraps to its own line on narrow viewports. The
+   welcome hero variant is unaffected — it keeps the stacked layout. */
+.modal-settings .modal-head-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 4px;
+}
+.modal-settings .modal-head-line > h2 {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.modal-settings .modal-head-line > .subtitle {
+  margin: 0;
+  flex: 1 1 240px;
+  font-size: 14px;
+  /* Override the 72ch cap from the stacked variant so the subtitle
+     can take the full remaining inline width before wrapping. */
+  max-width: none;
+}
+
+/* Section-local Save key button for the Composio API key field. We do
+   NOT autosave secrets, so this is the explicit gesture. Styled as a
+   primary button to stand out next to the password input + ghost
+   Clear, with a tighter vertical rhythm so it sits flush in the
+   field-row alongside the input. */
+
+/* Two-stage destructive confirmation for clearing the saved Composio
+   API key. Step 1 ("confirm") is a soft amber-ish warning rooted in
+   the same red palette as other destructive surfaces so it reads as
+   "this will undo something" without screaming. Step 2 ("final") leans
+   into red with a brief arming animation on the commit button so a
+   reflex double-click cannot blow through both stages. The whole panel
+   collapses inline beneath the credentials field so the destructive
+   action stays visually anchored to the row that started it. */
+/* "Continue" — moves to stage 2. Styled as a quiet outlined button
+   tinted with the red palette so it reads as "destructive but not
+   yet committed". */
+/* Final commit button. Solid red with an arming sweep that fills the
+   left edge for ~700ms before the click is honored. While "arming",
+   the button is visually hot but disabled so an Enter-spam can't get
+   ahead of the user's intent; once armed, the label swaps to the
+   destructive verb and the click commits. */
+/* The arming sweep — a translucent fill that races from left to right
+   over the disabled window, signaling "almost ready". CSS-only so it
+   renders the same in every browser without a second timer. */
+.settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 10px;
+  background: var(--bg-panel);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.settings-page-shell .settings-sidebar {
+  grid-column: 1;
+  grid-row: 1;
+  gap: 3px;
+  /* No right padding: nav items (and search) extend flush to the rail's right
+     edge, dropping the 10px gap on the content-facing side. Left keeps 10px so
+     the selected highlight doesn't touch the window edge. */
+  padding: 12px 0 18px 10px;
+  /* Same treatment as the top tab strip: fully transparent, riding the
+     shell's translucent ground so the wash/wallpaper shows identically —
+     no extra white layer, no blur. */
+  background: transparent;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .settings-page-shell .settings-sidebar {
+    background: color-mix(in srgb, var(--bg-subtle) 45%, var(--bg-panel));
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .settings-page-shell .settings-sidebar {
+    background: color-mix(in srgb, var(--bg-subtle) 45%, var(--bg-panel));
+  }
+}
+.settings-page-nav-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 0 12px;
+}
+.settings-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+.settings-page-back:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+.modal-settings.settings-sidebar-collapsed .settings-sidebar {
+  display: none;
+}
+.settings-sidebar-toggle {
+  position: absolute;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  top: 50%;
+  left: 240px;
+  width: 18px;
+  height: 46px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  box-shadow: inset 0 0 0 1px var(--line);
+  -webkit-backdrop-filter: var(--material-thin-backdrop);
+  backdrop-filter: var(--material-thin-backdrop);
+  transition:
+    opacity 140ms var(--ease-out),
+    color 140ms var(--ease-out),
+    border-color 140ms var(--ease-out),
+    background-color 140ms var(--ease-out),
+    box-shadow 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
+}
+.settings-sidebar-toggle::before {
+  content: none;
+}
+.settings-sidebar-toggle svg {
+  position: relative;
+  z-index: 1;
+  width: 13px;
+  height: 13px;
+  opacity: 0.84;
+  stroke-width: 1.8;
+}
+.settings-sidebar-toggle:focus-visible {
+  opacity: 0.86;
+}
+.settings-sidebar-toggle:hover,
+.settings-sidebar-toggle:focus-visible {
+  opacity: 1;
+  color: var(--text);
+  transform: translate(-50%, -50%);
+  border-color: color-mix(in srgb, var(--text) 18%, var(--border));
+  background: var(--bg-panel);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--shadow-color, #000) 12%, transparent);
+}
+.settings-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.modal-settings.settings-sidebar-collapsed .settings-sidebar-toggle {
+  left: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-sidebar-toggle {
+    transition: opacity 80ms linear, color 80ms linear;
+    transform: translate(-50%, -50%) !important;
+  }
+}
+/* Sidebar items follow the ChatGPT-style settings rhythm: single line,
+   icon + label only, gray pill fill on active. The `<small>` description
+   that ships in the JSX is hidden — the label alone is the navigation
+   handle; the section's own subtitle in the content area carries any
+   intro copy. */
+/* display:grid below beats the UA `[hidden]{display:none}`, so search-filtered
+   items need this to actually hide. */
+.settings-nav-item[hidden] {
+  display: none;
+}
+.settings-nav-item {
+  position: relative;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-nav-item:hover:not(:disabled) {
+  /* Same fill as .active; the :not(:disabled) bumps specificity above the
+     generic `button:hover:not(:disabled)` in primitives.css, which was
+     leaking its bg-subtle fill and border ring onto these pills. */
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-color: transparent;
+}
+.settings-page-shell .settings-nav-item {
+  border-radius: var(--radius-large, 8px);
+  /* Selected board breathes a uniform 10px on all four sides. */
+  padding: 10px;
+}
+/* Match the home nav rail (.entry-nav-rail__btn) exactly: unselected label +
+   icon use a muted 52% tone, hover adds a 5% wash, and the selected item is a
+   light-grey card (--bg-subtle) carrying the near-black --selected label/icon. */
+.settings-page-shell .settings-nav-item {
+  color: color-mix(in srgb, var(--text) 52%, transparent);
+}
+.settings-page-shell .settings-nav-item svg,
+.settings-page-shell .settings-nav-item .pixo-icon {
+  color: color-mix(in srgb, var(--text) 52%, transparent);
+  opacity: 1;
+}
+.settings-page-shell .settings-nav-item:not(.active):hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+.settings-page-shell .settings-nav-item.active,
+.settings-page-shell .settings-nav-item.active:hover {
+  background: var(--bg-subtle);
+  color: var(--selected);
+  border-color: transparent;
+}
+.settings-page-shell .settings-nav-item.active strong {
+  color: var(--selected);
+}
+.settings-page-shell .settings-nav-item.active svg,
+.settings-page-shell .settings-nav-item.active .pixo-icon {
+  color: var(--selected);
+  opacity: 1;
+}
+.settings-nav-item.active,
+.settings-nav-item.active:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-color: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+.settings-nav-item svg {
+  justify-self: center;
+  opacity: 0.75;
+}
+/* Custom inline-SVG nav glyphs carry .pixo-icon so they track the font icons:
+   full opacity by default (not the 0.75 above), text-strong when active. */
+.settings-nav-item svg.pixo-icon {
+  opacity: 1;
+}
+/* Selected item: the filled Remix glyph uses the spec's strongest
+   text/icon tone (#202020 light / #fafafa dark via --text-strong) at full
+   opacity. */
+.settings-nav-item.active .pixo-icon {
+  opacity: 1;
+  color: var(--text-strong);
+}
+.settings-nav-item span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-nav-item strong {
+  color: currentColor;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.settings-nav-item.active strong {
+  font-weight: 600;
+}
+.settings-nav-item small {
+  display: none;
+}
+.settings-content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  /* Top inset matches `.settings-sidebar`'s `padding-top: 16` so the first
+     content row (the Local CLI / BYOK pill) sits level with the first
+     sidebar nav-item across the gutter. */
+  padding: 16px var(--modal-padding) 22px;
+  overflow: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.settings-page-shell .settings-content {
+  grid-column: 2;
+  grid-row: 1;
+  /* Fixed 12px gutter on both sides that stays 12px at any window width —
+     no max-width cap, so stretching the window widens the card, not the gaps.
+     `justify-self: center` splits the 24px evenly into 12 + 12. */
+  width: calc(100% - 24px);
+  max-width: none;
+  justify-self: center;
+  align-self: start;
+  /* 12px top + 12px bottom outer margin; height leaves exactly that 24px
+     total so the card fills the shell without overflow. */
+  margin: 12px 0 12px;
+  height: calc(100% - 24px);
+  /* 32px top inset between the card edge and the first content row. */
+  padding: 32px 24px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  /* The whole content block rides one white card (white surface + hairline +
+     large radius) floating on the shell ground. */
+  background: var(--bg);
+  /* One step lighter than the app's default `--border`: at this size the card
+     is a large, quiet plane, and the standard #dbdbdb rule read as a hard box
+     drawn around it. `--border-soft` also moves the right way in dark mode
+     (#494949, i.e. softer than --border's #5c5c5c). */
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+}
+/* Stretching the window widens only the card — the content column stays a
+   fixed, centered 992px (= the old 1040px card minus its 48px side padding,
+   so the default-width look is unchanged). Every section/tab row is a direct
+   flex child of the card, so one child rule aligns them all. */
+.settings-page-shell .settings-content > * {
+  width: 100%;
+  max-width: 992px;
+  margin-inline: auto;
+}
+/* Pinned mode switch (本机 CLI / API 提供商): sticky at its own resting spot,
+   so the pill simply stops moving while the agent list scrolls beneath. The
+   sticky containing block is the scroll container's CONTENT box, so the pill
+   can never slide up into `.settings-content`'s padding band — the ::before
+   strip extends the opaque cover upward over that band instead (over empty
+   padding at rest, invisible). The bottom skirt (padding-bottom cancelled by
+   the negative bottom margin) masks the flex gap under the pill mid-scroll. */
+.settings-execution-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin-bottom: -18px;
+  padding-bottom: 18px;
+  background: var(--bg-elevated);
+}
+.settings-execution-sticky::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  /* Tallest variant wins: covers page-shell's 32px band and the modal's 16px
+     one; the scroll container clips whatever pokes past its top edge. */
+  height: 40px;
+  background: inherit;
+}
+.settings-page-shell .settings-execution-sticky {
+  background: var(--bg);
+}
+.modal-settings.settings-sidebar-collapsed .settings-content {
+  padding-left: calc(var(--modal-padding) + 16px);
+}
+@media (max-width: 760px) {
+  .settings-page-shell {
+    overflow: auto;
+  }
+  .modal-settings {
+    width: min(560px, calc(100vw - 24px));
+  }
+  .settings-page-shell .modal-settings.settings-page-surface {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-settings.settings-fullscreen {
+    width: calc(100vw - 12px);
+    height: calc(100vh - 12px);
+  }
+  .modal-settings .modal-body {
+    grid-template-columns: 1fr;
+  }
+  .settings-page-shell .modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .settings-page-shell .modal-head,
+  .settings-page-shell .settings-content {
+    width: 100%;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .settings-sidebar-toggle {
+    display: none;
+  }
+  .modal-settings.settings-sidebar-collapsed .settings-sidebar {
+    display: flex;
+  }
+  .modal-settings.settings-sidebar-collapsed .settings-content {
+    padding-left: var(--modal-padding);
+  }
+  .settings-sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-nav-item {
+    min-width: 150px;
+  }
+}
+
+/* Segmented control */
+/* Compact single-line segmented control (Local CLI / BYOK and friends).
+   Mirrors `.subtab-pill` and `.ds-picker-mode`: gray rounded container,
+   white raised tab for active, just a title — the meta sub-line that used
+   to render here is hidden because the section right below already prints
+   the same context ("Local CLI · Detected by scanning..."). */
+.seg-control {
+  display: grid;
+  grid-template-columns: repeat(var(--seg-cols, 2), minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
+  /* Borderless: the subtle track fill alone delineates the control. */
+  background: var(--bg-subtle);
+  border: 0;
+  /* Pill capsule track so the pill tabs inside sit concentrically. */
+  border-radius: var(--radius-pill);
+  /* Height-match the active sidebar nav-item across the gutter so the
+     top of the content area lines up neatly with the picked section. */
+  min-height: 42px;
+  min-width: 0;
+}
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1;
+  min-width: 0;
+}
+/* The global button:hover paints a border-strong outline + bg-subtle fill; the
+   seg control is deliberately borderless, so keep the border transparent on
+   hover and preserve each state's own fill (white for the active tab). */
+.seg-btn:hover:not(:disabled) { border-color: transparent; }
+.seg-btn:hover:not(:disabled):not(.active) { color: var(--text); background: transparent; }
+.seg-btn.active:hover:not(:disabled) { background: var(--bg-panel); }
+.seg-btn.active {
+  background: var(--bg-panel);
+  border-color: transparent;
+}
+/* The "in use" tab reads green when it is the active state (matches the app's
+   selected-green chips); the "not in use" tab keeps the neutral white thumb.
+   No green ring — just the green fill + green label and the usual lift shadow. */
+.seg-btn--on.active,
+.seg-btn--on.active:hover:not(:disabled) {
+  background: var(--green-bg);
+}
+.seg-btn--on.active .seg-title {
+  color: color-mix(in srgb, var(--green) 82%, var(--text-strong));
+}
+.seg-btn .seg-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.seg-btn.active .seg-title { font-weight: 600; }
+.seg-btn .seg-meta { display: none; }
+.seg-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Inline variant: title and meta sit on a single row instead of
+   stacking, which saves a row of vertical space inside the
+   execution-mode tabs (Local CLI · 2 installed / BYOK · API provider). */
+.seg-btn--inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-block: 8px;
+}
+.seg-btn--inline > .seg-title { min-width: 0; flex: 0 1 auto; text-align: center; }
+.seg-btn--inline > .seg-meta { min-width: 0; flex: 1 1 auto; }
+
+/* Secondary protocol selector — pill chips, wraps to multiple rows */
+.protocol-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 4px 0 8px;
+  padding: 0;
+  min-width: 0;
+}
+.protocol-chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.protocol-chip-group-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.protocol-chip-group-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.protocol-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 120ms var(--ease-out), color 120ms var(--ease-out), border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.protocol-chip:hover:not(.active) {
+  background: var(--bg-subtle);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.protocol-chip.active {
+  background: var(--selected);
+  border-color: color-mix(in srgb, var(--selected) 86%, var(--text-strong));
+  color: var(--bg-elevated);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px var(--selected-soft);
+}
+.protocol-chip.active:hover {
+  background: color-mix(in srgb, var(--selected) 88%, var(--text-strong));
+  border-color: color-mix(in srgb, var(--selected) 80%, var(--text-strong));
+  color: var(--bg-elevated);
+}
+.protocol-chip .media-provider-chip-status {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+.protocol-chip.active .media-provider-chip-status {
+  background: var(--green);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 34%, transparent);
+  animation: settings-provider-status-pulse 2.4s var(--curve-easy-ease) infinite;
+}
+@keyframes settings-provider-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 34%, transparent);
+  }
+  50% {
+    opacity: 0.72;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 0%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .protocol-chip.active .media-provider-chip-status {
+    animation: none;
+  }
+}
+
+.settings-section { display: flex; flex-direction: column; gap: 12px; }
+/* Hide the scroll bar on settings panels while keeping them scrollable. */
+.project-locations-section { gap: 14px; }
+.project-location-card,
+.project-location-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 58px;
+  /* Flush horizontally so the row's content — path on the left, the
+     "default location" pill on the right — lines up with the section edges
+     (and the flush pet grid / toggles above), instead of being inset by the
+     old 10px card padding which pushed the pill in from the right edge. */
+  padding: 8px 0;
+  /* Surfaceless: no border or fill — the path text + action button sit
+     directly on the page. */
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  transition: box-shadow 120ms cubic-bezier(0.23, 1, 0.32, 1), background 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.project-location-card.is-default,
+.project-location-edit.is-default {
+  background: transparent;
+  box-shadow: none;
+}
+.project-location-card code {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 13px;
+  word-break: break-all;
+  /* Plain text on the page — drop the inline-code grey fill/padding. */
+  background: transparent;
+  padding: 0;
+}
+.project-location-default-control span {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--bg-subtle);
+  white-space: nowrap;
+}
+.project-location-default-control {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 6px;
+  cursor: pointer;
+}
+.project-location-default-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.project-location-default-control input:checked + span {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.project-location-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.project-location-edit {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+.project-location-edit-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.project-location-edit-main code {
+  color: var(--text-muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+.project-location-edit-main small {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+/* Text + icon button (not a bare icon): the shared .icon-btn base zeroes
+   padding and pins a 36px square min-width, which crams the label. Selector
+   carries .icon-btn too so it out-specifies `button.icon-btn` — restore proper
+   horizontal padding, size to content, and make it a full pill so the whole
+   "添加文件夹…" label shows without clipping. */
+.icon-btn.project-location-add {
+  align-self: flex-start;
+  width: auto;
+  min-width: 0;
+  padding: 0 var(--spacing-16);
+  gap: var(--spacing-6);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+/* When it rides the built-in row's right cell (in place of the old "默认位置"
+   pill), center it vertically like the rest of the row. */
+.project-location-card .project-location-add { align-self: center; }
+@media (max-width: 720px) {
+  .project-location-edit { grid-template-columns: 1fr; align-items: stretch; }
+  .project-location-default-control { justify-self: start; }
+}
+/* Credentials sit above the catalog now; the divider lives under the field
+   so the eye reads "configure key → catalog unlocks below". */
+.settings-rescan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+  justify-content: center;
+}
+.settings-rescan-btn.loading {
+  border-color: var(--accent-soft);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+.settings-rescan-status,
+.settings-test-status {
+  margin: -4px 0 0;
+  padding: 7px 10px;
+  border: 1px solid var(--green-border);
+  border-radius: var(--radius-sm);
+  background: var(--green-bg);
+  color: var(--green);
+  font-size: 13px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.settings-rescan-status.error,
+.settings-test-status.error {
+  border-color: var(--red-border);
+  background: var(--red-bg);
+  color: var(--red);
+}
+.settings-rescan-status-inline {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.settings-rescan-status-inline.error {
+  color: var(--red);
+}
+.settings-test-status.warn {
+  border-color: var(--amber-border, var(--orange-border, var(--green-border)));
+  background: var(--amber-bg, var(--orange-bg, var(--green-bg)));
+  color: var(--amber, var(--orange, var(--green)));
+}
+.settings-test-status.running {
+  border-color: var(--accent-soft);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+.settings-test-actions {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-test-actions-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.settings-test-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 64px;
+  justify-content: center;
+}
+.settings-test-btn.loading {
+  border-color: var(--accent-soft);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+.section-head-actions .seg-control {
+  display: inline-grid;
+  grid-template-columns: repeat(var(--seg-cols, 2), auto);
+  min-height: unset;
+  min-width: unset;
+}
+.section-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- 1. Hero / header zone ---------- */
+.orbit-hero-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-strong);
+  line-height: 1.15;
+}
+
+/* Lock banner — sits above the configuration rows and names the gate
+   reason in a single line. Compact, low-contrast accent so it reads as
+   metadata rather than a second hero. */
+.orbit-automation-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.orbit-automation-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+
+/* Custom switch control — rebuilt rather than reusing .toggle-row so the
+   Orbit section owns the pattern and can tune track/thumb proportions. */
+.orbit-next-run-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+/* Native select wrapper. Originally a labelled grid (label + select);
+   the row title now carries the inline label, so the select stretches
+   to fill its column. */
+
+/* Proportional run meter: a single bar whose segment widths reflect the
+   success / skip / failure ratio. Preferred over 4 equal tiles because it
+   communicates "mostly succeeded" or "mostly failed" at a glance. */
+
+/* ---------- 1b. Configuration gate ---------------------------------------
+   Surfaces when the user has no connected integrations. We share the
+   orbit-themed accent palette of the hero/firstrun panel so the gate
+   reads as a first-class part of the panel rather than an inline error
+   banner. Layout mirrors the firstrun composition (glyph · copy · action)
+   so the section feels rhythmically consistent regardless of which
+   empty-state panel is showing. The decorative ring glyph reuses the
+   same dashed-orbit motif as the firstrun glyph but anchors a small
+   "link" icon at the center to telegraph "wire up a connector". */
+.orbit-config-gate-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text-strong);
+  line-height: 1.3;
+}
+.orbit-config-gate-body {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 56ch;
+}
+
+/* -------- Composer context section (PluginsSection inside the shell) -- */
+/* .plugins-section > .plugins-section__active hosts ContextChipStrip +
+   PluginInputsForm above the editor. Inside the shell it needs its own
+   rhythm + a hairline separating it from the editor below. showRail=false
+   in the ChatComposer mount, so this is purely the active-context bar. */
+.composer-shell .plugins-section {
+  display: flex;
+  flex-direction: column;
+}
+.composer-shell .plugins-section__active {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}

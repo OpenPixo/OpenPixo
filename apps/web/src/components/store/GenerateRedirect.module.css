@@ -1,0 +1,13 @@
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 44px auto;
+  padding: 32px;
+  max-width: 680px;
+  color: var(--ink);
+}
+.notice h1 { margin: 0; font: 700 28px/1.2 var(--sans); letter-spacing: -.03em; }
+.notice p { margin: 0; color: var(--ink-2); line-height: 1.6; }
+@media (max-width: 640px) { .notice { margin: 20px; padding: 24px; } }

@@ -1,0 +1,8 @@
+{
+  "id": "phaser3-vite",
+  "name": "Phaser 3 · 2D",
+  "engine": "phaser",
+  "description": "A TypeScript scene with a procedural sprite and arrow-key movement.",
+  "nameZhCN": "Phaser 3 · 2D",
+  "descriptionZhCN": "带方向键移动精灵的 2D 场景，使用 TypeScript 和 Vite。"
+}

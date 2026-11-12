@@ -1,0 +1,240 @@
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { mergeProxyAwareEnv, resolveSystemProxyEnvAsync } from '@openpixo/platform';
+import { resolveProjectRelativePath } from '../home-expansion.js';
+import { expandConfiguredEnv } from './paths.js';
+import { resolveProjectRootFromNestedModule } from '../project-root.js';
+import {
+  applySandboxRuntimeEnv,
+  isSandboxModeEnabled,
+  resolveSandboxRuntimeConfig,
+  type SandboxRuntimeConfig,
+} from '../sandbox-mode.js';
+import { usesBundledOpenCode } from './byok-opencode.js';
+
+type RuntimeEnvMap = NodeJS.ProcessEnv | Record<string, string>;
+type SpawnEnvOptions = {
+  resolvedBin?: string | null;
+};
+
+const RUNTIME_MODULE_PROJECT_ROOT = resolveProjectRootFromNestedModule(
+  path.dirname(fileURLToPath(import.meta.url)),
+);
+
+// Build the env passed to spawn() for a given agent adapter.
+//
+// Auth/config precedence for Local CLI launches:
+//
+// 1. Provider BYOK is separate. It is used by OpenPixo's direct provider
+//    API calls and is not automatically mapped into Local CLI launches.
+// 2. The inherited launch env represents the user's local CLI setup
+//    (OAuth/login files, CLI homes, or user-owned API-key env). Preserve it
+//    so Claude Code/Codex behave like they do in the user's terminal.
+// 3. `configuredEnv` comes from Settings -> Local CLI ->
+//    "Advanced: proxy & custom paths". It is an explicit low-level CLI env
+//    override, so it wins over inherited env, including API-key variables.
+//    BASE_URL is optional: when omitted, the underlying CLI uses its own
+//    official default endpoint.
+/**
+ * Claude Code must expose a plan tool, or a Claude run can never draw the Todos
+ * card the rest of the product is built around.
+ *
+ * Claude Code >= 2.1.x retired `TodoWrite` in favour of `TaskCreate` /
+ * `TaskUpdate` / `TaskList` / `TaskGet`, and gates that family behind this
+ * variable for the current model generation. Measured on 2.1.247, reading the
+ * `tools` array of the init frame from `claude -p --output-format stream-json
+ * --verbose`:
+ *
+ *   --model opus   (claude-opus-5)     → Task, TaskOutput, TaskStop
+ *   --model sonnet (claude-sonnet-5)   → Task, TaskOutput, TaskStop
+ *   … either of those, with the flag   → + TaskCreate, TaskGet, TaskList, TaskUpdate
+ *   --model haiku  (claude-haiku-4-5)  → the Task family, flag or not
+ *
+ * `TodoWrite` appears on no model in that build, so the `default` / `opus` /
+ * `sonnet` aliases the model picker offers ship with no plan tool at all unless
+ * this is set. `claude-stream.ts` reduces the Task family back into the
+ * canonical `TodoWrite` snapshot, so nothing downstream has to know which
+ * dialect the installed build speaks.
+ *
+ * Setting it is monotone — inside Claude Code the check is an early
+ * `return true`, so it can only ever ADD the family, never remove `TodoWrite`
+ * from a build that still has it — and builds that predate the variable ignore
+ * an unknown env key. A value the user set (inherited env, or Settings → Local
+ * CLI → Advanced) wins, per the precedence rules above.
+ */
+function applyClaudeTaskToolEnv(env: NodeJS.ProcessEnv): void {
+  if (typeof env.CLAUDE_CODE_ENABLE_TODO_TOOLS === 'string') return;
+  env.CLAUDE_CODE_ENABLE_TODO_TOOLS = '1';
+}
+
+let systemProxySnapshot: Promise<RuntimeEnvMap> | undefined;
+
+/** Sample OS proxy settings once per daemon process; inherited/configured overrides stay live. */
+function runtimeSystemProxyEnv(): Promise<RuntimeEnvMap> {
+  return systemProxySnapshot ??= resolveSystemProxyEnvAsync();
+}
+
+export async function spawnEnvForAgentAsync(
+  agentId: string,
+  baseEnv: RuntimeEnvMap,
+  configuredEnv: unknown = {},
+  systemProxyEnv?: RuntimeEnvMap,
+  options: SpawnEnvOptions = {},
+): Promise<NodeJS.ProcessEnv> {
+  return spawnEnvForAgent(agentId, baseEnv, configuredEnv,
+    systemProxyEnv ?? await runtimeSystemProxyEnv(), options);
+}
+
+/** Pure environment shaping; runtime callers await OS discovery through the async entry point. */
+export function spawnEnvForAgent(
+  agentId: string,
+  baseEnv: RuntimeEnvMap,
+  configuredEnv: unknown = {},
+  systemProxyEnv: RuntimeEnvMap = {},
+  _options: SpawnEnvOptions = {},
+): NodeJS.ProcessEnv {
+  const sandboxRuntime = sandboxRuntimeConfigForBaseEnv(baseEnv);
+  const expandedConfiguredEnv = expandConfiguredEnv(configuredEnv);
+  const env = mergeProxyAwareEnv(
+    process.platform,
+    systemProxyEnv,
+    baseEnv,
+    expandedConfiguredEnv,
+  );
+  if (agentId === 'claude') {
+    applyClaudeTaskToolEnv(env);
+    return finalizeRuntimeEnv(env, sandboxRuntime);
+  }
+  if (agentId === 'codex') {
+    // Name the rollout root the codex CLI is about to write into. Child
+    // evidence is read back from `<CODEX_HOME>/sessions/.../rollout-*.jsonl`,
+    // and `collectCodexChildEvidence` deliberately refuses a homedir fallback
+    // so it can never attribute one install's sessions to another. That leaves
+    // the caller owing it an explicit root — which nothing supplied, so the
+    // collector's `CODEX_HOME` guard was false on every default install and a
+    // complex Run's native Children went unobserved. The plan still locked
+    // complex, then failed certification for evidence the daemon simply never
+    // looked for.
+    if (!env.CODEX_HOME?.trim()) {
+      const home = os.homedir();
+      if (home) env.CODEX_HOME = path.join(home, '.codex');
+    }
+    return finalizeRuntimeEnv(env, sandboxRuntime);
+  }
+  if (agentId === 'opencode' || usesBundledOpenCode(agentId)) {
+    stripKeysCaseInsensitive(env, [
+      'OPENCODE',
+      'OPENCODE_PID',
+      'OPENCODE_RUN_ID',
+      'OPENCODE_SERVER_PASSWORD',
+    ]);
+    // OpenCode is bun-based and, left to its defaults, walks up from its cwd to
+    // the nearest project root and runs `bun install` there at startup to set up
+    // local plugins. When that root is a pnpm workspace (the daemon's own repo,
+    // or a project nested inside it), the install replaces the pnpm `.pnpm` store
+    // with a bun `node_modules/.bun` + `bun.lock` and breaks the workspace.
+    // Disable project-config discovery (and its install) so OpenCode only honors
+    // the config the daemon injects via OPENCODE_CONFIG_CONTENT.
+    if (!env.OPENCODE_DISABLE_PROJECT_CONFIG?.trim()) {
+      env.OPENCODE_DISABLE_PROJECT_CONFIG = 'true';
+    }
+    // The OpenCode version changes only when OpenPixo ships one. The bundled copy
+    // is pinned and tested against our adapter, so this is not a preference there.
+    // Someone's own CLI keeps a value they set explicitly.
+    if (usesBundledOpenCode(agentId) || !env.OPENCODE_DISABLE_AUTOUPDATE?.trim()) {
+      env.OPENCODE_DISABLE_AUTOUPDATE = 'true';
+    }
+    return finalizeRuntimeEnv(env, sandboxRuntime);
+  }
+  return finalizeRuntimeEnv(env, sandboxRuntime);
+}
+
+
+function sandboxRuntimeConfigForBaseEnv(
+  baseEnv: RuntimeEnvMap,
+): SandboxRuntimeConfig | null {
+  if (!isSandboxModeEnabled(baseEnv)) return null;
+  const dataDir = baseEnv.PIXO_DATA_DIR?.trim();
+  if (!dataDir) return null;
+  const resolvedDataDir = resolveProjectRelativePath(
+    dataDir,
+    RUNTIME_MODULE_PROJECT_ROOT,
+  );
+  return resolveSandboxRuntimeConfig(true, resolvedDataDir);
+}
+
+function reapplySandboxRuntimeEnv(
+  env: NodeJS.ProcessEnv,
+  sandboxRuntime: SandboxRuntimeConfig | null,
+): NodeJS.ProcessEnv {
+  if (!sandboxRuntime) return env;
+  return applySandboxRuntimeEnv(env, sandboxRuntime);
+}
+
+function finalizeRuntimeEnv(
+  env: NodeJS.ProcessEnv,
+  sandboxRuntime: SandboxRuntimeConfig | null,
+): NodeJS.ProcessEnv {
+  const finalizedEnv = reapplySandboxRuntimeEnv(env, sandboxRuntime);
+  applyWindowsUserCacheEnv(finalizedEnv);
+  return finalizedEnv;
+}
+
+function stripKeysCaseInsensitive(
+  env: NodeJS.ProcessEnv,
+  keysToStrip: readonly string[],
+): void {
+  const keysUpper = new Set(keysToStrip.map((key) => key.toUpperCase()));
+  for (const key of Object.keys(env)) {
+    if (keysUpper.has(key.toUpperCase())) delete env[key];
+  }
+}
+
+function applyWindowsUserCacheEnv(env: NodeJS.ProcessEnv): void {
+  if (process.platform !== 'win32') return;
+
+  // GUI-launched Windows daemons can inherit enough PATH to resolve a CLI
+  // while still missing the profile/cache variables CLIs use at startup.
+  const userProfile =
+    envValue(env, 'USERPROFILE') ||
+    envValue(env, 'HOME') ||
+    os.homedir();
+  if (!userProfile) return;
+
+  setEnvIfMissing(env, 'USERPROFILE', userProfile);
+  const localAppData =
+    envValue(env, 'LOCALAPPDATA') ||
+    path.win32.join(userProfile, 'AppData', 'Local');
+  setEnvIfMissing(env, 'LOCALAPPDATA', localAppData);
+  setEnvIfMissing(
+    env,
+    'APPDATA',
+    path.win32.join(userProfile, 'AppData', 'Roaming'),
+  );
+  const tempDir = path.win32.join(localAppData, 'Temp');
+  setEnvIfMissing(env, 'TEMP', tempDir);
+  setEnvIfMissing(env, 'TMP', tempDir);
+}
+
+function envValue(env: NodeJS.ProcessEnv, key: string): string | null {
+  const existingKey = Object.keys(env).find(
+    (candidate) => candidate.toUpperCase() === key.toUpperCase(),
+  );
+  const value = existingKey ? env[existingKey] : undefined;
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  return trimmed ? (value as string) : null;
+}
+
+function setEnvIfMissing(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  value: string,
+): void {
+  if (envValue(env, key)) return;
+  const existingKey = Object.keys(env).find(
+    (candidate) => candidate.toUpperCase() === key.toUpperCase(),
+  );
+  env[existingKey ?? key] = value;
+}

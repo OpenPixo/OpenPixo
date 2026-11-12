@@ -1,0 +1,133 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { forwardRef } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { ChatPane } from '../../src/components/ChatPane';
+import {
+  trackRunRecoveryActionClick,
+  trackRunRecoveryActionSurfaceView,
+} from '../../src/analytics/events';
+import type { AppConfig, ChatMessage } from '../../src/types';
+
+// G16 removes Continue from error cards, even when the stored CLI session is
+// resumable. Keep source identity, history, and recovery analytics assertions.
+
+const translate = (key: string, vars?: Record<string, string | number>) => {
+  if (vars && Object.keys(vars).length > 0) {
+    return `${key} ${Object.values(vars).join(' ')}`;
+  }
+  return key;
+};
+
+vi.mock('../../src/i18n', () => ({
+  useI18n: () => ({ locale: 'en', setLocale: () => undefined, t: translate }),
+  useT: () => translate,
+}));
+
+vi.mock('../../src/components/AssistantMessage', () => ({
+  AssistantMessage: ({ message }: { message: ChatMessage }) => (
+    <div data-testid={`assistant-${message.id}`}>{message.content}</div>
+  ),
+}));
+
+vi.mock('../../src/components/ChatComposer', () => ({
+  ChatComposer: forwardRef((_props, _ref) => <div data-testid="composer" />),
+}));
+
+vi.mock('../../src/analytics/events', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/analytics/events')>();
+  return {
+    ...actual,
+    trackChatPanelClick: vi.fn(),
+    trackRunFailedToastSurfaceView: vi.fn(),
+    trackRunRecoveryActionClick: vi.fn(),
+    trackRunRecoveryActionSurfaceView: vi.fn(),
+  };
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+function resumableFailedMessage(agentId = 'claude'): ChatMessage {
+  return {
+    id: 'msg-upstream',
+    role: 'assistant',
+    content: 'Partial work before the upstream dropped.',
+    createdAt: 1,
+    runId: 'run-upstream',
+    runStatus: 'failed',
+    resumable: true,
+    agentId,
+    events: [
+      {
+        kind: 'status',
+        label: 'error',
+        detail: 'Upstream request failed: stream disconnected before completion.',
+        code: 'UPSTREAM_UNAVAILABLE',
+      },
+    ],
+  };
+}
+
+function renderChat(opts: {
+  onResumeRun?: (m: ChatMessage) => void;
+  onRetry: (m: ChatMessage) => void;
+  onSend?: (...args: unknown[]) => void;
+  activeAgentId?: string;
+  failedAgentId?: string;
+  
+}) {
+  return render(
+    <ChatPane
+      messages={[resumableFailedMessage(opts.failedAgentId)]}
+      streaming={false}
+      error={null}
+      projectId="project-1"
+      projectFiles={[]}
+      onEnsureProject={async () => 'project-1'}
+      onSend={opts.onSend ?? vi.fn()}
+      onStop={vi.fn()}
+      onRetry={opts.onRetry}
+      onResumeRun={opts.onResumeRun}
+      
+      conversations={[
+        { projectId: 'project-1', id: 'conv-1', title: 'Current', createdAt: 1, updatedAt: 1 },
+      ]}
+      activeConversationId="conv-1"
+      onSelectConversation={vi.fn()}
+      onDeleteConversation={vi.fn()}
+      config={{ agentId: opts.activeAgentId ?? 'claude', agentCliEnv: {} } as unknown as AppConfig}
+    />,
+  );
+}
+
+describe('ChatPane fixed actions for resumable failures', () => {
+  
+
+  it('does not silently send a Continue prompt when the host lacks a resume handler', () => {
+    const onRetry = vi.fn();
+    const onSend = vi.fn();
+    renderChat({ onRetry, onSend,  activeAgentId: 'claude' });
+    fireEvent.click(screen.getByRole('button', { name: 'promptTemplates.retry' }));
+    expect(onRetry).toHaveBeenCalledWith(expect.objectContaining({ id: 'msg-upstream' }), 'manual_retry');
+    expect(screen.queryByRole('button', { name: 'chat.resumeRunCta' })).toBeNull();
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['claude', 'opencode', 'promptTemplates.retry'],
+    ['codex', 'claude', 'promptTemplates.retry'],
+  ])('retains the failed %s identity after the current agent changes to %s', (failedAgentId, activeAgentId, label) => {
+    const onResumeRun = vi.fn();
+    const onRetry = vi.fn();
+    renderChat({ onResumeRun, onRetry,  activeAgentId, failedAgentId });
+    expect(screen.queryByRole('button', { name: 'chat.resumeRunCta' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    expect(onRetry).toHaveBeenCalledWith(expect.objectContaining({ id: 'msg-upstream', agentId: failedAgentId }), 'manual_retry');
+    expect(onResumeRun).not.toHaveBeenCalled();
+  });
+});

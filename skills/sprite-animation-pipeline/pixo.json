@@ -1,0 +1,39 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-animation-pipeline",
+  "version": "0.1.0",
+  "title": "Sprite animation pipeline",
+  "title_i18n": { "en": "Sprite animation pipeline", "zh-CN": "精灵动画流水线" },
+  "description": "Slice and pack existing sprite frames into Godot SpriteFrames or Phaser atlases while preserving order, shared pivots and deliberate frame timing.",
+  "description_i18n": {
+    "en": "Slice and pack existing sprite frames into Godot SpriteFrames or Phaser atlases while preserving order, shared pivots and deliberate frame timing.",
+    "zh-CN": "将已有精灵帧切分并打包为 Godot SpriteFrames 或 Phaser 图集，保留帧顺序、统一轴心并设定帧时长。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "engines": ["godot", "unity", "phaser"],
+  "tags": ["game-development", "game-assets", "sprite-animation", "godot", "unity", "phaser", "first-party", "openpixo"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-assets" },
+  "examples": [
+    {
+      "title": "Tune the sample player's run cycle",
+      "title_i18n": { "zh-CN": "调整示例玩家的跑步循环" },
+      "prompt": "In this Phaser sample platformer, keep player idle frames 0-1 and run frames 2-5, play run at 10 FPS with the first frame held for 200ms, preserve the player's feet alignment and collisions, then verify the build and run it.",
+      "prompt_i18n": { "zh-CN": "在这个 Phaser 平台跳跃示例中，保留玩家待机帧 0–1 与跑步帧 2–5，跑步设为 10 FPS、首帧停留 200 毫秒，保留脚底对齐和碰撞，然后验证构建并运行。" }
+    },
+    {
+      "title": "Import a Godot walk sheet",
+      "title_i18n": { "zh-CN": "导入 Godot 行走精灵表" },
+      "prompt": "Slice the selected 32x32-cell walk sheet with pixo asset, pack its walk frames as godot-tres in the intended order, attach the reported SpriteFrames to AnimatedSprite2D at 8 FPS, and verify resource imports and feet alignment.",
+      "prompt_i18n": { "zh-CN": "用 pixo asset 切分选中的 32×32 单元行走精灵表，按预期顺序将行走帧打包为 godot-tres，把报告返回的 SpriteFrames 接到 AnimatedSprite2D 并设为 8 FPS，验证资源导入和脚底对齐。" }
+    },
+    {
+      "title": "Replace a Phaser sheet with an atlas",
+      "title_i18n": { "zh-CN": "将 Phaser 精灵表替换为图集" },
+      "prompt": "Convert the Phaser sample's existing player sheet into a TexturePacker JSON atlas using pixo asset slice and pack. Read actual frame keys, preserve idle/run timing and hitboxes, and verify the game after repeated scene restarts.",
+      "prompt_i18n": { "zh-CN": "用 pixo asset slice 和 pack 将 Phaser 示例现有玩家精灵表转为 TexturePacker JSON 图集。读取实际帧键，保留待机与跑步时序和碰撞盒，并在多次重启场景后验证游戏。" }
+    }
+  ]
+}

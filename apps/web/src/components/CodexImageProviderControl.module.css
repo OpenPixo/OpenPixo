@@ -1,0 +1,11 @@
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 12px;
+}
+.message {
+  margin: 0;
+  color: var(--text-secondary);
+}

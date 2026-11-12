@@ -1,0 +1,80 @@
+{
+  "name": "openpixo",
+  "version": "1.0.4",
+  "productName": "OpenPixo",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "type": "module",
+  "description": "A local coding-agent workbench for independent game developers.",
+  "license": "Apache-2.0",
+  "bin": {
+    "pixo": "./apps/daemon/bin/pixo.mjs"
+  },
+  "scripts": {
+    "postinstall": "node ./scripts/postinstall.mjs",
+    "bootstrap": "node ./scripts/postinstall.mjs",
+    "tools-dev": "pnpm exec tools-dev",
+    "tools-pack": "pnpm exec tools-pack",
+    "tools-release": "pnpm exec tools-release",
+    "tools-serve": "pnpm exec tools-serve",
+    "guard": "tsx ./scripts/guard.ts",
+    "i18n:check": "tsx ./scripts/i18n-check.ts",
+    "i18n:coverage": "tsx ./scripts/i18n-coverage-report.ts",
+    "backfill:failed-runs": "node --experimental-strip-types scripts/backfill-failed-runs-with-artifacts.ts",
+    "typecheck": "pnpm -r --workspace-concurrency=4 --if-present run typecheck && tsc -p scripts/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@openpixo/components": "workspace:*",
+    "@openpixo/daemon": "workspace:*",
+    "@openpixo/tools-dev": "workspace:*",
+    "@openpixo/tools-pack": "workspace:*",
+    "@openpixo/tools-release": "workspace:*",
+    "@openpixo/tools-serve": "workspace:*",
+    "@types/node": "20.19.39",
+    "tsx": "4.22.3",
+    "yaml": "2.9.0"
+  },
+  "engines": {
+    "node": "~24",
+    "pnpm": ">=10.33.2 <11"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": "5.0.12",
+      "devalue": "5.8.1",
+      "adm-zip": "0.6.1",
+      "@hono/node-server@^2": "2.1.6",
+      "@opentelemetry/core@^2": "2.12.0",
+      "baseline-browser-mapping@^2": "2.11.35",
+      "fflate@^0.4": "0.4.9",
+      "body-parser@^2": "2.4.0",
+      "form-data@^4": "4.0.6",
+      "nanoid@^3": "3.3.20",
+      "proxy-addr": "2.0.8",
+      "source-map-js": "1.2.2",
+      "zod@^4": "4.6.7",
+      "fast-uri": "3.1.9",
+      "hono": "4.13.17",
+      "ip-address": "10.7.6",
+      "postcss": "8.5.32",
+      "protobufjs": "8.8.1",
+      "qs": "6.17.1",
+      "tar": "7.5.22",
+      "tmp": "0.2.7",
+      "undici@^6": "6.29.1",
+      "undici@^7": "7.30.2",
+      "yaml": "2.9.0"
+    },
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "core-js",
+      "electron",
+      "electron-winstaller",
+      "esbuild",
+      "onnxruntime-node",
+      "protobufjs",
+      "sharp"
+    ]
+  }
+}

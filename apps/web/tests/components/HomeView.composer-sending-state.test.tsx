@@ -1,0 +1,202 @@
+// @vitest-environment jsdom
+
+// Home composer send must show an in-flight state (#4082).
+//
+// Submitting from Home kicks off an async project-creation /
+// conversation-creation roundtrip before navigation unmounts the screen.
+// Without a sending state the button stays idle through that window, so
+// the app "looks frozen" and accepts duplicate sends. These tests pin the
+// contract: while the submit promise is pending the button is disabled and
+// labelled Sending…, repeat clicks are swallowed, and a failed creation
+// re-enables the composer with a visible error so the user can retry.
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+vi.mock('../../src/components/home-hero/PlaceholderCarousel', () => ({
+  PlaceholderCarousel: () => null,
+}));
+
+
+
+import { HomeView } from '../../src/components/HomeView';
+import { I18nProvider } from '../../src/i18n';
+import { ProjectCreateError } from '../../src/state/projects';
+import { setHomeHeroPrompt } from '../helpers/home-hero-lexical';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  cleanup();
+  window.localStorage.clear();
+});
+
+function stubPluginsFetch(plugins: unknown[] = []) {
+  vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+    if (typeof url === 'string' && url === '/api/plugins') {
+      return new Response(JSON.stringify({ plugins }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  }));
+}
+
+const WEB_PROTOTYPE_PLUGIN = {
+  id: 'pixo-media-generation',
+  title: 'WebGL Experience',
+  version: '0.1.0',
+  trust: 'bundled' as const,
+  sourceKind: 'bundled' as const,
+  source: '/tmp/web-prototype',
+  capabilitiesGranted: ['prompt:inject'],
+  fsPath: '/tmp/web-prototype',
+  installedAt: 0,
+  updatedAt: 0,
+  manifest: {
+    name: 'pixo-media-generation',
+    title: 'WebGL Experience',
+    version: '0.1.0',
+    description: 'General-purpose desktop web prototype.',
+    pixo: { kind: 'scenario', taskKind: 'new-generation' },
+  },
+};
+
+function renderHome(onSubmit: (payload: unknown) => Promise<boolean> | void) {
+  stubPluginsFetch();
+  return render(
+    <I18nProvider initial="en">
+      <HomeView
+        projects={[]}
+        onSubmit={onSubmit}
+        onOpenProject={() => undefined}
+      />
+    </I18nProvider>,
+  );
+}
+
+describe('home composer sending state', () => {
+  it('submits free-form Design prompts without a scenario binding', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    renderHome(onSubmit);
+
+    await screen.findByTestId('home-hero-input');
+    setHomeHeroPrompt('Build a launch dashboard');
+    fireEvent.click(await screen.findByTestId('home-hero-submit'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      conversationMode: 'design',
+    }));
+    expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('pluginId');
+    expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('pluginSelectionProvenance');
+  });
+
+  it('keeps the send arrow stable and swallows repeat clicks while creation is in flight', async () => {
+    let resolveSubmit: (accepted: boolean) => void = () => undefined;
+    const onSubmit = vi.fn(
+      () => new Promise<boolean>((resolve) => { resolveSubmit = resolve; }),
+    );
+    renderHome(onSubmit);
+
+    await screen.findByTestId('home-hero-input');
+    setHomeHeroPrompt('Build a landing page');
+    const submit = (await screen.findByTestId('home-hero-submit')) as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+
+    fireEvent.click(submit);
+    await waitFor(() => {
+      expect(submit.disabled).toBe(true);
+    });
+    // #5517 made the submit button icon-only (spinner while sending); the
+    // Navigation owns the progress handoff. Home must never flash a spinner,
+    // loading label, or busy state in the frame before it unmounts; the send
+    // mark stays the 18px arrow throughout.
+    expect(submit.getAttribute('aria-label')).toBe('Run');
+    expect(submit.getAttribute('aria-busy')).toBe('false');
+    expect(submit.className).not.toContain('is-sending');
+    expect(submit.querySelector('svg')?.getAttribute('width')).toBe('18');
+
+    // A second click during the in-flight window must not start a second run.
+    fireEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+
+    // Flush the resolution so the trailing state update lands inside the test.
+    resolveSubmit(true);
+    await waitFor(() => {
+      expect(submit.disabled).toBe(false);
+    });
+  });
+
+  it('re-enables the composer and surfaces an error when creation fails', async () => {
+    let resolveSubmit: (accepted: boolean) => void = () => undefined;
+    const onSubmit = vi.fn(
+      () => new Promise<boolean>((resolve) => { resolveSubmit = resolve; }),
+    );
+    renderHome(onSubmit);
+
+    await screen.findByTestId('home-hero-input');
+    setHomeHeroPrompt('Build a landing page');
+    const submit = (await screen.findByTestId('home-hero-submit')) as HTMLButtonElement;
+
+    fireEvent.click(submit);
+    await waitFor(() => {
+      expect(submit.disabled).toBe(true);
+    });
+
+    resolveSubmit(false);
+    await waitFor(() => {
+      expect(submit.disabled).toBe(false);
+    });
+    // Icon-only button (#5517): the idle accessible name replaces the old
+    // visible Send label.
+    expect(submit.getAttribute('aria-label')).toBe('Run');
+    expect(submit.className).not.toContain('is-sending');
+    expect((await screen.findByRole('alert')).textContent).toMatch(/try again/i);
+
+    // The failure path must leave the composer retryable.
+    fireEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the daemon recovery message only for a transport failure and preserves the draft', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
+    renderHome(onSubmit);
+
+    await screen.findByTestId('home-hero-input');
+    setHomeHeroPrompt('Keep this draft while the daemon reconnects');
+    fireEvent.click(await screen.findByTestId('home-hero-submit'));
+
+    // OPEND-2849 S28a:标题 + 正文两行(错误块 `white-space: pre-line`)。
+    expect((await screen.findByRole('alert')).textContent?.split('\n')).toEqual([
+      'Local connection lost',
+      'Can’t reach the OpenPixo service on this computer right now. Please restart the app.',
+    ]);
+    expect(screen.getByTestId('home-hero-input')).toHaveTextContent(
+      'Keep this draft while the daemon reconnects',
+    );
+  });
+
+  it('surfaces a business HTTP error without claiming the daemon is unreachable', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new ProjectCreateError(
+      'Project preparation is temporarily unavailable',
+      503,
+      'PROJECT_CREATE_PREPARATION_TIMEOUT',
+      true,
+      'request-1',
+    ));
+    renderHome(onSubmit);
+
+    await screen.findByTestId('home-hero-input');
+    setHomeHeroPrompt('Keep the business failure distinct');
+    fireEvent.click(await screen.findByTestId('home-hero-submit'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Project preparation is temporarily unavailable',
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Local service');
+    expect(screen.getByTestId('home-hero-input')).toHaveTextContent(
+      'Keep the business failure distinct',
+    );
+  });
+});

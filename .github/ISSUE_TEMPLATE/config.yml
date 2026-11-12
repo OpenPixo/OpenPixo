@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help with installing or using OpenPixo
+    url: https://openpixo.com/support
+    about: Guides for installing, connecting an AI, credits and common problems.
+  - name: Account, billing or credits
+    url: mailto:support@openpixo.com
+    about: Email us from the address you sign in with. Never post payment details in an issue.
+  - name: Report a security problem
+    url: https://openpixo.com/support
+    about: Email support@openpixo.com with the subject "Security:" instead of opening a public issue.

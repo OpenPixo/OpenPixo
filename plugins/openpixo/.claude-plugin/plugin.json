@@ -1,0 +1,7 @@
+{
+  "name": "openpixo",
+  "displayName": "OpenPixo",
+  "version": "1.0.0",
+  "description": "Local game-development workbench. Exposes project, file, and preview tools to your coding agent over stdio MCP. Requires the pixo daemon on PATH.",
+  "mcpServers": "./.mcp.json"
+}

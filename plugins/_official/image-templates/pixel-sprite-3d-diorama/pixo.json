@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "image-template-pixel-sprite-3d-diorama",
+  "title": "Pixel Sprite 3D Diorama (Tilt-Shift 2.5D)",
+  "title_i18n": {
+    "en": "Pixel Sprite 3D Diorama (Tilt-Shift 2.5D)",
+    "zh-CN": "像素精灵 3D 立体场景（移轴 2.5D）"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-10-31T09:53:39Z",
+  "description": "A 2.5D diorama scene that places crisp pixel-art character sprites inside a lit, low-detail 3D environment with tilt-shift depth of field, bloom and volumetric light, the look popular in modern retro-inspired RPGs. Slots for location, party, time of day and palette.",
+  "description_i18n": {
+    "en": "A 2.5D diorama scene that places crisp pixel-art character sprites inside a lit, low-detail 3D environment with tilt-shift depth of field, bloom and volumetric light, the look popular in modern retro-inspired RPGs. Slots for location, party, time of day and palette.",
+    "zh-CN": "生成 2.5D 立体场景：清晰的像素角色精灵置于有光影的低细节 3D 环境中，配合移轴景深、泛光和体积光，正是当代复古风 RPG 流行的画面风格。可调整地点、队伍、时段与配色。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "openpixo contributors"
+  },
+  "tags": [
+    "image-template",
+    "first-party",
+    "image",
+    "illustration",
+    "pixel-art",
+    "2-5d",
+    "diorama",
+    "jrpg",
+    "tilt-shift",
+    "environment"
+  ],
+  "pixo": {
+    "kind": "scenario",
+    "taskKind": "new-generation",
+    "mode": "image",
+    "scenario": "image",
+    "surface": "image",
+    "useCase": {
+      "query": {
+        "en": "An in-game screenshot of a retro-inspired RPG that combines 2D pixel-art sprites with a 3D diorama environment.\n\nLocation: {argument name=\"location\" default=\"a canal-side harbour town at dusk, stone bridges, stacked timber houses and moored fishing boats\"}.\nParty: {argument name=\"party\" default=\"four adventurers walking in a line across a bridge: a knight, a mage in a wide hat, a scout and a small alchemist\"}.\nTime and weather: {argument name=\"time_of_day\" default=\"blue-hour dusk with lanterns just lit and light drifting mist\"}.\n\n# Look\n- Characters and NPCs are flat, front-facing pixel sprites (about 32 pixels tall, crisp nearest-neighbour pixels, limited palette) standing upright inside the 3D world, casting soft real-time shadows on the ground.\n- The environment is simple 3D geometry with pixel-art textures on every surface, so it feels like a miniature model set.\n- Strong tilt-shift depth of field: the band containing the party is sharp, foreground and far background melt into soft bokeh.\n- Modern lighting on retro assets: warm lantern point lights with bloom, cool ambient sky light, volumetric light shafts through the mist, gentle reflections in the canal water.\n\n# Camera and composition\n- Elevated three-quarter camera at about 30 degrees, slightly zoomed like a diorama photographed from above.\n- Party on the lower-third line, walking left to right toward a glowing focal landmark ({argument name=\"landmark\" default=\"a lighthouse on the far pier\"}).\n- Clear foreground framing elements (rooftops, hanging lanterns) out of focus at the edges.\n\n# Palette\n{argument name=\"palette\" default=\"deep blues and teal shadows against warm orange lantern light, small pink accents in the sky\"}.\n\n# Avoid\nHigh-poly realistic characters, blurry or smeared sprites, mixed sprite resolutions, photographic textures, UI, dialogue boxes, text, watermarks, and any recognisable existing game characters.",
+        "zh-CN": "An in-game screenshot of a retro-inspired RPG that combines 2D pixel-art sprites with a 3D diorama environment.\n\nLocation: {argument name=\"location\" default=\"a canal-side harbour town at dusk, stone bridges, stacked timber houses and moored fishing boats\"}.\nParty: {argument name=\"party\" default=\"four adventurers walking in a line across a bridge: a knight, a mage in a wide hat, a scout and a small alchemist\"}.\nTime and weather: {argument name=\"time_of_day\" default=\"blue-hour dusk with lanterns just lit and light drifting mist\"}.\n\n# Look\n- Characters and NPCs are flat, front-facing pixel sprites (about 32 pixels tall, crisp nearest-neighbour pixels, limited palette) standing upright inside the 3D world, casting soft real-time shadows on the ground.\n- The environment is simple 3D geometry with pixel-art textures on every surface, so it feels like a miniature model set.\n- Strong tilt-shift depth of field: the band containing the party is sharp, foreground and far background melt into soft bokeh.\n- Modern lighting on retro assets: warm lantern point lights with bloom, cool ambient sky light, volumetric light shafts through the mist, gentle reflections in the canal water.\n\n# Camera and composition\n- Elevated three-quarter camera at about 30 degrees, slightly zoomed like a diorama photographed from above.\n- Party on the lower-third line, walking left to right toward a glowing focal landmark ({argument name=\"landmark\" default=\"a lighthouse on the far pier\"}).\n- Clear foreground framing elements (rooftops, hanging lanterns) out of focus at the edges.\n\n# Palette\n{argument name=\"palette\" default=\"deep blues and teal shadows against warm orange lantern light, small pink accents in the sky\"}.\n\n# Avoid\nHigh-poly realistic characters, blurry or smeared sprites, mixed sprite resolutions, photographic textures, UI, dialogue boxes, text, watermarks, and any recognisable existing game characters."
+      }
+    },
+    "inputs": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "select",
+        "options": [
+          "gpt-image-2"
+        ],
+        "default": "gpt-image-2"
+      },
+      {
+        "name": "aspect",
+        "label": "Aspect ratio",
+        "type": "select",
+        "options": [
+          "1:1",
+          "16:9",
+          "9:16",
+          "4:3",
+          "3:4"
+        ],
+        "default": "16:9"
+      }
+    ],
+    "context": {
+      "assets": [
+        "./template.json"
+      ]
+    },
+    "pipeline": {
+      "stages": [
+        {
+          "id": "generate",
+          "atoms": [
+            "media-image"
+          ]
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:image-generate"
+    ]
+  }
+}

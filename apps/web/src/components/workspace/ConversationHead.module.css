@@ -1,0 +1,57 @@
+.head {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--shell-gap);
+  height: var(--shell-header-height);
+  min-width: 0;
+  padding: 0 calc(var(--shell-gutter) - 4px) 0 var(--shell-gutter);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.title {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font: var(--shell-title-font);
+  letter-spacing: 0;
+}
+
+.project,
+.session {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.project { flex: 0 1 auto; color: var(--text-strong); }
+.session { flex: 0 1 auto; min-width: 0; color: var(--text-muted); font: var(--shell-meta-font); }
+.separator { flex: none; color: var(--text-faint); }
+
+.actions { display: flex; flex: none; align-items: center; gap: 2px; }
+
+/* The history control portals in with its own 28px trigger; give it the same
+   square the panel toggle has. */
+.actions > div { display: flex; flex: none; order: 0; align-items: center; margin: 0; }
+
+.head .control {
+  width: var(--shell-control-size);
+  min-width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  min-height: var(--shell-control-size);
+  padding: 0;
+  border-radius: var(--shell-radius);
+  color: var(--text-muted);
+  -webkit-app-region: no-drag;
+}
+
+.head .control:hover:not(:disabled) { color: var(--text-strong); background: var(--bg-fill-secondary); }
+/* A toggle, but drawn quietly: the shared pressed ring would read as a
+   selected tab in a header that has none. */
+.head .control[aria-pressed] { box-shadow: none; }
+.head .control:focus-visible { box-shadow: var(--focus-shadow); }
