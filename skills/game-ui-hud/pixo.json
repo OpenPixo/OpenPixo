@@ -2,16 +2,16 @@
   "$schema": "urn:openpixo:plugin:v1",
   "specVersion": "1.0.0",
   "name": "openpixo/game-ui-hud",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "Game HUD, menus and input focus",
   "title_i18n": {
     "en": "Game HUD, menus and input focus",
     "zh-CN": "游戏 HUD、菜单与输入焦点"
   },
-  "description": "Build readable HUDs, pause and settings menus with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4 and Phaser 3.",
+  "description": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6 and Phaser 3.",
   "description_i18n": {
-    "en": "Build readable HUDs, pause and settings menus with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4 and Phaser 3.",
-    "zh-CN": "为 Godot 4 与 Phaser 3 构建清晰的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
+    "en": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6 and Phaser 3.",
+    "zh-CN": "为 Godot 4、Unity 6 与 Phaser 3 构建清晰、贴合游戏风格的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
   },
   "license": "Apache-2.0",
   "author": { "name": "OpenPixo" },

@@ -2,8 +2,8 @@
 name: game-ui-hud
 en_name: Game HUD, menus and input focus
 zh_name: 游戏 HUD、菜单与输入焦点
-description: "Implement in-game HUD, pause and settings menus with keyboard and controller focus in Godot 4, Unity 6 or Phaser 3. Use for playable game UI and scaling; not a website dashboard or image-only UI mockup."
-zh_description: "在 Godot 4、Unity 6 或 Phaser 3 中实现游戏 HUD、暂停和设置菜单及键盘和手柄焦点，处理可玩界面与缩放；不用于网站仪表盘或纯图片 UI 效果图。"
+description: "Implement in-game HUD, pause and settings menus with keyboard and controller focus in Godot 4, Unity 6 or Phaser 3, styled to fit the game. Use for playable game UI, its look and scaling; not a website dashboard or image-only UI mockup."
+zh_description: "在 Godot 4、Unity 6 或 Phaser 3 中实现游戏 HUD、暂停和设置菜单及键盘和手柄焦点，并让界面风格贴合游戏；处理可玩界面的外观与缩放，不用于网站仪表盘或纯图片 UI 效果图。"
 triggers:
   - game HUD
   - pause menu
@@ -33,7 +33,7 @@ Preserve the user's requested UI, project visual and input conventions, engine a
 ## Quick path
 
 1. Find the authoritative state and affected UI owner; initialize labels from current values, then connect changes once.
-2. Choose the requested HUD or menu case below and preserve the project's policy for the logical viewport and scaling.
+2. Choose the requested HUD or menu case below and preserve the project's policy for the logical viewport and scaling. Unless a look is given, style it as in "Make it look like this game".
 3. For menus, give one owner responsibility for pause, visibility, input consumption and focus return.
 4. Persist changed settings through the existing settings owner; keep navigation usable while values change.
 5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser, then test relevant devices, resize and restart.
@@ -49,6 +49,19 @@ Add `--project <id>` when `PIXO_PROJECT_ID` is absent. `pixo game run <projectId
 | Pause menu | Gameplay suspension separate from menu input and animation | Resume consumes its input and returns focus |
 | Settings subpanel | Working control, current value, Back target and persistence | No dead-end Settings button or lost focus |
 | UI scaling | Existing anchors and containers or logical canvas coordinates | Long text, safe margins and hit targets survive resize |
+
+## Make it look like this game
+
+Working UI can still read as a debug overlay: dark rectangles of plain text stretched across the screen. Unless the user specified a look, give HUD and menus one that belongs to the game.
+
+- **Palette and type from the art.** Take a dark base, a light text colour and one or two accents from the project's existing art or style sheet, and reuse its fonts. Use the same palette, frame and focus style on the HUD, pause, upgrade and result screens.
+- **Hierarchy by urgency.** Values the player reads mid-action (health, danger, a resource that changes the next decision) are larger and sit at the edges. Secondary stats are small. Keep the centre and the area around the player clear. A common layout: status top-left, timer or objective top-centre, abilities bottom-centre.
+- **Bars and icons before text.** Show health, XP and charge as bars with the value. Show abilities as icon slots with a cooldown sweep and clearly different ready, cooling and locked states. Add text labels only where an icon is ambiguous.
+- **Frames from the world.** Give panels a shape from the setting (wood, paper, stone, metal), with a thin outline and soft shadow. Draw them in code: Phaser `Graphics` or nine-slice, Godot `StyleBoxFlat` or `NinePatchRect`, Unity sliced sprites. Prefer existing art. Generate UI images only with the user's agreement.
+- **Readable over the busiest frame.** Outline or shadow text over gameplay, keep at least 4.5:1 contrast against the background, and stay legible at the smallest target resolution.
+- **Transient help.** Show control hints at the start and fade them after a few seconds; keep them in the pause menu. Short-lived numbers and pickups vanish quickly. Tutorial text does not stay on screen.
+- **Truthful labels.** A timer, countdown or wave label says what the game actually does.
+- **Motion that stays still.** Bars drain with a trailing chunk and changed numbers pop briefly. The HUD never shakes or scrolls with the camera.
 
 ## Godot 4.3: pause and focus
 
@@ -195,6 +208,7 @@ In a settings subpanel, `UI/Cancel` goes Back first, before closing the whole pa
 ## Done when
 
 - [ ] Relevant HUD values initialize correctly and update once; camera movement and resize preserve readability.
+- [ ] HUD and menus use the game's palette and frame style. In a screenshot of the busiest moment at the smallest target size, the essential values read at a glance and nothing important is covered.
 - [ ] Keyboard-only and controller-only navigation and pointer-to-controller switching retain visible focus.
 - [ ] Two cycles of pausing and resuming, Back from settings and scene restart neither leak input nor duplicate listeners.
 - [ ] Settings persist without resetting progress; applicable verify command above passes.
