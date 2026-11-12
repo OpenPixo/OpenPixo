@@ -3,7 +3,7 @@ import path from 'node:path';
 import { lstat, readdir } from 'node:fs/promises';
 import sharp from 'sharp';
 import type { AssetGrid, AssetListQuery, AssetListResponse, AssetSemantics, EngineAssetMeta, ProjectAsset, ProjectMetadata } from '@openpixo/contracts';
-import { mimeFor, resolveProjectDir } from '../projects.js';
+import { isHiddenInImportedProject, mimeFor, resolveProjectDir } from '../projects.js';
 import { makeIgnored, subscribe, type ProjectWatchEvent } from '../project-watchers.js';
 import { isEngineCacheDirAt, isEngineCacheDirNameFor, isIgnoredProjectDirName } from '../project-ignored-dirs.js';
 import { assetRelPath, hashAssetFile, resolveAssetFile } from './paths.js';
@@ -78,7 +78,9 @@ export class ProjectAssetIndexer {
     const engine = metadata?.engineProfile?.engine;
     const ignored = (rel: string) => {
       const segments = rel.split('/');
-      return isEngineCacheDirNameFor(engine, segments[0]!)
+      // An imported folder's file API refuses hidden segments; an asset nobody can read is not listed.
+      return isHiddenInImportedProject(rel, metadata)
+        || isEngineCacheDirNameFor(engine, segments[0]!)
         || segments.some((segment, index) => isIgnoredProjectDirName(segment)
           || isEngineCacheDirAt(path.join(root, ...segments.slice(0, index)), segment));
     };

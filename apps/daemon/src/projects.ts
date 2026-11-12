@@ -98,11 +98,16 @@ function hasExternalProjectRoot(metadata?) {
 // for exports. Managed projects (under PROJECTS_DIR, no external baseDir) are
 // unaffected. Callers pass the raw request name; we normalize before checking.
 export function assertVisibleForImportedProject(name, metadata?) {
-  if (!hasExternalProjectRoot(metadata)) return;
-  const segments = String(name ?? '').replace(/\\/g, '/').split('/').filter(Boolean);
-  if (segments.some((segment) => segment.startsWith('.'))) {
+  if (isHiddenInImportedProject(name, metadata)) {
     throw new Error('hidden path segments are not accessible in imported folders');
   }
+}
+
+/** The rule above as a predicate, for listings that must skip what the file API refuses. */
+export function isHiddenInImportedProject(name, metadata?): boolean {
+  if (!hasExternalProjectRoot(metadata)) return false;
+  const segments = String(name ?? '').replace(/\\/g, '/').split('/').filter(Boolean);
+  return segments.some((segment) => segment.startsWith('.'));
 }
 
 export function assertSandboxProjectRootAvailable(metadata?) {

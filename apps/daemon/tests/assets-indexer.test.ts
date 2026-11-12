@@ -97,7 +97,8 @@ describe('project asset index', () => {
       const all = await f.indexer.list('game', { kind: 'all' }, f.metadata);
       expect(all.assets.map(asset => asset.relPath)).toEqual([
         'assets/atlas.json', 'assets/copy.png', 'assets/font.ttf', 'assets/hero.png', 'assets/hero.png.import',
-        'assets/model.glb', ...projectFiles, ...mediaFiles,
+        // `.gitignore` is on disk but hidden: the imported folder's file API cannot open it.
+        'assets/model.glb', ...projectFiles.filter(rel => rel !== '.gitignore'), ...mediaFiles,
       ].sort());
       const data = await f.indexer.list('game', { kind: 'data' }, f.metadata);
       expect(data.assets.map(asset => asset.relPath)).toEqual([
@@ -163,6 +164,34 @@ describe('project asset index', () => {
       await expect(resolveAssetFile(f.projectsRoot, 'game', 'escape/secret.txt', f.metadata)).rejects.toThrow(/escape|outside/i);
       const listed = await f.indexer.list('game', {}, f.metadata);
       expect(listed.assets.some(asset => asset.relPath.startsWith('escape/'))).toBe(false);
+    } finally { await f.cleanup(); }
+  });
+
+  // Real run 2026-11-13: every staged `.pixo-skills/**` file in an imported game logged
+  // "[assets] enrichment skipped … hidden path segments are not accessible" with a stack trace.
+  it('leaves hidden paths of an imported folder out of the index, as the file API does', async () => {
+    const f = await fixture('godot');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await f.put('.pixo-skills/level-design-abc/SKILL.md', '# skill');
+      await f.put('.pixo-skills/level-design-abc/preview.png', f.png);
+      await f.put('assets/.cache/thumb.png', f.png);
+      const listed = await f.indexer.list('game', { kind: 'all', limit: 100 }, f.metadata);
+      expect(listed.assets.filter(asset => asset.relPath.split('/').some(segment => segment.startsWith('.')))).toEqual([]);
+      await f.indexer.applyEvent('game', { type: 'file-changed', kind: 'add', path: '.pixo-skills/level-design-abc/new.png' });
+      await f.indexer.flushBackground();
+      expect(warn.mock.calls.filter(call => String(call[0]).startsWith('[assets]'))).toEqual([]);
+    } finally { warn.mockRestore(); await f.cleanup(); }
+  });
+
+  it('still indexes hidden folders of a managed project, whose file API allows them', async () => {
+    const f = await fixture('godot');
+    const metadata: ProjectMetadata = { kind: 'other' };
+    try {
+      const folder = path.join(f.projectsRoot, 'managed');
+      await mkdir(path.join(folder, '.art'), { recursive: true });
+      await writeFile(path.join(folder, '.art', 'hero.png'), f.png);
+      expect((await f.indexer.list('managed', {}, metadata)).assets.map(asset => asset.relPath)).toEqual(['.art/hero.png']);
     } finally { await f.cleanup(); }
   });
 

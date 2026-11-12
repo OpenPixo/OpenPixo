@@ -554,10 +554,29 @@ export function toolTitle(toolName: string, input: unknown): string {
   const rec = asRecord(input);
   if (typeof rec.description === 'string' && rec.description) return rec.description;
   const cmd = commandOf(input);
-  if (cmd) return commandHeadline(unwrapShell(cmd));
+  if (cmd) return commandHeadline(readableLauncher(unwrapShell(cmd)));
   const pattern = rec.pattern ?? rec.query;
   if (typeof pattern === 'string' && pattern) return pattern;
   return String(toolName ?? '');
+}
+
+/** `$env:X` / `$X` / `${X}`,可带一层引号 */
+const launcherVar = (name: string): string => `(["']?)(?:\\$env:${name}\\b|\\$\\{${name}\\}|\\$${name}\\b)\\1`;
+const NODE_THEN_PIXO = new RegExp(`^(?:&\\s*)?${launcherVar('PIXO_NODE_BIN')}\\s+${launcherVar('PIXO_BIN').replace('\\1', '\\2')}(?=\\s|$)`);
+const PIXO_LAUNCHER = new RegExp(`^(?:&\\s*)?${launcherVar('PIXO_BIN')}(?=\\s|$)`);
+const NODE_LAUNCHER = new RegExp(`^(?:&\\s*)?${launcherVar('PIXO_NODE_BIN')}(?=\\s|$)`);
+
+/**
+ * 标题里不露 daemon 注入的解释器路径变量:它们是 OpenPixo 管线,不是命令在做的事。
+ * 只看命令**开头**(`& $env:PIXO_NODE_BIN $env:PIXO_BIN game …` → `pixo game …`,
+ * `& $env:PIXO_NODE_BIN scripts/x.mjs` → `node scripts/x.mjs`);参数里的同名文字不动。
+ * 只用于标题,入参原样保留在展开里。
+ */
+function readableLauncher(command: string): string {
+  return command
+    .replace(NODE_THEN_PIXO, 'pixo')
+    .replace(PIXO_LAUNCHER, 'pixo')
+    .replace(NODE_LAUNCHER, 'node');
 }
 
 /**

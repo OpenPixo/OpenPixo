@@ -314,6 +314,27 @@ describe('toolTitle · 有人话用人话,没有就回落成命令(S8)', () => {
   it('多行命令只取第一行,并去掉 heredoc 标记', () => {
     expect(toolTitle('Bash', bash('cat > a.html <<EOF\n<div/>\nEOF'))).toBe('cat > a.html');
   });
+
+  /*
+   * daemon 注入的 Node / pixo 路径变量是管线,不是这条命令在做的事
+   * (真机 codex 2026-11-13:失败行标题逐字是 `& $env:PIXO_NODE_BIN scripts/playtest-combat-motion.mjs cues`)。
+   * 只改标题;入参里的原始命令不动。
+   */
+  it.each([
+    ['& $env:PIXO_NODE_BIN scripts/playtest-combat-motion.mjs cues', 'node scripts/playtest-combat-motion.mjs cues'],
+    ['& $env:PIXO_NODE_BIN $env:PIXO_BIN game verify --json', 'pixo game verify --json'],
+    ['"$PIXO_NODE_BIN" "$PIXO_BIN" media wait abc', 'pixo media wait abc'],
+    ['${PIXO_NODE_BIN} scripts/check.mjs', 'node scripts/check.mjs'],
+    ['$PIXO_BIN game run', 'pixo game run'],
+  ])('标题里不出现 PIXO_*_BIN:%s', (command, title) => {
+    const input = { command };
+    expect(toolTitle('Bash', input)).toBe(title);
+    expect(input.command).toBe(command);
+  });
+
+  it('只换掉命令开头的解释器变量,参数里的同名文字照旧', () => {
+    expect(toolTitle('Bash', { command: 'echo $env:PIXO_BIN' })).toBe('echo $env:PIXO_BIN');
+  });
 });
 
 describe('fileOf · 各家入参字段名不统一', () => {
