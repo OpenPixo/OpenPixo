@@ -3,6 +3,7 @@ import type { StoreCatalogItem } from '@openpixo/contracts';
 import { useI18n } from '../../i18n';
 import { navigate } from '../../router';
 import type { WorkshopKind } from '../../state/store';
+import { engineName } from '../game/engine-names';
 import { StoreCover } from './StoreCover';
 import { StorePrice } from './StorePrice';
 import { itemDescription, itemTitle, needsPurchase } from './workshop-catalog';
@@ -34,7 +35,7 @@ export function StoreCard({ item, installing = false, disabled = false, onInstal
         <p className={styles.description}>{description}</p>
         <div className={styles.footer}>
           <StorePrice item={item} />
-          {engines.length ? <div className={styles.engines}>{engines.map(engine => <Tag key={engine}>{engine}</Tag>)}</div> : null}
+          {engines.length ? <div className={styles.engines}>{engines.map(engine => <Tag key={engine}>{engineName(engine)}</Tag>)}</div> : null}
           {item.installedVersion || item.builtIn ? null : paid ? <Button variant="primary" size="sm" className={styles.action} disabled={disabled || !onBuy}
             aria-label={t('workshop.buyItem', { name: title })} onClick={() => onBuy?.(item)}>{t('workshop.buy')}</Button>
             : <Button variant="secondary" size="sm" className={styles.action} disabled={disabled || installing || !onInstall}

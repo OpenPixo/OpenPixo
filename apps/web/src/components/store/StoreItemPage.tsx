@@ -17,6 +17,7 @@ import { StoreExamples } from './StoreExamples';
 import { StorePrice } from './StorePrice';
 import { humanizeTag, itemDescription, itemTitle, needsPurchase } from './workshop-catalog';
 import { openSkillsSettings } from '../../settings-navigation';
+import { engineName } from '../game/engine-names';
 import styles from './StoreItemPage.module.css';
 
 const OPEN_LICENSES = ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'CC0-1.0', 'CC-BY-4.0'];
@@ -88,7 +89,7 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
               <h1 ref={heading} tabIndex={-1}>{title}</h1>
               <p className={styles.description}>{itemDescription(item, locale)}</p>
               <div className={styles.meta}>
-                {engines.map(engine => <Tag key={engine}>{engine}</Tag>)}
+                {engines.map(engine => <Tag key={engine}>{engineName(engine)}</Tag>)}
                 <span>{item.name}</span><span>v{item.version}</span>
               </div>
             </div>
@@ -127,7 +128,7 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
                 <dl className={styles.facts}>
                   <dt>{t('store.version')}</dt><dd>{item.version}</dd>
                   <dt>{t('store.versions')}</dt><dd>{item.versions.join(', ')}</dd>
-                  <dt>{t('store.engine')}</dt><dd>{item.engines.join(', ')}</dd>
+                  <dt>{t('store.engine')}</dt><dd>{item.engines.map(engineName).join(', ')}</dd>
                   <dt>{t('store.requires')}</dt><dd>{item.requires.capabilities?.join(', ') || t('store.none')}</dd>
                   {item.requires.openpixo ? <><dt>OpenPixo</dt><dd>{item.requires.openpixo}</dd></> : null}
                 </dl>

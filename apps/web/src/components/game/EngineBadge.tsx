@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitle } from '@openpixo/components';
-import type { EngineProfile, EngineProfileResponse, GameEngineId } from '@openpixo/contracts';
+import type { EngineProfile, EngineProfileResponse } from '@openpixo/contracts';
 import { useT } from '../../i18n';
+import { ENGINE_NAMES } from './engine-names';
 
 import styles from './EngineBadge.module.css';
-
-
-const ENGINE_NAMES: Record<GameEngineId, string> = {
-  godot: 'Godot', unity: 'Unity', unreal: 'Unreal Engine', phaser: 'Phaser', threejs: 'Three.js',
-  'cocos-creator': 'Cocos Creator', bevy: 'Bevy', 'rpg-maker': 'RPG Maker', 'web-generic': 'Web', unknown: '',
-};
 
 export function EngineBadge({ projectId,  onOpenSettings }: {
   projectId: string;

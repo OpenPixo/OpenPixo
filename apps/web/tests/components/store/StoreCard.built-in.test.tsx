@@ -10,7 +10,7 @@ afterEach(cleanup);
 const skill: StoreCatalogItem = {
   name: 'openpixo/game-ui-hud', version: '0.1.0', kind: 'skill', license: 'Apache-2.0',
   title: 'Game HUD, menus and input focus', description: 'HUD and menus for Godot 4 and Phaser 3.',
-  engines: ['godot', 'unity', 'phaser'], pricing: { type: 'free' },
+  engines: ['godot', 'unity', 'phaser', 'threejs', 'web-generic'], pricing: { type: 'free' },
 };
 
 function card(item: StoreCatalogItem) {
@@ -20,7 +20,13 @@ function card(item: StoreCatalogItem) {
 describe('Workshop skill card', () => {
   it('names every engine, so a Phaser skill does not read as Godot and Unity only', () => {
     card(skill);
-    for (const engine of ['godot', 'unity', 'phaser']) expect(screen.getByText(engine)).toBeTruthy();
+    for (const engine of ['Godot', 'Unity', 'Phaser', 'Three.js', 'Web']) expect(screen.getByText(engine)).toBeTruthy();
+  });
+
+  it('names engines as people say them, not by catalogue id', () => {
+    card(skill);
+    expect(screen.queryByText('web-generic')).toBeNull();
+    expect(screen.queryByText('threejs')).toBeNull();
   });
 
   it('offers no install for a skill the agent already uses, and says it is built in', () => {

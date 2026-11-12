@@ -597,22 +597,24 @@
         "en": "Game HUD, menus and input focus",
         "zh-CN": "游戏 HUD、菜单与输入焦点"
       },
-      "version": "0.2.0",
+      "version": "0.3.0",
       "kind": "skill",
       "source": "./skills/game-ui-hud",
       "engines": [
         "godot",
         "unity",
-        "phaser"
+        "phaser",
+        "threejs",
+        "web-generic"
       ],
       "license": "Apache-2.0",
       "pricing": {
         "type": "free"
       },
-      "description": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6 and Phaser 3.",
+      "description": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6, Phaser 3, Three.js and plain web games.",
       "description_i18n": {
-        "en": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6 and Phaser 3.",
-        "zh-CN": "为 Godot 4、Unity 6 与 Phaser 3 构建清晰、贴合游戏风格的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
+        "en": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6, Phaser 3, Three.js and plain web games.",
+        "zh-CN": "为 Godot 4、Unity 6、Phaser 3、Three.js 与普通网页游戏构建清晰、贴合游戏风格的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
       },
       "tags": [
         "game-development",
@@ -620,6 +622,8 @@
         "openpixo",
         "godot",
         "phaser",
+        "threejs",
+        "web",
         "ui",
         "hud",
         "accessibility"

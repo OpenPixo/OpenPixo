@@ -2,8 +2,8 @@
 name: game-ui-hud
 en_name: Game HUD, menus and input focus
 zh_name: 游戏 HUD、菜单与输入焦点
-description: "Implement in-game HUD, pause and settings menus with keyboard and controller focus in Godot 4, Unity 6 or Phaser 3, styled to fit the game. Use for playable game UI, its look and scaling; not a website dashboard or image-only UI mockup."
-zh_description: "在 Godot 4、Unity 6 或 Phaser 3 中实现游戏 HUD、暂停和设置菜单及键盘和手柄焦点，并让界面风格贴合游戏；处理可玩界面的外观与缩放，不用于网站仪表盘或纯图片 UI 效果图。"
+description: "Implement in-game HUD, pause and settings menus with keyboard and controller focus in Godot 4, Unity 6, Phaser 3, Three.js or a plain web game, styled to fit the game. Use for playable game UI, its look and scaling; not a website dashboard or image-only UI mockup."
+zh_description: "在 Godot 4、Unity 6、Phaser 3、Three.js 或普通网页游戏中实现游戏 HUD、暂停和设置菜单及键盘和手柄焦点，并让界面风格贴合游戏；处理可玩界面的外观与缩放，不用于网站仪表盘或纯图片 UI 效果图。"
 triggers:
   - game HUD
   - pause menu
@@ -20,6 +20,8 @@ pixo:
     - godot
     - unity
     - phaser
+    - threejs
+    - web-generic
   category: game-development
   example_prompt: Add a pause menu with Resume and Settings, keyboard and controller navigation, and a score HUD that stays fixed while the camera moves.
   example_prompt_i18n:
@@ -36,7 +38,7 @@ Preserve the user's requested UI, project visual and input conventions, engine a
 2. Choose the requested HUD or menu case below and preserve the project's policy for the logical viewport and scaling. Unless a look is given, style it as in "Make it look like this game".
 3. For menus, give one owner responsibility for pause, visibility, input consumption and focus return.
 4. Persist changed settings through the existing settings owner; keep navigation usable while values change.
-5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser, then test relevant devices, resize and restart.
+5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity, `--steps build` for Phaser, or `pixo game verify --json` for Three.js and plain web games. Then test relevant devices, resize and restart.
 
 Add `--project <id>` when `PIXO_PROJECT_ID` is absent. `pixo game run <projectId> --json` starts supported gameplay for interaction checks; on Unity, test in the Editor or a player build.
 
@@ -62,6 +64,19 @@ Working UI can still read as a debug overlay: dark rectangles of plain text stre
 - **Transient help.** Show control hints at the start and fade them after a few seconds; keep them in the pause menu. Short-lived numbers and pickups vanish quickly. Tutorial text does not stay on screen.
 - **Truthful labels.** A timer, countdown or wave label says what the game actually does.
 - **Motion that stays still.** Bars drain with a trailing chunk and changed numbers pop briefly. The HUD never shakes or scrolls with the camera.
+
+## By kind of game
+
+The look rules above assume an action game with a HUD. Adjust them for these cases:
+
+| Game or UI | What changes |
+| --- | --- |
+| Pixel art | Use a pixel font at whole-number sizes, scale the UI layer by whole numbers, and draw hard 1 px outlines. Avoid blurred shadows and smooth gradients. Take colours from the game's palette, following the pixel-art-consistency skill where it applies. |
+| Touch and mobile | Make tap targets at least 44 pt. Put frequent actions within thumb reach in the bottom corners, and keep a pause button always visible because there is no Escape key. Respect notches and safe areas, and never hide information behind hover. |
+| Dialogue, inventory, shop, quest log | Keep text panels at the bottom or a side, 45–75 characters per line, with generous line height. One press finishes typewriter text and the next advances. A grid shows its selected slot clearly, with a details panel beside it. Leave room for translations that run 30–40 % longer. |
+| Card, puzzle, visual novel, strategy | The UI is the play area, so "keep the centre clear" does not apply. Make the current decision the focal point, show cost and outcome before the player confirms, keep standing information in fixed side panels, and animate each state change so cause and effect can be followed. |
+| UI in the world (enemy bars, names, "Press E") | Show it only when relevant: damaged enemies, the nearest interactable. Keep it above the target and inside the screen, never over the player. In 3D, face it to the camera and clamp its size with distance. |
+| Minimal or in-world HUD (horror, immersive 3D) | Only when the user asks for it: carry information in the world, such as ammo on the weapon or health as a screen tint. Pause and settings stay conventional. |
 
 ## Godot 4.3: pause and focus
 
@@ -193,6 +208,18 @@ In a settings subpanel, `UI/Cancel` goes Back first, before closing the whole pa
 - Menu animation needs Animator `updateMode = UnscaledTime` and unscaled tweens, or it freezes when paused.
 - Add `onClick` listeners once, in `Awake` or `Start`. Adding them in `OnEnable` without removing them fires the action twice after the second opening.
 - UI Toolkit equivalents: `rootVisualElement.Q<Button>("resume").Focus()`, `PanelSettings.scaleMode`, `NavigationCancelEvent` for Back, and `focusable` on custom controls.
+
+## Three.js and plain web games: an HTML layer over the canvas
+
+There is no engine UI. Build the HUD and menus as HTML and CSS in one container layered over the canvas (`position: absolute; inset: 0`). It stays fixed in screen space whatever the camera does. If the project already has a UI layer or framework, extend that.
+
+- Give the HUD container `pointer-events: none` and interactive panels `pointer-events: auto`, so clicks reach the game except on controls.
+- Pause through the existing loop owner: keep rendering but skip the simulation. Discard the time that passed while paused (for example, call `clock.getDelta()` once on resume) so physics does not jump. Also pause on `document.visibilitychange` when hidden.
+- With pointer lock, the browser exits the lock on Escape and keeps that key to itself. Open the pause menu on `pointerlockchange` when the lock is lost, and request the lock again from the Resume click, which counts as the required user gesture.
+- Use real `<button>` elements with a `:focus-visible` style. Focus the first item on open, move focus with arrow keys, and restore the previous focus on close.
+- The Gamepad API fires no button events. Poll `navigator.getGamepads()` each frame, act on press edges, and map D-pad and stick to focus moves and the A button to `click()`.
+- Scale from the canvas size, with CSS `clamp()` or a fixed logical root under `transform: scale()`. Respect `env(safe-area-inset-*)`. The canvas pixel ratio is a separate setting.
+- For labels in the world, such as enemy bars and names, use `CSS2DRenderer` from `three/addons/renderers/CSS2DRenderer.js` or `vector.project(camera)`. Hide a label once its projected `z` exceeds 1, because it is behind the camera.
 
 ## Pitfalls: wrong → right
 
