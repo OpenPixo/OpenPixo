@@ -23,6 +23,8 @@ export interface ProjectExtensionCatalogItem {
   description: string;
   /** Localized display names, by locale. */
   displayName?: Record<string, string>;
+  /** Localized descriptions, by locale. */
+  descriptionI18n?: Record<string, string>;
 }
 
 export interface ProjectExtensionsResponse {

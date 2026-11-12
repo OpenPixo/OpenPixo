@@ -7,6 +7,13 @@ export function openMediaSettings() {
   window.dispatchEvent(new Event(OPEN_MEDIA_SETTINGS_EVENT));
 }
 
+/** Opens Settings → Skills from anywhere (the switches that turn built-in skills on and off). */
+export const OPEN_SKILLS_SETTINGS_EVENT = 'openpixo:open-skills-settings';
+
+export function openSkillsSettings() {
+  window.dispatchEvent(new Event(OPEN_SKILLS_SETTINGS_EVENT));
+}
+
 /**
  * A Settings page: something that owns a sidebar nav item, plus `mcpClient`,
  * which keeps a render block reachable only through `initialSection` (external
@@ -17,6 +24,7 @@ export type SettingsPage =
   | 'account'
   | 'execution'
   | 'media'
+  | 'skills'
   | 'gameEngines'
   | 'doctor'
   | 'integrations'
@@ -113,6 +121,7 @@ export const SETTINGS_NAV_GROUPS: readonly SettingsNavGroup[] = [
     items: [
       { page: 'execution', labelKey: 'settings.envConfigure', descriptionKey: 'settings.subtitle', icon: 'robot' },
       { page: 'media', labelKey: 'settings.mediaProviders', descriptionKey: 'settings.mediaProvidersHint', icon: 'image' },
+      { page: 'skills', labelKey: 'integrations.tabLabel.skills', descriptionKey: 'settings.skillsHint', icon: 'sparkles' },
       { page: 'gameEngines', labelKey: 'gameEngine.settingsTitle', descriptionKey: 'gameEngine.settingsNavHint', icon: 'hammer' },
       { page: 'doctor', labelKey: 'doctor.title', descriptionKey: 'doctor.subtitle', icon: 'check' },
     ],

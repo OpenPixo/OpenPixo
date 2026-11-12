@@ -20,10 +20,13 @@ export function CreditAmount({ credits, className }: { credits: number; classNam
   </span>;
 }
 
-/** Price, Free, Owned or Installed for one item, as a compact pill. */
-export function StorePrice({ item, size = 'md' }: { item: Pick<StoreCatalogItem, 'pricing' | 'owned' | 'installedVersion'>; size?: 'md' | 'lg' }) {
+/** Price, Free, Owned, Installed or Built in for one item, as a compact pill. */
+export function StorePrice({ item, size = 'md' }: { item: Pick<StoreCatalogItem, 'pricing' | 'owned' | 'installedVersion' | 'builtIn'>; size?: 'md' | 'lg' }) {
   const { t } = useI18n();
   const className = [styles.pill, size === 'lg' ? styles.lg : ''].filter(Boolean).join(' ');
+  if (item.builtIn) return <span className={className} data-state={item.builtIn.enabled ? 'installed' : 'free'}>
+    {item.builtIn.enabled ? <i aria-hidden="true" /> : null}{t(item.builtIn.enabled ? 'store.builtIn' : 'store.builtInOff')}
+  </span>;
   if (item.installedVersion) return <span className={className} data-state="installed"><i aria-hidden="true" />{t('store.installed')}</span>;
   if (item.pricing.type === 'paid' && item.owned) return <span className={className} data-state="owned"><i aria-hidden="true" />{t('workshop.owned')}</span>;
   if (item.pricing.type === 'free') return <span className={className} data-state="free">{t('store.free')}</span>;

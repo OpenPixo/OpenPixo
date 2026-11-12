@@ -141,6 +141,22 @@ describe('ComposerPlusMenu rows', () => {
     expect(screen.getByTestId('composer-plus-local-code')).toBeTruthy();
   });
 
+  it('offers one Skills row that opens the @ picker, and no skills submenu', () => {
+    const onOpenSkillPicker = vi.fn();
+    renderMenu({ ...fullMenuProps(), onOpenSkillPicker });
+    const menu = openMenu();
+    expect(topLevelRowIds(menu).slice(0, 2)).toEqual(['composer-plus-attach', 'composer-plus-skills']);
+    fireEvent.click(screen.getByTestId('composer-plus-skills'));
+    expect(onOpenSkillPicker).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('hides the Skills row when nothing opens the picker', () => {
+    renderMenu(fullMenuProps());
+    openMenu();
+    expect(screen.queryByTestId('composer-plus-skills')).toBeNull();
+  });
+
   it('omits the plugin, connector, and MCP rows whose pick handlers are absent', () => {
     renderMenu();
     openMenu();

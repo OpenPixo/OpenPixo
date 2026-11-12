@@ -502,6 +502,7 @@ import { registerRunRoutes } from './routes/runs.js';
 import { registerTerminalRoutes } from './routes/terminal.js';
 import { registerProjectExtensionRoutes } from './routes/project-extensions.js';
 import { registerStoreRoutes } from './routes/store.js';
+import { builtInSkills } from './store/built-in-skills.js';
 import { registerStyleRoutes } from './routes/styles.js';
 import { createTerminalService } from './terminals.js';
 import { registerSocialShareRoutes } from './routes/social-share.js';
@@ -3282,7 +3283,10 @@ export async function startServer({
     createMarketplaceFetcher,
     marketplaceRegistryIdFromUrl,
   });
-  registerStoreRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, account: openPixoAccount });
+  registerStoreRoutes(app, {
+    db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, account: openPixoAccount,
+    builtInSkills: async () => builtInSkills(await listAllSkills(), (await readAppConfig(RUNTIME_DATA_DIR)).disabledSkills),
+  });
   registerStyleRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest });
   registerGameSetupRoutes(app, { db, http: httpDeps, authorizeProjectRequest });
   registerPluginAssetRoutes(app, {

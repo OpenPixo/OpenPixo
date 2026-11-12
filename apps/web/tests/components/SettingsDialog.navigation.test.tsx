@@ -44,6 +44,7 @@ describe('settings deep links', () => {
     ['labs', 'advanced', 'labs'],
     ['execution', 'execution', undefined],
     ['media', 'media', undefined],
+    ['skills', 'skills', undefined],
     ['gameEngines', 'gameEngines', undefined],
     ['doctor', 'doctor', undefined],
     ['mcpClient', 'mcpClient', undefined],
@@ -55,7 +56,7 @@ describe('settings deep links', () => {
     const pages = SETTINGS_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.page));
     expect(pages).toEqual([
       'general', 'account',
-      'execution', 'media', 'gameEngines', 'doctor',
+      'execution', 'media', 'skills', 'gameEngines', 'doctor',
       'integrations', 'privacy', 'advanced', 'about',
     ]);
   });

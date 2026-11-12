@@ -102,6 +102,7 @@ import {
   type UpdaterRestartSafety,
 } from '../lib/updater';
 import { McpClientSection } from './McpClientSection';
+import { SkillsSection } from './SkillsSection';
 import { PrivacySection } from './PrivacySection';
 import { AccountSection } from './account/AccountSection';
 import { useOpenPixoAccount } from '../hooks/useOpenPixoAccount';
@@ -366,6 +367,8 @@ interface Props {
   onProjectsRefresh?: () => Promise<void> | void;
   /** Same channel for skill registry mutations. */
   onSkillsChanged?: (affectedSkillId?: string) => void;
+  /** Re-reads the skill registry after the Skills page creates, edits or deletes one. */
+  onSkillsRefresh?: () => Promise<void> | void;
   onProviderModelsCacheChange?: Dispatch<SetStateAction<ProviderModelsCache>>;
   /** Leaves Settings for the top-level Integrations view (external MCP, skills). */
   onOpenIntegrations?: () => void;
@@ -1086,6 +1089,8 @@ export function SettingsDialog({
   onProviderModelsCacheChange,
   onDraftChange,
   onOpenIntegrations,
+  onSkillsChanged,
+  onSkillsRefresh,
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(true);
   const onClose = () => { if (presentation === 'page') onDismiss(); else setDialogOpen(false); };
@@ -4625,6 +4630,10 @@ export function SettingsDialog({
           ) : null}
 
           {activeSection === 'mcpClient' ? <McpClientSection surface="settings" /> : null}
+
+          {activeSection === 'skills' ? (
+            <SkillsSection cfg={cfg} setCfg={setCfg} onSkillsRefresh={onSkillsRefresh} onSkillsChanged={onSkillsChanged} />
+          ) : null}
 
 
 

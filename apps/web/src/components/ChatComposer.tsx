@@ -647,6 +647,8 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     // identity or tab changes; drives the visual highlight + Enter/Tab target.
     const [mentionIndex, setMentionIndex] = useState(0);
     const [mentionTab, setMentionTab] = useState<MentionTab>('all');
+    /** The tab the next `@` popover opens on; "+" → Skills sets it before typing the `@`. */
+    const nextMentionTabRef = useRef<MentionTab | null>(null);
     // Viewport caret box the floating popover anchors against. Sampled by the
     // editor at trigger-detection time; null when no trigger is live.
     const [caretRect, setCaretRect] = useState<CaretRect | null>(null);
@@ -1533,6 +1535,14 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       editorRef.current?.setText(text);
     }
 
+    /** Types an `@` at the caret so the mention popover opens, on its Skills tab. */
+    function openSkillPicker() {
+      editorRef.current?.focus();
+      insertInlineMentionSeparator();
+      nextMentionTabRef.current = 'skills';
+      editorRef.current?.insertText('@');
+    }
+
     function insertInlineMentionSeparator() {
       const current = editorRef.current?.getText() ?? draftRef.current;
       if (current.trim() && !/\s$/.test(current)) {
@@ -2166,7 +2176,8 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     }) {
       setCaretRect(anchorRect);
       if (nextMention && !mention) {
-        setMentionTab('all');
+        setMentionTab(nextMentionTabRef.current ?? 'all');
+        nextMentionTabRef.current = null;
       } else if (!nextMention) {
         setMentionTab('all');
       }
@@ -2905,6 +2916,10 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
                 onBrowsePlugins();
               } : undefined}
               skills={skills}
+              onOpenSkillPicker={skills.length ? () => {
+                trackComposerBar({ element: 'plus_pick', resource_kind: 'skill' });
+                openSkillPicker();
+              } : undefined}
               onPickSkill={(skill) => {
                 trackComposerBar({
                   element: 'plus_pick',

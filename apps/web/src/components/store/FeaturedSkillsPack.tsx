@@ -21,8 +21,10 @@ export function FeaturedSkillsPack({ skills, onInstall, installing, examplesOpen
   const [failures, setFailures] = useState<string[]>([]);
   const examples = skills.flatMap(item => item.examples ?? []);
   const engines = new Set(skills.flatMap(item => item.engines).filter(engine => engine !== 'any'));
-  const pending = skills.filter(item => !item.installedVersion && item.pricing.type === 'free');
-  const allInstalled = skills.every(item => item.installedVersion);
+  // A built-in skill already reaches the agent; installing it would change nothing.
+  const pending = skills.filter(item => !item.installedVersion && !item.builtIn && item.pricing.type === 'free');
+  const allBuiltIn = skills.length > 0 && skills.every(item => item.builtIn);
+  const allInstalled = skills.every(item => item.installedVersion || item.builtIn);
 
   const installAll = async () => {
     const failed: string[] = [];
@@ -49,7 +51,7 @@ export function FeaturedSkillsPack({ skills, onInstall, installing, examplesOpen
       <span className={styles.badge} data-state="free">{t('store.free')}</span>
       <Button variant="primary" size="lg" disabled={installing || Boolean(progress) || !pending.length} onClick={() => void installAll()}>
         {progress ? t('workshop.installProgress', { current: String(progress.current), total: String(progress.total) })
-          : t(allInstalled ? 'workshop.allInstalled' : 'workshop.installAll')}
+          : t(allBuiltIn ? 'workshop.allBuiltIn' : allInstalled ? 'workshop.allInstalled' : 'workshop.installAll')}
       </Button>
       <Button variant="secondary" size="lg" className={styles.secondary} disabled={!examples.length} aria-expanded={examplesOpen}
         aria-controls="workshop-toolkit-examples" onClick={onToggleExamples}>{t('workshop.seeExamples')}</Button>

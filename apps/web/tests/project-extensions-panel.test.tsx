@@ -76,7 +76,8 @@ describe('ProjectExtensionsPanel', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<ProjectExtensionsPanel projectId="game" locale="zh-CN" />);
 
-    const source = await screen.findByRole('textbox', { name: '本地路径或 GitHub 地址' });
+    fireEvent.click(await screen.findByRole('button', { name: '添加技能或 MCP 服务器' }));
+    const source = screen.getByRole('textbox', { name: '本地路径或 GitHub 地址' });
     fireEvent.change(source, { target: { value: 'C:\\skills\\unsafe' } });
     fireEvent.click(screen.getByRole('button', { name: '导入到项目' }));
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Skill folder contains a symbolic link.');
@@ -112,7 +113,8 @@ describe('ProjectExtensionsPanel', () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(response(data)).mockResolvedValueOnce(response(installed));
     vi.stubGlobal('fetch', fetchMock);
     render(<ProjectExtensionsPanel projectId="game" locale="en" />);
-    fireEvent.change(await screen.findByRole('combobox', { name: 'Type' }), { target: { value: 'mcp' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a skill or MCP server' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Type' }), { target: { value: 'mcp' } });
     fireEvent.change(screen.getByRole('combobox', { name: 'Add from catalog' }), { target: { value: 'template:local-tools' } });
     fireEvent.click(screen.getByRole('button', { name: 'Configure template' }));
     const editor = screen.getByRole('textbox', { name: 'MCP server JSON (optional)' });
@@ -146,7 +148,8 @@ describe('ProjectExtensionsPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue(response(data));
     vi.stubGlobal('fetch', fetchMock);
     render(<ProjectExtensionsPanel projectId="game" locale="en" />);
-    fireEvent.change(await screen.findByRole('combobox', { name: 'Type' }), { target: { value: 'mcp' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a skill or MCP server' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Type' }), { target: { value: 'mcp' } });
     const catalog = screen.getByRole('combobox', { name: 'Add from catalog' });
     fireEvent.change(catalog, { target: { value: 'template:asset-service' } });
     expect(screen.getByText('ASSET_API_KEY, Authorization')).toBeTruthy();
@@ -161,5 +164,32 @@ describe('ProjectExtensionsPanel', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     fireEvent.change(catalog, { target: { value: 'template:unsafe-homepage' } });
     expect(screen.queryByRole('link', { name: 'Server documentation' })).toBeNull();
+  });
+
+  it('lists built-in skills first, explains one on click, and keeps the add forms folded away', async () => {
+    const data = listing();
+    data.defaultSkills = [
+      { id: 'phaser-game-dev', name: 'Phaser 3 game development craft', description: 'Write Phaser 3 code that follows the rules.' },
+      { id: 'game-feel-juice', name: 'Game feel', description: 'Add screen shake and hit-stop.' },
+    ];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
+    const opened = vi.fn();
+    window.addEventListener('openpixo:open-skills-settings', opened);
+    render(<ProjectExtensionsPanel projectId="game" locale="en" />);
+
+    const defaults = await screen.findByTestId('project-default-skills');
+    expect(within(defaults).getByRole('heading').textContent).toBe('Built-in skills · 2');
+    expect(screen.queryByText('Added to this project')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Local path or GitHub URL' })).toBeNull();
+
+    fireEvent.click(within(defaults).getByRole('button', { name: 'Game feel' }));
+    expect(within(defaults).getByRole('status').textContent).toContain('Add screen shake and hit-stop.');
+
+    fireEvent.click(within(defaults).getByRole('button', { name: 'Turn skills on or off' }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    window.removeEventListener('openpixo:open-skills-settings', opened);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a skill or MCP server' }));
+    expect(screen.getByRole('textbox', { name: 'Local path or GitHub URL' })).toBeTruthy();
   });
 });

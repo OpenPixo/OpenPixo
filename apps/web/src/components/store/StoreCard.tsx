@@ -34,8 +34,8 @@ export function StoreCard({ item, installing = false, disabled = false, onInstal
         <p className={styles.description}>{description}</p>
         <div className={styles.footer}>
           <StorePrice item={item} />
-          {engines.length ? <div className={styles.engines}>{engines.slice(0, 2).map(engine => <Tag key={engine}>{engine}</Tag>)}</div> : null}
-          {item.installedVersion ? null : paid ? <Button variant="primary" size="sm" className={styles.action} disabled={disabled || !onBuy}
+          {engines.length ? <div className={styles.engines}>{engines.map(engine => <Tag key={engine}>{engine}</Tag>)}</div> : null}
+          {item.installedVersion || item.builtIn ? null : paid ? <Button variant="primary" size="sm" className={styles.action} disabled={disabled || !onBuy}
             aria-label={t('workshop.buyItem', { name: title })} onClick={() => onBuy?.(item)}>{t('workshop.buy')}</Button>
             : <Button variant="secondary" size="sm" className={styles.action} disabled={disabled || installing || !onInstall}
               aria-label={t('workshop.installItem', { name: title })} onClick={() => onInstall?.(item)}>{t(installing ? 'store.installing' : 'store.install')}</Button>}

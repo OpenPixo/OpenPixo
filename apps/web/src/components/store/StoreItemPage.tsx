@@ -16,6 +16,7 @@ import { StoreCover } from './StoreCover';
 import { StoreExamples } from './StoreExamples';
 import { StorePrice } from './StorePrice';
 import { humanizeTag, itemDescription, itemTitle, needsPurchase } from './workshop-catalog';
+import { openSkillsSettings } from '../../settings-navigation';
 import styles from './StoreItemPage.module.css';
 
 const OPEN_LICENSES = ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'CC0-1.0', 'CC-BY-4.0'];
@@ -133,16 +134,20 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
               </section>
             </div>
             <Card className={styles.actions}>
-              <Eyebrow>{t(paid ? 'workshop.detail.buyEyebrow' : 'store.readyForAgent')}</Eyebrow>
+              {item.builtIn ? null : <Eyebrow>{t(paid ? 'workshop.detail.buyEyebrow' : 'store.readyForAgent')}</Eyebrow>}
               <StorePrice item={item} size="lg" />
-              {!paid && !item.installedVersion && projects.length ? <label className={styles.project}>{t('store.project')}
+              {item.builtIn ? <>
+                <p className={styles.balance}>{t(item.builtIn.enabled ? 'store.builtInHint' : 'store.builtInOffHint')}</p>
+                <Button variant="secondary" onClick={openSkillsSettings} data-testid="store-manage-skills">{t('store.manageSkills')}</Button>
+              </> : null}
+              {!paid && !item.installedVersion && !item.builtIn && projects.length ? <label className={styles.project}>{t('store.project')}
                 <Select value={projectId} disabled={installing} onChange={event => { setProjectId(event.target.value); setMessage(''); }}>
                   <option value="">{t('store.thisDevice')}</option>
                   {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
                 </Select>
               </label> : null}
               {paid ? <Button variant="primary" size="lg" onClick={() => setBuyOpen(true)}>{t('workshop.buy')}</Button>
-                : item.installedVersion ? null
+                : item.installedVersion || item.builtIn ? null
                   : <Button variant="primary" size="lg" disabled={installing} onClick={() => { void install(); }}>{installing ? t('store.installing') : t('store.install')}</Button>}
               {paid && signedIn && credits ? <p className={styles.balance}>{t('workshop.credits.aria', { n: formatCredits(credits.available, locale) })}</p> : null}
               {paid && !signedIn ? <p className={styles.balance}>{t('workshop.detail.signInHint')}</p> : null}

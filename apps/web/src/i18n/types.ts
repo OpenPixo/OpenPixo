@@ -272,6 +272,12 @@ export interface Dict {
   'store.install': string;
   'store.installing': string;
   'store.installed': string;
+  'store.builtIn': string;
+  'store.builtInOff': string;
+  'store.builtInHint': string;
+  'store.builtInOffHint': string;
+  'store.manageSkills': string;
+  'workshop.allBuiltIn': string;
   'store.featured': string;
   'store.stylesIntro': string;
   'store.examples': string;
@@ -668,6 +674,7 @@ export interface Dict {
 
   'chat.plus.referenceProject': string;
   'chat.plus.linkLocalCode': string;
+  'chat.plus.skills': string;
   'chat.plus.mcp': string;
   'chat.referenceProject.title': string;
   'chat.referenceProject.search': string;

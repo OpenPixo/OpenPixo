@@ -208,6 +208,13 @@
   flex: 0 0 auto;
   opacity: 0.8;
 }
+/* The shortcut a row stands for, e.g. "@" on 技能 (composer "+" → Skills). */
+.plus-menu__item-hint {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+}
 /* Names that exceed the menu width truncate to a single line with an
    ellipsis instead of wrapping; icon + chevron keep their size. */
 .plus-menu__item > span {

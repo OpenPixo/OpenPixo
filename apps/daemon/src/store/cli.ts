@@ -51,10 +51,10 @@ export async function runStoreCli(args: string[]): Promise<void> {
     }
     if (json) console.log(JSON.stringify(result, null, 2));
     else if (command === 'list') console.log((result as StoreCatalogResponse).items.map(item =>
-      `${item.name}@${item.version}\t${item.kind}\t${item.owned ? 'owned' : item.pricing.type === 'paid' ? `${item.pricing.credits} credits` : 'free'}`).join('\n'));
+      `${item.name}@${item.version}\t${item.kind}\t${item.owned ? 'owned' : item.pricing.type === 'paid' ? `${item.pricing.credits} credits` : 'free'}${builtInNote(item)}`).join('\n'));
     else if (command === 'info') {
       const item = result as StoreItemDetail;
-      console.log(`${item.title ?? item.name} (${item.name}@${item.version})\n${item.description ?? ''}\nLicense: ${item.license}\n${JSON.stringify(item.requires)}`);
+      console.log(`${item.title ?? item.name} (${item.name}@${item.version})\n${item.description ?? ''}\nLicense: ${item.license}\n${JSON.stringify(item.requires)}${builtInNote(item)}`);
       if (item.examples?.length) console.log(['Examples:', ...item.examples.map(example => `${example.title}\n  ${example.prompt}`)].join('\n'));
     } else if (command === 'buy') {
       const purchased = result as StorePurchaseResponse;
@@ -68,4 +68,10 @@ export async function runStoreCli(args: string[]): Promise<void> {
     if (json) console.log(JSON.stringify({ error: { message } })); else console.error(message);
     process.exitCode = 1;
   }
+}
+
+/** Built-in skills need no install; say so, and whether the user switched one off (`pixo config`'s `disabledSkills`). */
+function builtInNote(item: StoreCatalogResponse['items'][number]): string {
+  if (!item.builtIn) return '';
+  return item.builtIn.enabled ? '	built in (used automatically)' : `	built in, switched off (${item.builtIn.skillId})`;
 }

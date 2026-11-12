@@ -70,7 +70,7 @@ import {
 } from './state/home-composer-stash';
 import { daemonIsLive, fetchAppVersionInfo, fetchAgentsStream, fetchDesignTemplates, fetchPromptTemplates, fetchSkills, openExternalUrl, uploadProjectFiles, replaceProjectWorkingDir } from './providers/registry';
 import { openFirstPartyExternalLinkFromClick } from './first-party-external-link';
-import { OPEN_MEDIA_SETTINGS_EVENT } from './settings-navigation';
+import { OPEN_MEDIA_SETTINGS_EVENT, OPEN_SKILLS_SETTINGS_EVENT } from './settings-navigation';
 
 
 import { navigate, useRoute, type Route } from './router';
@@ -2951,8 +2951,13 @@ function AppInner() {
 
   useEffect(() => {
     const handleOpenMediaSettings = () => openSettings('media');
+    const handleOpenSkillsSettings = () => openSettings('skills');
     window.addEventListener(OPEN_MEDIA_SETTINGS_EVENT, handleOpenMediaSettings);
-    return () => window.removeEventListener(OPEN_MEDIA_SETTINGS_EVENT, handleOpenMediaSettings);
+    window.addEventListener(OPEN_SKILLS_SETTINGS_EVENT, handleOpenSkillsSettings);
+    return () => {
+      window.removeEventListener(OPEN_MEDIA_SETTINGS_EVENT, handleOpenMediaSettings);
+      window.removeEventListener(OPEN_SKILLS_SETTINGS_EVENT, handleOpenSkillsSettings);
+    };
   }, [openSettings]);
 
 
@@ -3118,6 +3123,7 @@ function AppInner() {
       onReloadMediaProviders={reloadMediaProvidersFromDaemon}
       onProjectsRefresh={refreshProjects}
       onSkillsChanged={handleSkillsChanged}
+      onSkillsRefresh={refreshSkills}
       providerModelsCache={providerModelsCache}
       onProviderModelsCacheChange={setProviderModelsCache}
       onOpenIntegrations={() => openSettings('mcpClient')}

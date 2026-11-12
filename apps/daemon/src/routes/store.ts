@@ -9,6 +9,7 @@ import { registryRootsForDataDir } from '../plugins/registry.js';
 import { findInstalledStorePlugin, resolveStoreCover, resolveStorePreview, storeCatalog, storeEntries, storeItemDetail } from '../store/catalog.js';
 import { resolveMarketplaceEntryVersion } from '../registry/versioning.js';
 import { installStoreItem } from '../store/install.js';
+import { withBuiltInSkills, type BuiltInSkill } from '../store/built-in-skills.js';
 import { isAgentToken } from '../http/tool-request-auth.js';
 import { ownedStoreItems, purchaseStoreItem, StorePurchaseError, withOwnership, type StoreAccount } from '../store/purchase.js';
 import { enableInstalledProjectExtension, ProjectExtensionError } from '../services/project-extensions.js';
@@ -17,6 +18,8 @@ import { catalogLocale, setProjectArtStyle } from '../styles/service.js';
 export interface RegisterStoreRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest'> {
   /** Cloud account for credit purchases and ownership; absent when the build has no cloud. */
   account?: StoreAccount;
+  /** Skills the agent already gets in every project; absent means none are marked. */
+  builtInSkills?: () => Promise<BuiltInSkill[]>;
 }
 
 export function registerStoreRoutes(app: Express, ctx: RegisterStoreRoutesDeps): void {
@@ -33,7 +36,8 @@ export function registerStoreRoutes(app: Express, ctx: RegisterStoreRoutesDeps):
       }
       Object.assign(query, { [key]: value });
     }
-    const items = storeCatalog(db, query, catalogLocale(req.query.locale ?? req.headers['accept-language']), paths);
+    const items = withBuiltInSkills(db, storeCatalog(db, query, catalogLocale(req.query.locale ?? req.headers['accept-language']), paths),
+      await ctx.builtInSkills?.() ?? []);
     const owned = items.some(item => item.pricing.type === 'paid') ? await ownedStoreItems(ctx.account) : null;
     res.json({ items: items.map(item => withOwnership(item, owned)) } satisfies StoreCatalogResponse);
   });
@@ -59,8 +63,9 @@ export function registerStoreRoutes(app: Express, ctx: RegisterStoreRoutesDeps):
   });
 
   app.get('/api/store/items/:name',http.requireLocalDaemonRequest, async (req, res) => {
-    const item = storeItemDetail(db, String(req.params.name), catalogLocale(req.query.locale ?? req.headers['accept-language']), paths);
-    if (!item) return sendApiError(res, 404, 'NOT_FOUND', 'Store item not found');
+    const found = storeItemDetail(db, String(req.params.name), catalogLocale(req.query.locale ?? req.headers['accept-language']), paths);
+    if (!found) return sendApiError(res, 404, 'NOT_FOUND', 'Store item not found');
+    const item = withBuiltInSkills(db, [found], await ctx.builtInSkills?.() ?? [])[0] ?? found;
     res.json(withOwnership(item, item.pricing.type === 'paid' ? await ownedStoreItems(ctx.account) : null));
   });
 

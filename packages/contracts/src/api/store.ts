@@ -24,6 +24,13 @@ export interface StoreCatalogItem extends Pick<MarketplacePluginEntry,
   tags?: string[];
   /** True once the signed-in account owns this paid item. Always absent for free items. */
   owned?: boolean;
+  /**
+   * Present when this skill ships with OpenPixo and the agent already reads it
+   * whenever a task calls for it, in every project on a matching engine: there
+   * is nothing to install. `enabled` is false when the user switched it off
+   * (app config `disabledSkills`); `skillId` is the id that switch uses.
+   */
+  builtIn?: { skillId: string; enabled: boolean };
 }
 
 export interface StoreCatalogResponse { items: StoreCatalogItem[] }

@@ -183,6 +183,11 @@ export interface ComposerPlusMenuProps {
    */
   skills?: SkillSummary[];
   onPickSkill?: (skill: SkillSummary) => void;
+  /**
+   * One plain row that opens the `@` popover on its Skills tab, so the picker is
+   * discoverable from "+" without bringing back a submenu. Omit to hide it.
+   */
+  onOpenSkillPicker?: () => void;
 
   /** Triggers file attachment (opens the native picker). */
   onAttachFiles: () => void;
@@ -290,6 +295,7 @@ export function ComposerPlusMenu({
   onPickMcp,
   onAddMcp,
   onAttachFiles,
+  onOpenSkillPicker,
   attachLoading,
   onReferenceProject,
   onLinkLocalCode,
@@ -629,6 +635,22 @@ export function ComposerPlusMenu({
             />
             <span>{t('chat.attachAria')}</span>
           </button>
+          {onOpenSkillPicker ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="plus-menu__item"
+              data-testid="composer-plus-skills"
+              onClick={() => {
+                close();
+                onOpenSkillPicker();
+              }}
+            >
+              <Icon name="magic" size={15} className="plus-menu__item-icon" />
+              <span>{t('chat.plus.skills')}</span>
+              <kbd className="plus-menu__item-hint">@</kbd>
+            </button>
+          ) : null}
           {!onPickWorkingDir ? contextActions : null}
           {hidePluginsRow || !onPickPlugin ? null : (
           <PlusSubmenuRow

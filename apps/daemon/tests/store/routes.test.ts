@@ -17,6 +17,8 @@ import { registerStoreRoutes, type RegisterStoreRoutesDeps } from '../../src/rou
 import { resolveProjectExtensions } from '../../src/services/project-extensions.js';
 import { AccountError } from '../../src/account/errors.js';
 import type { StoreAccount } from '../../src/store/purchase.js';
+import { builtInSkills } from '../../src/store/built-in-skills.js';
+import type { SkillInfo } from '../../src/skills.js';
 
 let root: string;
 let db: ReturnType<typeof openDatabase>;
@@ -132,6 +134,27 @@ it('uses existing bundled skill frontmatter translations in Store metadata', asy
     title_i18n: { 'zh-CN': '游戏素材批处理' },
     description_i18n: { en: 'Process selected images.', 'zh-CN': '批量处理选定的图片。' },
   });
+});
+
+it('marks a bundled skill the agent already gets as built in, with its Settings switch state', async () => {
+  const skill = path.join(root, 'phaser-skill');
+  await mkdir(skill);
+  await writeFile(path.join(skill, 'SKILL.md'), '---\nname: phaser-skill\ndescription: Phaser rules.\n---\nUse this skill.\n');
+  const seeded = ensureMarketplaceManifest(db, { id: 'official', url: 'bundled:openpixo-official', trust: 'official',
+    manifestText: JSON.stringify({ name: 'offline', version: '1.0.0', plugins: [
+      { name: 'openpixo/phaser-skill', kind: 'skill', source: skill, version: '1.0.0', license: 'MIT', engines: ['phaser'] },
+    ] }) });
+  if (!seeded.ok) throw new Error(seeded.message);
+  deps.builtInSkills = async () => builtInSkills([
+    { id: 'phaser-skill', dir: skill, source: 'built-in', mode: 'utility' },
+    { id: 'not-a-workflow', dir: path.join(root, 'other'), source: 'built-in', mode: 'image' },
+  ] as unknown as SkillInfo[], ['phaser-skill']);
+  const catalog = await httpFetch(`${base}/api/store/catalog?kind=skill`).then(res => res.json()) as StoreCatalogResponse;
+  expect(catalog.items.find(item => item.name === 'openpixo/phaser-skill')?.builtIn).toEqual({ skillId: 'phaser-skill', enabled: false });
+  // A store-only skill is still something to install.
+  expect(catalog.items.find(item => item.name === 'openpixo/free')?.builtIn).toBeUndefined();
+  const detail = await httpFetch(`${base}/api/store/items/${encodeURIComponent('openpixo/phaser-skill')}`).then(res => res.json()) as StoreItemDetail;
+  expect(detail.builtIn).toEqual({ skillId: 'phaser-skill', enabled: false });
 });
 
 it('installs a free archive with integrity and enables its v2 reference in a project', async () => {

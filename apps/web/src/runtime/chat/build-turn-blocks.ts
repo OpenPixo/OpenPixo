@@ -2324,12 +2324,12 @@ function buildToolRow(
   const kind = toolKind(event.name, event.input);
   const command = isCommandTool(event.name) ? commandOf(event.input) : '';
   const file = fileOf(event.input) ?? (command ? commandFile(command) : null);
-  const action = command ? hostActionOf(command) : null;
+  const hostAction = command ? hostActionOf(command) : null;
   /*
    * `pixo game verify --json` 验证没过时退出码照样可能是 0 —— 结论在输出的顶层 `status` 上。
    * 只认 `failed`:`unavailable`(本机没装引擎)不是这次改动的错。
    */
-  const verifyFailed = action?.kind === 'verify'
+  const verifyFailed = hostAction?.kind === 'verify'
     && /^\s*\{\s*"status"\s*:\s*"failed"/.test(result?.content ?? '');
   /*
    * `media wait` 退出 2 = 还在跑,不是失败。运行时把一切非零退出码都记成 `isError`,
@@ -2338,6 +2338,11 @@ function buildToolRow(
   const waitStillRunning = command !== '' && mediaWaitCall(command) != null
     && readMediaJobOutcome(result?.content)?.state === 'running';
   const failed = (Boolean(result?.isError) && !waitStillRunning && !isArtBudgetStop(result?.content)) || verifyFailed;
+  /*
+   * 失败的那条命令不叫「使用技能」:命令常常顺带读了别的文件,失败的是整条命令,
+   * 画成「使用技能 · X 失败」会把锅扣在技能上(真机 codex 2026-11-12)。照普通命令落行。
+   */
+  const action = failed && hostAction?.kind === 'skill' ? null : hostAction;
   const hits = kind === 'search' && !failed && result?.content
     ? result.content.split('\n').filter((l) => l.trim()).length
     : null;

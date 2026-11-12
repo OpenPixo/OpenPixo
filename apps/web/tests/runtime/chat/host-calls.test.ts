@@ -104,6 +104,28 @@ describe('hostActionOf · 只认能证明是 OpenPixo CLI 的写法', () => {
     expect(hostActionOf("Get-Content -LiteralPath 'docs/SKILL.md'")).toBeNull();
   });
 
+  it('失败的命令不画成「使用技能 · X 失败」:照普通命令落行(失败的是整条命令)', () => {
+    // 真机 codex(2026-11-12):一条 PowerShell 连读项目文件和一份 SKILL.md,其中一步报错
+    const command = ps('Get-Content art/style-sheet.md -Encoding utf8; Get-Content src/rules.ts -TotalCount 110; '
+      + 'Get-Content .pixo-skills/level-design-tilemap-dc7110c31a/SKILL.md -Encoding utf8; Get-ChildItem public/assets/world');
+    const events = (isError: boolean): PersistedAgentEvent[] => [
+      { kind: 'tool_use', id: 'c1', name: 'shell_command', input: { command } },
+      { kind: 'tool_result', toolUseId: 'c1', content: isError ? 'Get-ChildItem : Cannot find path' : 'ok', isError },
+    ];
+    const row = (isError: boolean) => rowsOf({ runStatus: 'succeeded', events: events(isError) })[0];
+    expect(row(false)?.action).toEqual({ kind: 'skill', names: ['level-design-tilemap'] });
+    expect(row(true)?.action ?? null).toBeNull();
+    expect(row(true)?.failed).toBe(true);
+  });
+
+  it.each([
+    [String.raw`Get-Content -Raw -Encoding utf8 '.pixo-skills\level-design-tilemap-dc7110c31a\SKILL.md'`],
+    ['sed -n 1,200p .pixo-skills/level-design-tilemap-dc7110c31a/SKILL.md'],
+    ['cat .pixo-skills/level-design-tilemap-dc7110c31a/SKILL.md | head -120'],
+  ])('只读技能文件的照旧是「使用技能」:%s', (command) => {
+    expect(hostActionOf(command)).toEqual({ kind: 'skill', names: ['level-design-tilemap'] });
+  });
+
   it('godot 不带 --script 时不是测试', () => {
     expect(hostActionOf('godot --version')).toBeNull();
   });

@@ -50,6 +50,7 @@ export function registerProjectExtensionRoutes(app: Express, ctx: RegisterProjec
         name: skill.displayName?.en ?? skill.name,
         description: skill.description,
         ...(skill.displayName ? { displayName: skill.displayName } : {}),
+        ...(skill.descriptionI18n ? { descriptionI18n: skill.descriptionI18n } : {}),
       })),
     };
   }

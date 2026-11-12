@@ -6,6 +6,8 @@ import type {
   ProjectExtensionsResponse,
 } from '@openpixo/contracts';
 import { tForLanguageTag } from '../i18n';
+import { openSkillsSettings } from '../settings-navigation';
+import { Icon } from './Icon';
 import styles from './ProjectExtensionsPanel.module.css';
 
 // OpenPixo's project workflow ships in English and Chinese independently of
@@ -20,7 +22,10 @@ const COPY = {
     mcp: 'MCP servers',
     empty: 'No extensions added.',
     defaults: 'Built-in skills',
-    defaultsHint: 'The agent uses these on its own when a task calls for them. You can turn them off in Settings.',
+    defaultsHint: 'Nothing to add: the agent reads one of these on its own when a task calls for it. Pick one to see what it does.',
+    manageSkills: 'Turn skills on or off',
+    added: 'Added to this project',
+    more: 'Add a skill or MCP server',
     enabled: 'Enabled',
     disabled: 'Disabled',
     unavailable: 'Unavailable',
@@ -55,11 +60,14 @@ const COPY = {
     scope: '启用的扩展仅应用于此项目。移除扩展会保留项目文件。',
     refresh: '刷新',
     loading: '正在加载扩展…',
-    skills: 'Skills',
+    skills: '技能',
     mcp: 'MCP 服务器',
     empty: '尚未添加扩展。',
     defaults: '内置技能',
-    defaultsHint: 'AI 做相关任务时会自动使用，不用手动添加。可以在设置里关闭。',
+    defaultsHint: '不用手动添加：AI 做相关任务时会自己读对应的技能。点一个看看它管什么。',
+    manageSkills: '开关技能',
+    added: '这个项目额外添加的',
+    more: '添加技能或 MCP 服务器',
     enabled: '已启用',
     disabled: '已停用',
     unavailable: '不可用',
@@ -78,9 +86,9 @@ const COPY = {
     homepage: '服务器文档',
     importTitle: '导入扩展',
     kind: '类型',
-    skill: 'Skill',
+    skill: '技能',
     location: '本地路径或 GitHub 地址',
-    locationHint: 'Skill 文件夹、MCP JSON 文件或公开 GitHub 来源',
+    locationHint: '技能文件夹、MCP JSON 文件或公开 GitHub 来源',
     config: 'MCP 服务器 JSON（可选）',
     configHint: '粘贴单个服务器配置，或填写上方来源路径。',
     import: '导入到项目',
@@ -103,6 +111,42 @@ function safeHomepage(value: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The skills every project gets without anyone adding them. Picking one shows what it
+ * is for; the switches live in Settings → Skills, one click away.
+ */
+function DefaultSkills({ skills, labels, locale }: {
+  skills: NonNullable<ProjectExtensionsResponse['defaultSkills']>;
+  labels: Labels;
+  locale: string;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = skills.find((skill) => skill.id === openId) ?? null;
+  const name = (skill: (typeof skills)[number]) => skill.displayName?.[locale] ?? skill.name;
+  return (
+    <section className={styles.section} aria-label={labels.defaults} data-testid="project-default-skills">
+      <div className={styles.row}>
+        <h3>{labels.defaults} · {skills.length}</h3>
+        <Button size="sm" variant="ghost" onClick={openSkillsSettings} data-testid="project-default-skills-manage">
+          {labels.manageSkills}
+        </Button>
+      </div>
+      <p className={styles.muted}>{labels.defaultsHint}</p>
+      <ul className={styles.defaultSkills}>
+        {skills.map((skill) => (
+          <li key={skill.id}>
+            <button type="button" className={styles.skillChip} aria-pressed={skill.id === openId}
+              onClick={() => setOpenId((current) => current === skill.id ? null : skill.id)}>
+              {name(skill)}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open ? <p className={styles.skillDetail} role="status"><strong>{name(open)}</strong> {open.descriptionI18n?.[locale] ?? open.description}</p> : null}
+    </section>
+  );
 }
 
 function failureMessage(payload: unknown, fallback: string): string {
@@ -142,7 +186,7 @@ function ExtensionList({
   pending: boolean;
   onAction: (kind: ProjectExtensionKind, id: string, action: 'enable' | 'disable' | 'update' | 'remove') => void;
 }) {
-  const title = kind === 'skill' ? labels.skills : labels.mcp;
+  const title = kind === 'skill' ? labels.added : labels.mcp;
   return (
     <section className={styles.section} aria-label={title}>
       <h3>{title}</h3>
@@ -221,6 +265,7 @@ function ExtensionManager({ projectId, locale, embedded }: { projectId: string; 
   const [error, setError] = useState('');
   const [kind, setKind] = useState<ProjectExtensionKind>('skill');
   const [catalogId, setCatalogId] = useState('');
+  const [moreOpen, setMoreOpen] = useState(false);
   const [source, setSource] = useState('');
   const [serverJson, setServerJson] = useState('');
   const baseUrl = `/api/projects/${encodeURIComponent(projectId)}/extensions`;
@@ -328,19 +373,22 @@ function ExtensionManager({ projectId, locale, embedded }: { projectId: string; 
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {pending && <p role="status" className={styles.muted}>{data ? labels.saving : labels.loading}</p>}
       {data && <>
-        <ExtensionList kind="skill" rows={data.skills} labels={labels} translate={translate} locale={locale} pending={pending} onAction={onAction} />
         {data.defaultSkills?.length ? (
-          <section className={styles.section} aria-label={labels.defaults} data-testid="project-default-skills">
-            <h3>{labels.defaults}</h3>
-            <p className={styles.muted}>{labels.defaultsHint}</p>
-            <ul className={styles.defaultSkills}>
-              {data.defaultSkills.map((skill) => (
-                <li key={skill.id} title={skill.description}>{skill.displayName?.[locale] ?? skill.name}</li>
-              ))}
-            </ul>
-          </section>
+          <DefaultSkills skills={data.defaultSkills} labels={labels} locale={locale} />
+        ) : null}
+        {data.skills.length ? (
+          <ExtensionList kind="skill" rows={data.skills} labels={labels} translate={translate} locale={locale} pending={pending} onAction={onAction} />
         ) : null}
         <ExtensionList kind="mcp" rows={data.mcpServers} labels={labels} translate={translate} locale={locale} pending={pending} onAction={onAction} />
+        <div className={styles.moreToggle}>
+          <Button size="sm" variant="ghost" aria-expanded={moreOpen} aria-controls={`${formId}-more`}
+            onClick={() => setMoreOpen((open) => !open)}>
+            <Icon name={moreOpen ? 'chevron-up' : 'chevron-down'} size={14} />{labels.more}
+          </Button>
+        </div>
+        <div id={`${formId}-more`} className={`accordion-collapsible${moreOpen ? ' open' : ''}`} aria-hidden={!moreOpen}
+          ref={(element) => { element?.toggleAttribute('inert', !moreOpen); }}>
+        <div className="accordion-collapsible-inner">
         <div className={styles.forms}>
           <label className={styles.field} htmlFor={`${formId}-kind`}>
             {labels.kind}
@@ -388,6 +436,8 @@ function ExtensionManager({ projectId, locale, embedded }: { projectId: string; 
             </label>}
             <Button size="sm" variant="secondary" type="submit" disabled={pending}>{labels.import}</Button>
           </form>
+        </div>
+        </div>
         </div>
       </>}
     </div>
