@@ -2,7 +2,7 @@
 
 [English](../../CONTRIBUTING.md) · [简体中文](CONTRIBUTING.zh-CN.md)
 
-先读根 [AGENTS.md](../../AGENTS.md)，再读所修改层的 AGENTS.md。首版范围 (openpixo-internal: `docs/FIRST-RELEASE-SCOPE.md`)与协调状态 (openpixo-internal: `docs/coordination/STATUS.md`)决定当前交付边界。非简单功能先与维护者明确问题和范围；公开问题反馈和讨论入口尚未配置。
+先读根 [AGENTS.md](../../AGENTS.md)，再读所修改层的 AGENTS.md。问题反馈和功能建议请提到 [GitHub issues](https://github.com/OpenPixo/OpenPixo/issues)；非简单功能请先开 issue，与维护者明确问题和范围再动手。安全问题请按 [SECURITY.md](../../.github/SECURITY.md) 私下报告。
 
 ## 环境与运行
 
