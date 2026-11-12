@@ -8,6 +8,13 @@ import { MatrixLoader } from '../../src/components/MatrixLoader';
 import { installWebObservability } from '../../src/observability/install';
 import { installChatScrollExperiments } from '../../src/runtime/chat-scroll-experiments';
 import { installChatScrollTakeover } from '../../src/runtime/chat-scroll-takeover';
+import { installDevStylesheetKeeper } from '../../src/runtime/dev-stylesheet-keeper';
+
+// Next's webpack dev mode can drop the CSS of a `next/dynamic` chunk on a hot
+// update and never put it back, leaving the whole shell unstyled until a
+// reload. The keeper restores it; production exports never hit that path.
+// Installed before `src/App` is imported so its first stylesheet is covered.
+if (process.env.NODE_ENV !== 'production') installDevStylesheetKeeper();
 
 // Install browser exception handlers at module-load time, before any other
 // client code can throw. The hooks buffer events until AnalyticsProvider
