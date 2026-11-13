@@ -22,7 +22,9 @@
 .references { min-width: 0; margin: 0; padding: 0; border: 0; }
 .references legend { margin-bottom: 6px; color: var(--ink-2); font-size: 12.5px; }
 .referenceList { display: flex; flex-wrap: wrap; gap: 4px 12px; max-height: 120px; overflow-y: auto; }
-.referenceOption { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink); font-size: 13px; }
+.referenceOption { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--ink); font-size: 13px; }
+/* The global input rules stretch every input; a picker's box stays its own size. */
+.referenceOption > input { flex: none; width: 14px; height: 14px; margin: 0; padding: 0; }
 .referenceOption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .signIn { display: flex; flex-direction: column; gap: 10px; }
 .footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px 14px; }
@@ -43,7 +45,8 @@
 .runSummary { margin: 0; overflow: hidden; color: var(--ink-2); font-size: 13px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
 .badge { flex: none; padding: 1px 6px; border-radius: 999px; color: var(--violet-strong); background: var(--violet-soft); font-size: 11.5px; font-weight: 500; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
-.tile { position: relative; display: grid; place-items: center; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+/* Width and height are set here because the global button rules give every button a fixed height. */
+.tile { position: relative; display: grid; place-items: center; width: 100%; height: auto; min-height: 0; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
   background-color: var(--bg-subtle);
   background-image: linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%), linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%);
   background-position: 0 0, 6px 6px; background-size: 12px 12px;

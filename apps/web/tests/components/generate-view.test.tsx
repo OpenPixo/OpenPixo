@@ -151,6 +151,7 @@ describe('生成', () => {
     fireEvent.click(tile);
     const detail = within(await screen.findByTestId('generate-detail'));
     expect(detail.getByTestId('generate-download').getAttribute('href')).toBe('/api/projects/p1/recipe-runs/run-1/candidates/c1/files/0');
+    expect(detail.getByTestId('generate-download').getAttribute('download')).toBe('a_slime.png');
     await act(async () => { fireEvent.click(detail.getByTestId('generate-save')); });
     await waitFor(() => expect(api.adopted).toEqual([{ candidateIds: ['c1'] }]));
     expect(onRefreshFiles).toHaveBeenCalled();

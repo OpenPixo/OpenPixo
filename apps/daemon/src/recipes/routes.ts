@@ -3,7 +3,7 @@ import { skillFitsEngine } from '../game/default-skills.js';
 import type { Express, Request, Response } from 'express';
 import { PRODUCT_CLI_NAME, RecipeAdoptRequestSchema, RecipeQuoteRequestSchema, RecipeRunRequestSchema, resolveLocalizedText, type CharacterUpdateRequest, type EngineProfile, type ProjectMetadata, type RecipeCodeRunResponse, type RecipeDetail, type RecipeRun, type RecipeRunListResponse, type RecipeRunQuote, type RecipeRunRequest } from '@openpixo/contracts';
 import { getProject } from '../db.js';
-import { resolveProjectDir } from '../projects.js';
+import { ensureProject, resolveProjectDir } from '../projects.js';
 import { readMaskedConfig } from '../media/config.js';
 import type { HttpDeps, PathDeps, ResourceDeps } from '../server-context.js';
 import type { RecipeExecutorDeps } from './executor.js';
@@ -102,7 +102,9 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
       if (write && !isLocalSameOrigin(req, resolvedPortRef.current)) { sendApiError(res, 403, 'FORBIDDEN', 'local origin required'); return null; }
       if (!await ctx.authorizeProjectRequest(req, res, id, options)) return null;
     }
-    return { id, value, grant: grant ?? null, root: resolveProjectDir(ctx.paths.PROJECTS_DIR, id, value.metadata) as string };
+    // A managed project gets its folder on its first write; a run, a quote or an adopt may be that first write.
+    const root = write ? await ensureProject(ctx.paths.PROJECTS_DIR, id, value.metadata) : resolveProjectDir(ctx.paths.PROJECTS_DIR, id, value.metadata);
+    return { id, value, grant: grant ?? null, root: root as string };
   }
   /**
    * The hosted models a recipe may fall back to once every own tool is out. For an

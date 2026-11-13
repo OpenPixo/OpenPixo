@@ -383,6 +383,16 @@ describe('recipes that spend credits', () => {
     });
   });
 
+  it('runs on a new project whose folder does not exist yet', async () => {
+    // A managed project gets its folder on its first write; a recipe used to fail on one.
+    const id = `p_${randomUUID()}`;
+    insertProject(db, { id, name: 'Fresh', metadata: { kind: 'other' }, createdAt: 1, updatedAt: 1 } as never);
+    ownTools.providers = { openai: { configured: true } };
+    const quote = await quoteRecipe(id, { count: 1 });
+    expect(quote.status, await quote.clone().text()).toBe(200);
+    expect(await quote.json()).toMatchObject({ paid: false });
+  });
+
   it('lists this project\'s runs newest first, by who started them', async () => {
     const id = project();
     auto(id, 100);

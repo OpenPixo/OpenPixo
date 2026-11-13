@@ -9,9 +9,15 @@ import { RecipeFailure } from '../studio/RecipeFailure';
 import { formFromRun, runSummary, type GenerateForm } from './generate-request';
 import styles from './GenerateView.module.css';
 
-/** The name a download gets: the file's own name in staging. */
-export function downloadName(candidate: RecipeCandidate, index: number): string {
-  return candidate.stagedFiles[index]?.ref.split(/[\\/]/u).at(-1) ?? 'result';
+/**
+ * The name a download gets: the result's own name (the one 保存到游戏 uses) for its
+ * main file, and the staged file's name for the rest, which already say what they are.
+ */
+export function downloadName(run: Pick<RecipeRun, 'inputs'>, candidate: RecipeCandidate, index: number): string {
+  const file = candidate.stagedFiles[index]?.ref.split(/[\\/]/u).at(-1) ?? 'result';
+  const name = run.inputs.name;
+  if (index !== 0 || typeof name !== 'string' || !/^[\w-]+$/u.test(name)) return file;
+  return `${name}${/\.[^.]+$/u.exec(file)?.[0] ?? ''}`;
 }
 
 /**
@@ -72,7 +78,7 @@ export function ResultDetail({ run, candidate, title, readOnly, onBack, onRunCha
     </div>
     {candidate.stagedFiles.length > 1 && <ul className={styles.derived} aria-label={t('generate.allFiles')}>
       {candidate.stagedFiles.map((file, index) => <li key={file.ref}>
-        <a href={stagedFileUrl(run, candidate, index)} download={downloadName(candidate, index)}>{downloadName(candidate, index)}</a>
+        <a href={stagedFileUrl(run, candidate, index)} download={downloadName(run, candidate, index)}>{downloadName(run, candidate, index)}</a>
       </li>)}
     </ul>}
     {candidate.error && <div className={styles.problem} role="alert">
@@ -94,7 +100,7 @@ export function ResultDetail({ run, candidate, title, readOnly, onBack, onRunCha
     <div className={styles.detailActions}>
       <Button variant="primary" onClick={() => void save()} disabled={readOnly || pending || !usable || saved.length > 0} aria-busy={pending}
         data-testid="generate-save">{saved.length ? t('generate.saved') : t('generate.save')}</Button>
-      {usable && <a className={styles.download} href={stagedFileUrl(run, candidate, 0)} download={downloadName(candidate, 0)}
+      {usable && <a className={styles.download} href={stagedFileUrl(run, candidate, 0)} download={downloadName(run, candidate, 0)}
         data-testid="generate-download">{t('generate.download')}</a>}
       {form && !readOnly && <Button variant="secondary" onClick={() => onAgain(form)} data-testid="generate-again">{t('generate.again')}</Button>}
       {form && !readOnly && <Button variant="ghost" onClick={() => onEdit(form)} data-testid="generate-edit">{t('generate.edit')}</Button>}
