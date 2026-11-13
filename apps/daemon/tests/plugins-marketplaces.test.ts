@@ -367,7 +367,7 @@ describe('marketplaces', () => {
     const seed = MarketplaceManifestSchema.parse(JSON.parse(text!));
     expect(seed.plugins.every(entry => entry.name.startsWith('openpixo/'))).toBe(true);
     expect(seed.plugins.find(entry => entry.name === 'openpixo/pixel-dungeon-kit')).toMatchObject({
-      source: 'openpixo-cloud:pixel-dungeon-kit', pricing: { type: 'paid', credits: 600, sku: 'workshop.pixel-dungeon-kit' },
+      source: 'openpixo-cloud:pixel-dungeon-kit', pricing: { type: 'paid', credits: 20, sku: 'workshop.pixel-dungeon-kit' },
       assetLicense: { commercialUse: true, attributionRequired: false }, tags: ['pixel', 'tileset', 'dungeon', 'roguelike'],
     });
     expect(seed.plugins.find(entry => entry.name === 'openpixo/godot-gdscript')?.source)
@@ -431,13 +431,56 @@ describe('resolvePluginInMarketplaces', () => {
   });
 });
 
-it('parses all eight paid Workshop packs and keeps existing skill, MCP and template tags', async () => {
+it('parses every paid Workshop pack and keeps existing skill, MCP and template tags', async () => {
   const manifest = MarketplaceManifestSchema.parse(JSON.parse(await readFile(
     new URL('../../../plugins/registry/official/openpixo-marketplace.json', import.meta.url), 'utf8',
   )));
+  // Mirrors the cloud's workshop_items prices; change both together.
   const expectedCredits: Record<string, number> = {
-    'pixel-dungeon-kit': 600, 'forest-platformer-kit': 800, 'retro-bestiary': 900, 'cozy-farm-village': 700,
-    'sci-fi-hud-kit': 400, 'fantasy-item-icons': 500, 'chiptune-sfx-pack': 300, 'topdown-hero-creator': 1000,
+    'pixel-dungeon-kit': 20, 'forest-platformer-kit': 25, 'retro-bestiary': 25, 'cozy-farm-village': 20,
+    'sci-fi-hud-kit': 15, 'fantasy-item-icons': 20, 'chiptune-sfx-pack': 15, 'topdown-hero-creator': 30,
+    'space-shooter-kit': 20, 'match3-gem-pack': 15, 'fantasy-ui-kit': 20, 'card-game-frames': 15,
+    'tower-defense-kit': 25, 'magic-vfx-pack': 20,
+    'pixel-rpg-ui-kit': 20,
+    'cozy-ui-kit': 15,
+    'horror-ui-kit': 20,
+    'mobile-casual-ui': 20,
+    'cyberpunk-ui-kit': 20,
+    'strategy-ui-kit': 25,
+    'visual-novel-ui': 20,
+    'arcade-hud-pack': 15,
+    'dialogue-portrait-frames': 15,
+    'game-cursor-pack': 15,
+    'desert-ruins-tileset': 20,
+    'snow-mountain-tileset': 20,
+    'haunted-graveyard-tileset': 20,
+    'pirate-island-kit': 25,
+    'cyber-city-tileset': 25,
+    'isometric-town-kit': 30,
+    'underwater-reef-tileset': 20,
+    'lava-cavern-tileset': 20,
+    'sci-fi-station-tileset': 25,
+    'japanese-village-kit': 25,
+    'fantasy-hero-party': 25,
+    'platformer-hero-pack': 20,
+    'slime-monster-pack': 15,
+    'undead-army-pack': 20,
+    'robot-mech-pack': 25,
+    'animal-companions': 20,
+    'boss-monster-pack': 30,
+    'townsfolk-npc-pack': 20,
+    'skill-ability-icons': 20,
+    'food-cooking-icons': 15,
+    'sci-fi-loot-icons': 15,
+    'crafting-resource-icons': 15,
+    'gem-currency-icons': 15,
+    'parallax-sky-backgrounds': 20,
+    'weather-effects-pack': 15,
+    'explosion-impact-vfx': 15,
+    'vehicle-racing-pack': 25,
+    'interior-furniture-kit': 20,
+    'retro-music-loops': 20,
+    'ui-sound-pack': 15,
   };
   const paid = manifest.plugins.filter(entry => entry.pricing?.type === 'paid');
   expect(paid.map(entry => entry.name).sort()).toEqual(Object.keys(expectedCredits).map(slug => 'openpixo/' + slug).sort());
@@ -453,6 +496,10 @@ it('parses all eight paid Workshop packs and keeps existing skill, MCP and templ
     expect(entry.description_i18n?.['zh-CN']).toBeTruthy();
     expect(entry.description).toContain('Godot and Phaser ready');
     expect(entry.tags?.length).toBeGreaterThan(0);
+    // A paid pack is sold on its artwork: the store page needs a cover and at least two previews.
+    for (const file of [`covers/${slug}.webp`, `previews/${slug}/1.webp`, `previews/${slug}/2.webp`]) {
+      expect((await stat(new URL(`../../../plugins/registry/official/${file}`, import.meta.url))).isFile(), file).toBe(true);
+    }
   }
   for (const entry of manifest.plugins.filter(entry => ['skill', 'mcp', 'project-template'].includes(entry.kind ?? ''))) {
     expect(entry.tags?.length).toBeGreaterThanOrEqual(2);
@@ -462,5 +509,5 @@ it('parses all eight paid Workshop packs and keeps existing skill, MCP and templ
     manifestText: JSON.stringify(manifest) });
   expect(seeded.ok).toBe(true);
   if (!seeded.ok) throw new Error(seeded.message);
-  expect(seeded.row.manifest.plugins.filter(entry => entry.kind === 'asset-pack')).toHaveLength(8);
+  expect(seeded.row.manifest.plugins.filter(entry => entry.kind === 'asset-pack')).toHaveLength(54);
 });

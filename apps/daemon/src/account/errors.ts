@@ -20,6 +20,7 @@ const ERRORS: Record<OpenPixoAccountErrorCode, { status: number; message: string
   BILLING_PLAN_QUOTE_CHANGED: { status: 409, message: 'The price of this change is no longer current. Review it again.' },
   INSUFFICIENT_CREDITS: { status: 402, message: 'Not enough credits for this item.' },
   STORE_PURCHASE_UNAVAILABLE: { status: 503, message: 'Buying Workshop items with credits opens soon.' },
+  STORE_ITEM_NOT_OWNED: { status: 402, message: 'Buy this pack before downloading it.' },
   GENERATION_PAUSED: { status: 503, message: 'Hosted generation is temporarily paused. Local and own-key providers still work.' },
   GENERATION_SERVICE_UNKNOWN: { status: 404, message: 'This hosted generation service is unavailable.' },
   GENERATION_PARAMS_INVALID: { status: 400, message: 'The prompt or options are not supported by this hosted service.' },

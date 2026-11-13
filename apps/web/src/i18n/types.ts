@@ -215,6 +215,12 @@ export interface Dict {
   'workshop.buy': string;
   'workshop.buyItem': string;
   'workshop.owned': string;
+  'workshop.pack.addToGame': string;
+  'workshop.pack.adding': string;
+  'workshop.pack.game': string;
+  'workshop.pack.added': string;
+  'workshop.pack.needGame': string;
+  'workshop.pack.failed': string;
   'workshop.buy.eyebrow': string;
   'workshop.buy.price': string;
   'workshop.buy.balance': string;

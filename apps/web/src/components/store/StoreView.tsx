@@ -99,6 +99,8 @@ function StoreCatalog({ initialTab, projects, onOpenAccount, ...actions }: Store
   const buyItem = buyName ? items.find(item => item.name === buyName) ?? null : null;
 
   const install = async (item: StoreCatalogItem) => {
+    // An owned asset pack is added to one game, which its own page asks for.
+    if (item.kind === 'asset-pack' && item.pricing.type === 'paid') { navigate({ kind: 'home', view: 'store', storeItemName: item.name }); return; }
     setInstallingName(item.name);
     try {
       const result = await installStoreItem({ name: item.name, version: item.version });

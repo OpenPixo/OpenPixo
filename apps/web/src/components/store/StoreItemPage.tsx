@@ -6,7 +6,7 @@ import { useI18n } from '../../i18n';
 import { navigate } from '../../router';
 import { usePageNavigationReady } from '../../observability/navigation-timing';
 import { isCloudAccountAvailable, useOpenPixoAccount, useOpenPixoCredits } from '../../hooks/useOpenPixoAccount';
-import { fetchStoreItem, installStoreItem, isGenerateKind, type WorkshopKind } from '../../state/store';
+import { fetchStoreItem, installStoreItem, isGenerateKind, mostRecentStoreProject, type WorkshopKind } from '../../state/store';
 import { formatCredits } from '../account/account-format';
 import type { StoreProject } from './StoreView';
 import { BuyDialog } from './BuyDialog';
@@ -33,6 +33,7 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
   const { t, locale } = useI18n();
   const [item, setItem] = useState<StoreItemDetail | null>(null);
   const [projectId, setProjectId] = useState('');
+  const [packFolder, setPackFolder] = useState('');
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState('');
@@ -54,14 +55,25 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
   }, [name, retry, locale]);
   useEffect(() => { if (item) heading.current?.focus(); }, [item?.name]);
 
+  // A bought asset pack goes into one game, so the picker starts on the game worked on most recently.
+  const isPack = item?.kind === 'asset-pack' && item.pricing.type === 'paid';
+  useEffect(() => {
+    if (isPack && !projectId) setProjectId(mostRecentStoreProject(projects)?.id ?? '');
+  }, [isPack, projects]);
+
   async function install() {
-    if (!item || needsPurchase(item) || installing) return;
-    setInstalling(true); setError(''); setMessage('');
+    if (!item || needsPurchase(item) || installing || (isPack && !projectId)) return;
+    setInstalling(true); setError(''); setMessage(''); setPackFolder('');
     try {
       const result = await installStoreItem({ name: item.name, version: item.version, ...(projectId ? { projectId } : {}) });
-      setItem({ ...item, installedVersion: result.version });
-      setMessage([t('store.installed'), ...result.warnings].join(' · '));
-    } catch (cause) { console.warn('[Store] install failed:', cause); setError(t('store.installFailed')); }
+      if (isPack) {
+        setPackFolder(result.folder ?? '');
+        setMessage(t('workshop.pack.added', { name: projects.find(project => project.id === projectId)?.name ?? '', folder: result.folder ?? '' }));
+      } else {
+        setItem({ ...item, installedVersion: result.version });
+        setMessage([t('store.installed'), ...result.warnings].join(' · '));
+      }
+    } catch (cause) { console.warn('[Store] install failed:', cause); setError(t(isPack ? 'workshop.pack.failed' : 'store.installFailed')); }
     finally { setInstalling(false); }
   }
 
@@ -141,19 +153,22 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
                 <p className={styles.balance}>{t(item.builtIn.enabled ? 'store.builtInHint' : 'store.builtInOffHint')}</p>
                 <Button variant="secondary" onClick={openSkillsSettings} data-testid="store-manage-skills">{t('store.manageSkills')}</Button>
               </> : null}
-              {!paid && !item.installedVersion && !item.builtIn && projects.length ? <label className={styles.project}>{t('store.project')}
-                <Select value={projectId} disabled={installing} onChange={event => { setProjectId(event.target.value); setMessage(''); }}>
-                  <option value="">{t('store.thisDevice')}</option>
+              {(isPack ? !paid : !paid && !item.installedVersion && !item.builtIn) && projects.length ? <label className={styles.project}>{t(isPack ? 'workshop.pack.game' : 'store.project')}
+                <Select value={projectId} disabled={installing} data-testid="store-pack-game" onChange={event => { setProjectId(event.target.value); setMessage(''); }}>
+                  {isPack ? null : <option value="">{t('store.thisDevice')}</option>}
                   {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
                 </Select>
               </label> : null}
               {paid ? <Button variant="primary" size="lg" onClick={() => setBuyOpen(true)}>{t('workshop.buy')}</Button>
+                : isPack ? projects.length ? <Button variant="primary" size="lg" disabled={installing || !projectId} onClick={() => { void install(); }}>
+                  {installing ? t('workshop.pack.adding') : t('workshop.pack.addToGame')}</Button>
+                  : <p className={styles.balance}>{t('workshop.pack.needGame')}</p>
                 : item.installedVersion || item.builtIn ? null
                   : <Button variant="primary" size="lg" disabled={installing} onClick={() => { void install(); }}>{installing ? t('store.installing') : t('store.install')}</Button>}
               {paid && signedIn && credits ? <p className={styles.balance}>{t('workshop.credits.aria', { n: formatCredits(credits.available, locale) })}</p> : null}
               {paid && !signedIn ? <p className={styles.balance}>{t('workshop.detail.signInHint')}</p> : null}
               {item.installedVersion ? <span className={styles.installed}><i aria-hidden="true" />{t('store.installed')} · {item.installedVersion}</span> : null}
-              {message ? <p className={styles.message} role="status">{message}</p> : null}
+              {message ? <p className={styles.message} role="status" data-folder={packFolder || undefined}>{message}</p> : null}
             </Card>
           </div>
           <BuyDialog item={item} open={buyOpen} onClose={() => setBuyOpen(false)}

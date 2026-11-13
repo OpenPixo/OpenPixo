@@ -52,7 +52,40 @@ export interface StoreInstallResponse {
   name: string;
   version: string;
   projectId?: string;
+  /** An asset pack's folder inside the project, relative to the project root (`assets/packs/<pack>`). */
+  folder?: string;
+  /** How many files an asset pack wrote. */
+  files?: number;
   warnings: string[];
+}
+
+/** One file of a Workshop asset pack, as `pack.json` lists it. Paths are relative to the pack folder. */
+export interface WorkshopPackFile {
+  path: string;
+  size: number;
+  sha256: string;
+  /** `icon`, `ui-panel`, `ui-button`, `ui-element`, `sprite`, `sprite-frame`, `sheet` or `readme`. */
+  kind: string;
+  /** What the image shows. */
+  title: string;
+  /** How a game uses it. */
+  use: string;
+  sheet?: string;
+  width?: number;
+  height?: number;
+}
+
+/** `pack.json` at the root of an installed asset pack: what every file is, for people and agents. */
+export interface WorkshopPackManifest {
+  schema: 1;
+  name: string;
+  version: string;
+  title: string;
+  license: string;
+  commercialUse: boolean;
+  attributionRequired: boolean;
+  files: WorkshopPackFile[];
+  animations: Array<{ name: string; frames: string[]; fps: number }>;
 }
 
 /** Spend credits on a paid Workshop item. The cloud prices it by SKU; the client never sends an amount. */

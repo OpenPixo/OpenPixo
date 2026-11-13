@@ -19,11 +19,12 @@ const signedIn: OpenPixoAccountStatus = {
   user: { id: 'u1', email: 'dev@example.com', provider: 'email', displayName: 'Dev', avatarUrl: null },
 };
 
-function mockApi({ account = signedIn, balance = 1240, purchase, detail }: {
+function mockApi({ account = signedIn, balance = 1240, purchase, detail, install }: {
   account?: OpenPixoAccountStatus;
   balance?: number;
   purchase?: () => Response;
   detail?: Partial<StoreItemDetail>;
+  install?: (body: unknown) => Response;
 } = {}) {
   const request = vi.fn(async (url: string, _init?: RequestInit) => {
     const path = new URL(url, 'http://localhost').pathname;
@@ -31,6 +32,7 @@ function mockApi({ account = signedIn, balance = 1240, purchase, detail }: {
     if (path.startsWith('/api/store/items/')) return Response.json({ ...pack, previews: [], requires: {}, versions: ['1.2.0'], ...detail });
     if (path === '/api/openpixo/account') return Response.json(account);
     if (path === '/api/openpixo/credits') return Response.json({ available: balance, reserved: 0, subscription: null });
+    if (path === '/api/store/install' && install) return install(JSON.parse(String(_init?.body)));
     if (path === '/api/store/purchase') return purchase ? purchase() : Response.json({ error: { code: 'STORE_PURCHASE_UNAVAILABLE', message: 'Purchases open soon' } }, { status: 503 });
     return Response.json({});
   });
@@ -110,7 +112,9 @@ describe('Workshop buy dialog', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.getAllByText('Owned').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Buy Forest platformer kit' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Install Forest platformer kit' })).toBeTruthy();
+    // An owned pack is added to a game from its page, which asks which game.
+    expect(screen.queryByRole('button', { name: 'Install Forest platformer kit' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Add to game' }).length).toBeGreaterThan(0);
   });
 });
 
@@ -132,5 +136,29 @@ describe('Workshop item page for a paid pack', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Buy' }));
     const dialog = within(await screen.findByTestId('workshop-buy-dialog'));
     expect(await dialog.findByRole('button', { name: 'Buy for 600 credits' })).toBeTruthy();
+  });
+});
+
+describe('Workshop item page for an owned pack', () => {
+  const games = [{ id: 'old-game', name: 'Old game', updatedAt: 1 }, { id: 'new-game', name: 'Slime quest', updatedAt: 5 }];
+
+  it('adds the pack to the game chosen, starting on the most recent game, and says where it went', async () => {
+    const install = vi.fn((_body: unknown) => Response.json({ name: pack.name, pluginId: pack.name, version: '1.2.0', projectId: 'new-game',
+      folder: 'assets/packs/forest-platformer-kit', files: 40, warnings: [] }));
+    mockApi({ detail: { owned: true }, install });
+    render(<StoreView itemName={pack.name} projects={games} />);
+    const add = await screen.findByRole('button', { name: 'Add to game' });
+    expect((screen.getByTestId('store-pack-game') as HTMLSelectElement).value).toBe('new-game');
+    expect(screen.queryByRole('option', { name: 'This device' })).toBeNull();
+    fireEvent.click(add);
+    expect(await screen.findByText('Added to Slime quest in assets/packs/forest-platformer-kit. PACK.md there tells your agent what each image is for.')).toBeTruthy();
+    expect(install).toHaveBeenCalledWith({ name: pack.name, version: '1.2.0', projectId: 'new-game' });
+  });
+
+  it('asks for a game first when there is none', async () => {
+    mockApi({ detail: { owned: true } });
+    render(<StoreView itemName={pack.name} projects={[]} />);
+    expect(await screen.findByText('Create a game first, then add this pack to it.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add to game' })).toBeNull();
   });
 });

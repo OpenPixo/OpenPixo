@@ -1,8 +1,11 @@
 ﻿import path from 'node:path';
-import type { Express } from 'express';
-import { StoreItemKindSchema, type StoreCatalogQuery, type StoreCatalogResponse, type StoreInstallRequest, type StoreInstallResponse, type StorePurchaseRequest, type StorePurchaseResponse } from '@openpixo/contracts';
+import type { Express, Response } from 'express';
+import { StoreItemKindSchema, type MarketplacePluginEntry, type StoreCatalogQuery, type StoreCatalogResponse, type StoreInstallRequest, type StoreInstallResponse, type StorePurchaseRequest, type StorePurchaseResponse } from '@openpixo/contracts';
 import type { RouteDeps } from '../server-context.js';
 import { getProject } from '../db.js';
+import { AccountError } from '../account/errors.js';
+import { resolveProjectDir } from '../projects.js';
+import { installWorkshopPack, PackInstallError } from '../store/pack-install.js';
 import { sendApiError } from '../http/api-errors.js';
 import { sendValidatedFile } from '../http/send-file.js';
 import { registryRootsForDataDir } from '../plugins/registry.js';
@@ -24,6 +27,35 @@ export interface RegisterStoreRoutesDeps extends RouteDeps<'db' | 'http' | 'path
 
 export function registerStoreRoutes(app: Express, ctx: RegisterStoreRoutesDeps): void {
   const { db, http, paths } = ctx;
+
+  /**
+   * A bought asset pack is downloaded into one project's `assets/packs/<pack>/`, with `pack.json` and
+   * `PACK.md` saying what every image is for. The cloud decides ownership; installing never charges.
+   */
+  async function installPaidPack(res: Response, entry: MarketplacePluginEntry, projectId: string | undefined, version: string | undefined) {
+    if (entry.kind !== 'asset-pack') return sendApiError(res, 422, 'VALIDATION_FAILED', 'Only asset packs can be bought and installed.');
+    if (!projectId) return sendApiError(res, 400, 'BAD_REQUEST', 'Choose a game to add this pack to (projectId).');
+    if (version && version !== entry.version) return sendApiError(res, 404, 'NOT_FOUND', 'Store item version not found');
+    if (!ctx.account) return sendApiError(res, 503, 'STORE_PURCHASE_UNAVAILABLE', 'Sign in to download packs you own.');
+    const project = getProject(db, projectId)!;
+    let grant;
+    try { grant = await ctx.account.storeDownload(entry.name, entry.version); } catch (error) {
+      if (error instanceof AccountError && error.code === 'STORE_ITEM_NOT_OWNED') return sendApiError(res, 402, 'STORE_PURCHASE_REQUIRED', 'Buy this pack first.');
+      if (error instanceof AccountError && error.code === 'ACCOUNT_SIGNED_OUT') return sendApiError(res, 401, 'UNAUTHORIZED', error.message);
+      if (error instanceof AccountError && ['ACCOUNT_NOT_CONFIGURED', 'ACCOUNT_SECURE_STORAGE_UNAVAILABLE'].includes(error.code)) {
+        return sendApiError(res, 503, 'STORE_PURCHASE_UNAVAILABLE', error.message);
+      }
+      return sendApiError(res, 503, 'UPSTREAM_UNAVAILABLE', new AccountError('CLOUD_UNAVAILABLE').message);
+    }
+    try {
+      const installed = await installWorkshopPack({ grant, projectDir: resolveProjectDir(paths.PROJECTS_DIR, projectId, project.metadata) });
+      return res.json({ name: entry.name, pluginId: entry.name, version: entry.version, projectId,
+        folder: installed.folder, files: installed.files, warnings: [] } satisfies StoreInstallResponse);
+    } catch (error) {
+      if (error instanceof PackInstallError) return sendApiError(res, 502, 'UPSTREAM_UNAVAILABLE', error.message);
+      throw error;
+    }
+  }
   app.get('/api/store/catalog', http.requireLocalDaemonRequest, async (req, res) => {
     const query: StoreCatalogQuery = {};
     for (const key of ['kind', 'engine', 'q', 'pricing'] as const) {
@@ -102,11 +134,11 @@ export function registerStoreRoutes(app: Express, ctx: RegisterStoreRoutesDeps):
       const found = storeEntries(db).find(({ entry }) => entry.name.toLowerCase() === body.name!.trim().toLowerCase());
       if (!found) return sendApiError(res, 404, 'NOT_FOUND', 'Store item not found');
       const { entry, marketplace } = found;
-      if (entry.pricing?.type === 'paid') return sendApiError(res, 402, 'STORE_PURCHASE_REQUIRED', 'purchase required (not available until accounts ship)');
       if (body.projectId) {
         if (!getProject(db, body.projectId)) return sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'project not found');
         if (!await ctx.authorizeProjectRequest(req, res, body.projectId, { mode: 'write', capability: 'writeFiles' })) return;
       }
+      if (entry.pricing?.type === 'paid') return await installPaidPack(res, entry, body.projectId, body.version);
       const resolved = resolveMarketplaceEntryVersion(entry, body.version);
       if (!resolved || (resolved.version !== entry.version && !entry.versions?.some(version => version.version === resolved.version && !version.yanked))) {
         return sendApiError(res, 404, 'NOT_FOUND', 'Store item version not found');

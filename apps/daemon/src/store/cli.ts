@@ -61,7 +61,9 @@ export async function runStoreCli(args: string[]): Promise<void> {
       console.log(`Purchased ${purchased.name}@${purchased.version} for ${purchased.creditsSpent} credits. Balance: ${purchased.balance} credits.`);
     } else {
       const installed = result as StoreInstallResponse;
-      console.log(`Installed ${installed.name}@${installed.version}${installed.projectId ? ` in project ${installed.projectId}` : ''}`);
+      if (installed.folder) console.log(`Added ${installed.name}@${installed.version} to project ${installed.projectId}: ${installed.folder} `
+        + `(${installed.files} files). ${installed.folder}/PACK.md says what each image is for.`);
+      else console.log(`Installed ${installed.name}@${installed.version}${installed.projectId ? ` in project ${installed.projectId}` : ''}`);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

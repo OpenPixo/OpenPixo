@@ -2025,13 +2025,13 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 600,
+        "credits": 20,
         "sku": "workshop.pixel-dungeon-kit"
       },
-      "description": "Build readable roguelike rooms with 256 dungeon tiles at 16×16 px, 12 doors and 8 chests with 4-frame animations, 16 traps and 8 torches with 6-frame animations, plus 47-tile autotile rules. Transparent PNG sheets and tile maps are Godot and Phaser ready.",
+      "description": "Build readable roguelike rooms: 44 separate PNG pieces, with 16 floor, wall, stair and trap tiles; 12 doors, chests, torches and switches; and 16 furniture and dungeon props. PACK.md names every piece for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Build readable roguelike rooms with 256 dungeon tiles at 16?16 px, 12 doors and 8 chests with 4-frame animations, 16 traps and 8 torches with 6-frame animations, plus 47-tile autotile rules. Transparent PNG sheets and tile maps are Godot and Phaser ready.",
-        "zh-CN": "用 256 块 16×16 像素地牢图块搭建清晰易读的肉鸽房间：12 扇门和 8 个宝箱（4 帧动画）、16 种陷阱和 8 支火把（6 帧动画），附 47 块自动拼接规则。透明 PNG 图集与瓦片地图可直接用于 Godot 和 Phaser。"
+        "en": "Build readable roguelike rooms: 44 separate PNG pieces, with 16 floor, wall, stair and trap tiles; 12 doors, chests, torches and switches; and 16 furniture and dungeon props. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "搭出清晰好读的地牢房间：44 个单独的 PNG 素材，包括 16 块地板、墙、楼梯和陷阱图块；12 个门、宝箱、火把和机关；16 个家具和地牢摆件。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "pixel",
@@ -2060,13 +2060,13 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 800,
+        "credits": 25,
         "sku": "workshop.forest-platformer-kit"
       },
-      "description": "Create a woodland platformer with 192 tiles at 16×16 px, a 4-layer 2048×512 px parallax background, and a 32×32 px hero with idle (4 frames), run (8), jump (4) and attack (6). Transparent PNG sheets and animation maps are Godot and Phaser ready.",
+      "description": "Make a bright woodland platformer: 40 separate PNG pieces, with 12 ground, slope and platform tiles; a fox hero with idle, run, jump, fall, land, hurt and climb frames; and 16 trees, pickups and hazards. PACK.md names every piece for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Create a woodland platformer with 192 tiles at 16?16 px, a 4-layer 2048?512 px parallax background, and a 32?32 px hero with idle (4 frames), run (8), jump (4) and attack (6). Transparent PNG sheets and animation maps are Godot and Phaser ready.",
-        "zh-CN": "打造林地平台跳跃游戏：192 块 16×16 像素图块、4 层 2048×512 像素视差背景，以及 32×32 像素主角，含待机（4 帧）、奔跑（8 帧）、跳跃（4 帧）和攻击（6 帧）。透明 PNG 图集与动画映射可直接用于 Godot 和 Phaser。"
+        "en": "Make a bright woodland platformer: 40 separate PNG pieces, with 12 ground, slope and platform tiles; a fox hero with idle, run, jump, fall, land, hurt and climb frames; and 16 trees, pickups and hazards. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "做一个明亮的森林平台跳跃游戏：40 个单独的 PNG 素材，包括 12 块地面、斜坡和平台图块；一只狐狸主角的待机、奔跑、跳跃、下落、落地、受伤和攀爬帧；16 个树木、拾取物和机关。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "pixel",
@@ -2095,13 +2095,13 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 900,
+        "credits": 25,
         "sku": "workshop.retro-bestiary"
       },
-      "description": "Populate encounters with 32 animated enemies on 32×32 px frames: idle (4), move (6), hit (2) and death (6), for 576 animation frames in total. Transparent PNG sheets with named animation maps are Godot and Phaser ready.",
+      "description": "Populate encounters with classic monsters: 48 separate PNG pieces, with 4 beasts with idle, two walk frames and an attack; 4 humanoid foes with idle, two walk frames and an attack; and 4 magical creatures with idle, two move frames and an attack. PACK.md names every piece for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Populate encounters with 32 animated enemies on 32?32 px frames: idle (4), move (6), hit (2) and death (6), for 576 animation frames in total. Transparent PNG sheets with named animation maps are Godot and Phaser ready.",
-        "zh-CN": "32 种带动画的敌人，32×32 像素帧：待机（4 帧）、移动（6 帧）、受击（2 帧）和死亡（6 帧），共 576 帧动画。透明 PNG 图集附命名动画映射，可直接用于 Godot 和 Phaser。"
+        "en": "Populate encounters with classic monsters: 48 separate PNG pieces, with 4 beasts with idle, two walk frames and an attack; 4 humanoid foes with idle, two walk frames and an attack; and 4 magical creatures with idle, two move frames and an attack. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "为遭遇战凑齐经典怪物：48 个单独的 PNG 素材，包括 4 只野兽，各有待机、两帧行走和攻击；4 个人形敌人，各有待机、两帧行走和攻击；4 个魔法生物，各有待机、两帧移动和攻击。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "pixel",
@@ -2129,13 +2129,13 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 700,
+        "credits": 20,
         "sku": "workshop.cozy-farm-village"
       },
-      "description": "Grow a welcoming top-down village with 256 tiles at 16×16 px, 12 crops with 6 growth stages each, 16 buildings, and 8 villagers on 32×32 px frames with 4-direction, 6-frame walks. PNG sheets, tile maps and animation maps are Godot and Phaser ready.",
+      "description": "Grow a welcoming top-down village: 44 separate PNG pieces, with 4 crops in 4 growth stages; 12 buildings and farm props; and 16 tool and produce icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Grow a welcoming top-down village with 256 tiles at 16?16 px, 12 crops with 6 growth stages each, 16 buildings, and 8 villagers on 32?32 px frames with 4-direction, 6-frame walks. PNG sheets, tile maps and animation maps are Godot and Phaser ready.",
-        "zh-CN": "营造温馨的俯视角小镇：256 块 16×16 像素图块、12 种作物各 6 个生长阶段、16 座建筑，以及 8 位村民（32×32 像素帧，四方向 6 帧行走）。PNG 图集、瓦片地图与动画映射可直接用于 Godot 和 Phaser。"
+        "en": "Grow a welcoming top-down village: 44 separate PNG pieces, with 4 crops in 4 growth stages; 12 buildings and farm props; and 16 tool and produce icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "经营一座温馨的俯视角村庄：44 个单独的 PNG 素材，包括 4 种作物，各 4 个生长阶段；12 座建筑和农场摆件；16 个工具和农产品图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "top-down",
@@ -2164,13 +2164,13 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 400,
+        "credits": 15,
         "sku": "workshop.sci-fi-hud-kit"
       },
-      "description": "Assemble a consistent sci-fi HUD with 24 resizable 9-slice panels, 12 resource bars, 24 buttons in 3 states, 8 cursors and 80 icons at 32×32 and 64×64 px. Transparent PNG assets and slice-margin guides are Godot and Phaser ready.",
+      "description": "Assemble a consistent sci-fi HUD: 38 separate PNG pieces, with 6 panels for 9-slice; 8 button states, 4 bars and 4 HUD pieces; and 16 interface icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Assemble a consistent sci-fi HUD with 24 resizable 9-slice panels, 12 resource bars, 24 buttons in 3 states, 8 cursors and 80 icons at 32?32 and 64?64 px. Transparent PNG assets and slice-margin guides are Godot and Phaser ready.",
-        "zh-CN": "组装风格统一的科幻 HUD：24 个可缩放九宫格面板、12 种资源条、24 个三态按钮、8 种光标，以及 80 个 32×32 和 64×64 像素图标。透明 PNG 素材附切片边距说明，可直接用于 Godot 和 Phaser。"
+        "en": "Assemble a consistent sci-fi HUD: 38 separate PNG pieces, with 6 panels for 9-slice; 8 button states, 4 bars and 4 HUD pieces; and 16 interface icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "拼出风格统一的科幻 HUD：38 个单独的 PNG 素材，包括 6 块可做 9-slice 的面板；8 个按钮状态、4 条状态条和 4 个 HUD 元件；16 个界面图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "ui",
@@ -2198,13 +2198,13 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 500,
+        "credits": 20,
         "sku": "workshop.fantasy-item-icons"
       },
-      "description": "Fill an RPG inventory with 200 painted icons: 80 weapons, 40 potions, 40 armor pieces and 40 loot items. Every icon ships at 64×64 and 128×128 px as transparent PNGs, with atlas sheets and named indexes that are Godot and Phaser ready.",
+      "description": "Fill an RPG inventory with 48 painted icons as separate transparent PNGs up to 256 px: 16 weapons, 16 potions, scrolls and food, and 16 armor pieces, jewels and treasure. PACK.md names every icon for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Fill an RPG inventory with 200 painted icons: 80 weapons, 40 potions, 40 armor pieces and 40 loot items. Every icon ships at 64?64 and 128?128 px as transparent PNGs, with atlas sheets and named indexes that are Godot and Phaser ready.",
-        "zh-CN": "用 200 个手绘图标填满 RPG 背包：80 件武器、40 瓶药水、40 件护甲和 40 件战利品。每个图标都提供 64×64 和 128×128 像素透明 PNG，附图集与命名索引，可直接用于 Godot 和 Phaser。"
+        "en": "Fill an RPG inventory with 48 painted icons as separate transparent PNGs up to 256 px: 16 weapons, 16 potions, scrolls and food, and 16 armor pieces, jewels and treasure. PACK.md names every icon for your agent. Godot and Phaser ready.",
+        "zh-CN": "48 个手绘图标，每个都是单独的透明 PNG（最大 256 像素）：16 件武器，16 种药水、卷轴和食物，16 件护甲、珠宝和宝物，填满 RPG 背包。PACK.md 写明每个图标是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "icons",
@@ -2232,7 +2232,7 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 300,
+        "credits": 15,
         "sku": "workshop.chiptune-sfx-pack"
       },
       "description": "Give retro actions a crisp response with 120 8-bit sounds: 24 jumps, 24 coin pickups, 24 hits, 24 UI cues and 24 explosions. Includes 44.1 kHz mono 16-bit WAV masters and OGG copies, trimmed and named by action, Godot and Phaser ready.",
@@ -2244,14 +2244,15 @@
         "audio",
         "sfx",
         "retro"
-      ]
+      ],
+      "yanked": true
     },
     {
       "name": "openpixo/topdown-hero-creator",
-      "title": "Top-Down Hero Creator",
+      "title": "Top-Down Hero Pack",
       "title_i18n": {
-        "en": "Top-Down Hero Creator",
-        "zh-CN": "俯视角角色生成器"
+        "en": "Top-Down Hero Pack",
+        "zh-CN": "俯视角英雄包"
       },
       "version": "1.0.0",
       "kind": "asset-pack",
@@ -2266,20 +2267,1630 @@
       },
       "pricing": {
         "type": "paid",
-        "credits": 1000,
+        "credits": 30,
         "sku": "workshop.topdown-hero-creator"
       },
-      "description": "Build a modular RPG cast from 8 bodies, 16 hairstyles, 20 outfits and 12 weapons, aligned on layered 32×32 px sprite frames. Each layer supports 4-direction idle (4 frames), walk (6) and attack (6). PNG layers and animation maps are Godot and Phaser ready.",
+      "description": "Build a top-down RPG cast: 48 separate PNG pieces, with 4 heroes facing down, up, left and right; 4 more heroes in the same 4 directions; and 16 weapon and gear icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
       "description_i18n": {
-        "en": "Build a modular RPG cast from 8 bodies, 16 hairstyles, 20 outfits and 12 weapons, aligned on layered 32?32 px sprite frames. Each layer supports 4-direction idle (4 frames), walk (6) and attack (6). PNG layers and animation maps are Godot and Phaser ready.",
-        "zh-CN": "用 8 种身体、16 种发型、20 套服装和 12 种武器组合出模块化 RPG 角色，全部对齐到分层 32×32 像素精灵帧。每一层都支持四方向待机（4 帧）、行走（6 帧）和攻击（6 帧）。PNG 图层与动画映射可直接用于 Godot 和 Phaser。"
+        "en": "Build a top-down RPG cast: 48 separate PNG pieces, with 4 heroes facing down, up, left and right; 4 more heroes in the same 4 directions; and 16 weapon and gear icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "组建一支俯视角 RPG 队伍：48 个单独的 PNG 素材，包括 4 位英雄，朝下、上、左、右；另外 4 位英雄，同样 4 个方向；16 个武器和装备图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
       },
       "tags": [
         "top-down",
         "character",
         "rpg",
-        "modular"
+        "animation"
       ]
+    },
+    {
+      "name": "openpixo/space-shooter-kit",
+      "title": "Space Shooter Kit",
+      "title_i18n": {
+        "en": "Space Shooter Kit",
+        "zh-CN": "太空射击套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:space-shooter-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.space-shooter-kit"
+      },
+      "description": "Launch a vertical or side-scrolling shooter: 40 separate PNG pieces, with 16 ships, enemies and space objects; 4 bosses, 4 power-ups and 4 shots; and 3 explosion and hit animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Launch a vertical or side-scrolling shooter: 40 separate PNG pieces, with 16 ships, enemies and space objects; 4 bosses, 4 power-ups and 4 shots; and 3 explosion and hit animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "做一款纵版或横版射击游戏：40 个单独的 PNG 素材，包括 16 艘飞船、敌机和太空物体；4 个首领、4 个强化道具和 4 种弹道；3 段爆炸和命中动画，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "shooter",
+        "space",
+        "vfx"
+      ]
+    },
+    {
+      "name": "openpixo/match3-gem-pack",
+      "title": "Match-3 Gem Pack",
+      "title_i18n": {
+        "en": "Match-3 Gem Pack",
+        "zh-CN": "三消宝石包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:match3-gem-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.match3-gem-pack"
+      },
+      "description": "Build a bright puzzle board: 40 separate PNG pieces, with 16 regular and special gems; 12 board cells and blockers; and 3 clear and blast animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Build a bright puzzle board: 40 separate PNG pieces, with 16 regular and special gems; 12 board cells and blockers; and 3 clear and blast animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "做一个明亮的三消棋盘：40 个单独的 PNG 素材，包括 16 颗普通和特殊宝石；12 个棋盘格和障碍；3 段消除和爆炸动画，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "puzzle",
+        "match-3",
+        "casual",
+        "vfx"
+      ]
+    },
+    {
+      "name": "openpixo/fantasy-ui-kit",
+      "title": "Fantasy UI Kit",
+      "title_i18n": {
+        "en": "Fantasy UI Kit",
+        "zh-CN": "奇幻界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:fantasy-ui-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.fantasy-ui-kit"
+      },
+      "description": "Dress an RPG menu: 34 separate PNG pieces, with 6 panels for 9-slice; 12 buttons in 4 styles and 3 states; and 16 bars, slots, frames and controls. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Dress an RPG menu: 34 separate PNG pieces, with 6 panels for 9-slice; 12 buttons in 4 styles and 3 states; and 16 bars, slots, frames and controls. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "装扮一套 RPG 菜单：34 个单独的 PNG 素材，包括 6 块可做 9-slice 的面板；4 种样式、3 种状态的 12 个按钮；16 个状态条、格子、头像框和控件。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "hud",
+        "rpg",
+        "fantasy"
+      ]
+    },
+    {
+      "name": "openpixo/card-game-frames",
+      "title": "Card Game Frames",
+      "title_i18n": {
+        "en": "Card Game Frames",
+        "zh-CN": "卡牌框架套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:card-game-frames",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.card-game-frames"
+      },
+      "description": "Lay out a deckbuilder: 32 separate PNG pieces, with 8 empty card frames; 4 card backs and 4 piles; and 16 cost, type and status badges. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Lay out a deckbuilder: 32 separate PNG pieces, with 8 empty card frames; 4 card backs and 4 piles; and 16 cost, type and status badges. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "排出一局构筑卡牌游戏：32 个单独的 PNG 素材，包括 8 个空白卡框；4 种卡背和 4 种牌堆；16 个费用、类型和状态徽章。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "cards",
+        "deckbuilder",
+        "roguelike"
+      ]
+    },
+    {
+      "name": "openpixo/tower-defense-kit",
+      "title": "Tower Defense Kit",
+      "title_i18n": {
+        "en": "Tower Defense Kit",
+        "zh-CN": "塔防套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:tower-defense-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.tower-defense-kit"
+      },
+      "description": "Defend a winding path: 48 separate PNG pieces, with 4 towers in 3 levels plus a firing pose; 4 enemies with 3 walk frames and a hit; and 12 terrain pieces and 4 projectiles. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Defend a winding path: 48 separate PNG pieces, with 4 towers in 3 levels plus a firing pose; 4 enemies with 3 walk frames and a hit; and 12 terrain pieces and 4 projectiles. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "守住蜿蜒的道路：48 个单独的 PNG 素材，包括 4 座塔，各 3 个等级加开火姿态；4 种敌人，各有 3 帧行走和受击；12 块地形和 4 种弹道。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tower-defense",
+        "tileset",
+        "enemies"
+      ]
+    },
+    {
+      "name": "openpixo/magic-vfx-pack",
+      "title": "Pixel Magic VFX",
+      "title_i18n": {
+        "en": "Pixel Magic VFX",
+        "zh-CN": "像素魔法特效包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:magic-vfx-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.magic-vfx-pack"
+      },
+      "description": "Make every hit land: 48 separate PNG pieces, with fire, ice, lightning and poison bursts of 4 frames; holy, shadow, heal and portal effects of 4 frames; and slash, impact, buff and shield effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Make every hit land: 48 separate PNG pieces, with fire, ice, lightning and poison bursts of 4 frames; holy, shadow, heal and portal effects of 4 frames; and slash, impact, buff and shield effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让每次命中都有分量：48 个单独的 PNG 素材，包括 火、冰、雷、毒各 4 帧爆发；神圣、暗影、治疗和传送门各 4 帧；斩击、冲击、增益和护盾各 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "vfx",
+        "animation",
+        "rpg"
+      ]
+    },
+    {
+      "name": "openpixo/pixel-rpg-ui-kit",
+      "title": "Pixel RPG UI Kit",
+      "title_i18n": {
+        "en": "Pixel RPG UI Kit",
+        "zh-CN": "像素 RPG 界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:pixel-rpg-ui-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.pixel-rpg-ui-kit"
+      },
+      "description": "Build a retro RPG menu from 34 separate pixel pieces: 6 window panels for 9-slice, 12 buttons in green, blue, red and gold with normal, hover and pressed states, health, mana and XP bars, inventory slots, 4 icons and 2 cursors. PACK.md says how to use each one. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Build a retro RPG menu from 34 separate pixel pieces: 6 window panels for 9-slice, 12 buttons in green, blue, red and gold with normal, hover and pressed states, health, mana and XP bars, inventory slots, 4 icons and 2 cursors. PACK.md says how to use each one. Godot and Phaser ready.",
+        "zh-CN": "34 个单独的像素界面素材：6 块可做 9-slice 的窗口面板，绿、蓝、红、金 12 个按钮（常态、悬停、按下），生命、法力和经验条，背包格，4 个图标和 2 个光标，拼出复古 RPG 菜单。PACK.md 写明每个怎么用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "hud",
+        "pixel",
+        "rpg"
+      ]
+    },
+    {
+      "name": "openpixo/cozy-ui-kit",
+      "title": "Cozy Pastel UI Kit",
+      "title_i18n": {
+        "en": "Cozy Pastel UI Kit",
+        "zh-CN": "治愈粉彩界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:cozy-ui-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.cozy-ui-kit"
+      },
+      "description": "Give a life-sim a soft, friendly interface: 34 separate PNG pieces, with 6 rounded panels for 9-slice; 12 bubbly buttons in 4 colors and 3 states; and 16 widgets, icons and small buttons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Give a life-sim a soft, friendly interface: 34 separate PNG pieces, with 6 rounded panels for 9-slice; 12 bubbly buttons in 4 colors and 3 states; and 16 widgets, icons and small buttons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "给模拟经营游戏一套柔和友好的界面：34 个单独的 PNG 素材，包括 6 块可做 9-slice 的圆角面板；4 种颜色、3 种状态的 12 个圆润按钮；16 个组件、图标和小按钮。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "cozy",
+        "casual",
+        "hud"
+      ]
+    },
+    {
+      "name": "openpixo/horror-ui-kit",
+      "title": "Gothic Horror UI Kit",
+      "title_i18n": {
+        "en": "Gothic Horror UI Kit",
+        "zh-CN": "哥特恐怖界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:horror-ui-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.horror-ui-kit"
+      },
+      "description": "Set a dread-soaked mood: 34 separate PNG pieces, with 6 panels for 9-slice; 12 buttons, meters and frames; and 16 item and symbol icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Set a dread-soaked mood: 34 separate PNG pieces, with 6 panels for 9-slice; 12 buttons, meters and frames; and 16 item and symbol icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "营造压抑恐怖的氛围：34 个单独的 PNG 素材，包括 6 块可做 9-slice 的面板；12 个按钮、仪表和框；16 个物品和符号图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "horror",
+        "gothic",
+        "hud"
+      ]
+    },
+    {
+      "name": "openpixo/mobile-casual-ui",
+      "title": "Casual Mobile UI Kit",
+      "title_i18n": {
+        "en": "Casual Mobile UI Kit",
+        "zh-CN": "休闲手游界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:mobile-casual-ui",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.mobile-casual-ui"
+      },
+      "description": "Ship a polished casual game: 34 separate PNG pieces, with 6 popups and banners for 9-slice; 12 chunky buttons in 4 colors and 3 states; and 16 reward, map node and counter pieces. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Ship a polished casual game: 34 separate PNG pieces, with 6 popups and banners for 9-slice; 12 chunky buttons in 4 colors and 3 states; and 16 reward, map node and counter pieces. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "做出精致的休闲手游：34 个单独的 PNG 素材，包括 6 个可做 9-slice 的弹窗和横幅；4 种颜色、3 种状态的 12 个圆胖按钮；16 个奖励、地图节点和计数器。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "mobile",
+        "casual",
+        "hud"
+      ]
+    },
+    {
+      "name": "openpixo/cyberpunk-ui-kit",
+      "title": "Neon Cyberpunk UI Kit",
+      "title_i18n": {
+        "en": "Neon Cyberpunk UI Kit",
+        "zh-CN": "霓虹赛博界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:cyberpunk-ui-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.cyberpunk-ui-kit"
+      },
+      "description": "Wire up a neon HUD: 34 separate PNG pieces, with 6 holographic panels for 9-slice; 12 buttons, rings and aim pieces; and 16 neon icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Wire up a neon HUD: 34 separate PNG pieces, with 6 holographic panels for 9-slice; 12 buttons, rings and aim pieces; and 16 neon icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "搭出一套霓虹 HUD：34 个单独的 PNG 素材，包括 6 块可做 9-slice 的全息面板；12 个按钮、圆环和瞄准元件；16 个霓虹图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "hud",
+        "cyberpunk",
+        "sci-fi"
+      ]
+    },
+    {
+      "name": "openpixo/strategy-ui-kit",
+      "title": "Strategy Game UI Kit",
+      "title_i18n": {
+        "en": "Strategy Game UI Kit",
+        "zh-CN": "策略游戏界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:strategy-ui-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.strategy-ui-kit"
+      },
+      "description": "Run an empire: 34 separate PNG pieces, with 6 panels and bars for 9-slice; 12 commands, tech nodes and bars; and 16 resource, unit and command icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Run an empire: 34 separate PNG pieces, with 6 panels and bars for 9-slice; 12 commands, tech nodes and bars; and 16 resource, unit and command icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "经营你的帝国：34 个单独的 PNG 素材，包括 6 块可做 9-slice 的面板和栏；12 个指令按钮、科技节点和状态条；16 个资源、兵种和指令图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "strategy",
+        "hud",
+        "rts"
+      ]
+    },
+    {
+      "name": "openpixo/visual-novel-ui",
+      "title": "Visual Novel UI Kit",
+      "title_i18n": {
+        "en": "Visual Novel UI Kit",
+        "zh-CN": "视觉小说界面套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:visual-novel-ui",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.visual-novel-ui"
+      },
+      "description": "Tell your story: 34 separate PNG pieces, with 6 textboxes and panels for 9-slice; 12 choices, menu buttons, save slots and tabs in 3 states; and 16 icons, sliders and ornaments. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Tell your story: 34 separate PNG pieces, with 6 textboxes and panels for 9-slice; 12 choices, menu buttons, save slots and tabs in 3 states; and 16 icons, sliders and ornaments. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "讲好你的故事：34 个单独的 PNG 素材，包括 6 个可做 9-slice 的文本框和面板；3 种状态的选项、菜单按钮、存档格和标签，共 12 个；16 个图标、滑块和装饰。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "visual-novel",
+        "dialogue",
+        "anime"
+      ]
+    },
+    {
+      "name": "openpixo/arcade-hud-pack",
+      "title": "Retro Arcade HUD",
+      "title_i18n": {
+        "en": "Retro Arcade HUD",
+        "zh-CN": "复古街机 HUD"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:arcade-hud-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.arcade-hud-pack"
+      },
+      "description": "Add coin-op energy: 40 separate PNG pieces, with 12 chunky pixel digits and signs; 12 score, life and banner pieces; and 16 power-up and bonus badges. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Add coin-op energy: 40 separate PNG pieces, with 12 chunky pixel digits and signs; 12 score, life and banner pieces; and 16 power-up and bonus badges. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "加点投币街机的劲头：40 个单独的 PNG 素材，包括 12 个粗像素数字和符号；12 个分数、生命和横幅元件；16 个强化和奖励徽章。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "hud",
+        "arcade",
+        "pixel"
+      ]
+    },
+    {
+      "name": "openpixo/dialogue-portrait-frames",
+      "title": "Dialogue Boxes & Portrait Frames",
+      "title_i18n": {
+        "en": "Dialogue Boxes & Portrait Frames",
+        "zh-CN": "对话框与头像框"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:dialogue-portrait-frames",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.dialogue-portrait-frames"
+      },
+      "description": "Frame every conversation: 38 separate PNG pieces, with 6 dialogue boxes for 9-slice; 8 portrait frames and 8 dialogue parts; and 16 emotion bubbles. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Frame every conversation: 38 separate PNG pieces, with 6 dialogue boxes for 9-slice; 8 portrait frames and 8 dialogue parts; and 16 emotion bubbles. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "框住每一段对话：38 个单独的 PNG 素材，包括 6 个可做 9-slice 的对话框；8 个头像框和 8 个对话元件；16 个情绪气泡。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "dialogue",
+        "rpg",
+        "portraits"
+      ]
+    },
+    {
+      "name": "openpixo/game-cursor-pack",
+      "title": "Cursors & Pointers",
+      "title_i18n": {
+        "en": "Cursors & Pointers",
+        "zh-CN": "光标与指针包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:game-cursor-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.game-cursor-pack"
+      },
+      "description": "Point the way: 44 separate PNG pieces, with 16 pixel cursors; 16 painted cursors; and 3 click and marker animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Point the way: 44 separate PNG pieces, with 16 pixel cursors; 16 painted cursors; and 3 click and marker animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "为玩家指明方向：44 个单独的 PNG 素材，包括 16 个像素光标；16 个手绘光标；3 段点击和标记动画，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "ui",
+        "cursors",
+        "icons",
+        "pixel"
+      ]
+    },
+    {
+      "name": "openpixo/desert-ruins-tileset",
+      "title": "Desert Ruins Tileset",
+      "title_i18n": {
+        "en": "Desert Ruins Tileset",
+        "zh-CN": "沙漠遗迹图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:desert-ruins-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.desert-ruins-tileset"
+      },
+      "description": "Explore sun-baked ruins: 44 separate PNG pieces, with 16 ground, water and wall tiles; 12 ruins and desert plants; and 16 props and desert creatures. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Explore sun-baked ruins: 44 separate PNG pieces, with 16 ground, water and wall tiles; 12 ruins and desert plants; and 16 props and desert creatures. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "探索烈日下的遗迹：44 个单独的 PNG 素材，包括 16 块地面、水面和墙体图块；12 个遗迹和沙漠植物；16 个摆件和沙漠生物。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "desert",
+        "top-down"
+      ]
+    },
+    {
+      "name": "openpixo/snow-mountain-tileset",
+      "title": "Frozen Peaks Tileset",
+      "title_i18n": {
+        "en": "Frozen Peaks Tileset",
+        "zh-CN": "冰封山岭图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:snow-mountain-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.snow-mountain-tileset"
+      },
+      "description": "Climb icy cliffs: 44 separate PNG pieces, with 12 ground, ice and slope tiles; 16 trees, props and snow creatures; and 16 pickups and hazards. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Climb icy cliffs: 44 separate PNG pieces, with 12 ground, ice and slope tiles; 16 trees, props and snow creatures; and 16 pickups and hazards. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "攀上冰封的悬崖：44 个单独的 PNG 素材，包括 12 块地面、冰面和斜坡图块；16 个树木、摆件和雪地生物；16 个拾取物和机关。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "snow",
+        "platformer"
+      ]
+    },
+    {
+      "name": "openpixo/haunted-graveyard-tileset",
+      "title": "Haunted Graveyard Tileset",
+      "title_i18n": {
+        "en": "Haunted Graveyard Tileset",
+        "zh-CN": "闹鬼墓地图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:haunted-graveyard-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.haunted-graveyard-tileset"
+      },
+      "description": "Haunt the night: 40 separate PNG pieces, with 16 ground, crypt and fence tiles; 12 graves, statues and lights; and a ghost, a wisp and a bat with 4 frames each. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Haunt the night: 40 separate PNG pieces, with 16 ground, crypt and fence tiles; 12 graves, statues and lights; and a ghost, a wisp and a bat with 4 frames each. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让夜晚阴森起来：40 个单独的 PNG 素材，包括 16 块地面、地穴和栅栏图块；12 个墓碑、雕像和灯；幽灵、鬼火和蝙蝠，各 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "horror",
+        "top-down"
+      ]
+    },
+    {
+      "name": "openpixo/pirate-island-kit",
+      "title": "Pirate Island Kit",
+      "title_i18n": {
+        "en": "Pirate Island Kit",
+        "zh-CN": "海盗岛屿套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:pirate-island-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.pirate-island-kit"
+      },
+      "description": "Set sail: 44 separate PNG pieces, with 16 beach, water, dock and jungle tiles; 4 ship directions, boats and ship props; and 16 loot and pirate icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Set sail: 44 separate PNG pieces, with 16 beach, water, dock and jungle tiles; 4 ship directions, boats and ship props; and 16 loot and pirate icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "扬帆出海：44 个单独的 PNG 素材，包括 16 块海滩、海水、码头和丛林图块；4 个方向的帆船、小船和船上道具；16 个宝物和海盗图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "pirate",
+        "ocean"
+      ]
+    },
+    {
+      "name": "openpixo/cyber-city-tileset",
+      "title": "Neon City Tileset",
+      "title_i18n": {
+        "en": "Neon City Tileset",
+        "zh-CN": "霓虹都市图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:cyber-city-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.cyber-city-tileset"
+      },
+      "description": "Run across neon rooftops: 29 separate PNG pieces, with 12 rooftop, wall and walkway tiles; 16 symbol-only neon signs and rooftop props; and a night skyline background. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Run across neon rooftops: 29 separate PNG pieces, with 12 rooftop, wall and walkway tiles; 16 symbol-only neon signs and rooftop props; and a night skyline background. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "在霓虹楼顶飞奔：29 个单独的 PNG 素材，包括 12 块楼顶、墙体和通道图块；16 个只有图形的霓虹招牌和楼顶摆件；一张夜景天际线背景。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "cyberpunk",
+        "platformer"
+      ]
+    },
+    {
+      "name": "openpixo/isometric-town-kit",
+      "title": "Isometric Town Kit",
+      "title_i18n": {
+        "en": "Isometric Town Kit",
+        "zh-CN": "等距小镇套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:isometric-town-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 30,
+        "sku": "workshop.isometric-town-kit"
+      },
+      "description": "Build a charming town: 44 separate PNG pieces, with 16 isometric ground and road tiles; 12 isometric buildings; and 12 props and 4 villagers. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Build a charming town: 44 separate PNG pieces, with 16 isometric ground and road tiles; 12 isometric buildings; and 12 props and 4 villagers. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "建一座迷人的小镇：44 个单独的 PNG 素材，包括 16 块等距地面和道路图块；12 座等距建筑；12 个摆件和 4 位村民。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "isometric",
+        "tileset",
+        "town",
+        "strategy"
+      ]
+    },
+    {
+      "name": "openpixo/underwater-reef-tileset",
+      "title": "Underwater Reef Tileset",
+      "title_i18n": {
+        "en": "Underwater Reef Tileset",
+        "zh-CN": "海底珊瑚图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:underwater-reef-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.underwater-reef-tileset"
+      },
+      "description": "Dive into a reef: 40 separate PNG pieces, with 12 seabed, rock and wreck tiles; 16 coral, plants and seabed props; and a fish, a jellyfish and a turtle with 4 swim frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Dive into a reef: 40 separate PNG pieces, with 12 seabed, rock and wreck tiles; 16 coral, plants and seabed props; and a fish, a jellyfish and a turtle with 4 swim frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "潜入珊瑚礁：40 个单独的 PNG 素材，包括 12 块海床、岩石和沉船图块；16 个珊瑚、植物和海底摆件；小丑鱼、水母和海龟，各 4 帧游动。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "ocean",
+        "platformer"
+      ]
+    },
+    {
+      "name": "openpixo/lava-cavern-tileset",
+      "title": "Lava Cavern Tileset",
+      "title_i18n": {
+        "en": "Lava Cavern Tileset",
+        "zh-CN": "熔岩洞窟图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:lava-cavern-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.lava-cavern-tileset"
+      },
+      "description": "Survive the heat: 40 separate PNG pieces, with 12 rock, lava and platform tiles; 16 hazards and props; and 3 fire and lava animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Survive the heat: 40 separate PNG pieces, with 12 rock, lava and platform tiles; 16 hazards and props; and 3 fire and lava animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "在高温中求生：40 个单独的 PNG 素材，包括 12 块岩石、熔岩和平台图块；16 个机关和摆件；3 段火焰和熔岩动画，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "lava",
+        "dungeon"
+      ]
+    },
+    {
+      "name": "openpixo/sci-fi-station-tileset",
+      "title": "Space Station Interiors",
+      "title_i18n": {
+        "en": "Space Station Interiors",
+        "zh-CN": "太空站内景图块"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:sci-fi-station-tileset",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.sci-fi-station-tileset"
+      },
+      "description": "Crew a space station: 40 separate PNG pieces, with 16 floor, wall, door and pipe tiles; 12 consoles and station equipment; and 3 crew members facing 4 directions. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Crew a space station: 40 separate PNG pieces, with 16 floor, wall, door and pipe tiles; 12 consoles and station equipment; and 3 crew members facing 4 directions. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让太空站运转起来：40 个单独的 PNG 素材，包括 16 块地板、墙、门和管道图块；12 个控制台和设备；3 名船员，朝 4 个方向。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "sci-fi",
+        "top-down"
+      ]
+    },
+    {
+      "name": "openpixo/japanese-village-kit",
+      "title": "Lantern Village Kit",
+      "title_i18n": {
+        "en": "Lantern Village Kit",
+        "zh-CN": "灯笼村落套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:japanese-village-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.japanese-village-kit"
+      },
+      "description": "Wander a lantern-lit village: 40 separate PNG pieces, with 16 ground, water, wall and fence tiles; 12 buildings, lanterns and trees; and 3 villagers facing 4 directions. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Wander a lantern-lit village: 40 separate PNG pieces, with 16 ground, water, wall and fence tiles; 12 buildings, lanterns and trees; and 3 villagers facing 4 directions. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "漫步在灯笼照亮的村落：40 个单独的 PNG 素材，包括 16 块地面、水面、墙和篱笆图块；12 个建筑、灯笼和树木；3 位村民，朝 4 个方向。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "village",
+        "top-down"
+      ]
+    },
+    {
+      "name": "openpixo/fantasy-hero-party",
+      "title": "Fantasy Hero Party",
+      "title_i18n": {
+        "en": "Fantasy Hero Party",
+        "zh-CN": "奇幻英雄小队"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:fantasy-hero-party",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.fantasy-hero-party"
+      },
+      "description": "Assemble a party of heroes: 40 separate PNG pieces, with 4 melee heroes with idle, walk, attack and hurt; 4 ranged and magic heroes with idle, walk, cast and hurt; and 8 painted portraits. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Assemble a party of heroes: 40 separate PNG pieces, with 4 melee heroes with idle, walk, attack and hurt; 4 ranged and magic heroes with idle, walk, cast and hurt; and 8 painted portraits. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "组建一支英雄小队：40 个单独的 PNG 素材，包括 4 位近战英雄，各有待机、行走、攻击和受伤；4 位远程和法系英雄，各有待机、行走、施法和受伤；8 张手绘头像。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "character",
+        "animation",
+        "rpg"
+      ]
+    },
+    {
+      "name": "openpixo/platformer-hero-pack",
+      "title": "Platformer Hero Pack",
+      "title_i18n": {
+        "en": "Platformer Hero Pack",
+        "zh-CN": "平台跳跃主角包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:platformer-hero-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.platformer-hero-pack"
+      },
+      "description": "Give your platformer a hero: 36 separate PNG pieces, with a fox hero with 12 frames; a little knight with 12 frames; and 3 movement effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Give your platformer a hero: 36 separate PNG pieces, with a fox hero with 12 frames; a little knight with 12 frames; and 3 movement effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "给平台跳跃游戏一位主角：36 个单独的 PNG 素材，包括 一只狐狸主角，12 帧；一位小骑士，12 帧；3 段移动特效，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "character",
+        "platformer",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/slime-monster-pack",
+      "title": "Slime & Critter Pack",
+      "title_i18n": {
+        "en": "Slime & Critter Pack",
+        "zh-CN": "史莱姆与小怪包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:slime-monster-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.slime-monster-pack"
+      },
+      "description": "Fill early levels with 7 animated pixel enemies as separate frames: 4 slimes with idle, squash, jump and hit, plus a bat, a mushroom and a beetle with 3 moves and a hit, all bottom-aligned per creature. Adds 4 extra critters, defeat smoke, a hit spark and a coin. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Fill early levels with 7 animated pixel enemies as separate frames: 4 slimes with idle, squash, jump and hit, plus a bat, a mushroom and a beetle with 3 moves and a hit, all bottom-aligned per creature. Adds 4 extra critters, defeat smoke, a hit spark and a coin. Godot and Phaser ready.",
+        "zh-CN": "7 只带动画的像素小怪，每帧单独一张：4 只史莱姆（待机、压扁、跳跃、受击），蝙蝠、蘑菇和甲虫各 3 帧动作加受击，同一只怪的帧底部对齐。另有 4 只小怪、击败烟雾、命中火花和金币。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "enemies",
+        "animation",
+        "cute"
+      ]
+    },
+    {
+      "name": "openpixo/undead-army-pack",
+      "title": "Undead Army",
+      "title_i18n": {
+        "en": "Undead Army",
+        "zh-CN": "亡灵军团"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:undead-army-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.undead-army-pack"
+      },
+      "description": "Raise an undead army: 48 separate PNG pieces, with 4 skeletons with idle, walk, attack and collapse; 4 more undead with idle, move, attack and defeat; and 16 undead props. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Raise an undead army: 48 separate PNG pieces, with 4 skeletons with idle, walk, attack and collapse; 4 more undead with idle, move, attack and defeat; and 16 undead props. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "召唤亡灵大军：48 个单独的 PNG 素材，包括 4 种骷髅，各有待机、行走、攻击和倒下；另 4 种亡灵，各有待机、移动、攻击和被击败；16 个亡灵摆件。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "enemies",
+        "undead",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/robot-mech-pack",
+      "title": "Robots & Mechs",
+      "title_i18n": {
+        "en": "Robots & Mechs",
+        "zh-CN": "机器人与机甲"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:robot-mech-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.robot-mech-pack"
+      },
+      "description": "Deploy robots and mechs: 36 separate PNG pieces, with 4 robots with idle, move, fire and destroyed; 2 large mechs with idle, step, fire and destroyed; and 3 weapon effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Deploy robots and mechs: 36 separate PNG pieces, with 4 robots with idle, move, fire and destroyed; 2 large mechs with idle, step, fire and destroyed; and 3 weapon effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "派出机器人与机甲：36 个单独的 PNG 素材，包括 4 种机器人，各有待机、移动、开火和被摧毁；2 台大型机甲，各有待机、迈步、开火和被摧毁；3 段武器特效，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "enemies",
+        "sci-fi",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/animal-companions",
+      "title": "Animal Companions",
+      "title_i18n": {
+        "en": "Animal Companions",
+        "zh-CN": "动物伙伴"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:animal-companions",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.animal-companions"
+      },
+      "description": "Bring pets and mounts to life: 48 separate PNG pieces, with 4 pets with idle, two walk frames and happy; 4 more animals with idle, two move frames and happy; and 16 pet care icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Bring pets and mounts to life: 48 separate PNG pieces, with 4 pets with idle, two walk frames and happy; 4 more animals with idle, two move frames and happy; and 16 pet care icons. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让宠物和坐骑活起来：48 个单独的 PNG 素材，包括 4 只宠物，各有待机、两帧行走和开心；另 4 只动物，各有待机、两帧移动和开心；16 个宠物照料图标。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "character",
+        "animals",
+        "cozy"
+      ]
+    },
+    {
+      "name": "openpixo/boss-monster-pack",
+      "title": "Boss Monster Pack",
+      "title_i18n": {
+        "en": "Boss Monster Pack",
+        "zh-CN": "首领怪物包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:boss-monster-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 30,
+        "sku": "workshop.boss-monster-pack"
+      },
+      "description": "Give every world a boss: 20 separate PNG pieces, with 4 large bosses; 4 more large bosses; and 3 boss attack effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Give every world a boss: 20 separate PNG pieces, with 4 large bosses; 4 more large bosses; and 3 boss attack effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "为每个世界安排压轴首领：20 个单独的 PNG 素材，包括 4 个大型首领；另 4 个大型首领；3 段首领攻击特效，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "enemies",
+        "boss",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/townsfolk-npc-pack",
+      "title": "Townsfolk NPC Pack",
+      "title_i18n": {
+        "en": "Townsfolk NPC Pack",
+        "zh-CN": "村民 NPC 包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:townsfolk-npc-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.townsfolk-npc-pack"
+      },
+      "description": "Populate a town: 48 separate PNG pieces, with 4 townsfolk facing 4 directions; 4 more townsfolk facing 4 directions; and 16 emote bubbles. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Populate a town: 48 separate PNG pieces, with 4 townsfolk facing 4 directions; 4 more townsfolk facing 4 directions; and 16 emote bubbles. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让城镇热闹起来：48 个单独的 PNG 素材，包括 4 位村民，朝 4 个方向；另 4 位村民，朝 4 个方向；16 个表情气泡。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "character",
+        "npc",
+        "rpg"
+      ]
+    },
+    {
+      "name": "openpixo/skill-ability-icons",
+      "title": "Skill & Ability Icons",
+      "title_i18n": {
+        "en": "Skill & Ability Icons",
+        "zh-CN": "技能图标包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:skill-ability-icons",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.skill-ability-icons"
+      },
+      "description": "Fill a skill tree: 48 separate PNG pieces, with 16 fire and frost skills; 16 nature and shadow skills; and 16 warrior and holy skills. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Fill a skill tree: 48 separate PNG pieces, with 16 fire and frost skills; 16 nature and shadow skills; and 16 warrior and holy skills. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "填满技能树：48 个单独的 PNG 素材，包括 16 个火焰和冰霜技能；16 个自然和暗影技能；16 个战士和神圣技能。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "icons",
+        "rpg",
+        "skills",
+        "ui"
+      ]
+    },
+    {
+      "name": "openpixo/food-cooking-icons",
+      "title": "Food & Cooking Icons",
+      "title_i18n": {
+        "en": "Food & Cooking Icons",
+        "zh-CN": "食物与烹饪图标"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:food-cooking-icons",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.food-cooking-icons"
+      },
+      "description": "Stock a kitchen: 48 separate PNG pieces, with 16 raw ingredients; 16 cooked dishes; and 16 drinks and kitchen tools. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Stock a kitchen: 48 separate PNG pieces, with 16 raw ingredients; 16 cooked dishes; and 16 drinks and kitchen tools. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "把厨房塞满：48 个单独的 PNG 素材，包括 16 种食材；16 道菜；16 种饮品和厨具。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "icons",
+        "food",
+        "cozy",
+        "inventory"
+      ]
+    },
+    {
+      "name": "openpixo/sci-fi-loot-icons",
+      "title": "Sci-Fi Loot Icons",
+      "title_i18n": {
+        "en": "Sci-Fi Loot Icons",
+        "zh-CN": "科幻战利品图标"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:sci-fi-loot-icons",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.sci-fi-loot-icons"
+      },
+      "description": "Reward players with sci-fi loot: 48 separate PNG pieces, with 16 weapons and ammo; 16 armor, gear and tools; and 16 artifacts, currencies and crates. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Reward players with sci-fi loot: 48 separate PNG pieces, with 16 weapons and ammo; 16 armor, gear and tools; and 16 artifacts, currencies and crates. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "用科幻战利品奖励玩家：48 个单独的 PNG 素材，包括 16 件武器和弹药；16 件护甲、装备和工具；16 个神器、货币和箱子。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "icons",
+        "sci-fi",
+        "loot",
+        "inventory"
+      ]
+    },
+    {
+      "name": "openpixo/crafting-resource-icons",
+      "title": "Crafting Resources",
+      "title_i18n": {
+        "en": "Crafting Resources",
+        "zh-CN": "制作材料图标"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:crafting-resource-icons",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.crafting-resource-icons"
+      },
+      "description": "Power a crafting system: 48 separate PNG pieces, with 16 raw materials; 16 refined materials and gems; and 16 herbs and monster parts. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Power a crafting system: 48 separate PNG pieces, with 16 raw materials; 16 refined materials and gems; and 16 herbs and monster parts. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "撑起你的制作系统：48 个单独的 PNG 素材，包括 16 种原材料；16 种精炼材料和宝石；16 种草药和怪物素材。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "icons",
+        "crafting",
+        "survival",
+        "inventory"
+      ]
+    },
+    {
+      "name": "openpixo/gem-currency-icons",
+      "title": "Coins, Gems & Currency",
+      "title_i18n": {
+        "en": "Coins, Gems & Currency",
+        "zh-CN": "金币宝石与货币"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:gem-currency-icons",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.gem-currency-icons"
+      },
+      "description": "Make rewards feel good: 44 separate PNG pieces, with 16 coins, gems and treasure; 16 energy, chest and reward icons; and 3 reward animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Make rewards feel good: 44 separate PNG pieces, with 16 coins, gems and treasure; 16 energy, chest and reward icons; and 3 reward animations of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让奖励更有满足感：44 个单独的 PNG 素材，包括 16 个金币、宝石和宝物；16 个体力、宝箱和奖励图标；3 段奖励动画，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "icons",
+        "currency",
+        "casual",
+        "ui"
+      ]
+    },
+    {
+      "name": "openpixo/parallax-sky-backgrounds",
+      "title": "Pixel Sky Backgrounds",
+      "title_i18n": {
+        "en": "Pixel Sky Backgrounds",
+        "zh-CN": "像素天空背景"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:parallax-sky-backgrounds",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.parallax-sky-backgrounds"
+      },
+      "description": "Set the scene behind your level: 3 separate PNG pieces, with a sunset landscape background; a starry night background; and a daytime hills background. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Set the scene behind your level: 3 separate PNG pieces, with a sunset landscape background; a starry night background; and a daytime hills background. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "为关卡铺好背景：3 个单独的 PNG 素材，包括 一张日落风景背景；一张星空夜景背景；一张白天丘陵背景。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "backgrounds",
+        "pixel",
+        "platformer",
+        "sky"
+      ]
+    },
+    {
+      "name": "openpixo/weather-effects-pack",
+      "title": "Weather & Ambience VFX",
+      "title_i18n": {
+        "en": "Weather & Ambience VFX",
+        "zh-CN": "天气氛围特效"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:weather-effects-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.weather-effects-pack"
+      },
+      "description": "Change the mood with weather: 36 separate PNG pieces, with rain, lightning and splash effects of 4 frames; snow, wind and fog effects of 4 frames; and leaves, petals and fireflies of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Change the mood with weather: 36 separate PNG pieces, with rain, lightning and splash effects of 4 frames; snow, wind and fog effects of 4 frames; and leaves, petals and fireflies of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "用天气改变氛围：36 个单独的 PNG 素材，包括 雨、闪电和水花各 4 帧；雪、风和雾各 4 帧；落叶、花瓣和萤火虫各 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "vfx",
+        "weather",
+        "pixel",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/explosion-impact-vfx",
+      "title": "Explosions & Impacts",
+      "title_i18n": {
+        "en": "Explosions & Impacts",
+        "zh-CN": "爆炸与冲击特效"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:explosion-impact-vfx",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.explosion-impact-vfx"
+      },
+      "description": "Make every hit count: 40 separate PNG pieces, with explosion and smoke effects of 4 frames; hit, shockwave and muzzle flash effects of 4 frames; and 16 debris and scorch pieces. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Make every hit count: 40 separate PNG pieces, with explosion and smoke effects of 4 frames; hit, shockwave and muzzle flash effects of 4 frames; and 16 debris and scorch pieces. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "让每次命中都有冲击：40 个单独的 PNG 素材，包括 爆炸和烟雾各 4 帧；命中、冲击波和枪口火焰各 4 帧；16 个碎片和焦痕。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "vfx",
+        "explosions",
+        "pixel",
+        "animation"
+      ]
+    },
+    {
+      "name": "openpixo/vehicle-racing-pack",
+      "title": "Top-Down Racing Kit",
+      "title_i18n": {
+        "en": "Top-Down Racing Kit",
+        "zh-CN": "俯视赛车套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:vehicle-racing-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 25,
+        "sku": "workshop.vehicle-racing-pack"
+      },
+      "description": "Race on a top-down track: 44 separate PNG pieces, with 16 vehicles seen from above; 16 track tiles and trackside props; and 3 driving effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Race on a top-down track: 44 separate PNG pieces, with 16 vehicles seen from above; 16 track tiles and trackside props; and 3 driving effects of 4 frames. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "在俯视赛道上开跑：44 个单独的 PNG 素材，包括 16 辆俯视视角的车辆；16 块赛道图块和赛道道具；3 段驾驶特效，每段 4 帧。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "racing",
+        "vehicles",
+        "top-down"
+      ]
+    },
+    {
+      "name": "openpixo/interior-furniture-kit",
+      "title": "Home Interior Kit",
+      "title_i18n": {
+        "en": "Home Interior Kit",
+        "zh-CN": "室内家具套件"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:interior-furniture-kit",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.interior-furniture-kit"
+      },
+      "description": "Furnish any room: 48 separate PNG pieces, with 16 floor, wall, window and door tiles; 16 pieces of furniture; and 16 decorations. PACK.md names every piece for your agent. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Furnish any room: 48 separate PNG pieces, with 16 floor, wall, window and door tiles; 16 pieces of furniture; and 16 decorations. PACK.md names every piece for your agent. Godot and Phaser ready.",
+        "zh-CN": "布置任何房间：48 个单独的 PNG 素材，包括 16 块地板、墙、窗和门图块；16 件家具；16 件装饰。PACK.md 写明每个素材是什么，agent 直接就能用。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "pixel",
+        "tileset",
+        "interior",
+        "cozy"
+      ]
+    },
+    {
+      "name": "openpixo/retro-music-loops",
+      "title": "Retro Music Loops",
+      "title_i18n": {
+        "en": "Retro Music Loops",
+        "zh-CN": "复古音乐循环"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:retro-music-loops",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 20,
+        "sku": "workshop.retro-music-loops"
+      },
+      "description": "Score your game with 24 seamless chiptune and synth loops of 60 to 120 seconds: title, overworld, dungeon, battle, boss, shop, victory and game over, as 44.1 kHz WAV and OGG with stems. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Score your game with 24 seamless chiptune and synth loops of 60 to 120 seconds: title, overworld, dungeon, battle, boss, shop, victory and game over, as 44.1 kHz WAV and OGG with stems. Godot and Phaser ready.",
+        "zh-CN": "24 首 60–120 秒的无缝芯片与合成器循环：标题、大地图、地牢、战斗、首领、商店、胜利和结束，提供 44.1 kHz WAV 与 OGG 及分轨。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "audio",
+        "music",
+        "retro"
+      ],
+      "yanked": true
+    },
+    {
+      "name": "openpixo/ui-sound-pack",
+      "title": "UI Sound Pack",
+      "title_i18n": {
+        "en": "UI Sound Pack",
+        "zh-CN": "界面音效包"
+      },
+      "version": "1.0.0",
+      "kind": "asset-pack",
+      "source": "openpixo-cloud:ui-sound-pack",
+      "engines": [
+        "any"
+      ],
+      "license": "LicenseRef-OpenPixo-Asset",
+      "assetLicense": {
+        "commercialUse": true,
+        "attributionRequired": false
+      },
+      "pricing": {
+        "type": "paid",
+        "credits": 15,
+        "sku": "workshop.ui-sound-pack"
+      },
+      "description": "Polish every tap with 150 interface sounds: clicks, hovers, toggles, confirms, cancels, popups, rewards, coins, level-ups and errors, in soft, sci-fi and fantasy styles as 44.1 kHz WAV and OGG. Godot and Phaser ready.",
+      "description_i18n": {
+        "en": "Polish every tap with 150 interface sounds: clicks, hovers, toggles, confirms, cancels, popups, rewards, coins, level-ups and errors, in soft, sci-fi and fantasy styles as 44.1 kHz WAV and OGG. Godot and Phaser ready.",
+        "zh-CN": "150 个界面音效：点击、悬停、开关、确认、取消、弹窗、奖励、金币、升级和错误提示，分柔和、科幻和奇幻三种风格，提供 44.1 kHz WAV 与 OGG。可直接用于 Godot 和 Phaser。"
+      },
+      "tags": [
+        "audio",
+        "sfx",
+        "ui"
+      ],
+      "yanked": true
     }
   ]
 }

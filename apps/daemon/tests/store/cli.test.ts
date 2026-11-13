@@ -26,6 +26,15 @@ it('splits an install version from a namespaced name and forwards the project', 
   expect(JSON.parse(init.body as string)).toEqual({ name: 'openpixo/free', version: '1.2.0', projectId: 'game' });
 });
 
+it('says where an asset pack went and where its descriptions are', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ name: 'openpixo/slime-monster-pack', pluginId: 'openpixo/slime-monster-pack',
+    version: '1.0.0', projectId: 'game', folder: 'assets/packs/slime-monster-pack', files: 41, warnings: [] })));
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await runStoreCli(['install', 'openpixo/slime-monster-pack', '--project', 'game']);
+  expect(output).toHaveBeenCalledWith('Added openpixo/slime-monster-pack@1.0.0 to project game: assets/packs/slime-monster-pack (41 files). '
+    + 'assets/packs/slime-monster-pack/PACK.md says what each image is for.');
+});
+
 it.each([false, true])('includes example prompts in store info (json=%s)', async (json) => {
   const item = { name: 'openpixo/sprite', version: '1.0.0', title: 'Sprite helper', description: 'Sprite workflow',
     license: 'Apache-2.0', requires: {}, examples: [{ title: 'Knight', prompt: 'Make a knight sprite.' }] };

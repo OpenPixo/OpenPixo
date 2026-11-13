@@ -97,6 +97,7 @@ export const OPENPIXO_ACCOUNT_ERROR_CODES = [
   'AGENT_RATE_LIMITED',
   'AGENT_REQUEST_INVALID',
   'AGENT_UPSTREAM_FAILED',
+  'STORE_ITEM_NOT_OWNED',
 ] as const;
 
 export type OpenPixoAccountErrorCode = (typeof OPENPIXO_ACCOUNT_ERROR_CODES)[number];
@@ -297,6 +298,18 @@ export interface OpenPixoStorePurchaseResponse {
   /** Available credits after the purchase. */
   balance: number;
   createdAt: string;
+}
+
+/**
+ * A short-lived link to an owned Workshop pack's files. The daemon reads `${baseUrl}/pack.json`, then each
+ * file it lists, sending `Authorization: Bearer <token>`.
+ */
+export interface OpenPixoStoreDownloadResponse {
+  itemName: string;
+  version: string;
+  baseUrl: string;
+  token: string;
+  expiresAt: string;
 }
 
 export interface OpenPixoEntitlement {

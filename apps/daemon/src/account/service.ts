@@ -8,7 +8,7 @@ import { AGENT_RESPONSE_TIMEOUT_MS, agentModels, agentRunUsage, assertAgentRunKe
 import {
   assertJobId, assertQuoteId, assertServiceId, CLOUD_REQUEST_ID, generationJob, generationParams, generationQuote, generationReference, generationServices,
 } from './cloud-media.js';
-import { checkoutResponse, creditsCatalog, creditsLedger, creditsSummary, entitlementsResponse, planChangeQuote, planChangeResponse, portalResponse, storePurchaseResponse } from './credits.js';
+import { checkoutResponse, creditsCatalog, creditsLedger, creditsSummary, entitlementsResponse, planChangeQuote, planChangeResponse, portalResponse, storeDownloadResponse, storePurchaseResponse } from './credits.js';
 import { AccountError, accountError } from './errors.js';
 import { onlineResetResponse, onlineStatusResponse } from './online-cloud.js';
 import { publishBeginResponse, publishFinishResponse, shareLimitResponse, shareStatusResponse, type PublishBeginInput } from './publish-cloud.js';
@@ -442,6 +442,15 @@ export class OpenPixoAccountService {
     if (!/^workshop\.[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(sku) || sku.length > 100) throw new AccountError('BILLING_SKU_UNKNOWN');
     try { return storePurchaseResponse(await this.edge('store-purchase', 'POST', { sku })); }
     finally { this.purchases++; this.entitlementsCache = undefined; this.creditsChanged(); }
+  }
+
+  /** A short-lived link to an owned Workshop pack. The cloud checks ownership; nothing is charged. */
+  async storeDownload(itemName: string, version: string) {
+    this.assertConfigured();
+    if (!/^openpixo\/[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(itemName) || !/^\d{1,4}\.\d{1,4}\.\d{1,4}$/u.test(version)) {
+      throw new AccountError('BILLING_SKU_UNKNOWN');
+    }
+    return storeDownloadResponse(await this.edge('store-download', 'POST', { itemName, version }), itemName, version);
   }
 
   /**

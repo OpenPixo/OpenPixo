@@ -2,7 +2,7 @@ import type {
   CreateOpenPixoCheckoutResponse, OpenPixoBillingPortalResponse, OpenPixoCatalogResponse,
   OpenPixoCreditsSummary, OpenPixoEntitlement, OpenPixoLedgerEntry, OpenPixoLedgerResponse,
   OpenPixoPendingDowngrade, OpenPixoPendingUpgrade, OpenPixoPlanChangeOutcome, OpenPixoPlanChangeQuote,
-  OpenPixoPlanChangeResponse, OpenPixoStorePurchaseResponse, OpenPixoSubscription,
+  OpenPixoPlanChangeResponse, OpenPixoStoreDownloadResponse, OpenPixoStorePurchaseResponse, OpenPixoSubscription,
 } from '@openpixo/contracts';
 import { cloudServiceError } from './errors.js';
 import { record } from './supabase.js';
@@ -152,6 +152,22 @@ export function storePurchaseResponse(value: unknown): OpenPixoStorePurchaseResp
   const item = record(value);
   const { id, ...owned } = entitlement({ ...item, id: item.entitlementId });
   return { entitlementId: id, ...owned, balance: integer(item.balance, true) };
+}
+
+/**
+ * The link must be the pack's own folder on an https host (http only for a local Worker), so a broken or
+ * hostile answer cannot point the daemon's bearer token at another address.
+ */
+export function storeDownloadResponse(value: unknown, itemName: string, version: string): OpenPixoStoreDownloadResponse {
+  const item = record(value);
+  if (item.itemName !== itemName || item.version !== version) invalid();
+  const slug = itemName.slice(itemName.indexOf('/') + 1);
+  let base: URL;
+  try { base = new URL(text(item.baseUrl, 512)); } catch { return invalid(); }
+  const local = base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname);
+  if ((base.protocol !== 'https:' && !local) || base.username || base.password || base.search || base.hash
+    || base.pathname !== `/__pack/${slug}/${version}`) invalid();
+  return { itemName, version, baseUrl: base.href, token: text(item.token, 4096), expiresAt: date(item.expiresAt) };
 }
 
 export function entitlementsResponse(value: unknown): OpenPixoEntitlement[] {

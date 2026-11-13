@@ -5,7 +5,7 @@ import { AccountError } from '../account/errors.js';
 import type { OpenPixoAccountService } from '../account/service.js';
 
 /** The cloud account surface the Workshop needs: spending credits and reading what the user owns. */
-export type StoreAccount = Pick<OpenPixoAccountService, 'storePurchase' | 'entitlements'>;
+export type StoreAccount = Pick<OpenPixoAccountService, 'storePurchase' | 'entitlements' | 'storeDownload'>;
 
 export class StorePurchaseError extends Error {
   constructor(readonly status: number, readonly code: ApiErrorCode, message: string) { super(message); }

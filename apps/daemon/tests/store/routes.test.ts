@@ -1,5 +1,5 @@
 ﻿import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import type { Server } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -55,7 +55,7 @@ beforeEach(async () => {
   app.use(express.json());
   allowOrigin = true; allowLocal = true;
   deps = {
-    db, paths: { RUNTIME_DATA_DIR: root, PLUGIN_REGISTRY_DIR: path.join(root, 'registry'), USER_SKILLS_DIR: path.join(root, 'user-skills'), SKILLS_DIR: path.join(root, 'skills') } as RegisterStoreRoutesDeps['paths'],
+    db, paths: { RUNTIME_DATA_DIR: root, PLUGIN_REGISTRY_DIR: path.join(root, 'registry'), PROJECTS_DIR: path.join(root, 'projects'), USER_SKILLS_DIR: path.join(root, 'user-skills'), SKILLS_DIR: path.join(root, 'skills') } as RegisterStoreRoutesDeps['paths'],
     http: { requireLocalDaemonRequest: (_req, res, next) => allowLocal ? next() : res.sendStatus(403), isLocalSameOrigin: () => allowOrigin, resolvedPortRef: { current: 0 } } as RegisterStoreRoutesDeps['http'],
     authorizeProjectRequest: async () => true,
   };
@@ -206,8 +206,8 @@ it('rejects corrupt free archives and paid installs before installation', async 
   expect(getInstalledPlugin(db, 'free-skill')).toBeNull();
   fetchArchive.mockClear();
   const paid = await post({ name: 'openpixo/paid' });
-  expect(paid.status).toBe(402);
-  expect(await paid.json()).toMatchObject({ error: { code: 'STORE_PURCHASE_REQUIRED', message: 'purchase required (not available until accounts ship)' } });
+  expect(paid.status).toBe(422);
+  expect(await paid.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED', message: 'Only asset packs can be bought and installed.' } });
   expect(fetchArchive).not.toHaveBeenCalled();
 });
 
@@ -428,6 +428,8 @@ function fakeAccount(owned: string[] = []) {
       sku, creditsSpent: 300, balance: 700, createdAt: OWNED_AT })),
     entitlements: vi.fn<StoreAccount['entitlements']>(async () => owned.map(itemName => ({ id: `e-${itemName}`, itemName,
       sku: 'workshop.paid', creditsSpent: 300, createdAt: OWNED_AT }))),
+    storeDownload: vi.fn<StoreAccount['storeDownload']>(async (itemName, version) => ({ itemName, version,
+      baseUrl: `https://play.example/__pack/${itemName.split('/')[1]}/${version}`, token: 'pack-token', expiresAt: OWNED_AT })),
   };
 }
 
@@ -489,10 +491,85 @@ it('leaves ownership unknown when the account cannot answer', async () => {
   expect(catalog.items.some(item => 'owned' in item)).toBe(false);
 });
 
-it('still refuses paid installs after purchase until pack delivery exists', async () => {
+/** A pack the fake Worker serves: its manifest plus each file, all checked by size and SHA-256. */
+function servePack(files: Record<string, string>, tamper?: string) {
+  const sha = (text: string) => createHash('sha256').update(text).digest('hex');
+  const manifest = { schema: 1, name: 'openpixo/local-art', version: '1.0.0', title: 'Local art', license: 'LicenseRef-OpenPixo-Asset',
+    commercialUse: true, attributionRequired: false, animations: [],
+    files: Object.entries(files).map(([file, text]) => ({ path: file, size: Buffer.byteLength(text), sha256: sha(text),
+      kind: 'icon', title: `Title of ${file}`, use: 'Inventory icon.' })) };
+  const requests: Array<{ url: string; auth: string | null }> = [];
+  fetchArchive.mockImplementation(async (url: string, init?: { headers?: Record<string, string> }) => {
+    requests.push({ url, auth: init?.headers?.authorization ?? null });
+    const file = decodeURIComponent(url.replace('https://play.example/__pack/local-art/1.0.0/', ''));
+    if (file === 'pack.json') return new Response(JSON.stringify(manifest));
+    if (!(file in files)) return new Response('missing', { status: 404 });
+    return new Response(file === tamper ? `${files[file]}!` : files[file]);
+  });
+  return requests;
+}
+
+it('downloads an owned asset pack into the game, with what every file is for', async () => {
+  await bundledArtworkFixtures();
+  const account = fakeAccount(['openpixo/local-art']);
+  deps.account = account;
+  const requests = servePack({ 'PACK.md': '# Local art', 'pieces/icons/01-sword.png': 'sword-bytes' });
+  const response = await post({ name: 'openpixo/local-art', projectId: 'game' });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ name: 'openpixo/local-art', pluginId: 'openpixo/local-art', version: '1.0.0',
+    projectId: 'game', folder: 'assets/packs/local-art', files: 3, warnings: [] });
+  expect(account.storeDownload).toHaveBeenCalledExactlyOnceWith('openpixo/local-art', '1.0.0');
+  expect(requests.length).toBe(3);
+  expect(requests.every(request => request.auth === 'Bearer pack-token')).toBe(true);
+  const folder = path.join(root, 'projects', 'game', 'assets', 'packs', 'local-art');
+  expect(await readFile(path.join(folder, 'pieces', 'icons', '01-sword.png'), 'utf8')).toBe('sword-bytes');
+  expect(await readFile(path.join(folder, 'PACK.md'), 'utf8')).toBe('# Local art');
+  expect(JSON.parse(await readFile(path.join(folder, 'pack.json'), 'utf8')).files[1]).toMatchObject({ title: 'Title of pieces/icons/01-sword.png' });
+});
+
+it('leaves the installed copy as it was when a downloaded file does not match the pack', async () => {
+  await bundledArtworkFixtures();
+  deps.account = fakeAccount(['openpixo/local-art']);
+  servePack({ 'PACK.md': 'first' });
+  expect((await post({ name: 'openpixo/local-art', projectId: 'game' })).status).toBe(200);
+  servePack({ 'PACK.md': 'second', 'pieces/a.png': 'a' }, 'pieces/a.png');
+  const response = await post({ name: 'openpixo/local-art', projectId: 'game' });
+  expect(response.status).toBe(502);
+  expect(await response.json()).toMatchObject({ error: { code: 'UPSTREAM_UNAVAILABLE', message: expect.stringContaining('pieces/a.png') } });
+  const packs = path.join(root, 'projects', 'game', 'assets', 'packs');
+  expect(await readFile(path.join(packs, 'local-art', 'PACK.md'), 'utf8')).toBe('first');
+  expect(await readdir(packs)).toEqual(['local-art']);
+});
+
+it('replaces an older copy of the pack in one step', async () => {
+  await bundledArtworkFixtures();
+  deps.account = fakeAccount(['openpixo/local-art']);
+  servePack({ 'PACK.md': 'first', 'pieces/old.png': 'old' });
+  expect((await post({ name: 'openpixo/local-art', projectId: 'game' })).status).toBe(200);
+  servePack({ 'PACK.md': 'second' });
+  expect((await post({ name: 'openpixo/local-art', projectId: 'game' })).status).toBe(200);
+  const folder = path.join(root, 'projects', 'game', 'assets', 'packs', 'local-art');
+  expect(await readFile(path.join(folder, 'PACK.md'), 'utf8')).toBe('second');
+  expect((await readdir(folder)).sort()).toEqual(['PACK.md', 'pack.json']);
+});
+
+it('needs a game to add a pack to, and an owned pack', async () => {
+  await bundledArtworkFixtures();
+  const account = fakeAccount();
+  account.storeDownload.mockRejectedValueOnce(new AccountError('STORE_ITEM_NOT_OWNED'));
+  deps.account = account;
+  const noProject = await post({ name: 'openpixo/local-art' });
+  expect(noProject.status).toBe(400);
+  const notOwned = await post({ name: 'openpixo/local-art', projectId: 'game' });
+  expect(notOwned.status).toBe(402);
+  expect(await notOwned.json()).toMatchObject({ error: { code: 'STORE_PURCHASE_REQUIRED' } });
+  expect(fetchArchive).not.toHaveBeenCalled();
+});
+
+it('refuses to install a paid item that is not an asset pack', async () => {
   deps.account = fakeAccount(['openpixo/paid']);
-  const response = await post({ name: 'openpixo/paid' });
-  expect(response.status).toBe(402);
+  const response = await post({ name: 'openpixo/paid', projectId: 'game' });
+  expect(response.status).toBe(422);
   expect(fetchArchive).not.toHaveBeenCalled();
 });
 

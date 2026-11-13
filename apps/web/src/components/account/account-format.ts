@@ -77,6 +77,7 @@ const ERROR_KEYS: Record<OpenPixoAccountErrorCode, keyof Dict> = {
   BILLING_PLAN_QUOTE_CHANGED: 'account.error.quoteChanged',
   INSUFFICIENT_CREDITS: 'workshop.buy.insufficientTitle',
   STORE_PURCHASE_UNAVAILABLE: 'workshop.buy.soonTitle',
+  STORE_ITEM_NOT_OWNED: 'workshop.pack.failed',
   GENERATION_PAUSED: 'cloudMedia.error.paused',
   GENERATION_SERVICE_UNKNOWN: 'cloudMedia.error.serviceUnknown',
   GENERATION_PARAMS_INVALID: 'cloudMedia.error.paramsInvalid',
