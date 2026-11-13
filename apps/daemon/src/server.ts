@@ -27,7 +27,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 
-import { executionProfileFromStreamFormat, gamePlanIsPending, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote } from '@openpixo/contracts';
+import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote } from '@openpixo/contracts';
 
 
 import { composeGameSystemPrompt, gamePromptProjectInputs, promptEngineProfile } from './game/prompt.js';
@@ -464,7 +464,11 @@ import { OpenPixoHostedMedia, pendingHostedTaskIds } from './media/openpixo-host
 import { registerOpenPixoAccountCallback, registerOpenPixoAccountRoutes } from './routes/openpixo-account.js';
 import { registerOpenPixoAgentProxy, registerOpenPixoAgentRoutes } from './routes/openpixo-agent.js';
 import { OPENPIXO_AGENT_TOKEN_ENV, OpenPixoAgentGateway } from './openpixo-agent/gateway.js';
-import { buildOpenPixoAgentOpenCodeConfig, OPENPIXO_AGENT_ID, openpixoAgentEffort, openpixoAgentModelArg, setOpenPixoAgentCatalogReader } from './openpixo-agent/runtime.js';
+import {
+  buildOpenPixoAgentOpenCodeConfig, OPENPIXO_AGENT_ID, openpixoAgentChoice, openpixoAgentEffort, openpixoAgentModel,
+  openpixoAgentModelArg, openpixoAgentModelOffered, setOpenPixoAgentCatalogReader,
+} from './openpixo-agent/runtime.js';
+import { chooseOpenPixoAutoRunModel } from './openpixo-agent/auto-model.js';
 import { contextLimitsForRun } from './runtimes/context-limits.js';
 import { gameRecipePromptEntries } from './recipes/catalog.js';
 import { registerProjectRoutes, registerProjectArtifactRoutes, registerProjectFileRoutes, registerProjectUploadRoutes } from './routes/project/index.js';
@@ -3476,13 +3480,28 @@ export async function startServer({
     if (openpixoAgentRun && !(await openPixoAccount.hasSession().catch(() => false))) {
       return failRun('AGENT_AUTH_REQUIRED', 'Sign in to your OpenPixo account to use the agent with OpenPixo credits.');
     }
+    // Auto is not a cloud model: replace it with the real one for this run, so the
+    // OpenCode config, the session-resume identity and the cloud all see that one.
+    const openpixoAgentAuto = openpixoAgentRun && isOpenPixoAgentAutoModel(openpixoAgentChoice(typeof model === 'string' ? model : null));
+    const openpixoAgentRunModel = !openpixoAgentRun
+      ? null
+      : openpixoAgentAuto
+        ? chooseOpenPixoAutoRunModel(db, {
+            runId: run.id,
+            projectId: typeof projectId === 'string' ? projectId : null,
+            conversationId: typeof conversationId === 'string' ? conversationId : null,
+            planPending: gamePlanPending,
+            planModelOffered: await openpixoAgentModelOffered(OPENPIXO_AGENT_AUTO_PLAN_MODEL),
+          }).model
+        : openpixoAgentModel(typeof model === 'string' ? model : null);
+    if (openpixoAgentRunModel) run.model = openpixoAgentRunModel;
     const providerOpenCodeConfig = byokOpenCodeProvider?.config
-      ?? (openpixoAgentRun ? buildOpenPixoAgentOpenCodeConfig(daemonUrl, typeof model === 'string' ? model : null) : null);
+      ?? (openpixoAgentRunModel ? buildOpenPixoAgentOpenCodeConfig(daemonUrl, openpixoAgentRunModel) : null);
     const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn);
     const requestedRuntimeModel = def.id === 'byok-opencode'
       ? byokOpenCodeProvider?.modelId ?? null
-      : openpixoAgentRun
-        ? openpixoAgentModelArg(typeof model === 'string' ? model : null)
+      : openpixoAgentRunModel
+        ? openpixoAgentModelArg(openpixoAgentRunModel)
         : nativeCodexProvider?.model ?? model;
     if (
       (typeof message !== 'string' || !message.trim())
@@ -6152,7 +6171,8 @@ export async function startServer({
       // when the run finalizes.
       let openpixoAgentEnv = {};
       if (openpixoAgentRun) {
-        const token = openPixoAgentGateway.open(runId, (event) => send('agent', event), openpixoAgentEffort(reasoning));
+        // Auto has no effort of its own: each model it picks runs at its default.
+        const token = openPixoAgentGateway.open(runId, (event) => send('agent', event), openpixoAgentAuto ? null : openpixoAgentEffort(reasoning));
         runSecrets.push(token);
         openpixoAgentEnv = { [OPENPIXO_AGENT_TOKEN_ENV]: token };
         const previousGatewayFinalize = run.onFinalize;

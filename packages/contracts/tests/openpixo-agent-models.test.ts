@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chooseOpenPixoAgentAutoModel,
   formatCostMultiplier,
+  gamePlanStepOfReply,
   hostedModelCostMultiplier,
   hostedModelCostMultipliers,
+  isOpenPixoAgentAutoModel,
   isRetiredOpenPixoAgentModel,
+  OPENPIXO_AGENT_AUTO_PLAN_MODEL,
+  OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME,
   OPENPIXO_AGENT_DEFAULT_MODEL,
   typicalAgentTurnCreditsPerMillion,
 } from '../src/index.js';
@@ -55,6 +60,55 @@ describe('hosted model cost multiplier', () => {
     expect(formatCostMultiplier(9.96)).toBe('10×');
     expect(formatCostMultiplier(12.4)).toBe('12×');
     expect(formatCostMultiplier(0.01)).toBe('0.1×');
+  });
+});
+
+describe('Auto', () => {
+  const planning = { planPending: true, lastPlanStep: 3, planTurnsUsed: 0, planModelOffered: true };
+
+  it('writes the plan on Sonnet once the engine step has been shown', () => {
+    expect(OPENPIXO_AGENT_AUTO_PLAN_MODEL).toBe('openpixo-agent-claude-sonnet-5-5');
+    expect(chooseOpenPixoAgentAutoModel(planning)).toEqual({ model: OPENPIXO_AGENT_AUTO_PLAN_MODEL, planTurn: true });
+    // Revising the written plan stays on Sonnet.
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, lastPlanStep: 4 }).planTurn).toBe(true);
+  });
+
+  it('runs every other turn on Flash', () => {
+    const flash = { model: OPENPIXO_AGENT_DEFAULT_MODEL, planTurn: false };
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, lastPlanStep: 2 })).toEqual(flash);
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, lastPlanStep: null })).toEqual(flash);
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, planPending: false })).toEqual(flash);
+  });
+
+  it('stops after the per-game cap and when Sonnet is not on offer', () => {
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, planTurnsUsed: OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME - 1 }).planTurn).toBe(true);
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, planTurnsUsed: OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME }).planTurn).toBe(false);
+    expect(chooseOpenPixoAgentAutoModel({ ...planning, planModelOffered: false }).model).toBe(OPENPIXO_AGENT_DEFAULT_MODEL);
+  });
+
+  it('knows its id with or without the provider prefix', () => {
+    expect(isOpenPixoAgentAutoModel('openpixo-agent-auto')).toBe(true);
+    expect(isOpenPixoAgentAutoModel('openpixo/openpixo-agent-auto')).toBe(true);
+    expect(isOpenPixoAgentAutoModel('openpixo-agent-flash')).toBe(false);
+    expect(isOpenPixoAgentAutoModel(null)).toBe(false);
+  });
+});
+
+describe('planning step of a reply', () => {
+  it('reads the label in either language near the start', () => {
+    expect(gamePlanStepOfReply('第 3 步 / 共 5 步：引擎与技术\n\n我建议用 Phaser。')).toBe(3);
+    expect(gamePlanStepOfReply('**第4步／共5步：计划**')).toBe(4);
+    expect(gamePlanStepOfReply('## Step 2 of 5: Art\nHere are three samples.')).toBe(2);
+    expect(gamePlanStepOfReply('step 1 of 5 — gameplay')).toBe(1);
+  });
+
+  it('ignores replies without a label, build stages and labels deep in the text', () => {
+    expect(gamePlanStepOfReply('好的，我们来看看这个问题。')).toBeNull();
+    expect(gamePlanStepOfReply('阶段 1 / 共 4：能玩的最小版本')).toBeNull();
+    expect(gamePlanStepOfReply('Stage 2 of 4: enemies')).toBeNull();
+    expect(gamePlanStepOfReply(`${'x'.repeat(300)} 第 4 步 / 共 5 步`)).toBeNull();
+    expect(gamePlanStepOfReply('第 7 步 / 共 5 步')).toBeNull();
+    expect(gamePlanStepOfReply(undefined)).toBeNull();
   });
 });
 

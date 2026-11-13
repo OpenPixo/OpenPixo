@@ -140,7 +140,7 @@ describe('OpenPixo agent gateway', () => {
     expect(harness.cloud.requests.some((request) => request.url.pathname.endsWith('/chat/completions'))).toBe(false);
   });
 
-  it('leaves a retired model out of the catalogue and marks the default, whatever order the cloud lists them in', async () => {
+  it('leaves a retired model out of the catalogue and puts Auto first as the default, whatever order the cloud lists them in', async () => {
     const row = (id: string, label: string) => ({ id, label, priceVersion: 1, contextTokens: 200000, maxOutputTokens: 16384,
       creditsPerMillionTokens: { inputCacheMiss: 60, inputCacheHit: 1.2, output: 240 }, reasoningEfforts: ['low', 'high'], defaultReasoningEffort: 'high' });
     const catalogue = { ...MODELS, models: [row('openpixo-agent-gpt-6-luna', 'GPT-6 Luna'), row('openpixo-agent-pro', 'DeepSeek V4 Pro'),
@@ -148,23 +148,25 @@ describe('OpenPixo agent gateway', () => {
     expect(agentModels(catalogue).models.map((model) => model.id)).toEqual(['openpixo-agent-gpt-6-luna', 'openpixo-agent-flash']);
     setOpenPixoAgentCatalogReader(async () => agentModels(catalogue));
     const picker = await fetchOpenPixoAgentModels();
-    expect(picker?.map((model) => [model.id, model.default === true])).toEqual([['openpixo-agent-gpt-6-luna', false], ['openpixo-agent-flash', true]]);
-    expect(picker?.[1]?.creditsPerMillionTokens).toEqual({ inputCacheMiss: 60, inputCacheHit: 1.2, output: 240 });
+    expect(picker?.map((model) => [model.id, model.default === true]))
+      .toEqual([['openpixo-agent-auto', true], ['openpixo-agent-gpt-6-luna', false], ['openpixo-agent-flash', false]]);
+    expect(picker?.[2]?.creditsPerMillionTokens).toEqual({ inputCacheMiss: 60, inputCacheHit: 1.2, output: 240 });
   });
 
   it('offers the cloud\u2019s models in the picker and falls back when it cannot be asked', async () => {
     setOpenPixoAgentCatalogReader(async () => agentModels({ ...MODELS, models: [{ id: 'openpixo-agent-hy4', label: 'Tencent Hy4', priceVersion: 1,
       creditsPerMillionTokens: { inputCacheMiss: 1, inputCacheHit: 1, output: 1 }, contextTokens: 1, maxOutputTokens: 1,
       reasoningEfforts: ['low', 'high'], defaultReasoningEffort: 'high' }] }));
-    expect(await fetchOpenPixoAgentModels()).toEqual([{ id: 'openpixo-agent-hy4', label: 'Tencent Hy4',
+    expect(await fetchOpenPixoAgentModels()).toEqual([{ id: 'openpixo-agent-auto', label: 'Auto', default: true, reasoningOptions: [] }, { id: 'openpixo-agent-hy4', label: 'Tencent Hy4',
       reasoningOptions: [{ id: 'low', label: 'Low' }, { id: 'high', label: 'High', default: true }],
       creditsPerMillionTokens: { inputCacheMiss: 1, inputCacheHit: 1, output: 1 } }]);
     setOpenPixoAgentCatalogReader(async () => { throw new Error('offline'); });
     // The window comes from the catalogue the picker just read, per model.
     expect(openpixoAgentContextLimits('openpixo-agent-hy4')).toEqual({ limitTokens: 1, autoCompactAtTokens: 0 });
     expect(await fetchOpenPixoAgentModels()).toBeNull();
-    expect(openpixoAgentDef.fallbackModels.map((model) => model.id)).toEqual(['openpixo-agent-flash']);
-    expect(openpixoAgentDef.fallbackModels[0]).toMatchObject({ id: 'openpixo-agent-flash', default: true });
+    // Offline, the picker still offers Auto (the default) and Flash, the model Auto runs on.
+    expect(openpixoAgentDef.fallbackModels.map((model) => model.id)).toEqual(['openpixo-agent-auto', 'openpixo-agent-flash']);
+    expect(openpixoAgentDef.fallbackModels[0]).toMatchObject({ id: 'openpixo-agent-auto', default: true });
     expect(JSON.stringify(openpixoAgentDef.fallbackModels)).not.toContain('OpenPixo Agent');
   });
 

@@ -530,6 +530,27 @@ function stepLabelExample(index: number): string {
   return `"第 ${index + 1} 步 / 共 ${total} 步：${step['zh-CN']}" / "Step ${index + 1} of ${total}: ${step.en}"`;
 }
 
+/** How far into a reply its step label may sit: after a heading mark or a short greeting, not deep in the text. */
+const STEP_LABEL_SEARCH_CHARS = 200;
+const STEP_LABEL_PATTERNS = [
+  new RegExp(`第\\s*([1-9])\\s*步\\s*[/／]\\s*共\\s*${GAME_PLAN_STEPS.length}\\s*步`, 'u'),
+  new RegExp(`\\bStep\\s+([1-9])\\s+of\\s+${GAME_PLAN_STEPS.length}\\b`, 'iu'),
+];
+
+/**
+ * The planning step a reply says it is on, read from the label every planning reply
+ * opens with ({@link stepLabelExample}); null when its opening has no such label.
+ */
+export function gamePlanStepOfReply(reply: string | null | undefined): number | null {
+  if (typeof reply !== 'string') return null;
+  const opening = reply.slice(0, STEP_LABEL_SEARCH_CHARS);
+  for (const pattern of STEP_LABEL_PATTERNS) {
+    const step = Number(pattern.exec(opening)?.[1]);
+    if (step >= 1 && step <= GAME_PLAN_STEPS.length) return step;
+  }
+  return null;
+}
+
 const STAGE_LABEL_EXAMPLE = '"阶段 1 / 共 4：能玩的最小版本" / "Stage 1 of 4: the smallest playable version"';
 
 /**

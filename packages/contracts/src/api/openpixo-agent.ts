@@ -80,9 +80,27 @@ export interface OpenPixoAgentRunUsage {
 
 // --- Daemon-local API (UI and `pixo agent` CLI) -------------------------------
 
+/**
+ * Auto, as this daemon offers it. Daemon-only: the cloud never sees the Auto id, because
+ * the daemon replaces it with a real model before a run starts.
+ */
+export interface OpenPixoAgentAutoInfo {
+  /** `openpixo-agent-auto`, what a run passes as its model. */
+  id: string;
+  /** The model Auto uses for every turn but the plan. */
+  baseModel: string;
+  /** The model that writes a new game's plan. */
+  planModel: string;
+  /** False when the cloud does not offer the plan model now; Auto then runs every turn on the base model. */
+  planModelOffered: boolean;
+  planTurnsPerGame: number;
+}
+
 /** `GET /api/openpixo/agent/models`: the cloud catalogue plus local sign-in state. */
 export interface OpenPixoAgentCatalogResponse extends OpenPixoAgentModelsResponse {
   signedIn: boolean;
+  /** Absent from a daemon that predates Auto. */
+  auto?: OpenPixoAgentAutoInfo;
 }
 
 /**

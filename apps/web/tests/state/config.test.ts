@@ -259,11 +259,11 @@ describe('syncMediaProvidersToDaemon', () => {
 });
 
 describe('mergeDaemonConfig', () => {
-  it('moves a retired hosted model saved on the daemon to DeepSeek V4.1 Flash', () => {
+  it('moves a retired hosted model saved on the daemon to Auto', () => {
     const merged = mergeDaemonConfig(DEFAULT_CONFIG, {
       agentModels: { 'openpixo-agent': { model: 'openpixo-agent-pro', reasoning: 'high' } },
     });
-    expect(merged.agentModels?.['openpixo-agent']).toEqual({ model: 'openpixo-agent-flash', reasoning: 'high' });
+    expect(merged.agentModels?.['openpixo-agent']).toEqual({ model: 'openpixo-agent-auto', reasoning: 'high' });
     expect(mergeDaemonConfig(DEFAULT_CONFIG, {
       agentModels: { 'openpixo-agent': { model: 'openpixo-agent-gpt-6-luna' } },
     }).agentModels?.['openpixo-agent']).toEqual({ model: 'openpixo-agent-gpt-6-luna' });
@@ -1165,18 +1165,18 @@ describe('loadConfig', () => {
     expect(loadConfig().agentId).toBe('codex');
   });
 
-  it('moves a saved retired hosted model to DeepSeek V4.1 Flash and keeps the rest of the choice', () => {
+  it('moves a saved retired hosted model to Auto and keeps the rest of the choice', () => {
     store.set('pixo:config', JSON.stringify({
       agentId: 'openpixo-agent',
       agentModels: { 'openpixo-agent': { model: 'openpixo-agent-pro', reasoning: 'low' }, codex: { model: 'gpt-5' } },
     }));
     const config = loadConfig();
     expect(config.agentModels).toEqual({
-      'openpixo-agent': { model: 'openpixo-agent-flash', reasoning: 'low' },
+      'openpixo-agent': { model: 'openpixo-agent-auto', reasoning: 'low' },
       codex: { model: 'gpt-5' },
     });
     // Written back once, so the old id stops existing on disk.
-    expect(JSON.parse(store.get('pixo:config')!).agentModels['openpixo-agent'].model).toBe('openpixo-agent-flash');
+    expect(JSON.parse(store.get('pixo:config')!).agentModels['openpixo-agent'].model).toBe('openpixo-agent-auto');
   });
 
   it('enables completion sound and desktop notifications for a fresh config', () => {

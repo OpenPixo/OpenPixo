@@ -6,12 +6,68 @@ import type { OpenPixoAgentModel } from './openpixo-agent.js';
  * agent-models`, so every surface agrees.
  */
 
-/** DeepSeek V4.1 Flash: the hosted model a user gets when nothing else was chosen. */
+/**
+ * DeepSeek V4.1 Flash: the baseline every hosted model's cost is compared with, and
+ * the model {@link OPENPIXO_AGENT_AUTO_MODEL} uses for every turn but the plan.
+ */
 export const OPENPIXO_AGENT_DEFAULT_MODEL = 'openpixo-agent-flash';
 
 /**
+ * Auto: what a user gets when nothing else was chosen. Not a cloud model: the daemon
+ * picks a real one for each run (owner decision, 2026-11-13). A new game's plan is
+ * written by {@link OPENPIXO_AGENT_AUTO_PLAN_MODEL}; everything else runs on Flash.
+ */
+export const OPENPIXO_AGENT_AUTO_MODEL = 'openpixo-agent-auto';
+
+/**
+ * Writes the plan under Auto. Flash planned weak games and read pictures badly; Sonnet
+ * scored 38 of 38 where Flash scored 27 on a blind test of real game images.
+ */
+export const OPENPIXO_AGENT_AUTO_PLAN_MODEL = 'openpixo-agent-claude-sonnet-5-5';
+
+/** Most plan turns one game gets on the plan model; the rest of the game stays on Flash. */
+export const OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME = 3;
+
+/**
+ * The planning step whose confirmation hands the turn to the plan model: once the user
+ * has seen the engine step (3 of 5), the next turns write the plan (4) and revise it.
+ */
+export const OPENPIXO_AGENT_AUTO_PLAN_FROM_STEP = 3;
+
+export function isOpenPixoAgentAutoModel(id: string | null | undefined): boolean {
+  return typeof id === 'string' && id.trim().replace(/^openpixo\//u, '') === OPENPIXO_AGENT_AUTO_MODEL;
+}
+
+export interface OpenPixoAgentAutoInput {
+  /** The project is a new game whose plan the user has not approved. */
+  planPending: boolean;
+  /** The step label of the newest planning reply in this conversation, 1-5; null when none has one. */
+  lastPlanStep: number | null;
+  /** Plan-model turns this game already had. */
+  planTurnsUsed: number;
+  /** The cloud currently offers the plan model. */
+  planModelOffered: boolean;
+}
+
+export interface OpenPixoAgentAutoChoice {
+  model: string;
+  /** This run is one of the game's plan turns. */
+  planTurn: boolean;
+}
+
+/** Which real model an Auto run uses. Without the plan model on offer, Auto is Flash. */
+export function chooseOpenPixoAgentAutoModel(input: OpenPixoAgentAutoInput): OpenPixoAgentAutoChoice {
+  const planTurn = input.planPending
+    && input.planModelOffered
+    && input.lastPlanStep !== null
+    && input.lastPlanStep >= OPENPIXO_AGENT_AUTO_PLAN_FROM_STEP
+    && input.planTurnsUsed < OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME;
+  return { model: planTurn ? OPENPIXO_AGENT_AUTO_PLAN_MODEL : OPENPIXO_AGENT_DEFAULT_MODEL, planTurn };
+}
+
+/**
  * Hosted models no longer offered to users, even while the cloud still lists them.
- * A saved choice of one of these moves to {@link OPENPIXO_AGENT_DEFAULT_MODEL}.
+ * A saved choice of one of these moves to {@link OPENPIXO_AGENT_AUTO_MODEL}.
  */
 export const RETIRED_OPENPIXO_AGENT_MODELS: readonly string[] = Object.freeze(['openpixo-agent-pro']);
 

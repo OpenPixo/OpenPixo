@@ -34,6 +34,7 @@ import { migrateMediaTasks } from './media/tasks.js';
 import { migrateOpenPixoCloudJobs } from './media/openpixo-hosted.js';
 import { migrateProjectAssets } from './assets/store.js';
 import { migrateArtBudget } from './game/art-budget.js';
+import { migrateOpenPixoAutoModel } from './openpixo-agent/auto-model.js';
 import { migratePlugins } from './plugins/persistence.js';
 import { migrateProjectScenarioBindings } from './plugins/scenario-binding.js';
 import { emittedRenderableQuestionForm } from './question-form-detect.js';
@@ -325,6 +326,7 @@ function migrate(db: SqliteDb): void {
   migrateOpenPixoCloudJobs(db);
   migrateProjectAssets(db);
   migrateArtBudget(db);
+  migrateOpenPixoAutoModel(db);
   migratePlugins(db);
   migrateProjectScenarioBindings(db);
   migrateChatArtifacts(db);

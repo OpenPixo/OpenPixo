@@ -1,6 +1,6 @@
 import {
   isRetiredOpenPixoAgentModel,
-  OPENPIXO_AGENT_DEFAULT_MODEL,
+  OPENPIXO_AGENT_AUTO_MODEL,
   OPENPIXO_AGENT_ID,
   type AppConfigPrefs,
 } from '@openpixo/contracts';
@@ -635,12 +635,13 @@ function migrateRetiredKnownProviderModel(
 
 /**
  * A hosted model the user can no longer pick (`RETIRED_OPENPIXO_AGENT_MODELS`) moves to
- * the default hosted model; the rest of the saved choice stays. Returns whether it changed.
+ * Auto, what a user gets who picked nothing; the rest of the saved choice stays. Returns
+ * whether it changed.
  */
 export function migrateRetiredHostedAgentModel(agentModels: AppConfig['agentModels']): boolean {
   const choice = agentModels?.[OPENPIXO_AGENT_ID];
   if (!agentModels || !choice || !isRetiredOpenPixoAgentModel(choice.model)) return false;
-  agentModels[OPENPIXO_AGENT_ID] = { ...choice, model: OPENPIXO_AGENT_DEFAULT_MODEL };
+  agentModels[OPENPIXO_AGENT_ID] = { ...choice, model: OPENPIXO_AGENT_AUTO_MODEL };
   return true;
 }
 

@@ -1,6 +1,7 @@
 import {
-  isRetiredOpenPixoAgentModel, OPENPIXO_AGENT_DEFAULT_MODEL, OPENPIXO_AGENT_ID, type OpenPixoAgentModel, type OpenPixoAgentPrices,
-  type OpenPixoAgentReasoningEffort,
+  isOpenPixoAgentAutoModel, isRetiredOpenPixoAgentModel, OPENPIXO_AGENT_AUTO_MODEL, OPENPIXO_AGENT_AUTO_PLAN_MODEL,
+  OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME, OPENPIXO_AGENT_DEFAULT_MODEL, OPENPIXO_AGENT_ID, type OpenPixoAgentAutoInfo,
+  type OpenPixoAgentModel, type OpenPixoAgentPrices, type OpenPixoAgentReasoningEffort,
 } from '@openpixo/contracts';
 import { AGENT_RESPONSE_TIMEOUT_MS, OPENPIXO_AGENT_MODEL_ID } from '../account/agent-gateway.js';
 import type { RuntimeModelOption } from '../runtimes/types.js';
@@ -26,18 +27,21 @@ function effortOptions(efforts: readonly OpenPixoAgentReasoningEffort[], fallbac
   return efforts.map(id => ({ id, label: EFFORT_LABELS[id], ...(id === fallback ? { default: true } : {}) }));
 }
 
-/**
- * The default model is marked so that web, CLI and a run without a model all pick it,
- * whatever order the cloud lists its models in.
- */
 function pickerModel(id: string, label: string, efforts: readonly OpenPixoAgentReasoningEffort[], fallback: OpenPixoAgentReasoningEffort | null,
   prices?: OpenPixoAgentPrices): RuntimeModelOption {
-  return { id, label, ...(id === DEFAULT_OPENPIXO_AGENT_MODEL ? { default: true } : {}),
-    reasoningOptions: effortOptions(efforts, fallback), ...(prices ? { creditsPerMillionTokens: { ...prices } } : {}) };
+  return { id, label, reasoningOptions: effortOptions(efforts, fallback), ...(prices ? { creditsPerMillionTokens: { ...prices } } : {}) };
 }
+
+/**
+ * Auto heads the list and is marked default, so web, CLI and a run without a model all
+ * get it, whatever order the cloud lists its models in. It has no effort of its own:
+ * each model it hands a turn to runs at that model's default.
+ */
+const AUTO_PICKER_MODEL: RuntimeModelOption = { id: OPENPIXO_AGENT_AUTO_MODEL, label: 'Auto', default: true, reasoningOptions: [] };
 
 /** For when the cloud cannot be asked. The cloud refuses what it no longer offers. */
 export const OPENPIXO_AGENT_FALLBACK_MODELS: RuntimeModelOption[] = [
+  AUTO_PICKER_MODEL,
   pickerModel(DEFAULT_OPENPIXO_AGENT_MODEL, 'DeepSeek V4.1 Flash', ['low', 'high'], 'high'),
 ];
 
@@ -47,6 +51,8 @@ let readCatalog: (() => Promise<{ models: OpenPixoAgentModel[] }>) | null = null
 const modelWindows = new Map<string, { context: number; output: number }>();
 /** The models the cloud last said read pictures. A model it has not described reads text only. */
 const modelsReadingImages = new Set<string>();
+/** The models the cloud offered when last asked; empty until it has been asked. */
+const offeredModels = new Set<string>();
 export function setOpenPixoAgentCatalogReader(reader: () => Promise<{ models: OpenPixoAgentModel[] }>): void {
   readCatalog = reader;
 }
@@ -59,24 +65,57 @@ export async function fetchOpenPixoAgentModels(): Promise<RuntimeModelOption[] |
     const catalog = await Promise.race([readCatalog(), new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('catalogue timeout')), CATALOG_TIMEOUT_MS);
     })]);
+    offeredModels.clear();
     for (const model of catalog.models) {
+      offeredModels.add(model.id);
       modelWindows.set(model.id, { context: model.contextTokens, output: model.maxOutputTokens });
       if (model.inputModalities?.includes('image')) modelsReadingImages.add(model.id);
       else modelsReadingImages.delete(model.id);
     }
-    return catalog.models.map(model => pickerModel(model.id, model.label, model.reasoningEfforts, model.defaultReasoningEffort,
-      model.creditsPerMillionTokens));
+    return [AUTO_PICKER_MODEL, ...catalog.models.map(model => pickerModel(model.id, model.label, model.reasoningEfforts,
+      model.defaultReasoningEffort, model.creditsPerMillionTokens))];
   } catch { return null; }
   finally { clearTimeout(timer); }
 }
 
+/** Whether the cloud offers this model, asking it when it has not been asked yet. */
+export async function openpixoAgentModelOffered(id: string): Promise<boolean> {
+  if (offeredModels.size === 0) await fetchOpenPixoAgentModels();
+  return offeredModels.has(id);
+}
+
+/** Auto as the catalogue route and `pixo credits agent-models` describe it. */
+export function openpixoAgentAutoInfo(models: ReadonlyArray<Pick<OpenPixoAgentModel, 'id'>>): OpenPixoAgentAutoInfo {
+  return {
+    id: OPENPIXO_AGENT_AUTO_MODEL,
+    baseModel: DEFAULT_OPENPIXO_AGENT_MODEL,
+    planModel: OPENPIXO_AGENT_AUTO_PLAN_MODEL,
+    planModelOffered: models.some(model => model.id === OPENPIXO_AGENT_AUTO_PLAN_MODEL),
+    planTurnsPerGame: OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME,
+  };
+}
+
+function bareModelId(model: string | null | undefined): string {
+  return typeof model === 'string' ? model.trim().replace(/^openpixo\//u, '') : '';
+}
+
 /**
- * A picker value of `default`, empty, a retired model or anything not an OpenPixo agent
- * model selects the default, so a choice saved before a model was retired still runs.
+ * What the user chose. `default`, empty, a retired model or anything not an OpenPixo
+ * agent model is Auto, so a choice saved before a model was retired still runs.
+ */
+export function openpixoAgentChoice(model: string | null | undefined): string {
+  const id = bareModelId(model);
+  return OPENPIXO_AGENT_MODEL_ID.test(id) && !isRetiredOpenPixoAgentModel(id) ? id : OPENPIXO_AGENT_AUTO_MODEL;
+}
+
+/**
+ * The real model a run sends to the cloud. Auto must be replaced before a run starts
+ * (`chooseOpenPixoAutoRunModel`); one that slips through runs on Flash, because the
+ * cloud refuses an id it does not offer.
  */
 export function openpixoAgentModel(model: string | null | undefined): string {
-  const trimmed = typeof model === 'string' ? model.trim().replace(/^openpixo\//u, '') : '';
-  return OPENPIXO_AGENT_MODEL_ID.test(trimmed) && !isRetiredOpenPixoAgentModel(trimmed) ? trimmed : DEFAULT_OPENPIXO_AGENT_MODEL;
+  const id = openpixoAgentChoice(model);
+  return isOpenPixoAgentAutoModel(id) ? DEFAULT_OPENPIXO_AGENT_MODEL : id;
 }
 
 export function openpixoAgentModelArg(model: string | null | undefined): string {

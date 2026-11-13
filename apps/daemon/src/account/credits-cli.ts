@@ -78,6 +78,15 @@ export async function runCreditsCli(args: string[]): Promise<void> {
           return { ...model, costMultiplier: multiplier === undefined ? null : Math.round(multiplier * 100) / 100 };
         }) }, null, 2));
       } else {
+        const auto = result.auto;
+        if (auto) {
+          const planner = result.models.find((model) => model.id === auto.planModel)?.label ?? auto.planModel;
+          const base = result.models.find((model) => model.id === auto.baseModel)?.label ?? auto.baseModel;
+          console.log(`${auto.id}  Auto / 自动 (default / 默认)
+  ${auto.planModelOffered
+    ? `${planner} writes a new game's plan (at most ${auto.planTurnsPerGame} turns a game); ${base} runs every other turn / 新游戏的计划由 ${planner} 写（每个游戏最多 ${auto.planTurnsPerGame} 轮），其余都用 ${base}`
+    : `${planner} is not offered now, so every turn runs on ${base} / 目前没有 ${planner}，每一轮都用 ${base}`}`);
+        }
         for (const model of result.models) {
           const rate = model.creditsPerMillionTokens;
           const multiplier = multipliers.get(model.id);

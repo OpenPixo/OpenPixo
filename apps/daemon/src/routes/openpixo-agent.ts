@@ -5,6 +5,7 @@ import { accountError } from '../account/errors.js';
 import type { OpenPixoAccountService } from '../account/service.js';
 import { sendApiError } from '../http/api-errors.js';
 import { MAX_AGENT_REQUEST_BYTES, OPENPIXO_AGENT_PROXY_PATH, type OpenPixoAgentGateway } from '../openpixo-agent/gateway.js';
+import { openpixoAgentAutoInfo } from '../openpixo-agent/runtime.js';
 
 export interface RegisterOpenPixoAgentRoutesDeps { account: OpenPixoAccountService; gateway: OpenPixoAgentGateway }
 
@@ -28,7 +29,7 @@ export function registerOpenPixoAgentRoutes(app: Express, { account, gateway }: 
   };
   app.get('/api/openpixo/agent/models', endpoint(async (): Promise<OpenPixoAgentCatalogResponse> => {
     const [catalog, signedIn] = await Promise.all([account.agentModels(), account.hasSession()]);
-    return { ...catalog, signedIn };
+    return { ...catalog, signedIn, auto: openpixoAgentAutoInfo(catalog.models) };
   }));
   app.get('/api/openpixo/agent/runs/:runId/usage', async (req, res) => {
     const runId = String(req.params.runId);

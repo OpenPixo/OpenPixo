@@ -4198,6 +4198,9 @@ export interface Dict {
   'homeModel.hostedUnavailable': string;
   'homeModel.ownKey': string;
   'homeModel.costHint': string;
+  'homeModel.autoModel': string;
+  'homeModel.autoModelHint': string;
+  'homeModel.autoModelDetail': string;
   'homeModel.setUp': string;
   'homeModel.reasoning': string;
   'homeModel.reasoningHint': string;
