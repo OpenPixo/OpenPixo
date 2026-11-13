@@ -1,0 +1,124 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/music",
+  "title": "Music",
+  "title_i18n": {
+    "en": "Music",
+    "zh-CN": "音乐"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-14T12:00:00+09:00",
+  "description": "Instrumental game music from a description, made to loop with a short crossfade.",
+  "description_i18n": {
+    "en": "Instrumental game music from a description, made to loop with a short crossfade.",
+    "zh-CN": "按描述生成纯音乐游戏配乐，用短交叉淡化做成可循环播放。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "audio",
+    "plain"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "audio",
+      "category": "plain",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "Background music for a level, menu or scene described in your own words; bgm-loop is the guided version with genre and tempo.",
+      "inputs": [
+        {
+          "name": "prompt",
+          "label": "Description",
+          "label_i18n": {
+            "zh-CN": "描述"
+          },
+          "type": "text",
+          "required": true,
+          "placeholder": "calm acoustic guitar for a cozy farming village in the morning",
+          "placeholder_i18n": {
+            "zh-CN": "清晨温馨农庄小镇里平静的原声吉他"
+          }
+        },
+        {
+          "name": "format",
+          "label": "Format",
+          "label_i18n": {
+            "zh-CN": "格式"
+          },
+          "type": "select",
+          "options": [
+            "ogg",
+            "wav"
+          ],
+          "default": "ogg"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "village_morning"
+        }
+      ],
+      "prompt": "Instrumental video game music: {{prompt}}. No vocals and no lyrics. Steady energy with no fade-in and no fade-out, so it can loop.",
+      "models": {
+        "requires": [
+          "music"
+        ],
+        "recommended": [
+          "suno-v5",
+          "lyria-2"
+        ],
+        "fallback": [
+          "udio-v2",
+          "audiocraft"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        }
+      },
+      "postprocess": [
+        {
+          "op": "audio-loop",
+          "params": {
+            "crossfadeMs": 500
+          }
+        },
+        {
+          "op": "audio-convert",
+          "params": {
+            "format": "{{format}}"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "duration-range",
+          "params": {
+            "minMs": 5000,
+            "maxMs": 360000
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.audioRoot}}/music",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

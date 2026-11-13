@@ -1,0 +1,122 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/image",
+  "title": "Image",
+  "title_i18n": {
+    "en": "Image",
+    "zh-CN": "图片"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-14T12:00:00+09:00",
+  "description": "Any image from a description, optionally from up to three reference pictures, in the project's art style.",
+  "description_i18n": {
+    "en": "Any image from a description, optionally from up to three reference pictures, in the project's art style.",
+    "zh-CN": "按描述生成任意图片，可附最多三张参考图，并沿用项目画风。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "plain"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "plain",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "Any single image no preset covers: describe it, optionally with reference pictures; ask for a transparent background for sprites and props.",
+      "inputs": [
+        {
+          "name": "prompt",
+          "label": "Description",
+          "label_i18n": {
+            "zh-CN": "描述"
+          },
+          "type": "text",
+          "required": true,
+          "placeholder": "a closed wooden treasure chest with iron bands, front view",
+          "placeholder_i18n": {
+            "zh-CN": "一个合着的木质宝箱，带铁箍，正面视角"
+          }
+        },
+        {
+          "name": "reference",
+          "label": "Reference picture",
+          "label_i18n": {
+            "zh-CN": "参考图"
+          },
+          "type": "image-ref"
+        },
+        {
+          "name": "reference2",
+          "label": "Second reference picture",
+          "label_i18n": {
+            "zh-CN": "第二张参考图"
+          },
+          "type": "image-ref"
+        },
+        {
+          "name": "reference3",
+          "label": "Third reference picture",
+          "label_i18n": {
+            "zh-CN": "第三张参考图"
+          },
+          "type": "image-ref"
+        },
+        {
+          "name": "aspect",
+          "label": "Shape",
+          "label_i18n": {
+            "zh-CN": "比例"
+          },
+          "type": "aspect",
+          "default": "1:1"
+        },
+        {
+          "name": "transparent",
+          "label": "Transparent background",
+          "label_i18n": {
+            "zh-CN": "透明背景"
+          },
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "treasure_chest"
+        }
+      ],
+      "prompt": "{{prompt}}",
+      "models": {
+        "requires": [],
+        "recommended": [],
+        "fallback": []
+      },
+      "generation": {
+        "count": {
+          "default": 4,
+          "max": 4
+        }
+      },
+      "output": {
+        "dir": "{{engine.assetRoot}}/images",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

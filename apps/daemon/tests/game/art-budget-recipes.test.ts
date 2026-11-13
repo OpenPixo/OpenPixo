@@ -1,7 +1,8 @@
 /**
- * An agent's image recipe paid from the art budget: real recipe routes, executor,
- * ledger, SQLite and hosted-media module, over a fake cloud that keeps the cloud's
- * money rules. No real cloud, no real image tool, nothing spent.
+ * Recipes that spend credits: an agent's, paid from the art budget, and the user's,
+ * at a price they confirmed. Real recipe routes, executor, ledger, SQLite and
+ * hosted-media module, over a fake cloud that keeps the cloud's money rules. No real
+ * cloud, no real image tool, nothing spent.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -9,7 +10,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { OpenPixoCloudGenerationJob, OpenPixoGenerationParams, RecipeRun } from '@openpixo/contracts';
+import type { OpenPixoCloudGenerationJob, OpenPixoGenerationParams, RecipeRun, RecipeRunListResponse, RecipeRunQuote } from '@openpixo/contracts';
 import express from 'express';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, getProject, insertProject, openDatabase } from '../../src/db.js';
@@ -29,6 +30,11 @@ vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: as
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(120, 7)]);
 const PNG_SHA = createHash('sha256').update(PNG).digest('hex');
+// Files the hosted module accepts as what the cloud said they are: it checks each file's own signature.
+const MP3 = Buffer.concat([Buffer.from('ID3', 'latin1'), Buffer.alloc(120, 3)]);
+const GLB = Buffer.concat([Buffer.from('glTF', 'latin1'), Buffer.from([2, 0, 0, 0]), Buffer.alloc(120, 5)]);
+const ARTIFACTS = { png: PNG, mp3: MP3, glb: GLB } as const;
+const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 const CLOUD_ORIGIN = 'https://cloud.test';
 
 function fakeCloud() {
@@ -43,21 +49,29 @@ function fakeCloud() {
     submits: [] as Array<{ idempotencyKey: string; service: string }>,
     api: {
       cloudOrigin: () => CLOUD_ORIGIN,
-      generationServices: async () => ({ generationPaused: false, services: [image('openpixo-image', 0), image('openpixo-image-edit', 1)] }),
+      generationServices: async () => ({ generationPaused: false, services: [image('openpixo-image', 0), image('openpixo-image-edit', 1),
+        { id: 'openpixo-sfx', surface: 'audio' as const, audioKind: 'sfx' as const, label: 'Sound effect', credits: 7, priceVersion: 1, maxPromptChars: 450,
+          aspects: [], styles: [], references: { min: 0, max: 0 }, durationSeconds: { min: 0.5, max: 10, default: 2 },
+          pricing: { longPromptTokens: 2000, longPromptCredits: 1, maxPromptTokens: 3000, extraReferenceCredits: 0 } },
+        { id: 'openpixo-model3d', surface: 'model3d' as const, quality: 'medium' as const, label: '3D model', credits: 60, priceVersion: 1, maxPromptChars: 12000,
+          aspects: ['1:1'] as const, styles: [], references: { min: 1, max: 1 }, promptOptional: true,
+          pricing: { longPromptTokens: 2000, longPromptCredits: 0, maxPromptTokens: 3000, extraReferenceCredits: 0 } }] }),
       generationReference: async (sha256: string) => ({ sha256, uploadUrl: null }),
       generationQuote: async (service: string, params: OpenPixoGenerationParams) => {
         cloud.quotes.push({ service, params });
         return { quoteId: randomUUID(), service, credits: 4, priceVersion: 1, paramsDigest: 'a'.repeat(64),
-          expiresAt: '2026-11-11T01:00:00.000Z', available: 1000, breakdown: { base: 4, longPrompt: 0, extraReferences: 0 } };
+          expiresAt: new Date(Date.now() + 3_600_000).toISOString(), available: 1000, breakdown: { base: 4, longPrompt: 0, extraReferences: 0 } };
       },
       generationSubmit: async (input: { quoteId: string; idempotencyKey: string; service: string }) => {
         cloud.submits.push(input);
         const existing = byKey.get(input.idempotencyKey);
         if (existing) return { ...existing };
+        const kind = input.service === 'openpixo-sfx' ? 'mp3' : input.service === 'openpixo-model3d' ? 'glb' : 'png';
+        const mime = ({ png: 'image/png', mp3: 'audio/mpeg', glb: 'model/gltf-binary' } as const)[kind];
         const job: OpenPixoCloudGenerationJob = { jobId: randomUUID(), service: input.service, state: 'succeeded', creditsReserved: 4, creditsCharged: 4,
-          errorCode: null, artifact: { mime: 'image/png', bytes: PNG.length, sha256: PNG_SHA }, download: null,
+          errorCode: null, artifact: { mime, bytes: ARTIFACTS[kind].length, sha256: sha(ARTIFACTS[kind]) }, download: null,
           createdAt: '2026-11-11T00:00:00.000Z', updatedAt: '2026-11-11T00:00:00.000Z' };
-        job.download = { url: `${CLOUD_ORIGIN}/${job.jobId}.png`, expiresAt: '2026-11-11T00:05:00.000Z' };
+        job.download = { url: `${CLOUD_ORIGIN}/${job.jobId}.${kind}`, expiresAt: '2026-11-11T00:05:00.000Z' };
         cloud.charged += 4;
         byKey.set(input.idempotencyKey, job);
         jobs.set(job.jobId, job);
@@ -76,8 +90,22 @@ const RECIPE = { name: 'test-hosted', title: 'Hosted sprite', version: '0.1.0', 
   generation: { count: { default: 3, max: 4 }, aspect: '1:1' },
   output: { dir: 'sprites', name: 'hero' },
 } } };
+const SOUND_RECIPE = { name: 'test-sound', title: 'Hosted sound', version: '0.1.0', pixo: { kind: 'recipe', recipe: {
+  surface: 'audio', category: 'plain', engines: ['any'],
+  inputs: [{ name: 'prompt', type: 'text', default: 'a jump' }, { name: 'duration', type: 'number', default: 1 }],
+  prompt: '{{prompt}}', models: { requires: ['sfx'], recommended: [], fallback: [] },
+  generation: { count: { default: 3, max: 4 } },
+  output: { dir: 'audio', name: 'jump' },
+} } };
+const MODEL_RECIPE = { name: 'test-model', title: 'Hosted model', version: '0.1.0', pixo: { kind: 'recipe', recipe: {
+  surface: 'model3d', category: 'model', engines: ['any'],
+  inputs: [{ name: 'image', type: 'image-ref', required: true }],
+  prompt: 'A 3D model of the object in the picture', models: { requires: ['image-to-3d'], recommended: [], fallback: [] },
+  generation: { count: { default: 1, max: 2 } },
+  output: { dir: 'models', name: 'crate' },
+} } };
 
-describe('an agent\'s image recipe and the art budget', () => {
+describe('recipes that spend credits', () => {
   let root = '';
   let db: ReturnType<typeof openDatabase>;
   let cloud: ReturnType<typeof fakeCloud>;
@@ -96,13 +124,18 @@ describe('an agent\'s image recipe and the art budget', () => {
     const bundled = path.join(root, 'plugins');
     await mkdir(path.join(bundled, 'recipes', 'test-hosted'), { recursive: true });
     await writeFile(path.join(bundled, 'recipes', 'test-hosted', 'pixo.json'), JSON.stringify(RECIPE));
+    for (const [folder, manifest] of [['test-sound', SOUND_RECIPE], ['test-model', MODEL_RECIPE]] as const) {
+      await mkdir(path.join(bundled, 'recipes', folder), { recursive: true });
+      await writeFile(path.join(bundled, 'recipes', folder, 'pixo.json'), JSON.stringify(manifest));
+    }
     await mkdir(projectsDir(), { recursive: true });
     db = openDatabase(root, { dataDir: path.join(root, 'data') });
     cloud = fakeCloud();
     signedIn = true;
     ownTools.providers = {};
     hosted = new OpenPixoHostedMedia({ db, cloud: cloud.api as unknown as HostedCloud, projectsRoot: projectsDir(),
-      getProjectMetadata: id => getProject(db, id)?.metadata, sleep: async () => {}, fetch: async () => new Response(new Uint8Array(PNG), { status: 200 }) });
+      getProjectMetadata: id => getProject(db, id)?.metadata, sleep: async () => {},
+      fetch: async (url: string | URL | Request) => new Response(new Uint8Array(ARTIFACTS[String(url).split('.').pop() as keyof typeof ARTIFACTS] ?? PNG), { status: 200 }) });
     ledger = new ArtBudgetLedger(db);
     hosted.attachSettlement(ledger);
     const app = express();
@@ -140,6 +173,10 @@ describe('an agent\'s image recipe and the art budget', () => {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     body: JSON.stringify({ recipeId: 'test-hosted', ...body }),
   });
+  const quoteRecipe = (projectId: string, body: Record<string, unknown> = {}, bearer?: string) => fetch(`${base}/api/projects/${projectId}/recipe-runs/quote`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    body: JSON.stringify({ recipeId: 'test-hosted', ...body }),
+  });
   const errorOf = async (response: Response) => (await response.json() as { error: { code: string; message: string } }).error;
   async function ready(projectId: string, response: Response): Promise<RecipeRun> {
     expect(response.status, await response.clone().text()).toBe(202);
@@ -159,7 +196,11 @@ describe('an agent\'s image recipe and the art budget', () => {
     expect(selectRecipeModel(recipe, IMAGE_MODELS, new Set(), undefined, hostedIds).id).toBe('openpixo-image');
     expect(selectRecipeModel(recipe, IMAGE_MODELS, new Set(), undefined, hostedRecipeModelIds(recipe, true)).id).toBe('openpixo-image-edit');
     expect(() => selectRecipeModel(recipe, IMAGE_MODELS, new Set())).toThrow('No usable model');
-    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'audio' } as never, false)).toEqual([]);
+    // Audio and 3D fall back to their hosted services too; 3D only from a picture.
+    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'audio' } as never, false)).toContain('openpixo-sfx');
+    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'model3d' } as never, false)).toEqual([]);
+    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'model3d' } as never, true)[0]).toBe('openpixo-model3d');
+    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'video' } as never, true)).toEqual([]);
   });
 
   it('pays one candidate by default, stages the file, and records the charge', async () => {
@@ -233,15 +274,125 @@ describe('an agent\'s image recipe and the art budget', () => {
     expect(ledger.read(id)?.usedCredits).toBe(0);
   });
 
-  it('offers no hosted model to the user, signed out, or without a budget that can pay', async () => {
+  it('offers an agent no hosted model signed out or without a budget that can pay', async () => {
     const id = project();
     expect((await errorOf(await runRecipe(id, {}, token(id)))).code).toBe('RECIPE_NO_MODEL');
     auto(id, 0);
     expect((await errorOf(await runRecipe(id, {}, token(id)))).code).toBe('RECIPE_NO_MODEL');
     auto(id, 100);
-    expect((await errorOf(await runRecipe(id))).code).toBe('RECIPE_NO_MODEL');
     signedIn = false;
     expect((await errorOf(await runRecipe(id, {}, token(id)))).code).toBe('RECIPE_NO_MODEL');
     expect(cloud.quotes).toHaveLength(0);
+  });
+
+  it('pays an agent\'s sound effect recipe from the budget, with the voice and length it was priced on', async () => {
+    const id = project();
+    auto(id, 100);
+    const run = await ready(id, await runRecipe(id, { recipeId: 'test-sound', inputs: { duration: 3 } }, token(id)));
+    expect(run.status, JSON.stringify(run)).toBe('ready');
+    expect(run).toMatchObject({ model: { provider: 'openpixo', id: 'openpixo-sfx' }, surface: 'audio', origin: 'agent' });
+    expect(run.candidates).toHaveLength(1);
+    // Hosted audio arrives as mp3 and is staged as such.
+    expect(run.candidates[0]!.stagedFiles[0]!.ref).toMatch(/primary\.mp3$/);
+    expect(cloud.quotes[0]).toMatchObject({ service: 'openpixo-sfx', params: { prompt: 'a jump', duration: 3 } });
+    expect(ledger.read(id)?.usedCredits).toBe(4);
+  });
+
+  it('pays an agent\'s 3D recipe from the budget, priced from its picture', async () => {
+    const id = project();
+    auto(id, 100);
+    await writeFile(path.join(projectsDir(), id, 'crate.png'), PNG);
+    const run = await ready(id, await runRecipe(id, { recipeId: 'test-model', inputs: { image: 'crate.png' } }, token(id)));
+    expect(run.status, JSON.stringify(run)).toBe('ready');
+    expect(run).toMatchObject({ model: { id: 'openpixo-model3d' }, surface: 'model3d' });
+    expect(run.candidates[0]!.stagedFiles[0]!.ref).toMatch(/primary\.glb$/);
+    expect(cloud.quotes[0]!.params).toMatchObject({ references: [PNG_SHA] });
+  });
+
+  describe('a run the user pays for', () => {
+    async function quoted(id: string, body: Record<string, unknown> = {}): Promise<Extract<RecipeRunQuote, { paid: true }>> {
+      const response = await quoteRecipe(id, body);
+      expect(response.status, await response.clone().text()).toBe(200);
+      const quote = await response.json() as RecipeRunQuote;
+      expect(quote.paid).toBe(true);
+      return quote as Extract<RecipeRunQuote, { paid: true }>;
+    }
+
+    it('prices every candidate, then spends exactly that once, outside the art budget', async () => {
+      const id = project();
+      auto(id, 100);
+      const quote = await quoted(id, { count: 2 });
+      expect(quote).toMatchObject({ count: 2, credits: 8, candidates: [{ credits: 4 }, { credits: 4 }], model: { id: 'openpixo-image' } });
+      expect(cloud.submits).toHaveLength(0);
+      const run = await ready(id, await runRecipe(id, { count: 2, quoteId: quote.quoteId }));
+      expect(run).toMatchObject({ status: 'ready', origin: 'user', surface: 'image' });
+      expect(run.candidates.filter(candidate => candidate.stagedFiles.length)).toHaveLength(2);
+      expect(cloud.charged).toBe(8);
+      // The user's own price is not the agent's budget.
+      expect(ledger.read(id)?.usedCredits).toBe(0);
+      // Asking again with the same price answers with the same run and pays nothing more.
+      const again = await runRecipe(id, { count: 2, quoteId: quote.quoteId });
+      expect(again.status).toBe(202);
+      expect((await again.json() as RecipeRun).id).toBe(run.id);
+      expect(cloud.charged).toBe(8);
+      expect(cloud.quotes).toHaveLength(2);
+    });
+
+    it('needs a price before it spends, and refuses one for a different run', async () => {
+      const id = project();
+      const unpriced = await runRecipe(id);
+      expect(unpriced.status).toBe(403);
+      expect((await errorOf(unpriced)).code).toBe('GENERATION_CONFIRMATION_REQUIRED');
+      const quote = await quoted(id, { count: 1 });
+      const other = await runRecipe(id, { count: 1, inputs: { prompt: 'a villain' }, quoteId: quote.quoteId });
+      expect(other.status).toBe(409);
+      expect((await errorOf(other)).code).toBe('RECIPE_QUOTE_MISMATCH');
+      const unknown = await runRecipe(id, { count: 1, quoteId: randomUUID() });
+      expect((await errorOf(unknown)).code).toBe('RECIPE_QUOTE_UNKNOWN');
+      expect(cloud.submits).toHaveLength(0);
+    });
+
+    it('is never priced for, or paid by, an agent\'s token', async () => {
+      const id = project();
+      auto(id, 100);
+      const asked = await quoteRecipe(id, {}, token(id));
+      expect(asked.status).toBe(403);
+      const quote = await quoted(id, { count: 1 });
+      const borrowed = await runRecipe(id, { count: 1, quoteId: quote.quoteId }, token(id));
+      expect(borrowed.status).toBe(403);
+      expect(cloud.submits).toHaveLength(0);
+    });
+
+    it('answers a recipe its own tools make with no price', async () => {
+      const id = project();
+      ownTools.providers = { openai: { configured: true } };
+      const response = await quoteRecipe(id, { count: 1 });
+      expect(await response.json()).toMatchObject({ paid: false, model: { provider: 'openai' } });
+      expect(cloud.quotes).toHaveLength(0);
+    });
+
+    it('prices a sound effect and a 3D model the same way', async () => {
+      const id = project();
+      await writeFile(path.join(projectsDir(), id, 'crate.png'), PNG);
+      const sound = await quoted(id, { recipeId: 'test-sound', count: 1 });
+      const model = await quoted(id, { recipeId: 'test-model', inputs: { image: 'crate.png' } });
+      expect(sound.model.id).toBe('openpixo-sfx');
+      expect(model.model.id).toBe('openpixo-model3d');
+      expect((await ready(id, await runRecipe(id, { recipeId: 'test-sound', count: 1, quoteId: sound.quoteId }))).status).toBe('ready');
+      expect((await ready(id, await runRecipe(id, { recipeId: 'test-model', inputs: { image: 'crate.png' }, quoteId: model.quoteId }))).status).toBe('ready');
+    });
+  });
+
+  it('lists this project\'s runs newest first, by who started them', async () => {
+    const id = project();
+    auto(id, 100);
+    const agentRun = await ready(id, await runRecipe(id, {}, token(id)));
+    const quote = await (await quoteRecipe(id, { count: 1 })).json() as Extract<RecipeRunQuote, { paid: true }>;
+    const userRun = await ready(id, await runRecipe(id, { count: 1, quoteId: quote.quoteId }));
+    const list = async (query = '') => (await (await fetch(`${base}/api/projects/${id}/recipe-runs${query}`)).json() as RecipeRunListResponse).runs.map(run => run.id);
+    expect(await list()).toEqual([userRun.id, agentRun.id]);
+    expect(await list('?origin=agent')).toEqual([agentRun.id]);
+    expect(await list('?surface=audio')).toEqual([]);
+    expect(await list('?limit=1')).toEqual([userRun.id]);
   });
 });

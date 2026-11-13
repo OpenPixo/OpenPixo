@@ -66,7 +66,7 @@ const ACCEPTED_RECIPES = ['sprite-walk-8dir'];
 
 it('publishes honest acceptance status for the bundled catalogue and meaningful code categories', async () => {
   const recipes = discoverRecipes(bundled);
-  expect(recipes).toHaveLength(30);
+  expect(recipes).toHaveLength(33);
   for (const recipe of recipes) {
     const evaluation = await readFile(path.join(bundled, 'recipes', recipe.id, 'evals/README.md'), 'utf8');
     if (ACCEPTED_RECIPES.includes(recipe.id)) {

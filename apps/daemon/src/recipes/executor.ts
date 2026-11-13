@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { isRecipeRelativePath, type ArtStyle, type AssetOpRequest, type EngineProfile, type Recipe, type RecipeDetail, type RecipeRun, type RecipeRunRequest } from '@openpixo/contracts';
+import { isRecipeRelativePath, type ArtStyle, type AssetOpRequest, type EngineProfile, type Recipe, type RecipeDetail, type RecipeRun, type RecipeRunOrigin, type RecipeRunRequest } from '@openpixo/contracts';
 import { recordAssetProvenance } from '../assets/provenance-store.js';
 import { runAssetOp } from '../assets/ops/index.js';
 import { generateMedia } from '../media/index.js';
@@ -42,17 +42,47 @@ export interface RecipeExecutorDeps {
 }
 export interface PreparedRecipe { inputs: Record<string, unknown>; variables: Record<string, unknown>; references: string[] }
 
+/** What one hosted candidate is priced on, the same for the art budget and for the user's own quote. */
+export interface RecipePricingInput {
+  prompt: string;
+  /** Project-relative reference images. */
+  references: string[];
+  aspect?: string | undefined;
+  background?: 'transparent' | undefined;
+  voice?: string | undefined;
+  duration?: number | undefined;
+}
+
 /**
- * How an agent's image recipe pays a hosted model from the art budget. Every
- * candidate is priced and reserved before the run starts, so a refusal is the
- * request's answer rather than a failed run.
+ * How a recipe pays a hosted model. Every candidate is paid for before the run
+ * starts, so a refusal is the request's answer rather than a failed run.
+ *
+ * - `budget`: an agent's run, each candidate priced and reserved against the
+ *   project's art budget as the agent's own hosted request would be.
+ * - `confirmed`: a run the user started, carrying the price the user confirmed for
+ *   every candidate (`POST …/recipe-runs/quote`). It is sent exactly as priced.
  */
-export interface RecipeHostedSpending {
-  media: OpenPixoHostedMedia;
-  /** Prices and reserves one candidate; `variant` keeps identical candidates apart. */
-  prepare(input: { variant: number; prompt: string; references: string[]; aspect?: string | undefined }): Promise<AgentHostedDecision>;
-  /** Gives back a reservation that never reached the cloud. */
-  releaseIfNeverSubmitted(requestId: string): void;
+export type RecipeHostedSpending =
+  | { kind: 'budget'; media: OpenPixoHostedMedia;
+      /** Prices and reserves one candidate; `variant` keeps identical candidates apart. */
+      prepare(input: RecipePricingInput & { variant: number }): Promise<AgentHostedDecision>;
+      /** Gives back a reservation that never reached the cloud. */
+      releaseIfNeverSubmitted(requestId: string): void }
+  | { kind: 'confirmed'; media: OpenPixoHostedMedia; requests: readonly AgentHostedRequest[] };
+
+/** Everything a run will do, worked out before anything is spent or written. */
+export interface RecipePlan {
+  recipe: Recipe;
+  prepared: PreparedRecipe;
+  prompt: string;
+  resolution?: string | undefined;
+  background?: 'transparent' | undefined;
+  output: { dir: string; name: string };
+  count: number;
+  steps: Array<{ op: AssetOpRequest['op']; params: Record<string, unknown>; optional?: boolean | undefined }>;
+  aspect?: string | undefined;
+  /** What each hosted candidate is priced on. */
+  pricing: RecipePricingInput;
 }
 
 /** The art budget would not pay for this recipe; nothing was spent. */
@@ -151,14 +181,23 @@ export class RecipeExecutor {
     const candidateRoot = await recipePath(this.root, `${id}/${candidate.id}`);
     return { file: await recipePath(candidateRoot, path.relative(candidateRoot, staged.ref)), mime: staged.mime };
   }
-  async wait(projectId: string, id: string): Promise<RecipeRun> { await this.jobs.get(id); return this.get(projectId, id); }
-  async start(detail: RecipeDetail, projectId: string, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null, hosted?: RecipeHostedSpending): Promise<RecipeRun> {
+  /** This project's runs on this machine, newest first. Nothing about them is kept anywhere else. */
+  async list(projectId: string, filter: { surface?: string | undefined; origin?: string | undefined; limit?: number | undefined } = {}): Promise<RecipeRun[]> {
     await this.initialized;
+    return [...this.records.values()].map(record => record.run)
+      .filter(run => run.projectId === projectId && (!filter.surface || run.surface === filter.surface) && (!filter.origin || run.origin === filter.origin))
+      .sort((a, b) => b.createdAt - a.createdAt).slice(0, filter.limit ?? 100).map(run => structuredClone(run));
+  }
+  async wait(projectId: string, id: string): Promise<RecipeRun> { await this.jobs.get(id); return this.get(projectId, id); }
+  /**
+   * Renders the run without starting it: prompt, output, count, post-processing and
+   * the pricing input. A quote and the run it pays for both come from here, so the
+   * run sends what was priced. A paid run makes one candidate unless asked for more.
+   */
+  async plan(detail: RecipeDetail, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null): Promise<RecipePlan> {
     const recipe = detail.manifest.pixo!.recipe!;
     if (recipe.surface === 'code') throw new Error(`No media backend for surface: ${recipe.surface}`);
-    if (model.provider === 'stub' && process.env.NODE_ENV !== 'test') throw new Error('Stub provider is only allowed in tests');
     const paid = model.provider === 'openpixo';
-    if (paid && (!hosted || recipe.surface !== 'image')) throw new RecipeSpendRefused(403, 'GENERATION_CONFIRMATION_REQUIRED', 'A recipe can spend credits only for an agent, from the art budget.');
     const prepared = await prepareRecipe(detail, projectRoot, request, engine);
     const basePrompt = renderRecipeTemplate(recipe.prompt!, prepared.variables);
     const negativePrompt = recipe.negative ? renderRecipeTemplate(recipe.negative, prepared.variables) : undefined;
@@ -168,7 +207,7 @@ export class RecipeExecutor {
     if (!isRecipeRelativePath(output.dir)) throw new Error('Rendered output.dir must be relative and contain no ..');
     await recipePath(projectRoot, `${output.dir}/${output.name}`);
     const countInput = recipe.inputs.find(input => input.type === 'count');
-    // Each paid candidate costs an image, so a paid run makes one unless asked for more.
+    // Each paid candidate costs credits, so a paid run makes one unless asked for more.
     const askedCount = countInput && request.inputs?.[countInput.name] !== undefined ? Number(prepared.inputs[countInput.name]) || undefined : undefined;
     const count = paid ? request.count ?? askedCount ?? 1
       : request.count ?? (countInput ? Number(prepared.inputs[countInput.name]) || undefined : undefined) ?? recipe.generation?.count.default ?? 1;
@@ -184,29 +223,56 @@ export class RecipeExecutor {
     for (const check of recipe.checks ?? []) renderRecipeParams(check.params, prepared.variables);
     const aspectField = recipe.inputs.find(input => input.type === 'aspect');
     const aspect = aspectField && prepared.inputs[aspectField.name] ? String(prepared.inputs[aspectField.name]) : recipe.generation?.aspect ? renderRecipeTemplate(recipe.generation.aspect, prepared.variables) : undefined;
+    // A recipe that always wants a cutout says so; the plain image recipe lets the user choose.
+    const background = recipe.surface === 'image' && (recipe.generation?.background === 'transparent' || prepared.inputs.transparent === true) ? 'transparent' as const : undefined;
+    const duration = Number(prepared.variables.duration ?? prepared.variables.lengthSec);
+    const voice = prepared.variables.voice;
+    const pricing: RecipePricingInput = { prompt, references: prepared.references, ...(aspect ? { aspect } : {}), ...(background ? { background } : {}),
+      ...(recipe.surface === 'audio' && typeof voice === 'string' && voice ? { voice } : {}),
+      ...(recipe.surface === 'audio' && Number.isFinite(duration) ? { duration } : {}) };
+    return { recipe, prepared, prompt, ...(imageRequest?.resolution ? { resolution: imageRequest.resolution } : {}), ...(background ? { background } : {}),
+      output, count, steps, ...(aspect ? { aspect } : {}), pricing };
+  }
+  async start(detail: RecipeDetail, projectId: string, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null, hosted?: RecipeHostedSpending, origin: RecipeRunOrigin = 'user'): Promise<RecipeRun> {
+    await this.initialized;
+    const recipe = detail.manifest.pixo!.recipe!;
+    if (recipe.surface === 'code') throw new Error(`No media backend for surface: ${recipe.surface}`);
+    if (model.provider === 'stub' && process.env.NODE_ENV !== 'test') throw new Error('Stub provider is only allowed in tests');
+    const paid = model.provider === 'openpixo';
+    if (paid && (!hosted || recipe.surface === 'video')) throw new RecipeSpendRefused(403, 'GENERATION_CONFIRMATION_REQUIRED', 'This recipe would spend credits: the user confirms a price first, or an agent pays from the art budget.');
+    const plan = await this.plan(detail, projectRoot, request, model, engine, artStyle);
+    const { prepared, prompt, output, steps, aspect } = plan;
+    let count = plan.count;
+    if (paid && hosted!.kind === 'confirmed') {
+      // What the user confirmed is what runs: as many candidates as were priced.
+      count = hosted!.requests.length;
+      if (count < 1 || count > (recipe.generation?.count.max ?? 4)) throw new Error('Count exceeds recipe limit');
+    }
     const id = randomUUID();
     const referenceBytes = await Promise.all(prepared.references.map(async ref => ({ bytes: await readFile(await recipePath(projectRoot, ref)), ext: path.extname(ref) })));
     // In order, so each reservation sees the ones before it; one refusal gives the others back.
     const paidRequests: AgentHostedRequest[] = [];
-    const releasePaid = () => { for (const reserved of paidRequests) hosted!.releaseIfNeverSubmitted(reserved.cloudRequestId); };
-    if (paid) {
+    const budget = paid && hosted!.kind === 'budget' ? hosted! : null;
+    const releasePaid = () => { if (budget) for (const reserved of paidRequests) budget.releaseIfNeverSubmitted(reserved.cloudRequestId); };
+    if (budget) {
       for (let variant = 0; variant < count; variant++) {
-        const decision = await hosted!.prepare({ variant, prompt, references: prepared.references, aspect }).catch((error: unknown) => { releasePaid(); throw error; });
+        const decision = await budget.prepare({ ...plan.pricing, variant }).catch((error: unknown) => { releasePaid(); throw error; });
         if (!decision.ok) { releasePaid(); throw new RecipeSpendRefused(decision.status, decision.code, decision.message); }
         paidRequests.push(decision.hosted);
       }
-    }
-    const record: StoredRun = { run: { id, projectId, recipeId: detail.id, recipeVersion: detail.version, inputs: prepared.inputs, ...(recipe.surface === 'image' ? { styleId: artStyle?.id ?? null } : {}),
+    } else if (paid && hosted!.kind === 'confirmed') paidRequests.push(...hosted!.requests);
+    const surface = recipe.surface as Exclude<Recipe['surface'], 'code'>;
+    const record: StoredRun = { run: { id, projectId, recipeId: detail.id, recipeVersion: detail.version, surface, origin, inputs: prepared.inputs, ...(recipe.surface === 'image' ? { styleId: artStyle?.id ?? null } : {}),
       model: { provider: model.provider, id: model.id }, status: 'queued', candidates: Array.from({ length: count }, (_, index) => ({ id: randomUUID(), index, stagedFiles: [], checks: [] })), createdAt: Date.now(), updatedAt: Date.now() },
-      prompt, ...(imageRequest?.resolution ? { resolution: imageRequest.resolution } : {}),
-      ...(recipe.generation?.background ? { background: recipe.generation.background } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)) };
+      prompt, ...(plan.resolution ? { resolution: plan.resolution } : {}),
+      ...(plan.background ? { background: plan.background } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)) };
     this.records.set(id, record);
     try { await this.save(record); }
     catch (error) { releasePaid(); throw error; }
     const controller = new AbortController();
     this.controllers.set(id, controller);
     const paidFor = paid ? { media: hosted!.media, requests: paidRequests } : undefined;
-    const job = this.execute(record, recipe.surface, model, referenceBytes, steps, recipe.checks ?? [], prepared.variables, controller.signal, aspect, paidFor)
+    const job = this.execute(record, surface, model, referenceBytes, steps, recipe.checks ?? [], prepared.variables, controller.signal, aspect, paidFor)
       .catch(async error => { if (record.run.status !== 'cancelled') { record.run.status = 'failed'; Object.assign(record.run, recipeFailure(error)); await this.save(record); } })
       // A candidate cancelled or failed before its submit leaves its reservation unused.
       .finally(() => { releasePaid(); this.jobs.delete(id); this.controllers.delete(id); });

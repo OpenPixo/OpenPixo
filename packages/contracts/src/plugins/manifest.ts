@@ -80,10 +80,22 @@ export function isRecipeRelativePath(value: string): boolean {
     && !/[\x00-\x1f:]/.test(value.replace(/\{\{[^{}]+\}\}/g, ''));
 }
 
+/** What a recipe's art is for: a 2D game, a 3D game, or both. */
+export const RecipeDimensionSchema = z.enum(['2d', '3d']);
+export type RecipeDimension = z.infer<typeof RecipeDimensionSchema>;
+/** The kinds of result an action recipe takes as its `source`. */
+export const RecipeActsOnSchema = z.enum(['image', 'audio', 'model3d']);
+
 export const RecipeSchema = z.object({
   surface: RecipeSurfaceSchema,
   category: z.string().min(1),
   engines: z.array(z.string().min(1)).default(['any']),
+  /** One English line the agent reads to decide when this recipe fits. */
+  whenToUse: z.string().min(1).max(240).optional(),
+  /** Absent means the art suits either kind of game. */
+  dimension: z.array(RecipeDimensionSchema).min(1).optional(),
+  /** Set on an action recipe: it makes something from one result of these kinds, passed as its `source` input. */
+  acts: z.object({ on: z.array(RecipeActsOnSchema).min(1) }).optional(),
   inputs: z.array(InputFieldSchema).default([]),
   prompt: z.string().min(1).optional(),
   negative: z.string().optional(),
@@ -114,6 +126,9 @@ export const RecipeSchema = z.object({
     if (recipe.prompt || recipe.models || recipe.postprocess) ctx.addIssue({ code: 'custom', message: 'Code recipes use pixo.useCase.query and pixo.context.skills' });
   } else if (!recipe.prompt || !recipe.models || !recipe.output) {
     ctx.addIssue({ code: 'custom', message: 'Media recipes require prompt, models, and output' });
+  }
+  if (recipe.acts && !recipe.inputs.some(input => input.name === 'source' && input.required && (input.type === 'asset-ref' || input.type === 'image-ref'))) {
+    ctx.addIssue({ code: 'custom', message: 'An action recipe takes its result as a required `source` asset-ref or image-ref input' });
   }
   const names = recipe.inputs.map(input => input.name);
   if (new Set(names).size !== names.length || names.some(name => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name))) {

@@ -1,0 +1,137 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sound-effect",
+  "title": "Sound effect",
+  "title_i18n": {
+    "en": "Sound effect",
+    "zh-CN": "音效"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-14T12:00:00+09:00",
+  "description": "Any sound effect from a description, made as a few takes to choose from, trimmed and evened out in loudness.",
+  "description_i18n": {
+    "en": "Any sound effect from a description, made as a few takes to choose from, trimmed and evened out in loudness.",
+    "zh-CN": "按描述生成任意音效，一次出几条供挑选，自动去掉首尾静音并统一响度。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "audio",
+    "plain"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "audio",
+      "category": "plain",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "Any one-shot game sound no preset covers (a jump, a hit, a pickup, a door); several takes so the game can vary them.",
+      "inputs": [
+        {
+          "name": "prompt",
+          "label": "Description",
+          "label_i18n": {
+            "zh-CN": "描述"
+          },
+          "type": "text",
+          "required": true,
+          "placeholder": "a short metal sword swing through the air",
+          "placeholder_i18n": {
+            "zh-CN": "一次短促的金属剑挥空声"
+          }
+        },
+        {
+          "name": "duration",
+          "label": "Length (seconds)",
+          "label_i18n": {
+            "zh-CN": "时长（秒）"
+          },
+          "type": "number",
+          "default": 1
+        },
+        {
+          "name": "format",
+          "label": "Format",
+          "label_i18n": {
+            "zh-CN": "格式"
+          },
+          "type": "select",
+          "options": [
+            "ogg",
+            "wav"
+          ],
+          "default": "ogg"
+        },
+        {
+          "name": "name",
+          "label": "File name (lowercase, no spaces)",
+          "label_i18n": {
+            "zh-CN": "文件名（小写，不含空格）"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "sword_swing"
+        }
+      ],
+      "prompt": "Video game sound effect: {{prompt}}. One clean sound with no music, no voice and no background noise.",
+      "models": {
+        "requires": [
+          "sfx"
+        ],
+        "recommended": [
+          "elevenlabs-sfx"
+        ],
+        "fallback": [
+          "audiocraft"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 3,
+          "max": 4
+        }
+      },
+      "postprocess": [
+        {
+          "op": "audio-trim",
+          "params": {
+            "silenceThreshold": -50
+          }
+        },
+        {
+          "op": "audio-normalize",
+          "params": {
+            "lufs": -16
+          }
+        },
+        {
+          "op": "audio-convert",
+          "params": {
+            "format": "{{format}}"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "duration-range",
+          "params": {
+            "minMs": 30,
+            "maxMs": 30000
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.audioRoot}}/sfx",
+        "name": "{{name}}"
+      }
+    }
+  }
+}

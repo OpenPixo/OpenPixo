@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { skillFitsEngine } from '../game/default-skills.js';
 import type { Express, Request, Response } from 'express';
-import { RecipeAdoptRequestSchema, RecipeRunRequestSchema, resolveLocalizedText, type CharacterUpdateRequest, type EngineProfile, type ProjectMetadata, type RecipeCodeRunResponse, type RecipeDetail, type RecipeRunRequest } from '@openpixo/contracts';
+import { PRODUCT_CLI_NAME, RecipeAdoptRequestSchema, RecipeQuoteRequestSchema, RecipeRunRequestSchema, resolveLocalizedText, type CharacterUpdateRequest, type EngineProfile, type ProjectMetadata, type RecipeCodeRunResponse, type RecipeDetail, type RecipeRun, type RecipeRunListResponse, type RecipeRunQuote, type RecipeRunRequest } from '@openpixo/contracts';
 import { getProject } from '../db.js';
 import { resolveProjectDir } from '../projects.js';
 import { readMaskedConfig } from '../media/config.js';
@@ -12,11 +13,13 @@ import { sendValidatedFile } from '../http/send-file.js';
 import { bearerTokenFromRequest } from '../http/tool-request-auth.js';
 import { toolTokenRegistry, type ToolTokenGrant } from '../tool-tokens.js';
 import type { ArtBudgetLedger } from '../game/art-budget.js';
-import { prepareAgentHostedRequest } from '../game/art-budget-spend.js';
+import { planHostedRequest, prepareAgentHostedRequest, type AgentHostedRequest } from '../game/art-budget-spend.js';
+import { accountError } from '../account/errors.js';
+import type { MediaModel } from '../media/models.js';
 import type { OpenPixoHostedMedia } from '../media/openpixo-hosted.js';
 import { resolveProjectExtensions } from '../services/project-extensions.js';
 import { discoverRecipes, findRecipe, recipeSummaries } from './catalog.js';
-import { RecipeExecutor, RecipeSpendRefused, prepareRecipe, type RecipeHostedSpending } from './executor.js';
+import { RecipeExecutor, RecipeSpendRefused, prepareRecipe, type RecipeHostedSpending, type RecipePricingInput } from './executor.js';
 import { configuredRecipeProviders, hostedRecipeModelIds, modelsForRecipe, RecipeNoModelError, selectRecipeModel } from './models.js';
 import { createCharacter, deleteCharacter, getCharacter, listCharacters, updateCharacter } from './characters.js';
 import { renderRecipeTemplate } from './template.js';
@@ -30,11 +33,45 @@ export interface RecipeRoutesDeps {
   authorizeProjectToolRequest: AuthorizeProjectToolRequest;
   mediaTasks: RecipeExecutorDeps['mediaTasks'];
   resources: Pick<ResourceDeps, 'listAllSkills'>;
-  /** What lets an agent's image recipe pay a hosted model from the art budget; without it recipes never spend. */
+  /** What lets a recipe pay a hosted model, from the art budget or at a price the user confirmed; without it recipes never spend. */
   artBudget?: { ledger: ArtBudgetLedger; openpixoHosted: OpenPixoHostedMedia; hasSession: () => Promise<boolean> } | undefined;
 }
 
+/** A price the user was shown for every candidate of one run, held until it is spent or expires. */
+interface HeldRecipeQuote {
+  projectId: string;
+  /** The request it priced, in canonical form; a run must ask for exactly this. */
+  key: string;
+  model: MediaModel;
+  requests: AgentHostedRequest[];
+  expiresAt: number;
+  /** The run this price paid for; asking again returns it instead of starting another. */
+  started?: Promise<RecipeRun> | undefined;
+}
+/** How long a spent price still answers with its run, so a retried request finds it. */
+const SPENT_QUOTE_KEPT_MS = 60 * 60 * 1000;
+
+/** Same request, same string, whatever order its object keys came in. */
+function canonical(value: unknown): string {
+  const sort = (item: unknown): unknown => Array.isArray(item) ? item.map(sort)
+    : item && typeof item === 'object' ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, sort(entry)])) : item;
+  return JSON.stringify(sort(value));
+}
+const quotedRequest = (request: RecipeRunRequest) => { const { quoteId: _quote, conversationId: _conversation, agentId: _agent, ...rest } = request; return canonical(rest); };
+
+/** The request body a hosted candidate is shaped and priced from: only its shape is read. */
+function hostedBody(pricing: RecipePricingInput) {
+  return { images: pricing.references, ...(pricing.aspect ? { aspect: pricing.aspect } : {}), ...(pricing.background ? { background: pricing.background } : {}),
+    ...(pricing.voice !== undefined ? { voice: pricing.voice } : {}), ...(pricing.duration !== undefined ? { duration: pricing.duration } : {}) };
+}
+
 export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): RecipeExecutor {
+  const quotes = new Map<string, HeldRecipeQuote>();
+  const pruneQuotes = () => {
+    const now = Date.now();
+    for (const [key, held] of quotes) if (held.expiresAt + (held.started ? SPENT_QUOTE_KEPT_MS : 0) <= now) quotes.delete(key);
+  };
+  const heldQuote = (id: string): HeldRecipeQuote | undefined => { pruneQuotes(); return quotes.get(id); };
   const executor = new RecipeExecutor({ runtimeDataDir: ctx.paths.RUNTIME_DATA_DIR, projectRoot: ctx.paths.PROJECT_ROOT, db: ctx.db, mediaTasks: ctx.mediaTasks });
   void executor.initialized.catch(error => console.error('[recipes] Initialization failed', error));
   const catalog = () => discoverRecipes(ctx.paths.BUNDLED_PLUGINS_DIR);
@@ -68,32 +105,45 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
     return { id, value, grant: grant ?? null, root: resolveProjectDir(ctx.paths.PROJECTS_DIR, id, value.metadata) as string };
   }
   /**
-   * The hosted models an agent's image recipe may fall back to, while the art budget
-   * can pay, by the same test the run's prompt uses. A user's recipe run carries no
-   * token and never spends.
+   * The hosted models a recipe may fall back to once every own tool is out. For an
+   * agent, only while the art budget can pay, by the same test the run's prompt uses.
+   * For the user, whenever they are signed in: the run then needs a price they
+   * confirmed (`…/recipe-runs/quote`).
    */
   async function hostedFallback(detail: RecipeDetail, target: { id: string; root: string; grant: ToolTokenGrant | null },
     request: RecipeRunRequest, engine: EngineProfile | null | undefined): Promise<string[]> {
     const recipe = detail.manifest.pixo!.recipe!;
-    if (!ctx.artBudget || !target.grant || recipe.surface !== 'image') return [];
-    const budget = ctx.artBudget.ledger.read(target.id);
-    if (!budget || budget.limitCredits === 0 || budget.remainingCredits <= 0) return [];
+    if (!ctx.artBudget || recipe.surface === 'code' || recipe.surface === 'video') return [];
+    if (target.grant) {
+      const budget = ctx.artBudget.ledger.read(target.id);
+      if (!budget || budget.limitCredits === 0 || budget.remainingCredits <= 0) return [];
+    }
     if (!await ctx.artBudget.hasSession().catch(() => false)) return [];
     const { references } = await prepareRecipe(detail, target.root, request, engine);
     return hostedRecipeModelIds(recipe, references.length > 0);
   }
   /** Prices and reserves each candidate as an agent's own hosted request would be. */
-  function hostedSpending(target: { id: string; root: string; value: { metadata?: unknown } }, grant: ToolTokenGrant, service: string): RecipeHostedSpending {
+  function hostedSpending(target: { id: string; root: string; value: { metadata?: unknown } }, grant: ToolTokenGrant, service: string, surface: string): RecipeHostedSpending {
     const { ledger, openpixoHosted } = ctx.artBudget!;
     return {
+      kind: 'budget',
       media: openpixoHosted,
       prepare: input => prepareAgentHostedRequest({ ledger, hosted: openpixoHosted, grant, projectId: target.id,
-        metadata: target.value.metadata as ProjectMetadata | undefined, projectDir: target.root, service, surface: 'image', prompt: input.prompt,
+        metadata: target.value.metadata as ProjectMetadata | undefined, projectDir: target.root, service, surface, prompt: input.prompt,
         // The executor resizes without pixel-art resampling, so it is priced that way too.
-        pixelArt: false, body: { images: input.references, ...(input.aspect ? { aspect: input.aspect } : {}) }, variant: input.variant }),
+        pixelArt: false, body: hostedBody(input), variant: input.variant }),
       releaseIfNeverSubmitted: requestId => ledger.releaseIfNeverSubmitted(requestId),
     };
   }
+  /** The model a media recipe run would use, by the same rule the run itself applies. */
+  async function chooseModel(detail: RecipeDetail, target: { id: string; root: string; grant: ToolTokenGrant | null }, request: RecipeRunRequest, engine: EngineProfile | null | undefined) {
+    const recipe = detail.manifest.pixo!.recipe!;
+    const config = await readMaskedConfig(ctx.paths.PROJECT_ROOT);
+    const hosted = await hostedFallback(detail, target, request, engine);
+    return { model: selectRecipeModel(recipe, modelsForRecipe(recipe), configuredRecipeProviders(config, process.env.NODE_ENV === 'test'), request.model, hosted), hosted };
+  }
+  const artStyleFor = (detail: RecipeDetail, projectId: string, request: RecipeRunRequest) => detail.manifest.pixo!.recipe!.surface === 'image'
+    ? resolveArtStyleForGeneration(ctx.db, ctx.paths.PROJECT_ROOT, projectId, request.styleId) : Promise.resolve(null);
   app.get('/api/recipes', requireLocalDaemonRequest, (req, res) => {
     try {
       if (mediaGrant(req, res) === null) return;
@@ -107,6 +157,63 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
   app.get('/api/recipes/:recipeId', requireLocalDaemonRequest, (req, res) => {
     try { if (mediaGrant(req, res) !== null) res.json(findRecipe(catalog(), String(req.params.recipeId))); }
     catch (error) { fail(res, error); }
+  });
+  app.get('/api/projects/:id/recipe-runs', requireLocalDaemonRequest, async (req, res) => {
+    try {
+      const target = await project(req, res, false); if (!target) return;
+      const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined;
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 500)) throw new Error('limit must be an integer from 1 to 500');
+      const body: RecipeRunListResponse = { runs: await executor.list(target.id, {
+        ...(typeof req.query.surface === 'string' ? { surface: req.query.surface } : {}),
+        ...(typeof req.query.origin === 'string' ? { origin: req.query.origin } : {}), ...(limit !== undefined ? { limit } : {}) }) };
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(body);
+    } catch (error) { fail(res, error); }
+  });
+  // Prices every candidate of a run for the user to confirm. Nothing is spent here. Only the
+  // local UI or the user's own CLI may ask: an agent's recipes are paid from the art budget.
+  app.post('/api/projects/:id/recipe-runs/quote', requireLocalDaemonRequest, async (req, res) => {
+    try {
+      const target = await project(req, res, true); if (!target) return;
+      if (target.grant) { sendApiError(res, 403, 'GENERATION_CONFIRMATION_REQUIRED', 'An agent\'s recipes are paid from the art budget; only the user confirms a price.'); return; }
+      const request = RecipeQuoteRequestSchema.parse(req.body);
+      const detail = findRecipe(catalog(), request.recipeId);
+      const recipe = detail.manifest.pixo!.recipe!;
+      if (recipe.surface === 'code') throw new Error('A code recipe starts an agent run and has no price here');
+      const engine = target.value.metadata?.engineProfile;
+      if (!recipe.engines.includes('any') && !recipe.engines.includes(engine?.engine ?? 'unknown')) throw new Error('Recipe does not support this project engine');
+      const { model } = await chooseModel(detail, target, request, engine);
+      const plan = await executor.plan(detail, target.root, request, model, engine, await artStyleFor(detail, target.id, request));
+      if (model.provider !== 'openpixo') { const body: RecipeRunQuote = { paid: false, model: { provider: model.provider, id: model.id }, count: plan.count }; res.json(body); return; }
+      const { openpixoHosted } = ctx.artBudget!;
+      const requests: AgentHostedRequest[] = [];
+      const candidates: Array<{ credits: number }> = [];
+      let available = 0;
+      let expiresAt = Number.POSITIVE_INFINITY;
+      for (let variant = 0; variant < plan.count; variant++) {
+        const planned = await planHostedRequest({ hosted: openpixoHosted, service: model.id, surface: recipe.surface, prompt: plan.pricing.prompt,
+          pixelArt: false, body: hostedBody(plan.pricing), projectDir: target.root });
+        if (!planned.ok) { sendApiError(res, planned.status, planned.code, planned.message); return; }
+        const { prompt, aspect, style, duration, references, warnings } = planned.plan;
+        let quote;
+        try {
+          quote = await openpixoHosted.quote(model.id, { prompt, ...(aspect ? { aspect } : {}), ...(style !== undefined ? { style } : {}),
+            ...(duration !== undefined ? { duration } : {}) }, references);
+        } catch (error) { const failure = accountError(error); res.status(failure.status).json(failure.response()); return; }
+        requests.push({ quoteId: quote.quoteId, cloudRequestId: `recipe-${randomUUID()}`, prompt, aspect,
+          ...(style !== undefined ? { style } : {}), ...(duration !== undefined ? { duration } : {}), warnings });
+        candidates.push({ credits: quote.credits });
+        available = quote.available;
+        expiresAt = Math.min(expiresAt, Date.parse(quote.expiresAt) || Date.now());
+      }
+      const quoteId = randomUUID();
+      pruneQuotes();
+      quotes.set(quoteId, { projectId: target.id, key: quotedRequest(request), model, requests, expiresAt });
+      const body: RecipeRunQuote = { paid: true, quoteId, model: { provider: model.provider, id: model.id }, count: plan.count,
+        credits: candidates.reduce((sum, candidate) => sum + candidate.credits, 0), available, candidates,
+        expiresAt: new Date(expiresAt).toISOString(), warnings: [...new Set(requests.flatMap(entry => entry.warnings))] };
+      res.json(body);
+    } catch (error) { fail(res, error); }
   });
   app.post('/api/projects/:id/recipe-runs', requireLocalDaemonRequest, async (req, res, next) => {
     try {
@@ -140,12 +247,29 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
         res.json = body => json(res.statusCode < 400 ? { ...body, query, missingSkills, status: 'started' } : body);
         req.url = '/api/runs'; next(); return;
       }
-      const config = await readMaskedConfig(ctx.paths.PROJECT_ROOT);
-      const hosted = await hostedFallback(detail, target, request, engine);
-      const model = selectRecipeModel(recipe, modelsForRecipe(recipe), configuredRecipeProviders(config, process.env.NODE_ENV === 'test'), request.model, hosted);
-      const artStyle = recipe.surface === 'image' ? await resolveArtStyleForGeneration(ctx.db, ctx.paths.PROJECT_ROOT, target.id, request.styleId) : null;
-      const spending = hosted.includes(model.id) && target.grant ? hostedSpending(target, target.grant, model.id) : undefined;
-      res.status(202).json(await executor.start(detail, target.id, target.root, request, model, engine, artStyle, spending));
+      if (request.quoteId) {
+        // The user confirmed this price; it pays for exactly the run it was given for, once.
+        if (target.grant) { sendApiError(res, 403, 'GENERATION_CONFIRMATION_REQUIRED', 'A price the user confirmed cannot pay for an agent\'s run.'); return; }
+        const held = heldQuote(request.quoteId);
+        if (!held || held.projectId !== target.id) { sendApiError(res, 409, 'RECIPE_QUOTE_UNKNOWN', 'This price has expired or was never given. Ask for a new one.'); return; }
+        if (held.key !== quotedRequest(request)) { sendApiError(res, 409, 'RECIPE_QUOTE_MISMATCH', 'This run asks for something other than what was priced. Ask for a new price.'); return; }
+        if (!held.started) {
+          const artStyle = await artStyleFor(detail, target.id, request);
+          held.started = executor.start(detail, target.id, target.root, request, held.model, engine, artStyle,
+            { kind: 'confirmed', media: ctx.artBudget!.openpixoHosted, requests: held.requests }, 'user');
+          held.started.catch(() => { held.started = undefined; });
+        }
+        res.status(202).json(await held.started);
+        return;
+      }
+      const { model, hosted } = await chooseModel(detail, target, request, engine);
+      if (model.provider === 'openpixo' && !target.grant) {
+        sendApiError(res, 403, 'GENERATION_CONFIRMATION_REQUIRED', `This run spends credits. Price it first (\`${PRODUCT_CLI_NAME} recipe quote\`) and run it with that quote.`);
+        return;
+      }
+      const artStyle = await artStyleFor(detail, target.id, request);
+      const spending = hosted.includes(model.id) && target.grant ? hostedSpending(target, target.grant, model.id, recipe.surface) : undefined;
+      res.status(202).json(await executor.start(detail, target.id, target.root, request, model, engine, artStyle, spending, target.grant ? 'agent' : 'user'));
     } catch (error) { fail(res, error); }
   });
   app.get('/api/projects/:id/recipe-runs/:runId', requireLocalDaemonRequest, async (req, res) => {

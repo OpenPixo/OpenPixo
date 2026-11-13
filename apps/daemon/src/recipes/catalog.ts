@@ -34,6 +34,8 @@ export function discoverRecipes(bundledPluginsDir: string): RecipeDetail[] {
       recipes.push({ id: entry.name, title: manifest.title ?? manifest.name, description: manifest.description ?? '',
         version: manifest.version, surface: recipe.surface, category: recipe.category, engines: recipe.engines,
         requires: recipe.models?.requires ?? [], verified: readVerification(path.join(root, entry.name)),
+        ...(recipe.whenToUse ? { whenToUse: recipe.whenToUse } : {}), ...(recipe.dimension ? { dimension: recipe.dimension } : {}),
+        ...(recipe.acts ? { acts: recipe.acts } : {}),
         ...(manifest.pixo.preview?.poster ? { preview: manifest.pixo.preview.poster } : {}), manifest });
     } catch (error) { console.warn(`[recipes] Skipping invalid manifest ${entry.name}: ${error instanceof Error ? error.message : String(error)}`); }
   }
@@ -54,10 +56,13 @@ export function findRecipe(recipes: RecipeDetail[], id: string): RecipeDetail {
   return recipe;
 }
 
+const promptRank = (recipe: RecipeDetail) => recipe.surface === 'code' ? 2 : recipe.category === 'plain' ? 1 : 0;
+
 export function gameRecipePromptEntries(bundledPluginsDir: string, engine?: string, locale?: string): GameRecipePromptEntry[] {
   return discoverRecipes(bundledPluginsDir)
     .filter(recipe => recipe.engines.includes('any') || recipe.engines.includes(engine ?? 'unknown'))
-    .sort((a, b) => Number(a.surface === 'code') - Number(b.surface === 'code') || a.id.localeCompare(b.id))
+    // Presets first, then the plain recipes (which do what a raw media call does), then code.
+    .sort((a, b) => promptRank(a) - promptRank(b) || a.id.localeCompare(b.id))
     .slice(0, GAME_RECIPES_PROMPT_LIMIT)
     .map(recipe => ({ id: recipe.manifest.name, title: resolveLocalizedText(recipe.manifest.title_i18n, locale) || recipe.title, surface: recipe.surface, category: recipe.category,
       verified: recipe.verified ?? false }));

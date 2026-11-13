@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isRecipeRelativePath, type PluginManifest, type RecipeSurface } from '../plugins/manifest.js';
+import { isRecipeRelativePath, type PluginManifest, type Recipe, type RecipeDimension, type RecipeSurface } from '../plugins/manifest.js';
 
 export interface RecipeSummary {
   id: string;
@@ -16,6 +16,9 @@ export interface RecipeSummary {
   verified?: boolean;
   preview?: string;
   examples?: PluginManifest['examples'];
+  whenToUse?: string;
+  dimension?: RecipeDimension[];
+  acts?: Recipe['acts'];
 }
 export interface RecipeDetail extends RecipeSummary { manifest: PluginManifest }
 export interface RecipeQuote { credits: number }
@@ -30,11 +33,17 @@ export interface RecipeCandidate {
   errorCode?: string;
   errorReason?: string;
 }
+/** Who started a run, decided by the daemon from the request's tool token, never from its body. */
+export type RecipeRunOrigin = 'user' | 'agent';
 export interface RecipeRun {
   id: string;
   projectId: string;
   recipeId: string;
   recipeVersion: string;
+  /** Absent on runs recorded before the generator history existed. */
+  surface?: Exclude<RecipeSurface, 'code'>;
+  /** Absent on runs recorded before the generator history existed. */
+  origin?: RecipeRunOrigin;
   styleId?: string | null;
   inputs: Record<string, unknown>;
   model: { provider: string; id: string };
@@ -56,8 +65,34 @@ export const RecipeRunRequestSchema = z.object({
   prompt: z.string().min(1).optional(),
   conversationId: z.string().optional(),
   agentId: z.string().optional(),
+  /** A price the user confirmed (`POST …/recipe-runs/quote`); the run must ask for exactly what was priced. */
+  quoteId: z.string().uuid().optional(),
 }).strict();
 export type RecipeRunRequest = z.infer<typeof RecipeRunRequestSchema>;
+
+/** What `POST /api/projects/:id/recipe-runs/quote` prices: a run request, without a quote or a chat. */
+export const RecipeQuoteRequestSchema = RecipeRunRequestSchema.omit({ quoteId: true, conversationId: true, agentId: true });
+export type RecipeQuoteRequest = z.infer<typeof RecipeQuoteRequestSchema>;
+
+/**
+ * The answer to a quote request. `paid: false` means a tool of the user's own makes
+ * it and nothing is spent: run it without a quote. `paid: true` is a price for every
+ * candidate, held by the daemon until it expires; passing `quoteId` with the same
+ * request spends exactly that, once.
+ */
+export type RecipeRunQuote =
+  | { paid: false; model: { provider: string; id: string }; count: number }
+  | { paid: true; quoteId: string; model: { provider: string; id: string }; count: number;
+      /** Total of `candidates`. */
+      credits: number;
+      /** Credits the account had free when this was priced. */
+      available: number;
+      candidates: Array<{ credits: number }>;
+      expiresAt: string;
+      warnings: string[] };
+
+/** `GET /api/projects/:id/recipe-runs`, newest first. */
+export interface RecipeRunListResponse { runs: RecipeRun[] }
 export const RecipeAdoptRequestSchema = z.object({ candidateIds: z.array(z.string().min(1)).min(1).max(32) }).strict();
 export type RecipeAdoptRequest = z.infer<typeof RecipeAdoptRequestSchema>;
 export interface RecipeCodeRunResponse { query: string; missingSkills: string[]; runId?: string; status: 'missing-skills' | 'started' }

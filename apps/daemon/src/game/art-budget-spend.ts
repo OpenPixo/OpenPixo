@@ -31,9 +31,10 @@ export interface AgentHostedRequest {
   warnings: string[];
 }
 
-export type AgentHostedDecision =
-  | { ok: true; hosted: AgentHostedRequest }
-  | { ok: false; status: number; code: string; message: string };
+/** Nothing was spent or reserved, and this is why. */
+export interface HostedRefusal { ok: false; status: number; code: string; message: string }
+
+export type AgentHostedDecision = { ok: true; hosted: AgentHostedRequest } | HostedRefusal;
 
 export interface AgentHostedRequestInput {
   ledger: ArtBudgetLedger;
@@ -58,9 +59,9 @@ export interface AgentHostedRequestInput {
   variant?: number | undefined;
 }
 
-const refuse = (status: number, code: string, message: string): AgentHostedDecision => ({ ok: false, status, code, message });
+const refuse = (status: number, code: string, message: string): HostedRefusal => ({ ok: false, status, code, message });
 
-function fromCloud(error: unknown): AgentHostedDecision {
+function fromCloud(error: unknown): HostedRefusal {
   // A bad path or format in `--image` is the caller's to fix, as on the quote route.
   if (error instanceof Error && !(error instanceof AccountError) && /--image/u.test(error.message)) {
     return refuse(400, 'GENERATION_PARAMS_INVALID', error.message);
@@ -69,7 +70,7 @@ function fromCloud(error: unknown): AgentHostedDecision {
   return refuse(failure.status, failure.code, failure.message);
 }
 
-function exhausted(budget: ProjectArtBudget | null, asset: string, price?: number): AgentHostedDecision {
+function exhausted(budget: ProjectArtBudget | null, asset: string, price?: number): HostedRefusal {
   const used = budget?.usedCredits ?? 0;
   const limit = budget?.limitCredits ?? 0;
   const cost = price === undefined ? '' : ` This ${asset} costs ${price} and ${budget?.remainingCredits ?? 0} remain.`;
@@ -77,7 +78,7 @@ function exhausted(budget: ProjectArtBudget | null, asset: string, price?: numbe
 }
 
 /** Nothing was charged: the user has not approved this art, and only their click can. */
-function approvalNeeded(approval: ArtBudgetApproval | null, runId: string | null, asset: string, price?: number): AgentHostedDecision {
+function approvalNeeded(approval: ArtBudgetApproval | null, runId: string | null, asset: string, price?: number): HostedRefusal {
   const ask = 'Do not dispatch it again: end your reply with an art card (<art-request credits="N">, see "Asking before spending") listing the art still to make, and the user approves it with a click.';
   let state = 'The user has not approved any art for this turn.';
   if (approval && approval.runId !== null && approval.runId !== runId) {
@@ -137,33 +138,32 @@ function planHostedAudio(entry: OpenPixoGenerationService | undefined, service: 
   return { ok: true, ...(style !== undefined ? { style } : {}), ...(duration !== undefined ? { duration } : {}), warnings };
 }
 
+/** Exactly what one hosted request sends, and so what it is priced on. */
+export interface HostedRequestPlan {
+  prompt: string;
+  aspect?: OpenPixoGenerationAspect | undefined;
+  style?: string | undefined;
+  duration?: number | undefined;
+  references: HostedReferenceImage[];
+  warnings: string[];
+}
+
+export type HostedRequestPlanInput = Pick<AgentHostedRequestInput, 'service' | 'surface' | 'prompt' | 'pixelArt' | 'body' | 'projectDir'> & {
+  hosted: Pick<OpenPixoHostedMedia, 'services'>;
+};
+
 /**
- * Decides whether an agent's hosted image, audio or 3D model may be made and on what terms. The daemon
- * gets its own price and mints its own request id; everything about money comes from
- * here, and what the cloud is sent afterwards is exactly what was priced.
- *
- * Whatever a retry looks like, it cannot charge twice: an identical request whose
- * charge is still open reuses that charge's request id and quote, and the cloud
- * answers those with the job it already has.
+ * Shapes one hosted image, audio or 3D request the way the cloud will be sent it:
+ * the image's size and cutout wording, the nearest aspect the service offers, the
+ * voice and length the service takes. It spends and reserves nothing, so the user's
+ * own quote and the art budget price the very same request.
  */
-export async function prepareAgentHostedRequest(input: AgentHostedRequestInput): Promise<AgentHostedDecision> {
-  const { ledger, hosted, grant, projectId, service, body } = input;
-  if (grant.projectId !== projectId) return refuse(403, 'FORBIDDEN', 'A tool token can only use its own project\'s art budget.');
-  const confirm = new AccountError('GENERATION_CONFIRMATION_REQUIRED');
+export async function planHostedRequest(input: HostedRequestPlanInput):
+  Promise<{ ok: true; plan: HostedRequestPlan } | HostedRefusal> {
+  const { hosted, service, body } = input;
   const audio = input.surface === 'audio';
   const model3d = input.surface === 'model3d';
-  const asset = audio ? 'audio' : model3d ? '3D model' : 'image';
-  // While planning, a budget the user set pays only for style samples; the plan gate
-  // ahead of this route also caps how many.
-  if (gamePlanIsPending(input.metadata) && (audio || model3d)) {
-    return refuse(confirm.status, confirm.code, `This ${asset} would spend credits, which waits until the user approves the plan.`);
-  }
-  const budget = ledger.read(projectId);
-  if (!budget || budget.limitCredits === 0) {
-    return refuse(confirm.status, confirm.code, `This ${asset} would spend credits, and this project has no art budget. Only the user can set one.`);
-  }
   if (!model3d && (typeof input.prompt !== 'string' || !input.prompt.trim())) return refuse(400, 'GENERATION_PARAMS_INVALID', 'A prompt is required.');
-
   let references: HostedReferenceImage[] = [];
   let aspect: string | undefined;
   let style: string | undefined;
@@ -200,6 +200,38 @@ export async function prepareAgentHostedRequest(input: AgentHostedRequestInput):
   } catch (error) {
     return fromCloud(error);
   }
+  return { ok: true, plan: { prompt, aspect: aspect as OpenPixoGenerationAspect | undefined, ...(style !== undefined ? { style } : {}),
+    ...(duration !== undefined ? { duration } : {}), references, warnings } };
+}
+
+/**
+ * Decides whether an agent's hosted image, audio or 3D model may be made and on what terms. The daemon
+ * gets its own price and mints its own request id; everything about money comes from
+ * here, and what the cloud is sent afterwards is exactly what was priced.
+ *
+ * Whatever a retry looks like, it cannot charge twice: an identical request whose
+ * charge is still open reuses that charge's request id and quote, and the cloud
+ * answers those with the job it already has.
+ */
+export async function prepareAgentHostedRequest(input: AgentHostedRequestInput): Promise<AgentHostedDecision> {
+  const { ledger, hosted, grant, projectId, service } = input;
+  if (grant.projectId !== projectId) return refuse(403, 'FORBIDDEN', 'A tool token can only use its own project\'s art budget.');
+  const confirm = new AccountError('GENERATION_CONFIRMATION_REQUIRED');
+  const audio = input.surface === 'audio';
+  const model3d = input.surface === 'model3d';
+  const asset = audio ? 'audio' : model3d ? '3D model' : 'image';
+  // While planning, a budget the user set pays only for style samples; the plan gate
+  // ahead of this route also caps how many.
+  if (gamePlanIsPending(input.metadata) && (audio || model3d)) {
+    return refuse(confirm.status, confirm.code, `This ${asset} would spend credits, which waits until the user approves the plan.`);
+  }
+  const budget = ledger.read(projectId);
+  if (!budget || budget.limitCredits === 0) {
+    return refuse(confirm.status, confirm.code, `This ${asset} would spend credits, and this project has no art budget. Only the user can set one.`);
+  }
+  const planned = await planHostedRequest(input);
+  if (!planned.ok) return planned;
+  const { prompt, aspect, style, duration, references, warnings } = planned.plan;
 
   const fingerprint = fingerprintOf(service, prompt, aspect, references, style, duration, input.variant);
   const runId = grant.runId ?? null;

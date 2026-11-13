@@ -6,19 +6,23 @@ export function modelsForRecipe(recipe: Recipe): MediaModel[] {
   if (recipe.surface === 'image') return IMAGE_MODELS;
   if (recipe.surface === 'video') return VIDEO_MODELS;
   if (recipe.surface === 'audio') return Object.values(AUDIO_MODELS_BY_KIND).flat();
-  // Hosted 3D is never offered to a recipe: only image recipes may spend the art budget.
-  if (recipe.surface === 'model3d') return MODEL3D_MODELS.filter(model => model.provider !== 'openpixo');
+  if (recipe.surface === 'model3d') return MODEL3D_MODELS;
   return [];
 }
 
 /**
- * The hosted models an image recipe may fall back to when an agent runs it and the
- * project's art budget can pay. A recipe with references needs the edit service.
- * Audio stays off: hosted audio delivers mp3, and audio recipes post-process wav.
+ * The hosted models a recipe may fall back to once every own tool is out: paid from
+ * the art budget for an agent, or at a price the user confirmed. A recipe with
+ * references needs the image edit service. Audio picks the one service that makes
+ * its kind (the recipe's required capability decides). 3D starts at the default,
+ * medium tier; the other tiers are reached by naming them with `model`. Hosted audio
+ * arrives as mp3, which every audio post-processing step reads.
  */
 export function hostedRecipeModelIds(recipe: Recipe, hasReferences: boolean): string[] {
-  if (recipe.surface !== 'image') return [];
-  return hasReferences ? ['openpixo-image-edit'] : ['openpixo-image', 'openpixo-image-edit'];
+  if (recipe.surface === 'image') return hasReferences ? ['openpixo-image-edit'] : ['openpixo-image', 'openpixo-image-edit'];
+  if (recipe.surface === 'audio') return ['openpixo-sfx', 'openpixo-voice', 'openpixo-music'];
+  if (recipe.surface === 'model3d') return hasReferences ? ['openpixo-model3d', 'openpixo-model3d-draft', 'openpixo-model3d-high'] : [];
+  return [];
 }
 
 /**
