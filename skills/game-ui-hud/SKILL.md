@@ -54,16 +54,23 @@ Add `--project <id>` when `PIXO_PROJECT_ID` is absent. `pixo game run <projectId
 
 ## Make it look like this game
 
-Working UI can still read as a debug overlay: dark rectangles of plain text stretched across the screen. Unless the user specified a look, give HUD and menus one that belongs to the game.
+Working UI can still fail to read as a game. A plain one looks like a debug overlay: dark rectangles of text across the screen. A styled one looks like a web dashboard in the game's colours: each value in a rounded, bordered card with labels spelling out every number. Unless the user specified a look:
 
-- **Palette and type from the art.** Take a dark base, a light text colour and one or two accents from the project's existing art or style sheet, and reuse its fonts. Use the same palette, frame and focus style on the HUD, pause, upgrade and result screens.
-- **Hierarchy by urgency.** Values the player reads mid-action (health, danger, a resource that changes the next decision) are larger and sit at the edges. Secondary stats are small. Keep the centre and the area around the player clear. A common layout: status top-left, timer or objective top-centre, abilities bottom-centre.
-- **Bars and icons before text.** Show health, XP and charge as bars with the value. Show abilities as icon slots with a cooldown sweep and clearly different ready, cooling and locked states. Add text labels only where an icon is ambiguous.
-- **Frames from the world.** Give panels a shape from the setting (wood, paper, stone, metal), with a thin outline and soft shadow. Draw them in code: Phaser `Graphics` or nine-slice, Godot `StyleBoxFlat` or `NinePatchRect`, Unity sliced sprites. Prefer existing art. Generate UI images only with the user's agreement.
+- **Start from the genre's layout.** Before drawing anything, write down where games of this genre usually put each value, and follow that unless the user asks otherwise. Use the shared conventions, never a copy of one game. For example:
+  - Survivor-style action: XP bar across the full top edge, timer large at top-centre, kills and currency as icon and number at top-right, health as a small bar under the character, weapons as a small row of icons.
+  - Platformer: health or lives and collectibles at top-left.
+  - Shooter: health and ammo in the bottom corners, crosshair at the centre.
+  - Racing: position and lap along the top, speed in a bottom corner.
+- **On the screen, not in boxes.** Most HUD values sit directly over the world as an icon and a number with an outline or shadow. Add a backing only where the background makes a value unreadable, and keep it slight. A HUD built from one bordered card per stat reads as a web page.
+- **Icons and numbers, few words.** The player learns an icon in seconds; labels such as "Kills", "Level 1", "Not learned" or "Ready" are noise during play. Show locked or unavailable states as dim or empty slots, and ready states with a glow or pulse.
+- **Bars and sweeps.** Show health, XP and charge as bars, and ability cooldowns as a radial sweep on the icon. Show low health and danger at the value itself, with colour and motion.
+- **Palette and type from the art.** Take a dark base, a light text colour and one or two accents from the project's existing art, and reuse its fonts. Use the same palette on the HUD, pause, upgrade and result screens. Menus may use panels; the in-run HUD rarely needs them.
+- **Art makes a HUD look finished.** Shapes drawn in code (Phaser `Graphics`, Godot `StyleBoxFlat`, Unity sliced sprites) produce clean rectangles and outlines, which tend to look like web UI. Prefer existing art. When a convincing HUD needs a few pieces, such as a slot frame, bar end caps or a counter backing, list them with their cost and ask the user before generating them.
 - **Readable over the busiest frame.** Outline or shadow text over gameplay, keep at least 4.5:1 contrast against the background, and stay legible at the smallest target resolution.
 - **Transient help.** Show control hints at the start and fade them after a few seconds; keep them in the pause menu. Short-lived numbers and pickups vanish quickly. Tutorial text does not stay on screen.
 - **Truthful labels.** A timer, countdown or wave label says what the game actually does.
 - **Motion that stays still.** Bars drain with a trailing chunk and changed numbers pop briefly. The HUD never shakes or scrolls with the camera.
+- **Judge it against the genre.** Overflow, focus and resolution checks do not show whether it looks like a game. Compare a screenshot of the busiest moment with the layout you wrote down. If a player of that genre would take it for a web page or a debug panel, it is not done.
 
 ## By kind of game
 
@@ -235,7 +242,7 @@ There is no engine UI. Build the HUD and menus as HTML and CSS in one container 
 ## Done when
 
 - [ ] Relevant HUD values initialize correctly and update once; camera movement and resize preserve readability.
-- [ ] HUD and menus use the game's palette and frame style. In a screenshot of the busiest moment at the smallest target size, the essential values read at a glance and nothing important is covered.
+- [ ] The HUD follows the genre's usual layout, with values on screen as icon and number rather than in labelled cards, and uses the game's palette. In a screenshot of the busiest moment at the smallest target size, the essential values read at a glance and nothing important is covered.
 - [ ] Keyboard-only and controller-only navigation and pointer-to-controller switching retain visible focus.
 - [ ] Two cycles of pausing and resuming, Back from settings and scene restart neither leak input nor duplicate listeners.
 - [ ] Settings persist without resetting progress; applicable verify command above passes.

@@ -597,7 +597,7 @@
         "en": "Game HUD, menus and input focus",
         "zh-CN": "游戏 HUD、菜单与输入焦点"
       },
-      "version": "0.3.0",
+      "version": "0.4.0",
       "kind": "skill",
       "source": "./skills/game-ui-hud",
       "engines": [
