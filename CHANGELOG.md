@@ -1,5 +1,33 @@
 # Changelog
 
+## OpenPixo 1.0.5
+
+- A new game is made with you, one step at a time: gameplay, art style, engine, plan, then one stage at a time. Each step waits for your OK. You pick the look from 2–3 sample images, and after each stage the AI tells you how to try it before going on.
+- Auto is the new default credits model: Claude Sonnet 5.5 writes a new game's plan, and DeepSeek V4.1 Flash does everything else. You can still pick a model yourself.
+- The AI can now see pictures when it uses DeepSeek V4.1 Flash: your screenshots, its own art and how the game looks while it plays it. Set a style reference image, and the AI uses it when it makes new art.
+- Art spending: choose **Ask me first** (the AI lists the art it wants to make and waits) or **Spend within budget**.
+- Moving characters get real animation frames, and a set of small images is made together at the price of one. **Check animation frames** and **Align animation frames** fix frames that jump or slide.
+- The **Generate** tab makes images, sound effects, voice, music and 3D models in one place, and recipes can now use your credits at a price you see first.
+- **Export playable game** saves a web game as one HTML file that plays offline. Double-click it or send it to a friend.
+- Pixel-art games stay sharp and their text stays readable.
+- OpenPixo starts faster on Windows, and the update button no longer covers the window buttons.
+- Fixes for long Codex conversations, slow Codex sign-in checks, games that would not build or playtest, and faster switching between conversations.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- 新游戏和你一起一步步做：玩法、画风、引擎、计划，然后一次做一个阶段，每一步都等你同意。画风从 2–3 张样图里挑；每个阶段做完，AI 会告诉你怎么试玩，再继续。
+- 新的默认积分模型「自动」：新游戏的计划由 Claude Sonnet 5.5 来写，其余交给 DeepSeek V4.1 Flash。你仍然可以自己选模型。
+- 用 DeepSeek V4.1 Flash 时 AI 能看图了：你的截图、它自己做的美术、试玩时游戏的样子。设一张风格参考图，AI 做新美术时会参考它。
+- 做素材怎么花积分：选「先问我」（AI 先列出要做的素材，等你同意），或「在预算内直接做」。
+- 会动的角色有真正的动画帧；同一画风的一组小图一起做，只花一张图的钱。「检查动画帧」和「对齐动画帧」能修好跳动、滑步的帧。
+- 「生成」页可以做图片、音效、配音、音乐和 3D 模型；配方现在也能用积分，花多少先告诉你。
+- 「导出可玩版本」把网页游戏存成一个能离线玩的 HTML 文件，双击就能玩，也能直接发给朋友。
+- 像素风游戏画面保持清晰，字也看得清。
+- 在 Windows 上启动更快；更新按钮不再挡住窗口右上角的按钮。
+- 修复了 Codex 长对话出错、Codex 登录检查太慢、游戏构建或试玩失败等问题，切换对话也更快。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.4
 
 - Online features for web games: ask the AI for a leaderboard, racing ghosts (race a friend's best lap) or async battles (your saved team fights other players while you are away). Players don't sign in; each gets a generated name. It works on your public link with nothing to set up, and it is included in your plan.
