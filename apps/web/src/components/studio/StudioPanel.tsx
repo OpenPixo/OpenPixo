@@ -6,7 +6,6 @@ import { Icon } from '../Icon';
 import { useProjectPreviewContext } from "../project-preview-context";
 import { openMediaSettings } from '../../settings-navigation';
 import { CharacterEditor } from './CharacterEditor';
-import { HostedImageCard } from './HostedImageCard';
 import { RecipeRunner } from './RecipeRunner';
 import { ProjectStyleGallery } from './ProjectStyleGallery';
 import { StudioDisclosure } from './StudioDisclosure';
@@ -28,11 +27,10 @@ interface Props {
   /** The sheet is showing. It stays mounted once opened, so this is what "opening it" looks like from here. */
   open?: boolean;
   onOpenFile: (path: string) => void; onRefreshFiles: () => Promise<void>; onOpenExtensions: () => void;
-  onOpenAccount?: () => void;
 }
 
 export function StudioPanel({ projectId, files, viewerOnly, open = true, initialRecipeId, referencePaths = NO_REFERENCES,
-  onOpenFile, onRefreshFiles, onOpenExtensions, onOpenAccount }: Props) {
+  onOpenFile, onRefreshFiles, onOpenExtensions }: Props) {
   const { locale, t } = useI18n();
   const copy = studioCopy(locale);
   const { projectResourceAuthority } = useProjectPreviewContext();
@@ -122,7 +120,6 @@ export function StudioPanel({ projectId, files, viewerOnly, open = true, initial
 
   return <div className={styles.root} data-testid="studio-panel">
     {readOnly && <p className={styles.muted}>{copy.readOnly}</p>}
-    {readable && <HostedImageCard projectId={projectId} files={files} readOnly={readOnly} onSaved={onRefreshFiles} onOpenFile={onOpenFile} onOpenAccount={onOpenAccount} />}
     <section className={styles.section} aria-labelledby="studio-recipes-title">
       {readable && !media && mediaState.failed && <Card className={styles.providerBanner} role="alert">
         <span>{copy.providerCheckError}</span>

@@ -8,10 +8,10 @@ export async function getStudioMediaCapabilities(signal: AbortSignal): Promise<G
 
 export function missingRecipeCapabilities(recipe: Pick<RecipeSummary, 'requires'>, media: GetMediaCapabilitiesResponse | null): string[] {
   if (!media) return [];
-  return recipe.requires.filter(capability => !media.capabilities[capability]?.configured);
+  return recipe.requires.filter(capability => !media.capabilities?.[capability]?.configured);
 }
 
 /** The daemon reports availability for keyed and keyless providers alike. */
 export function hasAvailableMediaProvider(media: GetMediaCapabilitiesResponse | null): boolean {
-  return !!media && Object.values(media.capabilities).some(capability => capability.configured);
+  return !!media && Object.values(media.capabilities ?? {}).some(capability => capability?.configured);
 }

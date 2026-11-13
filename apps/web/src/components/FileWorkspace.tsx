@@ -69,6 +69,7 @@ import {
   showPanelRoot,
 } from './panel/panel-nav';
 import { clearStudioEntry, pendingStudioRecipe } from './studio/entry';
+import { GenerateView } from './generate/GenerateView';
 
 
 import { Toast } from './Toast';
@@ -270,8 +271,10 @@ interface ProjectPanelState {
   nav: PanelNav;
   /** Checklist "open assets": 资源库 shows 图片 once (applied by the browser). */
   libraryTypeRequest: LibraryTypeRequest | null;
-  studioOpen: boolean;
+  /** Pictures "generate from" handed to 生成. */
   studioReferencePaths: string[];
+  /** Bumped on every "generate from", so the same pictures twice still reach the box. */
+  studioReferenceRequest: number;
   /** A recipe queued by a composer / home entry point, read once per project. */
   initialRecipeId: string | null;
   extensionsOpen: boolean;
@@ -279,15 +282,15 @@ interface ProjectPanelState {
 
 function initialPanelState(projectId: string, routedGenerate: boolean): ProjectPanelState {
   const initialRecipeId = pendingStudioRecipe(projectId);
-  // The /generate deep link and a queued recipe open the generator, which
-  // lives in 资源库; otherwise the project's saved view (default 游戏).
-  const studioOpen = routedGenerate || Boolean(initialRecipeId);
+  // The /generate deep link and a queued recipe open 生成; otherwise the
+  // project's saved view (default 游戏).
+  const generate = routedGenerate || Boolean(initialRecipeId);
   return {
     projectId,
-    nav: initialPanelNav(studioOpen ? 'library' : readStoredPanelView(projectId)),
+    nav: initialPanelNav(generate ? 'generate' : readStoredPanelView(projectId)),
     libraryTypeRequest: null,
-    studioOpen,
     studioReferencePaths: NO_REFERENCE_PATHS,
+    studioReferenceRequest: 0,
     initialRecipeId,
     extensionsOpen: false,
   };
@@ -652,7 +655,7 @@ export function FileWorkspace({
     updatePanel((state) => ({ ...state, extensionsOpen: false, nav: switchPanelView(state.nav, 'game') }));
   }, [gameViewRequest, updatePanel]);
 
-  // Checklist "open assets / generate" and the /generate deep link land in 资源库.
+  // Checklist "open assets" lands in 资源库; "generate" and the /generate deep link in 生成.
   const requestedGameTab = gameTabRequest?.tab;
   const requestedGameTabNonce = gameTabRequest?.nonce;
   useEffect(() => {
@@ -663,13 +666,12 @@ export function FileWorkspace({
       libraryTypeRequest: requestedGameTab === 'assets'
         ? { type: 'image', nonce: requestedGameTabNonce ?? 0 }
         : state.libraryTypeRequest,
-      studioOpen: requestedGameTab === 'generate' ? true : state.studioOpen,
-      nav: switchPanelView(state.nav, 'library'),
+      nav: switchPanelView(state.nav, requestedGameTab === 'generate' ? 'generate' : 'library'),
     }));
   }, [requestedGameTab, requestedGameTabNonce, updatePanel]);
   useEffect(() => {
     if (!routedGenerate) return;
-    updatePanel((state) => ({ ...state, studioOpen: true, nav: switchPanelView(state.nav, 'library') }));
+    updatePanel((state) => ({ ...state, nav: switchPanelView(state.nav, 'generate') }));
   }, [projectId, routedGenerate, updatePanel]);
 
   const [sourceLineRequest, setSourceLineRequest] = useState<{ projectId: string; name: string; line: number; nonce: number } | null>(null);
@@ -682,7 +684,6 @@ export function FileWorkspace({
     updatePanel((state) => ({
       ...state,
       extensionsOpen: false,
-      studioOpen: view === 'library' ? false : state.studioOpen,
       nav: pushPanelItem(state.nav, view, name, { activate: true }),
     }));
     setStackFocusRequest((value) => value + 1);
@@ -691,13 +692,12 @@ export function FileWorkspace({
     setUploadError(null);
     setSourceLineRequest(null);
     if (name === PANEL_CHANGES_ROOT) {
-      updatePanel((state) => ({ ...state, extensionsOpen: false, studioOpen: false, nav: showPanelRoot(state.nav, 'changes') }));
+      updatePanel((state) => ({ ...state, extensionsOpen: false, nav: showPanelRoot(state.nav, 'changes') }));
       return;
     }
     updatePanel((state) => ({
       ...state,
       extensionsOpen: false,
-      studioOpen: false,
       // A replayed URL can name a 改动 diff item; it goes back to 改动.
       nav: pushPanelItem(state.nav, panelItemHomeView(name), name, { activate: true }),
     }));
@@ -739,13 +739,14 @@ export function FileWorkspace({
       nav: state.nav.view === view ? showPanelRoot(state.nav, view) : switchPanelView(state.nav, view),
     }));
   }
+  /** 生成素材… and "generate from": switch to 生成, handing over the pictures, if any. */
   function openStudio(referencePaths?: string[]) {
     updatePanel((state) => ({
       ...state,
       extensionsOpen: false,
-      studioOpen: true,
-      studioReferencePaths: referencePaths ?? state.studioReferencePaths,
-      nav: switchPanelView(state.nav, 'library'),
+      studioReferencePaths: referencePaths ?? NO_REFERENCE_PATHS,
+      studioReferenceRequest: referencePaths?.length ? state.studioReferenceRequest + 1 : state.studioReferenceRequest,
+      nav: switchPanelView(state.nav, 'generate'),
     }));
     clearStudioEntry(projectId);
   }
@@ -1531,21 +1532,26 @@ export function FileWorkspace({
               onOpenItem={(item) => openInPanel(item, 'changes')}
               onBadgeChange={setChangesViewBadge}
             />
-            <LibraryView
-              key={`library:${projectId}`}
+            <GenerateView
+              key={`generate:${projectId}`}
               projectId={projectId}
               files={visibleFiles}
               viewerOnly={viewerOnly}
-              hidden={!libraryRootShown}
-              active={panelView === 'library'}
-              typeFilterRequest={panel.libraryTypeRequest}
-              studio={{ open: panel.studioOpen, initialRecipeId: panel.initialRecipeId, referencePaths: panel.studioReferencePaths }}
-              onOpenStudio={openStudio}
-              onCloseStudio={() => updatePanel((state) => ({ ...state, studioOpen: false }))}
+              hidden={!(panelView === 'generate' && designFilesTabActive)}
+              active={panelView === 'generate'}
+              initialRecipeId={panel.initialRecipeId}
+              referencePaths={panel.studioReferencePaths}
+              referenceRequest={panel.studioReferenceRequest}
               onOpenFile={openInLibrary}
               onRefreshFiles={refreshFilesWithoutResult}
               onOpenExtensions={() => updatePanel((state) => ({ ...state, extensionsOpen: true }))}
               onOpenAccount={onOpenAccount}
+            />
+            <LibraryView
+              key={`library:${projectId}`}
+              hidden={!libraryRootShown}
+              typeFilterRequest={panel.libraryTypeRequest}
+              onOpenStudio={openStudio}
               renderBrowser={(library) => (
                 <FilesPanel
                   {...library}

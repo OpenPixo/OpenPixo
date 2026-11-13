@@ -206,7 +206,9 @@ files    M scripts/player.gd        +12 −3
   "generate from") stay available on image rows/cards.
 - **生成素材…** button in the toolbar opens the recipe picker
   (`StudioPanel`) as a sheet over the view; the composer entry points and
-  `tabRequest: 'generate'` open the same sheet.
+  `tabRequest: 'generate'` open the same sheet. Replaced 2026-11-14 by a fourth
+  view, 生成 (游戏 · 改动 · 文件 · 生成), specified in `asset-generator.md`;
+  these entry points now switch to it.
 - `FilesPanel.tsx` (2,326 lines) is split while being merged: list/grid
   rendering, filters and folder actions become separate modules; behaviour
   owned by tests stays.
@@ -242,7 +244,8 @@ first because 2–4 mount inside it.
    view and diff viewer. Owns `checkpoints.ts` contract,
    `routes/project-checkpoints.ts`, `projects/checkpoints-cli.ts`, new
    `components/changes/*`.
-4. **资源库 view.** Merge of `FilesPanel` and `GameAssetsPanel`, Studio sheet.
+4. **资源库 view.** Merge of `FilesPanel` and `GameAssetsPanel`, Studio sheet
+   (since replaced by the 生成 view, `asset-generator.md`).
    Owns `FilesPanel.tsx`, `GameAssetsPanel.*`, `components/files/*`,
    `components/studio/StudioPanel.tsx` container.
 

@@ -1,4 +1,4 @@
-import type { CharacterCard, CharacterListResponse, CharacterUpdateRequest, RecipeDetail, RecipeListResponse, RecipeRun, RecipeRunRequest, RecipeRunResponse } from '@openpixo/contracts';
+import type { CharacterCard, CharacterListResponse, CharacterUpdateRequest, RecipeDetail, RecipeListResponse, RecipeQuoteRequest, RecipeRun, RecipeRunListResponse, RecipeRunQuote, RecipeRunRequest, RecipeRunResponse } from '@openpixo/contracts';
 
 
 export class StudioRequestError extends Error {
@@ -36,6 +36,14 @@ export function saveStudioCharacter(projectId: string, card: CharacterCard, slug
 }
 export function startStudioRun(projectId: string, body: RecipeRunRequest) {
   return request<RecipeRunResponse>(`${projectUrl(projectId)}/recipe-runs`, { method: 'POST', body: JSON.stringify(body) });
+}
+/** Prices a run for the user to confirm; `paid: false` means their own tool makes it. Nothing is spent. */
+export function quoteStudioRun(projectId: string, body: RecipeQuoteRequest) {
+  return request<RecipeRunQuote>(`${projectUrl(projectId)}/recipe-runs/quote`, { method: 'POST', body: JSON.stringify(body) });
+}
+/** This project's runs on this machine, newest first; the user's and the agent's. */
+export function listStudioRuns(projectId: string, signal?: AbortSignal) {
+  return request<RecipeRunListResponse>(`${projectUrl(projectId)}/recipe-runs`, { signal });
 }
 export function getStudioRun(projectId: string, runId: string, signal?: AbortSignal) {
   return request<RecipeRun>(`${projectUrl(projectId)}/recipe-runs/${encodeURIComponent(runId)}`, { signal });

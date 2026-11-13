@@ -13,7 +13,7 @@ export function stagedFileUrl(run: RecipeRun, candidate: RecipeCandidate, index:
   return `/api/projects/${encodeURIComponent(run.projectId)}/recipe-runs/${encodeURIComponent(run.id)}/candidates/${encodeURIComponent(candidate.id)}/files/${index}`;
 }
 
-function CandidateMedia({ file, url, label }: { file: RecipeCandidate['stagedFiles'][number]; url: string; label: string }) {
+export function CandidateMedia({ file, url, label }: { file: RecipeCandidate['stagedFiles'][number]; url: string; label: string }) {
   if (file.mime.startsWith('image/')) return <img src={url} alt={label} className={styles.candidateImage} />;
   if (file.mime.startsWith('audio/')) return <audio src={url} controls aria-label={label} />;
   if (file.mime.startsWith('video/')) return <video src={url} controls aria-label={label} className={styles.candidateImage} />;

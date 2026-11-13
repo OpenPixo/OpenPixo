@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PluginManifestSchema, type RecipeDetail } from '@openpixo/contracts';
 import { I18nProvider } from '../../src/i18n';
 import { StudioPanel } from '../../src/components/studio/StudioPanel';
-import { LibraryView } from '../../src/components/panel/LibraryView';
+import { GenerateView } from '../../src/components/generate/GenerateView';
 import { resetStudioCacheForTests } from '../../src/components/studio/studio-cache';
 import { resetOpenPixoAccountStoreForTests } from '../../src/hooks/useOpenPixoAccount';
 
@@ -176,14 +176,17 @@ describe('Generate panel first paint', () => {
     expect(await screen.findByRole('button', { name: /Character turnaround/ })).toBeInTheDocument();
   });
 
-  it('reads ahead when the project opens, so the first open of the sheet paints at once', async () => {
+  const hiddenGenerate = () => render(<I18nProvider initial="en"><GenerateView projectId="game" files={[]} hidden active={false}
+    initialRecipeId={null} referencePaths={[]} referenceRequest={0}
+    onOpenFile={vi.fn()} onRefreshFiles={vi.fn()} onOpenExtensions={vi.fn()} /></I18nProvider>);
+
+  it('reads ahead when the project opens, so the first open of the presets paints at once', async () => {
     const fetchMock = vi.mocked(fetch);
-    render(<I18nProvider initial="en"><LibraryView projectId="game" files={[]} hidden active typeFilterRequest={null}
-      renderBrowser={() => null} studio={{ open: false, initialRecipeId: null, referencePaths: [] }}
-      onOpenStudio={vi.fn()} onCloseStudio={vi.fn()} onOpenFile={vi.fn()} onRefreshFiles={vi.fn()} onOpenExtensions={vi.fn()} /></I18nProvider>);
+    hiddenGenerate();
     expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/recipes')).toBe(false);
     await waitFor(() => expect(mediaCalls).toBe(1));
-    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/assets') || String(url).includes('/assets?'))).toBe(true));
+    // 生成 mounts its presets list at once; the read-ahead is what fetches the recipes, when the page is idle.
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/recipes')).toBe(true));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     cleanup();
 
@@ -194,13 +197,10 @@ describe('Generate panel first paint', () => {
 
   it('stays silent when the read-ahead fails', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
-    const { container } = render(<I18nProvider initial="en"><LibraryView projectId="game" files={[]} hidden={false} active typeFilterRequest={null}
-      renderBrowser={() => <div data-testid="browser" />} studio={{ open: false, initialRecipeId: null, referencePaths: [] }}
-      onOpenStudio={vi.fn()} onCloseStudio={vi.fn()} onOpenFile={vi.fn()} onRefreshFiles={vi.fn()} onOpenExtensions={vi.fn()} /></I18nProvider>);
+    hiddenGenerate();
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.length).toBeGreaterThan(1));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-    expect(screen.getByTestId('browser')).toBeInTheDocument();
-    expect(container.textContent).toBe('');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
 

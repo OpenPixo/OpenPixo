@@ -33,9 +33,9 @@ vi.mock('../../src/components/FileViewer', () => ({
 vi.mock('../../src/components/workspace/TerminalViewer', () => ({
   TerminalViewer: ({ terminalId }: { terminalId: string }) => <div data-testid="terminal-viewer">{terminalId}</div>,
 }));
-vi.mock('../../src/components/studio/StudioPanel', () => ({
-  StudioPanel: ({ referencePaths = [] }: { referencePaths?: string[] }) => (
-    <div>Studio recipes<span data-testid="studio-references">{referencePaths.join(',')}</span></div>
+vi.mock('../../src/components/generate/GenerateView', () => ({
+  GenerateView: ({ hidden, referencePaths = [] }: { hidden: boolean; referencePaths?: string[] }) => hidden ? null : (
+    <div data-testid="generate-view">Generator<span data-testid="studio-references">{referencePaths.join(',')}</span></div>
   ),
 }));
 vi.mock('../../src/components/ProjectExtensionsPanel', () => ({ ProjectExtensionsPanel: () => <div>Extensions form</div> }));
@@ -290,54 +290,52 @@ describe('where opens land', () => {
     }
   });
 
-  it('routes checklist requests: assets to 资源库 showing 图片, generate to the generator sheet', () => {
+  it('routes checklist requests: assets to 资源库 showing 图片, generate to 生成', () => {
     const { rerender } = render(<Harness files={[...FILES, { ...image('notes.md'), kind: 'text', mime: 'text/markdown' }]} />);
     rerender(<Harness files={[...FILES, { ...image('notes.md'), kind: 'text', mime: 'text/markdown' }]} gameTabRequest={{ tab: 'assets', nonce: 1 }} />);
     expect(selectedView()).toBe('Files');
     expect(document.getElementById('library-type-image')).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByTestId('design-file-row-notes.md')).toBeNull();
-    expect(screen.queryByTestId('panel-studio-sheet')).toBeNull();
+    expect(screen.queryByTestId('generate-view')).toBeNull();
     rerender(<Harness gameTabRequest={{ tab: 'generate', nonce: 2 }} />);
-    expect(screen.getByTestId('panel-studio-sheet')).toHaveAttribute('data-open');
-    expect(screen.getByText('Studio recipes')).toBeTruthy();
+    expect(selectedView()).toBe('Generate');
+    expect(screen.getByTestId('generate-view')).toBeTruthy();
   });
 
-  it('opens the generator sheet from 生成素材… and from an image with it as the reference', () => {
+  it('switches to 生成 from 生成素材… and from an image, with it as the reference', () => {
     render(<Harness />);
     fireEvent.click(view('Files'));
     fireEvent.click(screen.getByTestId('panel-library-generate'));
-    expect(screen.getByTestId('panel-studio-sheet')).toHaveAttribute('data-open');
+    expect(selectedView()).toBe('Generate');
     expect(screen.getByTestId('studio-references').textContent).toBe('');
-    fireEvent.click(within(screen.getByTestId('panel-studio-sheet')).getByRole('button', { name: 'Close' }));
-    expect(screen.getByTestId('panel-studio-sheet')).not.toHaveAttribute('data-open');
 
+    fireEvent.click(view('Files'));
     fireEvent.click(screen.getByTestId('design-file-menu-hero.png'));
     fireEvent.click(screen.getByTestId('design-file-menu-generate-from'));
-    expect(screen.getByTestId('panel-studio-sheet')).toHaveAttribute('data-open');
+    expect(selectedView()).toBe('Generate');
     expect(screen.getByTestId('studio-references').textContent).toBe('hero.png');
 
     // A plain 生成素材… afterwards starts without the earlier references.
-    fireEvent.click(within(screen.getByTestId('panel-studio-sheet')).getByRole('button', { name: 'Close' }));
+    fireEvent.click(view('Files'));
     for (const name of ['hero.png', 'enemy.png']) {
       fireEvent.click(screen.getByRole('checkbox', { name: `Select ${name}` }));
     }
     fireEvent.click(screen.getByTestId('file-list-batch-generate-from'));
     expect(screen.getByTestId('studio-references').textContent).toBe('hero.png,enemy.png');
-    fireEvent.click(within(screen.getByTestId('panel-studio-sheet')).getByRole('button', { name: 'Close' }));
+    fireEvent.click(view('Files'));
     fireEvent.click(screen.getByTestId('panel-library-generate'));
     expect(screen.getByTestId('studio-references').textContent).toBe('');
   });
 
-  it('opens the generator for the /generate deep link and a queued recipe', () => {
+  it('opens 生成 for the /generate deep link and a queued recipe', () => {
     const first = render(<Harness routedGenerate />);
-    expect(selectedView()).toBe('Files');
-    expect(screen.getByTestId('panel-studio-sheet')).toHaveAttribute('data-open');
+    expect(selectedView()).toBe('Generate');
+    expect(screen.getByTestId('generate-view')).toBeTruthy();
     first.unmount();
 
     window.sessionStorage.setItem('openpixo:studio-entry:game', 'recipe-1');
     render(<Harness />);
-    expect(selectedView()).toBe('Files');
-    expect(screen.getByTestId('panel-studio-sheet')).toHaveAttribute('data-open');
+    expect(selectedView()).toBe('Generate');
     expect(window.sessionStorage.getItem('openpixo:studio-entry:game')).toBeNull();
   });
 });
