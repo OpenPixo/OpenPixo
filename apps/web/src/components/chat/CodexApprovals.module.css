@@ -46,6 +46,11 @@
   color: var(--chat-text-muted);
 }
 
+/* Why there is no plain Deny: the runtime offered none for this request. */
+.note {
+  color: var(--chat-text-muted);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

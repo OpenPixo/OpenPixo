@@ -665,6 +665,8 @@ export const zhCN: Dict = {
   'chat.approval.accept': "允许一次",
   'chat.approval.decline': "拒绝",
   'chat.approval.cancel': "取消任务",
+  'chat.approval.denyAndStop': "拒绝并停止本轮",
+  'chat.approval.noDecline': "Codex 这次没有提供单独的「拒绝」，拒绝会同时停止这一轮。",
   'chat.approval.loadFailure': "无法加载审批请求，正在重试…",
   'chat.approval.responseFailure': "无法发送审批决定，请重试。",
   "fileViewer.versions.sourceSync": "云端同步",

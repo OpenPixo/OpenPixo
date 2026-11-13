@@ -673,6 +673,8 @@ export interface Dict {
   'chat.approval.accept': string;
   'chat.approval.decline': string;
   'chat.approval.cancel': string;
+  'chat.approval.denyAndStop': string;
+  'chat.approval.noDecline': string;
   'chat.approval.loadFailure': string;
   'chat.approval.responseFailure': string;
   // Common

@@ -62,14 +62,42 @@ describe('Codex approval requests', () => {
     expect(screen.getByRole('button', { name: 'Cancel task' })).toBeTruthy();
   });
 
-  it('shows exact permission grants and disables decisions the native runtime did not offer', async () => {
+  it('shows exact permission grants and leaves out decisions the native runtime did not offer', async () => {
     const details = JSON.stringify({ permissions: { network: { enabled: true } }, scope: 'turn' });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response([{ ...approval, details, availableDecisions: ['decline', 'cancel'] }])));
     render(<CodexApprovals runId="run-permissions" />);
     await settle();
     expect(screen.getByText(details)).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Allow once' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Allow once' })).toBeNull();
     expect((screen.getByRole('button', { name: 'Deny' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // Real Codex run 2026-11-13: availableDecisions was ["accept","cancel"]. The card showed a greyed-out
+  // Deny with no reason, and refusing meant guessing that "Cancel task" was the way to say no.
+  it('without a separate decline, says that denying stops the run and sends cancel', async () => {
+    let pending = true;
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => {
+      if (options?.method === 'POST') { pending = false; return new Response('{"ok":true}', { status: 200 }); }
+      return response(pending ? [{ ...approval, availableDecisions: ['accept', 'cancel'] }] : []);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<CodexApprovals runId="run-no-decline" />);
+    await settle();
+    expect(screen.queryByRole('button', { name: 'Deny' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel task' })).toBeNull();
+    expect(screen.getByText('Codex offers no separate Deny for this request, so denying also stops this run.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Deny and stop this run' }));
+    await settle();
+    const posts = fetchMock.mock.calls.filter((call) => call[1]?.method === 'POST');
+    expect(JSON.parse(posts[0]![1]!.body as string)).toEqual({ decision: 'cancel' });
+  });
+
+  it('names the deny-and-stop choice in the selected UI language', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response([{ ...approval, availableDecisions: ['accept', 'cancel'] }])));
+    render(<I18nProvider initial="zh-CN"><CodexApprovals runId="run-no-decline-zh" /></I18nProvider>);
+    await settle();
+    expect(screen.getByRole('button', { name: '拒绝并停止本轮' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '拒绝' })).toBeNull();
   });
 
   it.each([

@@ -665,6 +665,8 @@ export const en: Dict = {
   'chat.approval.accept': "Allow once",
   'chat.approval.decline': "Deny",
   'chat.approval.cancel': "Cancel task",
+  'chat.approval.denyAndStop': "Deny and stop this run",
+  'chat.approval.noDecline': "Codex offers no separate Deny for this request, so denying also stops this run.",
   'chat.approval.loadFailure': "Could not load approval requests. Retrying…",
   'chat.approval.responseFailure': "Could not send your decision. Please try again.",
   "fileViewer.versions.sourceSync": "Synced",

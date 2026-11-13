@@ -31,6 +31,35 @@ function ApprovalSummary({ approval }: { approval: RunApprovalRequest }) {
   return summary ? <p className={styles.summary} title={summary}>{summary}</p> : null;
 }
 
+/**
+ * Only the decisions the runtime offers are drawn: a button that can never be used is no choice.
+ * When there is no separate decline, "cancel" is the only way to say no, and it also stops the
+ * run, so it is named that way instead of "Cancel task".
+ */
+function ApprovalActions({ approval, submitting, onRespond }: {
+  approval: RunApprovalRequest;
+  submitting: boolean;
+  onRespond: (decision: RunApprovalDecision) => void;
+}) {
+  const t = useT();
+  const offered = (decision: RunApprovalDecision) => approval.availableDecisions?.includes(decision) ?? true;
+  const denyStops = !offered('decline') && offered('cancel');
+  return <>
+    {denyStops ? <p className={styles.note}>{t('chat.approval.noDecline')}</p> : null}
+    <div className={styles.actions}>
+      {offered('accept') ? <Button size="sm" variant="primary" disabled={submitting} onClick={() => onRespond('accept')}>
+        {t('chat.approval.accept')}
+      </Button> : null}
+      {offered('decline') ? <Button size="sm" variant="secondary" disabled={submitting} onClick={() => onRespond('decline')}>
+        {t('chat.approval.decline')}
+      </Button> : null}
+      {offered('cancel') ? <Button size="sm" variant={denyStops ? 'secondary' : 'ghost'} disabled={submitting} onClick={() => onRespond('cancel')}>
+        {t(denyStops ? 'chat.approval.denyAndStop' : 'chat.approval.cancel')}
+      </Button> : null}
+    </div>
+  </>;
+}
+
 function PendingRunApprovals({ runId, streaming, onPendingChange }: {
   runId: string;
   streaming?: boolean;
@@ -128,17 +157,7 @@ function PendingRunApprovals({ runId, streaming, onPendingChange }: {
           <small>{approval.method ?? approval.tool}</small>
           {approval.status === 'timed-out' || approval.status === 'stopped' ? (
             <p role="status">{t(approval.status === 'timed-out' ? 'chat.approval.timedOut' : 'chat.approval.stoppedDenied')}</p>
-          ) : <div className={styles.actions}>
-            <Button size="sm" variant="primary" disabled={submitting || approval.availableDecisions?.includes('accept') === false} onClick={() => void respond(approval.id, 'accept')}>
-              {t('chat.approval.accept')}
-            </Button>
-            <Button size="sm" variant="secondary" disabled={submitting || approval.availableDecisions?.includes('decline') === false} onClick={() => void respond(approval.id, 'decline')}>
-              {t('chat.approval.decline')}
-            </Button>
-            <Button size="sm" variant="ghost" disabled={submitting || approval.availableDecisions?.includes('cancel') === false} onClick={() => void respond(approval.id, 'cancel')}>
-              {t('chat.approval.cancel')}
-            </Button>
-          </div>}
+          ) : <ApprovalActions approval={approval} submitting={submitting} onRespond={(decision) => void respond(approval.id, decision)} />}
         </article>
       ))}
       {error ? <p className={styles.error} role="alert">{t(error === 'load' ? 'chat.approval.loadFailure' : 'chat.approval.responseFailure')}</p> : null}

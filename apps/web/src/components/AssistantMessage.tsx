@@ -986,6 +986,9 @@ function AssistantMessageImpl({
   }, [events]);
   const fallbackImagePaths = useMemo(() => {
     if (!runSucceeded || message.runStatus !== 'succeeded' || effectiveNextStepVariant !== 'default') return [];
+    // A turn that also changed code or text delivered that change; its images are screenshots or
+    // supporting art, not a picture to refine (real run: a HUD fix plus playtest captures).
+    if (turnChanges.length > 0) return [];
     const files = artifactFocus.show
       ? declaredArtifactCards(message.producedFiles ?? [], artifactFocus.show)
       : message.producedFiles ?? [];
@@ -994,7 +997,7 @@ function AssistantMessageImpl({
     if (!files.length || !files.every(file => file.size > 0 &&
       (file.kind === 'image' || file.mime?.startsWith('image/')))) return [];
     return [...new Set(files.map(file => file.path || file.name).filter(Boolean))];
-  }, [artifactFocus.show, effectiveNextStepVariant, message.producedFiles, message.runStatus, runSucceeded]);
+  }, [artifactFocus.show, effectiveNextStepVariant, message.producedFiles, message.runStatus, runSucceeded, turnChanges.length]);
   const useImageNextStepFallback = agentNextStepSuggestions.length === 0 && fallbackImagePaths.length > 0;
   const nextStepSuggestions = useImageNextStepFallback
     ? [t('nextStep.imageContinue'), t('nextStep.imageVariants'), t('nextStep.imageStyle')]

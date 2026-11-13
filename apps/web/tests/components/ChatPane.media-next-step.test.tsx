@@ -98,6 +98,21 @@ test('does not treat a website’s supporting image as an image-only delivery', 
   expect(screen.queryByTestId('next-step-suggestions')).toBeNull();
 });
 
+// Real Codex run 2026-11-14: a HUD fix edited src/shrine-hud.ts and saved playtest screenshots;
+// every produced file was a PNG, so the turn ended with "generate variations / adjust style".
+test('does not offer image actions when the turn also changed code', () => {
+  const message = deliveredImage();
+  message.producedFiles = [{ name: 'hud-1280.png', path: 'output/playwright/hud-1280.png',
+    kind: 'image', mime: 'image/png', size: 90_000, mtime: 157000 }] as ChatMessage['producedFiles'];
+  message.events = [
+    { kind: 'tool_use', id: 'edit-1', name: 'Edit', input: { file_path: 'src/shrine-hud.ts', old_string: 'a', new_string: 'b' } },
+    { kind: 'tool_result', toolUseId: 'edit-1', content: 'ok', isError: false },
+    { kind: 'text', text: 'HUD polish complete' },
+  ] as ChatMessage['events'];
+  renderChat(message);
+  expect(screen.queryByTestId('next-step-suggestions')).toBeNull();
+});
+
 test('does not offer image actions for an empty output file', () => {
   const message = deliveredImage();
   message.producedFiles![0]!.size = 0;
