@@ -24,6 +24,10 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
   async function respond(req: Request, res: Response, action: Action): Promise<void> {
     const projectId = String(req.params.id);
     const writes = action === 'restore' || action === 'enable';
+    // A read nobody waits for any more stops: the Changes view drops its previous request after each
+    // file event, and on a large game a read takes seconds. A restore or enable always finishes.
+    const abandoned = new AbortController();
+    if (!writes) res.once('close', () => { if (!res.writableFinished) abandoned.abort(); });
     try {
       const token = bearerTokenFromRequest(req);
       const mode = writes ? { mode: 'write' as const, capability: 'writeFiles' as const } : { mode: 'read' as const };
@@ -45,7 +49,7 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
         sendApiError(res, 400, 'CHECKPOINT_CONFIRM_REQUIRED', 'Confirm this project change first'); return;
       }
       const folder = resolveProjectDir(ctx.paths.PROJECTS_DIR, projectId, project.metadata);
-      const checkpoints = new ProjectCheckpoints(folder, undefined, checkpointStore(ctx.paths.RUNTIME_DATA_DIR, projectId));
+      const checkpoints = new ProjectCheckpoints(folder, writes ? undefined : abandoned.signal, checkpointStore(ctx.paths.RUNTIME_DATA_DIR, projectId));
       if (writes && ctx.isProjectBusy(projectId)) {
         sendApiError(res, 409, 'CHECKPOINT_BUSY', 'Wait for the project agent runs to finish'); return;
       }
@@ -71,6 +75,7 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
       }
       else res.json(await checkpoints.enable());
     } catch (error) {
+      if (abandoned.signal.aborted) return;
       if (error instanceof CheckpointError) {
         sendApiError(res, checkpointErrorStatus(error.code), error.code, error.message);
       } else {
