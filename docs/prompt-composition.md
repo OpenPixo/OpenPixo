@@ -75,10 +75,9 @@ fit the project's engine (`pixo.engines` in the skill's frontmatter; no field me
 engine, and an unknown engine rules nothing out), minus what the user switched off in
 Settings (`disabledSkills`) and what the project added, switched off or selected itself.
 A built-in skill must be `mode: utility`, because anything else depends on a tool
-OpenPixo does not provide. Default skills are index lines only: they take no part in
-trigger matching, where a chance word would load a workflow nobody asked for ("add
-spikes" is not `prototype-spike`), text-only providers do not get them, and one that
-could not be copied is left out because the agent could not read it. They stay out of
+OpenPixo does not provide. Default skills are index lines only: text-only providers do
+not get them, and one that could not be copied is left out because the agent could not
+read it. They stay out of
 `activeSkillDirs`, which also becomes each runtime's extra read access.
 
 The index is about 3,500 tokens for all 29 skills, and less once the engine is known.
@@ -86,7 +85,7 @@ That is a cost on every model request, mostly cached, accepted by the owner on 2
 
 A skill whose full text is in the prompt never gets read, so the daemon reports it:
 `skills_loaded` (`skillIds`) goes out once before the agent starts, for explicit
-selections, plugin-bound skills and trigger matches. A skill the agent reads shows in its
+selections, plugin-bound skills and a text-only provider's inline fallback. A skill the agent reads shows in its
 tool calls. The chat combines the two (`runtime/chat/turn-skills.ts`); see
 `specs/current/chat-inline-assets-and-run-status.md`.
 
@@ -107,16 +106,15 @@ composer rides that one message's `skillIds` and is not written into the project
 shows above the composer as an "every message" chip the user can remove (`pixo project skill <id> --clear`);
 and a code recipe run sends only the recipe skills that fit the project's engine (`skillFitsEngine` in
 `game/default-skills.ts`), leaving the project's enabled skills to the index.
-For tool-capable runs, literal case-insensitive substring matches against the
-current user message can additionally include at most two enabled workflows.
-Matches use their declared trigger phrases in either language, in manifest order;
-an oversized body is skipped so a later match may fit. The aggregate limit is
-16 KiB of UTF-8, including headings and separators, with no partial automatic bodies.
+For tool-capable runs nothing else is added: the daemon does not match the user's
+message against skills (2026-11-15). The agent chooses from the index by description,
+with trigger phrases listed as examples, and can read a skill partway through a task,
+which an up-front match could not. This is how other agent tools route skills, and it
+keeps a chance word ("add spikes") from loading a workflow nobody asked for.
 
 The index participates in the stable prompt fingerprint and its skills section.
-Trigger-matched bodies are appended as per-turn context outside that prefix.
 Completion, follow-up and focus markers retain their separate per-turn host
-contract. A trigger match alone therefore does not invalidate the cached prefix.
+contract.
 
 A `plain` text-only provider gets inline enabled workflows instead of file-reading
 instructions, capped at 32 KiB of UTF-8 including headings and a truncation note.

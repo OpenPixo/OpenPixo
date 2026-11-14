@@ -4037,7 +4037,6 @@ export async function startServer({
     const projectSkillContext = composeProjectSkillContext({
       skills: projectExtensions.skills, defaultSkills, stagedSkillDirs, selectedSkillDirs, selectedSkillIds,
       streamFormat: def?.streamFormat ?? 'plain',
-      userMessage: typeof currentPrompt === 'string' ? currentPrompt : message,
     });
     const daemonSystemPrompt = [selectedSkillsSystemPrompt, projectSkillContext.stablePrompt].filter(Boolean).join('\n\n---\n\n');
     const stableSectionInputs = {
@@ -4046,7 +4045,7 @@ export async function startServer({
     };
     const promptTelemetryParts = {
       ...selectedSkillTelemetryParts,
-      skillPrompt: [selectedSkillTelemetryParts.skillPrompt, projectSkillContext.stablePrompt, projectSkillContext.turnPrompt].filter(Boolean).join('\n\n---\n\n'),
+      skillPrompt: [selectedSkillTelemetryParts.skillPrompt, projectSkillContext.stablePrompt].filter(Boolean).join('\n\n---\n\n'),
     };
     // Baseline the project's artifact files before the agent runs, so the
     // run-finished handler can diff against them and report `artifact_count`
@@ -4721,11 +4720,9 @@ export async function startServer({
       imageReferences: promptImagePaths.map((p) => `@${p}`).join(' '),
         });
     const {
-      composedPrompt: baseComposed,
+      composedPrompt: composed,
       clientInstructionPrompt,
     } = composedResult;
-    const composed = [baseComposed, projectSkillContext.turnPrompt]
-      .filter(Boolean).join('\n\n---\n\n');
     const promptTelemetry = buildPromptStackTelemetry({
       composedPrompt: composed,
       sections: [

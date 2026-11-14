@@ -364,7 +364,8 @@ export type DaemonAgentPayload =
   | { type: 'context_compacted'; trigger?: 'auto' | 'manual'; tokensBefore?: number }
   /**
    * Skills the host put into this run's prompt in full, by id: the user's pick, a
-   * recipe's or a plugin's, or a trigger match. Sent once, before the agent starts.
+   * recipe's or a plugin's, or a text-only provider's inline fallback. Sent once,
+   * before the agent starts.
    * A skill the agent reads on its own shows up in its tool calls instead.
    */
   | { type: 'skills_loaded'; skillIds: string[] }

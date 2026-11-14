@@ -146,7 +146,7 @@ describe('default skills on a project nobody configured', () => {
 });
 
 describe('server project skill composition', () => {
-  it('stages enabled files, sends only their index, preserves explicit selections and adds literal matches per turn', async () => {
+  it('stages enabled files, sends only their index, preserves explicit selections and loads nothing on a trigger word', async () => {
     const dataDir = process.env.PIXO_DATA_DIR!;
     const skillId = 't3-fixture-' + randomUUID();
     const skillDir = path.join(dataDir, 'skills', skillId);
@@ -215,10 +215,13 @@ describe('server project skill composition', () => {
     });
     expect(prompts[0]).toContain('## Project skills');
     expect(prompts[0]).not.toContain('T3_PRIVATE_WORKFLOW_START');
-    for (const prompt of prompts.slice(1, 4)) {
+    for (const prompt of prompts.slice(1, 3)) {
       expect(prompt).toContain('T3_PRIVATE_WORKFLOW_START');
       expect(prompt).toContain('T3_PRIVATE_WORKFLOW_END');
     }
+    // A trigger word in the message is the agent's cue to read the file, not the daemon's to inline it.
+    expect(prompts[3]).toContain('## Project skills');
+    expect(prompts[3]).not.toContain('T3_PRIVATE_WORKFLOW_START');
     expect(prompts[4]).toContain(pluginBody);
     const stagedPath = /SKILL\.md: ("[^"]+")/.exec(prompts[0]!)?.[1];
     expect(stagedPath).toBeTruthy();

@@ -106,7 +106,6 @@ export function projectSkillIndexEntry(skill: SkillInfo, stagedDir?: string): Pr
   };
 }
 
-export const PROJECT_SKILL_AUTO_INCLUDE_BYTES = 16 * 1024;
 export const PROJECT_SKILL_PLAIN_BYTES = 32 * 1024;
 const SKILL_BLOCK_SEPARATOR = '\n\n---\n\n';
 
@@ -121,22 +120,24 @@ function truncateUtf8(value: string, budget: number): string {
   return value.slice(0, end);
 }
 
-/** Enabled skills contribute a stable index, never an unbounded body append.
- * Literal trigger matches are per-turn context (at most two, 16 KiB including
- * headings). Explicit selections are already in the game prompt and are never
- * duplicated or limited here. Plain providers instead get a bounded inline
- * fallback because they cannot read the staged files.
+/** Enabled and default skills contribute an index, never their workflows: the
+ * agent chooses a skill from its description (trigger phrases are listed as
+ * hints) and reads its SKILL.md itself, mid-task if need be. Nothing here looks
+ * at the user's message, so no word in it can load a workflow nobody asked for,
+ * and the index stays the same from turn to turn. Explicit selections are already
+ * in the game prompt and are never duplicated or limited here.
  *
- * Default skills (`game/default-skills.ts`) only ever add index lines, and only
- * once they are staged, because the agent has to be able to read them. They take
- * no part in trigger matching, where a chance word would load a whole workflow
- * nobody asked for, and text-only providers do not get them at all.
+ * Plain providers cannot read the staged files, so they instead get a bounded
+ * inline fallback of the enabled workflows. Default skills (`game/default-skills.ts`)
+ * add index lines only once they are staged, because the agent has to be able to
+ * read them, and text-only providers do not get them at all.
  *
- * `loadedSkillIds` are the skills this function put into the prompt in full.
+ * `loadedSkillIds` are the skills this function put into the prompt in full,
+ * which only the text-only fallback does.
  */
 export function composeProjectSkillContext({
-  skills, defaultSkills = [], stagedSkillDirs, selectedSkillDirs = [], selectedSkillIds = [], streamFormat, userMessage,
-  autoIncludeByteBudget = PROJECT_SKILL_AUTO_INCLUDE_BYTES, plainByteBudget = PROJECT_SKILL_PLAIN_BYTES,
+  skills, defaultSkills = [], stagedSkillDirs, selectedSkillDirs = [], selectedSkillIds = [], streamFormat,
+  plainByteBudget = PROJECT_SKILL_PLAIN_BYTES,
 }: {
   skills: readonly SkillInfo[];
   defaultSkills?: readonly SkillInfo[];
@@ -144,15 +145,13 @@ export function composeProjectSkillContext({
   selectedSkillDirs?: readonly string[];
   selectedSkillIds?: readonly string[];
   streamFormat: string;
-  userMessage: string;
-  autoIncludeByteBudget?: number;
   plainByteBudget?: number;
-}): { stablePrompt: string; turnPrompt: string; loadedSkillIds: string[] } {
+}): { stablePrompt: string; loadedSkillIds: string[] } {
   const selected = new Set(selectedSkillDirs);
   const selectedIds = new Set(selectedSkillIds.map(id => resolveSkillId(id)));
   const available = skills.filter(skill => !selected.has(skill.dir) && !selectedIds.has(resolveSkillId(skill.id)));
   if (streamFormat === 'plain') {
-    if (available.length === 0) return { stablePrompt: '', turnPrompt: '', loadedSkillIds: [] };
+    if (available.length === 0) return { stablePrompt: '', loadedSkillIds: [] };
     const heading = (skill: SkillInfo) => `### ${skill.name}\n\n`;
     const full = [
       '## Project skills (text-only)\n\nInline workflows; files and companion references are unavailable.',
@@ -160,14 +159,13 @@ export function composeProjectSkillContext({
     ].join(SKILL_BLOCK_SEPARATOR);
     const budget = Math.max(0, Math.floor(plainByteBudget));
     if (Buffer.byteLength(full, 'utf8') <= budget) {
-      return { stablePrompt: full, turnPrompt: '', loadedSkillIds: available.map(skill => skill.id) };
+      return { stablePrompt: full, loadedSkillIds: available.map(skill => skill.id) };
     }
     const note = '\n\n[Project skills truncated for this text-only provider. Request the relevant missing instructions before relying on them.]';
     const noteBytes = Buffer.byteLength(note, 'utf8');
     const stablePrompt = budget >= noteBytes ? truncateUtf8(full, budget - noteBytes) + note : truncateUtf8(note, budget);
     return {
       stablePrompt,
-      turnPrompt: '',
       loadedSkillIds: available.filter(skill => stablePrompt.includes(heading(skill))).map(skill => skill.id),
     };
   }
@@ -177,21 +175,7 @@ export function composeProjectSkillContext({
       && !selected.has(skill.dir) && !selectedIds.has(resolveSkillId(skill.id))),
   ];
   const stablePrompt = renderProjectSkillIndex(indexed.map(skill => projectSkillIndexEntry(skill, stagedSkillDirs.get(skill.dir) ?? skill.dir)));
-  const message = userMessage.toLowerCase();
-  const blocks: string[] = [];
-  const loadedSkillIds: string[] = [];
-  let remaining = Math.max(0, Math.floor(autoIncludeByteBudget));
-  for (const skill of available) {
-    if (blocks.length === 2) break;
-    if (!skill.triggers.some(trigger => typeof trigger === 'string' && Boolean(trigger.trim()) && message.includes(trigger.trim().toLowerCase()))) continue;
-    const block = `## Trigger-matched project skill — ${skill.name}\n\n${skill.body}`;
-    const bytes = Buffer.byteLength((blocks.length ? SKILL_BLOCK_SEPARATOR : '') + block, 'utf8');
-    if (bytes > remaining) continue;
-    blocks.push(block);
-    loadedSkillIds.push(skill.id);
-    remaining -= bytes;
-  }
-  return { stablePrompt, turnPrompt: blocks.join(SKILL_BLOCK_SEPARATOR), loadedSkillIds };
+  return { stablePrompt, loadedSkillIds: [] };
 }
 
 export interface DerivedSkillIdParts {

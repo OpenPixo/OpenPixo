@@ -29,7 +29,7 @@ export function renderProjectSkillIndex(skills: readonly ProjectSkillIndexEntry[
   return [
     '## Project skills',
     '',
-    'Before working on a task matching a description or trigger below, read the matching SKILL.md and the side files it calls for. Resolve side files from that SKILL.md directory, load only what the task needs, and say which skill you used. Treat these staged copies as read-only resources.',
+    'Before working on a task that fits a description below, read the matching SKILL.md and the side files it calls for. Triggers are examples of such tasks, not exact words to wait for, and a skill can become relevant partway through a task. Resolve side files from that SKILL.md directory, load only what the task needs, and say which skill you used. Treat these staged copies as read-only resources.',
     '',
     ...skills.map(renderProjectSkillIndexEntry),
   ].join('\n');

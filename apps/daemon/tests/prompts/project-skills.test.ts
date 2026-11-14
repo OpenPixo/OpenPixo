@@ -13,7 +13,7 @@ function skill(id: string, triggers: string[] = [], body = `PRIVATE WORKFLOW ${i
 
 function compose(skills: SkillInfo[], options: Partial<Parameters<typeof composeProjectSkillContext>[0]> = {}) {
   return composeProjectSkillContext({
-    skills, streamFormat: 'codex-jsonl', userMessage: 'Build the game.',
+    skills, streamFormat: 'codex-jsonl',
     stagedSkillDirs: new Map(skills.map(entry => [entry.dir, `/game/.pixo-skills/${entry.id}-staged`])),
     ...options,
   });
@@ -25,30 +25,20 @@ describe('default project skills', () => {
   it('adds index lines only, after the project\'s own skills', () => {
     const own = skill('own');
     const fallback = skill('fallback');
-    const { stablePrompt, turnPrompt } = composeProjectSkillContext({
+    const { stablePrompt, loadedSkillIds } = composeProjectSkillContext({
       skills: [own], defaultSkills: [fallback], stagedSkillDirs: staged(own, fallback),
-      streamFormat: 'claude-jsonl', userMessage: 'Build the game.',
+      streamFormat: 'claude-jsonl',
     });
     expect(stablePrompt.indexOf('.pixo-skills/own-staged/SKILL.md')).toBeLessThan(stablePrompt.indexOf('.pixo-skills/fallback-staged/SKILL.md'));
     expect(stablePrompt).not.toContain('PRIVATE WORKFLOW');
-    expect(turnPrompt).toBe('');
-  });
-
-  it('does not load a default skill on a chance word in the message', () => {
-    const spike = skill('prototype-spike', ['spike']);
-    const result = composeProjectSkillContext({
-      skills: [], defaultSkills: [spike], stagedSkillDirs: staged(spike),
-      streamFormat: 'claude-jsonl', userMessage: 'Add spikes to the level',
-    });
-    expect(result.turnPrompt).toBe('');
-    expect(result.loadedSkillIds).toEqual([]);
+    expect(loadedSkillIds).toEqual([]);
   });
 
   it('leaves out a default skill that could not be copied, since the agent could not read it', () => {
     const missing = skill('missing');
     const result = composeProjectSkillContext({
       skills: [], defaultSkills: [missing], stagedSkillDirs: new Map(),
-      streamFormat: 'claude-jsonl', userMessage: 'x',
+      streamFormat: 'claude-jsonl',
     });
     expect(result.stablePrompt).toBe('');
   });
@@ -57,7 +47,7 @@ describe('default project skills', () => {
     const picked = skill('picked');
     const result = composeProjectSkillContext({
       skills: [], defaultSkills: [picked], stagedSkillDirs: staged(picked), selectedSkillIds: ['picked'],
-      streamFormat: 'claude-jsonl', userMessage: 'x',
+      streamFormat: 'claude-jsonl',
     });
     expect(result.stablePrompt).toBe('');
   });
@@ -66,17 +56,20 @@ describe('default project skills', () => {
     const fallback = skill('fallback');
     const result = composeProjectSkillContext({
       skills: [], defaultSkills: [fallback], stagedSkillDirs: staged(fallback),
-      streamFormat: 'plain', userMessage: 'x',
+      streamFormat: 'plain',
     });
     expect(result.stablePrompt).toBe('');
   });
 });
 
-describe('skills loaded in full', () => {
-  it('reports trigger matches and nothing else', () => {
-    const entries = [skill('sprites', ['pixel art']), skill('sound', ['audio'])];
-    expect(compose(entries, { userMessage: 'Pixel art please' }).loadedSkillIds).toEqual(['sprites']);
-    expect(compose(entries, { userMessage: 'unrelated' }).loadedSkillIds).toEqual([]);
+describe('the agent picks skills from the index', () => {
+  it('lists trigger phrases in either language as hints, never a workflow', () => {
+    const entries = [skill('prototype-spike', ['spike']), skill('saves', ['存档'])];
+    const result = compose(entries);
+    expect(result.stablePrompt).toContain('"spike"');
+    expect(result.stablePrompt).toContain('"存档"');
+    expect(result.stablePrompt).not.toContain('PRIVATE WORKFLOW');
+    expect(result.loadedSkillIds).toEqual([]);
   });
 
   it('reports what a text-only provider really got when its budget cuts the list', () => {
@@ -93,10 +86,10 @@ describe('project skill progressive disclosure', () => {
     for (const streamFormat of ['claude-jsonl', 'plain']) {
       const result = composeProjectSkillContext({
         skills: [snapshot], stagedSkillDirs: new Map(), selectedSkillDirs: ['/catalog/sprites'],
-        selectedSkillIds: ['sprites'], streamFormat, userMessage: 'sprites',
+        selectedSkillIds: ['sprites'], streamFormat,
       });
-      expect(result.turnPrompt).toBe('');
       expect(result.stablePrompt).not.toContain('PRIVATE WORKFLOW');
+      expect(result.loadedSkillIds).toEqual([]);
     }
   });
 
@@ -105,33 +98,14 @@ describe('project skill progressive disclosure', () => {
     const result = compose(entries, { streamFormat });
     expect(result.stablePrompt).toContain('/game/.pixo-skills/sprites-staged/SKILL.md');
     expect(result.stablePrompt).not.toContain('PRIVATE WORKFLOW');
-    expect(result.turnPrompt).toBe('');
   });
 
   it('does not duplicate explicitly selected skill bodies in automatic context', () => {
     const selected = skill('sprites', ['sprites']);
-    const result = compose([selected], { userMessage: 'sprites', selectedSkillDirs: [selected.dir] });
+    const result = compose([selected], { selectedSkillDirs: [selected.dir] });
     expect(result.stablePrompt).toContain('sprites');
-    expect(result.turnPrompt).toBe('');
-  });
-
-  it('matches literal triggers in either language case-insensitively, with at most two bodies', () => {
-    const entries = [skill('sprites', ['PIXEL ART']), skill('sound', ['音效']), skill('third', ['art'])];
-    const result = compose(entries, { userMessage: 'pixel art 和音效' });
-    expect(result.turnPrompt).toContain(entries[0]!.body);
-    expect(result.turnPrompt).toContain(entries[1]!.body);
-    expect(result.turnPrompt).not.toContain(entries[2]!.body);
     expect(result.stablePrompt).not.toContain('PRIVATE WORKFLOW');
-    expect(compose(entries, { userMessage: 'unrelated' }).stablePrompt).toBe(result.stablePrompt);
-  });
-
-  it('skips oversized matches and counts headers and non-ASCII bytes against the automatic budget', () => {
-    const entries = [skill('huge', ['match'], '界'.repeat(200)), skill('small', ['match'], 'SMALL WORKFLOW')];
-    const result = compose(entries, { userMessage: 'MATCH', autoIncludeByteBudget: 120 });
-    expect(result.turnPrompt).not.toContain(entries[0]!.body);
-    expect(result.turnPrompt).toContain(entries[1]!.body);
-    expect(Buffer.byteLength(result.turnPrompt, 'utf8')).toBeLessThanOrEqual(120);
-    expect(compose(entries, { userMessage: 'match', autoIncludeByteBudget: 0 }).turnPrompt).toBe('');
+    expect(result.loadedSkillIds).toEqual([]);
   });
 
   it('keeps plain providers self-contained and bounds their fallback without splitting Unicode', () => {
@@ -140,9 +114,8 @@ describe('project skill progressive disclosure', () => {
     expect(result.stablePrompt).toContain('FIRST WORKFLOW');
     expect(result.stablePrompt).toContain('truncated');
     expect(result.stablePrompt).not.toContain('Read the matching');
-    expect(result.stablePrompt).not.toContain('\ufffd');
+    expect(result.stablePrompt).not.toContain('�');
     expect(Buffer.byteLength(result.stablePrompt, 'utf8')).toBeLessThanOrEqual(256);
-    expect(result.turnPrompt).toBe('');
     expect(compose(entries, { streamFormat: 'plain', selectedSkillDirs: entries.map(entry => entry.dir) }).stablePrompt).toBe('');
   });
 });
