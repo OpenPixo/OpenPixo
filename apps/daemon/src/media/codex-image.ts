@@ -30,7 +30,8 @@ const DIAGNOSTIC_LIMIT = 16 * 1024;
  * - `--disable plugins` / `--disable apps`: no plugin or connector instructions.
  *
  * Measured with `codex debug prompt-input`: 85.7k → 10.7k characters of input
- * items. The user's MCP servers stay configured: an empty `mcp_servers` table
+ * items. A real image with the same reference then took two requests,
+ * 12.9k + 15.4k input tokens (28k), where the old thread took 167k. The user's MCP servers stay configured: an empty `mcp_servers` table
  * merges instead of clearing them. Image runs only; the agent runtime keeps the
  * user's full setup.
  */
