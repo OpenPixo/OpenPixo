@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -119,6 +119,24 @@ describe('project checkpoints in real git repositories', () => {
     const shown = await new ProjectCheckpoints(folder).show(first.id);
     expect(shown.checkpoint.runChanges).toEqual([{ path: 'game.txt', status: 'modified' }]);
     expect(shown.currentChanges.map(change => change.path)).toEqual(['game.txt', 'later.txt']);
+  });
+
+  it('leaves OpenPixo atomic-write temporaries out of snapshots, so a write in flight cannot fail one', async () => {
+    // `publishFiles` writes `<file>.pixo-<uuid>.tmp<ext>` and renames it. When the rename lands while
+    // `git add -A` is scanning, Git fails the whole snapshot ("unable to index file"). Seen on
+    // 2026-11-14 while an agent ran `pixo asset frames check` during a run.
+    const folder = await fixture();
+    const checkpoints = new ProjectCheckpoints(folder);
+    const checkpoint = (await checkpoints.snapshot(input))!;
+    const temporary = 'derived/report.json.pixo-6c1706c4-69ee-49d4-9d04-58d764ef72db.tmp.json';
+    await mkdir(path.join(folder, 'derived'));
+    await writeFile(path.join(folder, temporary), '{"partial":');
+    await writeFile(path.join(folder, 'derived', 'report.json'), '{}\n');
+    const shown = await checkpoints.show(checkpoint.id);
+    expect(shown.currentChanges.map(change => change.path)).toEqual(['derived/report.json']);
+    const finished = await checkpoints.finish(checkpoint.id);
+    expect(finished.runChanges).toEqual([{ path: 'derived/report.json', status: 'added' }]);
+    expect(git(folder, 'ls-tree', '-r', '--name-only', `refs/openpixo/checkpoint-results/${checkpoint.id}`)).not.toContain(temporary);
   });
 
   it('prunes old refs and retains the most recent 50 checkpoints', async () => {
