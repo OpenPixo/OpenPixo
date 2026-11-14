@@ -26,6 +26,8 @@ interface RunEntry {
   logDirty: boolean;
   launch?: Promise<void>;
   child?: ChildProcess;
+  /** Taken just before `spawn`: stopping the tree never touches a process older than this. */
+  spawnedAtMs?: number;
   closed?: Promise<void>;
   stopRequested: boolean;
   stop?: Promise<void>;
@@ -55,9 +57,9 @@ async function loopbackPort(): Promise<number> {
   });
 }
 
-async function killTree(child: ChildProcess): Promise<void> {
+async function killTree(child: ChildProcess, spawnedAtMs: number): Promise<void> {
   if (!child.pid) return;
-  if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid);
+  if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid, { spawnedAtMs });
   else {
     try { process.kill(-child.pid, 'SIGKILL'); }
     catch { child.kill('SIGKILL'); }
@@ -190,6 +192,7 @@ export class GameRunManager {
       if (entry.stopRequested) { entry.state.status = 'exited'; return; }
       entry.state = { ...entry.state, startedAt: Date.now(), logRef };
       const invocation = createCommandInvocation({ command: executable, args: argv });
+      entry.spawnedAtMs = Date.now();
       const child = spawn(invocation.command, invocation.args, {
         cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
         windowsVerbatimArguments: invocation.windowsVerbatimArguments,
@@ -238,7 +241,7 @@ export class GameRunManager {
 
   private async cleanupTree(entry: RunEntry): Promise<void> {
     if (!entry.child) return;
-    entry.cleanup ??= killTree(entry.child).finally(() => { delete entry.cleanup; });
+    entry.cleanup ??= killTree(entry.child, entry.spawnedAtMs!).finally(() => { delete entry.cleanup; });
     await entry.cleanup;
   }
 }

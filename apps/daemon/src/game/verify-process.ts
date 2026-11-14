@@ -19,9 +19,9 @@ export function gamePngSize(png: Buffer): { width: number; height: number } {
   if (!width || !height || width > 8192 || height > 8192) throw new Error('Invalid screenshot size');
   return { width, height };
 }
-async function killTree(child: ChildProcess): Promise<void> {
+async function killTree(child: ChildProcess, spawnedAtMs: number): Promise<void> {
   if (!child.pid) return;
-  if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid);
+  if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid, { spawnedAtMs });
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
 }
 export class GameCommandTimeout extends Error { constructor() { super('Engine command timed out'); } }
@@ -38,6 +38,7 @@ export async function executeGameProcess<T = never>(options: {
   if (path.isAbsolute(command.cwd) || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Engine command cwd is outside the project');
   const argv = options.argv ?? command.argv;
   const invocation = createCommandInvocation({ command: options.executable, args: argv.slice(1) });
+  const spawnedAtMs = Date.now();
   const child = spawn(invocation.command, invocation.args, { cwd, stdio: ['ignore', 'pipe', 'pipe'],
     detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: invocation.windowsVerbatimArguments });
   let tail = '', closedAlready = false;
@@ -62,7 +63,7 @@ export async function executeGameProcess<T = never>(options: {
     return await Promise.race([task, new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new GameCommandTimeout()), command.timeoutMs); })]);
   } finally {
     clearTimeout(timer);
-    try { if (!closedAlready) await killTree(child); }
+    try { if (!closedAlready) await killTree(child, spawnedAtMs); }
     catch (error) { child.kill('SIGKILL'); child.stdout.destroy(); child.stderr.destroy(); throw error; }
     finally { await closed.catch(() => {}); }
   }

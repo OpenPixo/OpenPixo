@@ -88,6 +88,7 @@ async function executeInstall(executable: string, argv: string[], cwd: string, o
   const registry = await npmRegistryEnv({ env: process.env, cwd });
   if (registry.npm_config_registry) output(`Using the npm mirror ${registry.npm_config_registry}
 `);
+  const spawnedAtMs = Date.now();
   const child = spawn(invocation.command, invocation.args, {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
     windowsVerbatimArguments: invocation.windowsVerbatimArguments,
@@ -97,7 +98,7 @@ async function executeInstall(executable: string, argv: string[], cwd: string, o
   let cancelled = false;
   const kill = () => {
     if (!child.pid) return;
-    if (process.platform === 'win32') void forceStopWindowsProcessTree(child.pid).catch(error => output(String(error)));
+    if (process.platform === 'win32') void forceStopWindowsProcessTree(child.pid, { spawnedAtMs }).catch(error => output(String(error)));
     else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
   };
   const abort = () => { cancelled = true; kill(); };

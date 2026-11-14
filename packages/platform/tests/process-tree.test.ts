@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectProcessTreePids,
+  forceStopWindowsProcessTree,
+  isProcessAlive,
+  parseWindowsTreeSnapshot,
+  selectWindowsTreeToStop,
   selectOwnedProcessTree,
   processCommandExactlyRunsExecutable,
   stopProcesses,
@@ -251,4 +255,68 @@ describe("stopProcesses onSignal", () => {
 
     expect(delivered).toEqual([[livePid, "SIGTERM"]]);
   });
+});
+
+describe("selectWindowsTreeToStop", () => {
+  const at = (pid: number, ppid: number, startedAtMs: number | null) => ({ pid, ppid, startedAtMs });
+  // 2026-11-15: tools-dev's launcher (pid 500) started the daemon's supervisor (600) and exited.
+  // Hours later a game process the daemon spawned received pid 500 and exited; stopping its tree
+  // walked parent PIDs, took the supervisor for its child, and the daemon left without a word.
+  const launcherGoneSupervisor = at(600, 500, 1_000);
+  const daemon = at(700, 600, 1_100);
+  const reusedLauncherPid = at(500, 700, 50_000);
+  const gameServer = at(800, 500, 50_100);
+  const incident = [launcherGoneSupervisor, daemon, reusedLauncherPid, gameServer];
+
+  it("a parent-PID walk alone reaches the daemon and its supervisor (the bug)", () => {
+    expect(collectProcessTreePids(incident.map(({ pid, ppid }) => ({ pid, ppid, command: "" })), [500])).toEqual(expect.arrayContaining([600, 700]));
+  });
+
+  it("never selects the caller, its ancestors, or anything older than the spawn", () => {
+    const selected = selectWindowsTreeToStop(incident, 500, { spawnedAtMs: 49_900, callerPid: 700 }).map(entry => entry.pid);
+    expect(selected).toEqual([800, 500]);
+  });
+
+  it("stops the orphans of a root that already exited, created after the spawn", () => {
+    expect(selectWindowsTreeToStop([daemon, at(801, 900, 50_100), at(802, 801, 50_200), at(803, 900, 40_000)], 900,
+      { spawnedAtMs: 50_000, callerPid: 700 }).map(entry => entry.pid)).toEqual([802, 801]);
+  });
+
+  it("leaves a reused root PID and the newcomer's children alone, but not our root's orphans", () => {
+    const newcomer = at(900, 1, 60_000);
+    expect(selectWindowsTreeToStop([daemon, newcomer, at(801, 900, 50_100), at(802, 900, 60_100)], 900,
+      { spawnedAtMs: 50_000, callerPid: 700 }).map(entry => entry.pid)).toEqual([801]);
+  });
+
+  it("does not follow a link to a child older than its parent, or a process with no creation time", () => {
+    expect(selectWindowsTreeToStop([daemon, at(900, 700, 50_000), at(901, 900, 49_999), at(902, 900, null)], 900,
+      { spawnedAtMs: 50_000, callerPid: 700 }).map(entry => entry.pid)).toEqual([900]);
+  });
+
+  it("parses the snapshot script's lines", () => {
+    expect(parseWindowsTreeSnapshot("4 0 -\r\n700 600 1100\r\n\r\n")).toEqual([at(4, 0, null), at(700, 600, 1_100)]);
+  });
+});
+
+describe.skipIf(process.platform !== "win32")("forceStopWindowsProcessTree", () => {
+  it("stops the descendants of a root that already exited and leaves the caller running", async () => {
+    const spawnedAtMs = Date.now();
+    const root = spawn(process.execPath, ["-e", [
+      "const { spawn } = require('node:child_process');",
+      "const grandchild = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: true });",
+      "grandchild.unref(); process.stdout.write(String(grandchild.pid));",
+    ].join("")], { stdio: ["ignore", "pipe", "ignore"] });
+    const grandchildPid = await new Promise<number>((resolve, reject) => {
+      root.once("error", reject);
+      root.stdout!.once("data", (chunk) => resolve(Number(String(chunk).trim())));
+    });
+    await new Promise((resolve) => root.once("exit", resolve));
+    try {
+      await forceStopWindowsProcessTree(root.pid!, { spawnedAtMs });
+      expect(await waitForProcessExit(grandchildPid, 5_000)).toBe(true);
+      expect(isProcessAlive(process.pid)).toBe(true);
+    } finally {
+      try { process.kill(grandchildPid); } catch { /* already gone */ }
+    }
+  }, 30_000);
 });
