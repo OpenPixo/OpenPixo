@@ -98,7 +98,9 @@ function checkpointFailureForLog(error: unknown): unknown {
   const lines = typeof stderr === 'string'
     ? stderr.split(/\r?\n/u).filter(line => line.trim() && !/^warning: in the working copy of /u.test(line))
     : [];
-  return { message: error.message.split('\n')[0]?.slice(0, 300), stderr: lines.slice(-20).join('\n') };
+  // A Git process the daemon stopped (the 30 s timeout) prints nothing; these say so.
+  const { code, killed, signal } = error as { code?: unknown; killed?: unknown; signal?: unknown };
+  return { message: error.message.split('\n')[0]?.slice(0, 300), stderr: lines.slice(-20).join('\n'), code, killed, signal };
 }
 
 /** The files are already back by now, so a history that cannot be updated never fails the undo. */
