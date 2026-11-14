@@ -2115,7 +2115,7 @@ export const en: Dict = {
   'chat.projectSkillKind': "Every message",
   'chat.projectSkillHint': "This skill is sent with every message in this project. Remove it to use it only when you pick it with @.",
   'chat.projectSkillRemove': "Stop sending with every message",
-  'chat.example1Prompt': 'Make the player feel responsive in this game: acceleration and friction, a variable-height jump with coyote time and jump buffering, and a smooth camera follow. Use the engine and conventions already in the project, keep the tuning values in one place, and tell me how to try it.',
+  'chat.example1Prompt': 'Make the player feel responsive in this game: starting and stopping tuned to how this game plays, input buffering where it helps, and a smooth camera follow. Use the engine and conventions already in the project, keep the tuning values in one place, and tell me how to try it.',
   'chat.example2Prompt': 'Inspect this game project and its error log, reproduce the reported bug, fix the cause, and verify the fix. Explain what changed and how I can check it.',
   'chat.example3Prompt': 'Run the game using this project’s existing engine and launch instructions. Check the startup log and basic controls, fix any launch errors, and report what you verified and anything you could not test.',
 
