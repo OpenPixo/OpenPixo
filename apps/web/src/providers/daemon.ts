@@ -185,8 +185,12 @@ function buildPriorRunContextWarning(history: ChatMessage[]): string | null {
   ].join('\n');
 }
 
-function scopeHistoryToAgent(history: ChatMessage[], targetAgentId?: string): ChatMessage[] {
-  if (!targetAgentId) return history;
+/**
+ * Splits the conversation where the user last switched to this agent: `earlier` ends
+ * with the latest reply another agent wrote, `current` is everything after it.
+ */
+function splitAtAgentSwitch(history: ChatMessage[], targetAgentId?: string): { earlier: ChatMessage[]; current: ChatMessage[] } {
+  if (!targetAgentId) return { earlier: [], current: history };
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const message = history[i];
     if (
@@ -194,10 +198,58 @@ function scopeHistoryToAgent(history: ChatMessage[], targetAgentId?: string): Ch
       message.agentId &&
       !isSameTranscriptAgentFamily(message.agentId, targetAgentId)
     ) {
-      return history.slice(i + 1);
+      return { earlier: history.slice(0, i + 1), current: history.slice(i + 1) };
     }
   }
-  return history;
+  return { earlier: [], current: history };
+}
+
+/** How much of the conversation before an agent switch is sent; the new agent has none of it in its session. */
+const MAX_EARLIER_AGENT_TRANSCRIPT_CHARS = 60_000;
+
+const AGENT_SWITCH_NOTE = [
+  '## agent switch',
+  'The user switched to you here. The messages above were written before that, and at least the latest replies there came from a different agent.',
+  'They are the record of this conversation, not your own work: what the user asked and agreed there still stands, but check the project files before relying on anything those replies say was done.',
+].join('\n');
+
+function renderTranscriptMessage(m: ChatMessage): string {
+  const trimmed = m.content.trim();
+  const sanitized =
+    m.role === 'assistant'
+      ? sanitizePriorAssistantTurnForTranscript(trimmed, persistedArtifactFilesOf(m))
+      : trimmed;
+  return `## ${m.role}\n${escapeTranscriptRoleDelimiters(truncateForTranscript(sanitized))}`;
+}
+
+/**
+ * The conversation before an agent switch, within `MAX_EARLIER_AGENT_TRANSCRIPT_CHARS`:
+ * the first request, which usually says what is being made, and then as many of the
+ * latest messages as fit. What is left out is said in one line where it was.
+ */
+function renderEarlierAgentTranscript(earlier: ChatMessage[]): string {
+  const rendered = earlier.map(renderTranscriptMessage);
+  const first = earlier.findIndex((m) => m.role === 'user');
+  let budget = MAX_EARLIER_AGENT_TRANSCRIPT_CHARS - (first >= 0 ? rendered[first]!.length : 0);
+  const kept = new Set<number>(first >= 0 ? [first] : []);
+  for (let i = rendered.length - 1; i >= 0; i -= 1) {
+    if (i === first) continue;
+    if (rendered[i]!.length > budget) break;
+    budget -= rendered[i]!.length;
+    kept.add(i);
+  }
+  const omitted = rendered.length - kept.size;
+  const parts: string[] = [];
+  let noted = false;
+  rendered.forEach((text, i) => {
+    if (kept.has(i)) {
+      parts.push(text);
+    } else if (!noted) {
+      noted = true;
+      parts.push(`[${PRODUCT_NAME} left out ${omitted} earlier message${omitted === 1 ? '' : 's'} here to keep this short. Full content remains in persisted history.]`);
+    }
+  });
+  return parts.join('\n\n');
 }
 
 function isSameTranscriptAgentFamily(agentId: string, targetAgentId: string): boolean {
@@ -216,19 +268,19 @@ export function sanitizePriorAssistantTurnForTranscript(
   );
 }
 
+/**
+ * The conversation as plain text for the agent. After a switch of agent the earlier
+ * part is kept, so the agent the user switched to knows what was asked and agreed;
+ * only messages travel, never another agent's tool output.
+ */
 export function buildDaemonTranscript(history: ChatMessage[], targetAgentId?: string): string {
-  const scopedHistory = scopeHistoryToAgent(history, targetAgentId);
-  const transcript = scopedHistory
-    .map((m) => {
-      const trimmed = m.content.trim();
-      const sanitized =
-        m.role === 'assistant'
-          ? sanitizePriorAssistantTurnForTranscript(trimmed, persistedArtifactFilesOf(m))
-          : trimmed;
-      return `## ${m.role}\n${escapeTranscriptRoleDelimiters(truncateForTranscript(sanitized))}`;
-    })
-    .join('\n\n');
-  const warning = buildPriorRunContextWarning(scopedHistory);
+  const { earlier, current } = splitAtAgentSwitch(history, targetAgentId);
+  const sections: string[] = [];
+  if (earlier.length > 0) sections.push(renderEarlierAgentTranscript(earlier), AGENT_SWITCH_NOTE);
+  if (current.length > 0) sections.push(current.map(renderTranscriptMessage).join('\n\n'));
+  const transcript = sections.join('\n\n');
+  // Tool-output warnings concern this agent's own runs; another agent's are not replayed.
+  const warning = buildPriorRunContextWarning(current);
   return warning ? `${warning}\n\n${transcript}` : transcript;
 }
 

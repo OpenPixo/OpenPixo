@@ -629,7 +629,7 @@ describe('streamViaDaemon', () => {
     expect(body).not.toHaveProperty('appliedPluginSnapshotId');
   });
 
-  it('drops prior assistant turns from another agent when composing daemon transcript', async () => {
+  it('keeps prior turns from another agent when composing daemon transcript', async () => {
     const handlers = createDaemonHandlers();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -660,13 +660,14 @@ describe('streamViaDaemon', () => {
 
     const [, createRunInit] = fetchMock.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit];
     const body = JSON.parse(String(createRunInit.body));
-    expect(body.message).not.toContain('build a canvas editor');
-    expect(body.message).not.toContain('claude transcript with a large tool trace');
+    expect(body.message).toContain('build a canvas editor');
+    expect(body.message).toContain('claude transcript with a large tool trace');
+    expect(body.message).toContain('## agent switch');
     expect(body.message).toContain('now continue with gemini');
     expect(body.currentPrompt).toBe('now continue with gemini');
   });
 
-  it('keeps same-agent context after the most recent different-agent boundary', () => {
+  it('marks where the user switched agents and keeps both sides in order', () => {
     const transcript = buildDaemonTranscript(
       [
         { id: '1', role: 'user', content: 'first claude request' },
@@ -678,11 +679,44 @@ describe('streamViaDaemon', () => {
       'gemini',
     );
 
-    expect(transcript).not.toContain('first claude request');
-    expect(transcript).not.toContain('claude response');
-    expect(transcript).toContain('first gemini request');
-    expect(transcript).toContain('gemini response');
-    expect(transcript).toContain('second gemini request');
+    const order = ['first claude request', 'claude response', '## agent switch', 'first gemini request', 'gemini response', 'second gemini request']
+      .map((text) => transcript.indexOf(text));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it('sends no switch note when one agent wrote the whole conversation', () => {
+    const transcript = buildDaemonTranscript(
+      [
+        { id: '1', role: 'user', content: 'first request' },
+        { id: '2', role: 'assistant', content: 'response', agentId: 'gemini' },
+        { id: '3', role: 'user', content: 'second request' },
+      ],
+      'gemini',
+    );
+
+    expect(transcript).not.toContain('## agent switch');
+    expect(transcript).toContain('first request');
+  });
+
+  it('caps the earlier agent part, keeping the first request and the latest messages', () => {
+    const filler = 'x'.repeat(11_000);
+    const history = [
+      { id: 'u0', role: 'user' as const, content: 'the original game idea' },
+      ...Array.from({ length: 20 }, (_, i) => [
+        { id: `u${i + 1}`, role: 'user' as const, content: `old request ${i} ${filler}` },
+        { id: `a${i + 1}`, role: 'assistant' as const, content: `old reply ${i} ${filler}`, agentId: 'claude' },
+      ]).flat(),
+      { id: 'now', role: 'user' as const, content: 'continue with gemini' },
+    ];
+    const transcript = buildDaemonTranscript(history, 'gemini');
+
+    expect(transcript).toContain('the original game idea');
+    expect(transcript).toContain('old reply 19');
+    expect(transcript).not.toContain('old request 0 ');
+    expect(transcript).toMatch(/left out \d+ earlier messages/);
+    expect(transcript).toContain('continue with gemini');
+    expect(transcript.length).toBeLessThan(100_000);
   });
 
   it('keeps legacy API-mode assistant context when routing through BYOK OpenCode', () => {
