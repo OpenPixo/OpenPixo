@@ -12,7 +12,7 @@ import { IMAGE_MODELS, type MediaModel } from '../src/media/models.js';
 import { runAssetOp } from '../src/assets/ops/index.js';
 import { listAssetProvenance } from '../src/assets/provenance-store.js';
 import { recipeDetail } from './fixtures/recipes.js';
-import type { ArtStyle } from '@openpixo/contracts';
+import type { ArtStyle, RecipeRun } from '@openpixo/contracts';
 import { discoverRecipes } from '../src/recipes/catalog.js';
 
 let root: string, project: string, data: string, db: Database.Database;
@@ -53,7 +53,7 @@ it('stages stub candidates, postprocesses survivors, keeps failing checks, and a
   const destination = path.join(project, 'assets/sprites/hero'); await mkdir(destination, { recursive: true });
   await writeFile(path.join(destination, 'hero.svg'), 'keep me');
   const restored = new RecipeExecutor(deps);
-  const adopted = await restored.adopt('p', started.id, [candidate.id], project);
+  const adopted = await restored.adopt('p', started.id, [candidate.id], { projectId: 'p', root: project });
   const paths = adopted.candidates[candidate.index]!.adoptedPaths!;
   expect(paths[0]).toBe('assets/sprites/hero/hero_1.svg');
   expect(await readFile(path.join(destination, 'hero.svg'), 'utf8')).toBe('keep me');
@@ -63,7 +63,7 @@ it('stages stub candidates, postprocesses survivors, keeps failing checks, and a
   expect(descriptor.frames).toHaveLength(4);
   for (const frame of descriptor.frames) expect(paths).toContain(frame.path);
   expect(listAssetProvenance(db, 'p', { relPath: paths[0]! })[0]).toMatchObject({ origin: 'generated', recipeRunId: started.id, provider: 'stub', model: model.id, promptText: 'pixel sprite', referenceHashes: [expect.stringMatching(/^[a-f0-9]{64}$/)] });
-  await restored.adopt('p', started.id, [candidate.id], project);
+  await restored.adopt('p', started.id, [candidate.id], { projectId: 'p', root: project });
   expect(listAssetProvenance(db, 'p', { relPath: paths[0]! })).toHaveLength(1);
   const adoptedBytes = await readFile(path.join(project, paths[0]!));
   await mkdir(path.join(restored.root, '00000000-0000-4000-8000-000000000000'));
@@ -86,7 +86,7 @@ it('cancels during generation and rejects late candidates and production stub ou
   release();
   const cancelled = await executor.wait('p', started.id);
   expect(cancelled.status).toBe('cancelled'); expect(cancelled.candidates[0]?.stagedFiles).toEqual([]);
-  await expect(executor.adopt('p', started.id, [cancelled.candidates[0]!.id], project)).rejects.toThrow('not ready');
+  await expect(executor.adopt('p', started.id, [cancelled.candidates[0]!.id], { projectId: 'p', root: project })).rejects.toThrow('not ready');
   vi.stubEnv('NODE_ENV', 'production');
   await expect(executor.start(recipeDetail(), 'p', project, { recipeId: 'test-sprite', inputs: {} }, model)).rejects.toThrow('only allowed in tests');
 });
@@ -161,7 +161,7 @@ it.each(['godot', 'phaser', 'aseprite'] as const)('adopts %s animation metadata 
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, 'hero_walk.png'), 'existing texture');
   const restored = new RecipeExecutor(deps);
-  const adopted = await restored.adopt('p', started.id, [candidate.id], project);
+  const adopted = await restored.adopt('p', started.id, [candidate.id], { projectId: 'p', root: project });
   const paths = adopted.candidates[0]!.adoptedPaths!;
   const atlas = paths.find(file => file.endsWith('hero_walk_1.png'))!;
   expect(atlas).toBeTruthy();
@@ -226,7 +226,7 @@ it('adopts the bundled VFX recipe as one continuous non-looping engine animation
   const ready = await executor.wait('p', started.id);
   expect(ready.status, JSON.stringify(ready)).toBe('ready');
   expect(ready.candidates[0]!.checks).toContainEqual(expect.objectContaining({ check: 'grid-divisible', ok: true }));
-  const adopted = await executor.adopt('p', started.id, [ready.candidates[0]!.id], project);
+  const adopted = await executor.adopt('p', started.id, [ready.candidates[0]!.id], { projectId: 'p', root: project });
   const paths = adopted.candidates[0]!.adoptedPaths!;
   const tres = await readFile(path.join(project, paths.find(file => file.endsWith('.tres'))!), 'utf8');
   expect(tres).toContain('"loop": false');
@@ -303,7 +303,7 @@ it('runs a 3D recipe on its reference image and adopts the GLB into the project'
   const ready = await executor.wait('p', started.id);
   expect(ready.status, JSON.stringify(ready)).toBe('ready');
   expect(calls).toEqual([{ surface: 'model3d', output: 'primary.glb', images: ['references/0.png'] }]);
-  const adopted = await executor.adopt('p', started.id, [ready.candidates[0]!.id], project);
+  const adopted = await executor.adopt('p', started.id, [ready.candidates[0]!.id], { projectId: 'p', root: project });
   expect(adopted.candidates[0]!.adoptedPaths).toEqual(['models/chest/chest.glb']);
   expect(await readFile(path.join(project, 'models/chest/chest.glb'))).toEqual(glb);
 });

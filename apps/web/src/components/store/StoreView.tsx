@@ -5,7 +5,7 @@ import { Search, X } from 'lucide-react';
 import { useI18n } from '../../i18n';
 import { buildPath, navigate } from '../../router';
 import { usePageNavigationReady } from '../../observability/navigation-timing';
-import { fetchStoreCatalog, installStoreItem, isGenerateKind, isWorkshopItem, mostRecentStoreProject, openProjectGenerate, WORKSHOP_KINDS, type WorkshopKind } from '../../state/store';
+import { fetchStoreCatalog, installStoreItem, isGenerateKind, isWorkshopItem, openGenerate, WORKSHOP_KINDS, type WorkshopKind } from '../../state/store';
 import { BuyDialog } from './BuyDialog';
 import { CreditsChip } from './CreditsChip';
 import { GenerateRedirect } from './GenerateRedirect';
@@ -44,7 +44,7 @@ const SHELVES: Array<{ kind: WorkshopKind; size: 'default' | 'feature' }> = [
 export function StoreView({ itemName, projects = [], initialTab, onOpenAccount, ...actions }: StoreViewProps) {
   const openAccount = onOpenAccount ?? (() => navigate({ kind: 'home', view: 'settings' }));
   if (itemName) return <StoreItemPage key={itemName} name={itemName} projects={projects} onOpenAccount={openAccount} {...actions} />;
-  if (initialTab && isGenerateKind(initialTab)) return <GenerateRedirect projects={projects} />;
+  if (initialTab && isGenerateKind(initialTab)) return <GenerateRedirect />;
   return <StoreCatalog initialTab={initialTab} projects={projects} onOpenAccount={openAccount} {...actions} />;
 }
 
@@ -92,7 +92,6 @@ function StoreCatalog({ initialTab, projects, onOpenAccount, ...actions }: Store
     && (!search || searchText(item, t(`workshop.kind.${item.kind}`), locale).includes(search)));
   const filtersActive = Boolean(search || tag || engine || pricing);
   const visibleItems = tab === 'discover' ? filtered : filtered.filter(item => item.kind === tab);
-  const recentProject = mostRecentStoreProject(projects);
   const engines = [...new Set(workshopItems.flatMap(item => item.engines).filter(value => value !== 'any'))].sort();
   const tags = quickTags(tab === 'discover' ? workshopItems : workshopItems.filter(item => item.kind === tab));
   const slides = heroSlides(workshopItems);
@@ -179,11 +178,10 @@ function StoreCatalog({ initialTab, projects, onOpenAccount, ...actions }: Store
         <aside className={styles.moved}>
           <span className={styles.pixel} aria-hidden="true" />
           <div><strong>{t('workshop.movedTitle')}</strong><span>{t('workshop.moved')}</span></div>
-          {recentProject ? <a href={buildPath({ kind: 'project', projectId: recentProject.id, fileName: null, workspaceTab: 'generate' })} onClick={event => {
+          <a href={buildPath({ kind: 'home', view: 'generate' })} onClick={event => {
             if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            event.preventDefault(); openProjectGenerate(recentProject);
-          }}>{t('workshop.openGenerate', { name: recentProject.name })}</a>
-            : <span className={styles.movedHint}>{t('workshop.projectRequired')}</span>}
+            event.preventDefault(); openGenerate();
+          }}>{t('workshop.openGenerate')}</a>
         </aside>
       </> : <>
         <div className={styles.gridHead}>

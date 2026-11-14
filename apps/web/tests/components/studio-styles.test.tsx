@@ -66,7 +66,7 @@ function mockStyleApi(initialStyle: ArtStyle | null = null) {
       }
       return json({ styleId: projectStyle?.id ?? null, style: projectStyle });
     }
-    if (url === '/api/projects/game/recipe-runs' && init?.method === 'POST') return json(readyRun());
+    if (url === '/api/generate/runs' && init?.method === 'POST') return json(readyRun());
     throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -146,8 +146,8 @@ describe('Studio art styles', () => {
     expect(onBrowseStyles).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/projects/game/recipe-runs', expect.objectContaining({ method: 'POST' })));
-    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/recipe-runs') && init?.method === 'POST');
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/generate/runs', expect.objectContaining({ method: 'POST' })));
+    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/generate/runs') && init?.method === 'POST');
     expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ styleId: pixelStyle.id });
   });
 
@@ -161,8 +161,8 @@ describe('Studio art styles', () => {
     expect(screen.getByRole('button', { name: /^Project default/ })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/projects/game/recipe-runs', expect.objectContaining({ method: 'POST' })));
-    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/recipe-runs') && init?.method === 'POST');
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/generate/runs', expect.objectContaining({ method: 'POST' })));
+    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/generate/runs') && init?.method === 'POST');
     expect(JSON.parse(String(request?.[1]?.body))).not.toHaveProperty('styleId');
   });
 
@@ -185,8 +185,8 @@ describe('Studio art styles', () => {
     expect(noStyle).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/projects/game/recipe-runs', expect.objectContaining({ method: 'POST' })));
-    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/recipe-runs') && init?.method === 'POST');
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/generate/runs', expect.objectContaining({ method: 'POST' })));
+    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/api/generate/runs') && init?.method === 'POST');
     expect(JSON.parse(String(request?.[1]?.body))).toHaveProperty('styleId', null);
   });
 

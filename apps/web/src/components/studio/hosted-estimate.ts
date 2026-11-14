@@ -1,4 +1,4 @@
-import type { OpenPixoGenerationService } from '@openpixo/contracts';
+import { openPixoResolutionCredits, type OpenPixoGenerationResolution, type OpenPixoGenerationService } from '@openpixo/contracts';
 
 /**
  * Mirrors the cloud's token estimate for pricing: CJK characters count one token
@@ -14,10 +14,11 @@ export function estimatePromptTokens(prompt: string): number {
  * and charges exactly; if its quote comes back above this number the card stops
  * and asks instead of spending more than the button showed.
  */
-export function estimateGenerationCredits(service: Pick<OpenPixoGenerationService, 'credits' | 'pricing'> & Partial<Pick<OpenPixoGenerationService, 'surface'>>, prompt: string, referenceCount: number): number {
+export function estimateGenerationCredits(service: Pick<OpenPixoGenerationService, 'credits' | 'pricing'> & Partial<Pick<OpenPixoGenerationService, 'surface'>>, prompt: string, referenceCount: number,
+  resolution?: OpenPixoGenerationResolution): number {
   // A 3D model has a fixed prompt and one picture, so nothing can add to its base price.
   if (service.surface === 'model3d') return service.credits;
   const longPrompt = estimatePromptTokens(prompt) > service.pricing.longPromptTokens ? service.pricing.longPromptCredits : 0;
   const extraReferences = Math.max(0, referenceCount - 1) * service.pricing.extraReferenceCredits;
-  return service.credits + longPrompt + extraReferences;
+  return service.credits + longPrompt + extraReferences + openPixoResolutionCredits(service, resolution);
 }

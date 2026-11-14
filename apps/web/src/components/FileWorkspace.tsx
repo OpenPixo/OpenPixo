@@ -68,8 +68,7 @@ import {
   PANEL_CHANGES_ROOT,
   showPanelRoot,
 } from './panel/panel-nav';
-import { clearStudioEntry, pendingStudioRecipe } from './studio/entry';
-import { GenerateView } from './generate/GenerateView';
+import { openGenerateForGame } from './studio/entry';
 
 
 import { Toast } from './Toast';
@@ -132,8 +131,6 @@ interface Props {
   runInFlight?: boolean;
   /** Exact router file still awaiting the async open request on project mount. */
   routeFileName?: string | null;
-  /** The route is `/projects/:id/generate`: open the generator sheet in 资源库. */
-  routedGenerate?: boolean;
   /**
    * A request to show a file. `origin: 'conversation'` marks a user click in
    * the conversation (file link, artifact card, inline asset, a file URL): it
@@ -205,7 +202,7 @@ interface Props {
   gameControls?: GameViewControls;
   /** Bumped by a starter Verify / Run request: switches the panel to 游戏. */
   gameViewRequest?: number;
-  /** Checklist "open assets / generate": 资源库 gallery, or 资源库 + the generator sheet. */
+  /** Checklist "open assets": 资源库 showing its pictures; "generate" opens the 生成 page for this game. */
   gameTabRequest?: { tab: 'assets' | 'generate'; nonce: number } | null;
   /** Overrides the 改动 badge count the Changes view reports; hidden when 0. */
   changesBadge?: number;
@@ -263,7 +260,6 @@ const EMPTY_PROJECT_FOLDERS: ProjectFolder[] = [];
 type WorkspaceOrderedTab = { id: string; kind: 'file'; name: string };
 
 
-const NO_REFERENCE_PATHS: string[] = [];
 
 /** Everything the panel keeps per project; reset together on a project switch. */
 interface ProjectPanelState {
@@ -271,30 +267,19 @@ interface ProjectPanelState {
   nav: PanelNav;
   /** Checklist "open assets": 资源库 shows 图片 once (applied by the browser). */
   libraryTypeRequest: LibraryTypeRequest | null;
-  /** Pictures "generate from" handed to 生成. */
-  studioReferencePaths: string[];
-  /** Bumped on every "generate from", so the same pictures twice still reach the box. */
-  studioReferenceRequest: number;
-  /** A recipe queued by a composer / home entry point, read once per project. */
-  initialRecipeId: string | null;
   extensionsOpen: boolean;
 }
 
-function initialPanelState(projectId: string, routedGenerate: boolean): ProjectPanelState {
-  const initialRecipeId = pendingStudioRecipe(projectId);
-  // The /generate deep link and a queued recipe open 生成; otherwise the
-  // project's saved view (default 游戏).
-  const generate = routedGenerate || Boolean(initialRecipeId);
+function initialPanelState(projectId: string): ProjectPanelState {
+  // The project's saved view (default 游戏). 生成 is its own page now, not a view here.
   return {
     projectId,
-    nav: initialPanelNav(generate ? 'generate' : readStoredPanelView(projectId)),
+    nav: initialPanelNav(readStoredPanelView(projectId)),
     libraryTypeRequest: null,
-    studioReferencePaths: NO_REFERENCE_PATHS,
-    studioReferenceRequest: 0,
-    initialRecipeId,
     extensionsOpen: false,
   };
 }
+
 
 
 function joinDisplayPath(root: string, child: string): string {
@@ -327,7 +312,6 @@ export function FileWorkspace({
   streaming,
   runInFlight = false,
   routeFileName,
-  routedGenerate = false,
   openRequest,
   downloadRequest,
   tabsState,
@@ -398,11 +382,11 @@ export function FileWorkspace({
   // current view's stack is what the body shows; FILES_TAB stands for "the
   // view's own root" so the viewer plumbing below keeps one notion of the
   // active surface. Stacks are reset per project; the view choice persists.
-  const [panelState, setPanelState] = useState(() => initialPanelState(projectId, routedGenerate));
+  const [panelState, setPanelState] = useState(() => initialPanelState(projectId));
   if (panelState.projectId !== projectId) {
-    setPanelState(initialPanelState(projectId, routedGenerate));
+    setPanelState(initialPanelState(projectId));
   }
-  const panel = panelState.projectId === projectId ? panelState : initialPanelState(projectId, routedGenerate);
+  const panel = panelState.projectId === projectId ? panelState : initialPanelState(projectId);
   const panelNav = panel.nav;
   // 改动 badge: reported by ChangesView (spec §5); never moves the panel.
   const [changesViewBadge, setChangesViewBadge] = useState(0);
@@ -421,7 +405,6 @@ export function FileWorkspace({
   useEffect(() => {
     if (panelState.projectId === projectId) writeStoredPanelView(projectId, panelState.nav.view);
   }, [panelState.projectId, panelState.nav.view, projectId]);
-  useEffect(() => { clearStudioEntry(projectId); }, [projectId]);
   // Every item open in any view, in the order it was first opened — what the
   // retained viewers and the workspace contexts used to read from the tab
   // strip. NOT stack order: re-opening an item moves it to the top of its
@@ -655,24 +638,21 @@ export function FileWorkspace({
     updatePanel((state) => ({ ...state, extensionsOpen: false, nav: switchPanelView(state.nav, 'game') }));
   }, [gameViewRequest, updatePanel]);
 
-  // Checklist "open assets" lands in 资源库; "generate" and the /generate deep link in 生成.
+  // Checklist "open assets" lands in 资源库; "generate" opens the 生成 page for this game.
   const requestedGameTab = gameTabRequest?.tab;
   const requestedGameTabNonce = gameTabRequest?.nonce;
   useEffect(() => {
     if (!requestedGameTab) return;
+    if (requestedGameTab === 'generate') { openGenerateForGame(projectId); return; }
     updatePanel((state) => ({
       ...state,
       extensionsOpen: false,
-      libraryTypeRequest: requestedGameTab === 'assets'
-        ? { type: 'image', nonce: requestedGameTabNonce ?? 0 }
-        : state.libraryTypeRequest,
-      nav: switchPanelView(state.nav, requestedGameTab === 'generate' ? 'generate' : 'library'),
+      libraryTypeRequest: { type: 'image', nonce: requestedGameTabNonce ?? 0 },
+      nav: switchPanelView(state.nav, 'library'),
     }));
+    // The nonce is the request; a project switch alone is not one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedGameTab, requestedGameTabNonce, updatePanel]);
-  useEffect(() => {
-    if (!routedGenerate) return;
-    updatePanel((state) => ({ ...state, nav: switchPanelView(state.nav, 'generate') }));
-  }, [projectId, routedGenerate, updatePanel]);
 
   const [sourceLineRequest, setSourceLineRequest] = useState<{ projectId: string; name: string; line: number; nonce: number } | null>(null);
   const sourceLineNonce = useRef(0);
@@ -739,16 +719,9 @@ export function FileWorkspace({
       nav: state.nav.view === view ? showPanelRoot(state.nav, view) : switchPanelView(state.nav, view),
     }));
   }
-  /** 生成素材… and "generate from": switch to 生成, handing over the pictures, if any. */
+  /** 生成素材… and "generate from": the 生成 page for this game, handing over the pictures, if any. */
   function openStudio(referencePaths?: string[]) {
-    updatePanel((state) => ({
-      ...state,
-      extensionsOpen: false,
-      studioReferencePaths: referencePaths ?? NO_REFERENCE_PATHS,
-      studioReferenceRequest: referencePaths?.length ? state.studioReferenceRequest + 1 : state.studioReferenceRequest,
-      nav: switchPanelView(state.nav, 'generate'),
-    }));
-    clearStudioEntry(projectId);
+    openGenerateForGame(projectId, referencePaths);
   }
 
   // Terminal items own a daemon PTY that outlives unmount (so view switches
@@ -1531,21 +1504,6 @@ export function FileWorkspace({
               toolbarActions={changesActions}
               onOpenItem={(item) => openInPanel(item, 'changes')}
               onBadgeChange={setChangesViewBadge}
-            />
-            <GenerateView
-              key={`generate:${projectId}`}
-              projectId={projectId}
-              files={visibleFiles}
-              viewerOnly={viewerOnly}
-              hidden={!(panelView === 'generate' && designFilesTabActive)}
-              active={panelView === 'generate'}
-              initialRecipeId={panel.initialRecipeId}
-              referencePaths={panel.studioReferencePaths}
-              referenceRequest={panel.studioReferenceRequest}
-              onOpenFile={openInLibrary}
-              onRefreshFiles={refreshFilesWithoutResult}
-              onOpenExtensions={() => updatePanel((state) => ({ ...state, extensionsOpen: true }))}
-              onOpenAccount={onOpenAccount}
             />
             <LibraryView
               key={`library:${projectId}`}

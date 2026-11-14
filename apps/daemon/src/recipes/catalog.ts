@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs';
+import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { GAME_RECIPES_PROMPT_LIMIT, PluginManifestSchema, resolveLocalizedText, type GameRecipePromptEntry, type RecipeDetail, type RecipeSummary } from '@openpixo/contracts';
 
@@ -36,6 +37,7 @@ export function discoverRecipes(bundledPluginsDir: string): RecipeDetail[] {
         requires: recipe.models?.requires ?? [], verified: readVerification(path.join(root, entry.name)),
         ...(recipe.whenToUse ? { whenToUse: recipe.whenToUse } : {}), ...(recipe.dimension ? { dimension: recipe.dimension } : {}),
         ...(recipe.acts ? { acts: recipe.acts } : {}),
+        ...(recipe.inputs.some(input => input.type === 'character-ref' && input.required) ? { needsGame: true } : {}),
         ...(manifest.pixo.preview?.poster ? { preview: manifest.pixo.preview.poster } : {}), manifest });
     } catch (error) { console.warn(`[recipes] Skipping invalid manifest ${entry.name}: ${error instanceof Error ? error.message : String(error)}`); }
   }
@@ -47,7 +49,28 @@ export function recipeSummaries(recipes: RecipeDetail[], filter: RecipeFilter = 
     && (!filter.category || recipe.category === filter.category)
     && (!filter.engine || recipe.engines.includes('any') || recipe.engines.includes(filter.engine)))
     .map(({ manifest, ...summary }) => ({ ...summary, verified: summary.verified ?? false,
-      title_i18n: manifest.title_i18n, description_i18n: manifest.description_i18n }));
+      title_i18n: manifest.title_i18n, description_i18n: manifest.description_i18n,
+      ...(manifest.examples?.length ? { examples: manifest.examples } : {}) }));
+}
+
+export type RecipeExamplePicture = 'before' | 'after' | 'cover';
+const EXAMPLE_PICTURE = /\.(?:png|jpe?g|webp|gif|avif)$/i;
+
+/**
+ * The file of one example picture a recipe's manifest lists, inside that recipe's own
+ * folder, or null. Nothing a manifest does not name, and nothing outside the folder, is served.
+ */
+export async function resolveRecipeExamplePicture(bundledPluginsDir: string, recipe: RecipeDetail, index: number, which: string): Promise<string | null> {
+  if (which !== 'before' && which !== 'after' && which !== 'cover') return null;
+  const relative = Number.isSafeInteger(index) && index >= 0 ? recipe.manifest.examples?.[index]?.[which] : undefined;
+  if (!relative || path.isAbsolute(relative) || /^[a-z]:/i.test(relative) || !EXAMPLE_PICTURE.test(relative)) return null;
+  try {
+    const root = await realpath(path.join(bundledPluginsDir, 'recipes', recipe.id));
+    const target = await realpath(path.resolve(root, relative));
+    const within = path.relative(root, target);
+    if (!within || path.isAbsolute(within) || within === '..' || within.startsWith(`..${path.sep}`)) return null;
+    return (await stat(target)).isFile() ? target : null;
+  } catch { return null; }
 }
 
 export function findRecipe(recipes: RecipeDetail[], id: string): RecipeDetail {

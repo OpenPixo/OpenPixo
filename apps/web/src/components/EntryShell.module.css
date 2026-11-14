@@ -63,6 +63,15 @@
   height: 0;
 }
 
+/* 生成 is a full-height studio: its own feed scrolls and its prompt bar stays docked, so
+   the card does not scroll and the page reaches the card's edges. */
+:global(.entry-main--scroll).generateScroll { display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
+:global(.entry-main__inner).generateInner { flex: 1; min-height: 0; max-width: none; padding: 0; gap: 0; }
+/* …and it is square and flush with the window: no card inset, corner or rim (owner,
+   2026-11-14). The rail rules add a left inset with up to four classes, so the class
+   repeats to outrank them without !important. */
+:global(.entry-main--scroll).generateScroll.generateScroll.generateScroll.generateScroll { margin: 0; border-radius: 0; box-shadow: none; }
+
 .projectListError {
   display: flex;
   flex-direction: column;

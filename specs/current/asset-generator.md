@@ -40,7 +40,10 @@ Made with the owner, 2026-11-14:
 5. A user's own click may spend credits on any recipe, image, audio or 3D,
    after a quote, the same way the hosted card does today.
 6. Code recipes (Features, Starters) leave 生成素材.
-7. The generator is its own panel view, **生成**, beside 游戏 · 改动 · 文件.
+7. The generator is **one top-level page, 生成**, beside 工坊 in the left rail
+   (2026-11-14, replacing "its own panel view"). It makes art for a game picked at
+   the top of the page, or for **no game**; a no-game result is saved into any game
+   later. The game's panel has no 生成 view.
 8. Results are downloaded to the user's machine and never saved or managed on
    our end (§5.1). History is what is on that machine.
 
@@ -183,6 +186,21 @@ anywhere the user picks.
 ## 6. The generator
 
 ### 6.1 Where it lives
+
+**Current (2026-11-14, later the same day): one page.** `/generate` (no game) and
+`/generate/<projectId>` (that game picked) render `components/generate/GeneratePage.tsx`
+in the entry shell, beside 工坊 (`EntryNavRail` 生成). The game picker at the top
+decides where references come from (the game's files, or pictures uploaded with
+`POST /api/generate/references` into `RUNTIME_DATA_DIR/generate/references`, kept
+30 days) and which runs the history lists (that game's, or every run with its
+game named). 文件's 生成素材…, "以此生成" and the old `/projects/:id/generate` open
+the page with the game picked, handing pictures over in session storage
+(`studio/entry.ts`). The runs, quotes and adoption behind it are `/api/generate/*`
+(`recipes/generate-routes.ts`), the same runs `/api/projects/:id/recipe-runs`
+serves; a run with no game has `projectId: null`, keeps no media task, and is
+saved at the paths the target game's engine gives the recipe's output. An agent's
+token reaches only its own game. The text below this paragraph is the earlier
+panel design and stands where it does not conflict.
 
 Its own panel view, **生成**, beside 游戏 · 改动 · 文件 (decided 2026-11-14). A
 grid plus history does not fit a sheet over 文件. 文件's 生成素材… button, the
@@ -403,7 +421,12 @@ change**; 3 can follow in parallel with 2; 4–6 after 2.
    confirm, this-run grid, history, detail panel, 保存到游戏. Works with credits
    and own key. Removes `HostedImageCard`. Owns `components/studio/*` (new
    `components/generator/*`), the panel view wiring, i18n keys.
-3. **Presets shown as pictures.** Preset row and drawer, `examples` for the 13
+3. **Presets shown as pictures.** Built 2026-11-14 with the page: preset cards
+   (`PresetCards`, media recipes other than the box's plain ones; any-engine ones
+   with no game), a drawer with the examples and the recipe's form
+   (`PresetDrawer`, `RecipeRunner`), the style chip's picture grid in the box
+   (`StyleChoices`). Manifest examples gain `inputs`, `before`, `after`, `cover`,
+   served by `GET /api/recipes/:id/examples/:index/:which`. Originally: Preset row and drawer, `examples` for the 13
    media recipes, style picker grid, code recipes removed from the view. Owns
    recipe folders' `examples/`, `ProjectRecipeCatalog`, `StylePicker`.
 4. **Actions.** Action recipes for §7 image and audio rows on existing services
@@ -417,7 +440,8 @@ change**; 3 can follow in parallel with 2; 4–6 after 2.
 
 ## 12. Open decisions
 
-- **O1 Where it lives.** Decided 2026-11-14: own 生成 view (§6.1).
+- **O1 Where it lives.** Decided 2026-11-14: own 生成 view; the same day changed to
+  one top-level page beside 工坊 that also works with no game (§6.1).
 - **O2 How long staged results stay.** Decided 2026-11-14: results are
   downloaded and not saved or managed on our end (§5.1); unsaved candidates stay
   on the user's machine for the existing 7 days.

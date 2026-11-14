@@ -77,7 +77,7 @@ export function StoreItemPage({ name, projects, onTryExample, onOpenAccount }: {
     finally { setInstalling(false); }
   }
 
-  if (item && isGenerateKind(item.kind)) return <GenerateRedirect projects={projects} />;
+  if (item && isGenerateKind(item.kind)) return <GenerateRedirect />;
 
   // Missing commercial terms stay explicit instead of guessing from an unfamiliar license.
   const commercial = item?.assetLicense?.commercialUse ?? (item && OPEN_LICENSES.includes(item.license) ? true : undefined);

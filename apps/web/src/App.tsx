@@ -3261,7 +3261,6 @@ function AppInner() {
 
           routeFileName={route.fileName}
           routeConversationId={route.conversationId ?? null}
-          routeWorkspaceTab={route.kind === 'project' ? route.workspaceTab : undefined}
           pendingAgentSelection={pendingAgentSelection}
           onAgentSelectionConsumed={() => setPendingAgentSelection(current => current === pendingAgentSelection ? null : current)}
           config={config}

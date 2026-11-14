@@ -166,5 +166,25 @@
         "name": "{{name}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Grass tile, tiled",
+      "title_i18n": {
+        "zh-CN": "草地图块（平铺预览）"
+      },
+      "prompt": "grass with small white flowers",
+      "prompt_i18n": {
+        "zh-CN": "点缀白色小花的草地"
+      },
+      "inputs": {
+        "material": "grass with small white flowers",
+        "view": "top-down",
+        "style": "pixel art",
+        "tileSize": "64",
+        "name": "grass"
+      },
+      "after": "examples/grass-after.webp"
+    }
+  ]
 }

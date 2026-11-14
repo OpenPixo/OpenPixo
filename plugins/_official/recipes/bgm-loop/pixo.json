@@ -172,5 +172,24 @@
         "name": "{{name}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Cozy village at night",
+      "title_i18n": {
+        "zh-CN": "夜晚的温馨村庄"
+      },
+      "prompt": "cozy village at night",
+      "prompt_i18n": {
+        "zh-CN": "夜晚的温馨村庄"
+      },
+      "inputs": {
+        "genre": "chiptune",
+        "mood": "cozy village at night",
+        "lengthSec": "60",
+        "name": "village_night"
+      },
+      "cover": "examples/village_night-cover.webp"
+    }
+  ]
 }

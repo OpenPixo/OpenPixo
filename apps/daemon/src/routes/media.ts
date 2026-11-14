@@ -13,7 +13,7 @@ import type { AnalyticsContext } from '../analytics.js';
 import { defaultMediaExecutionPolicy, mediaPolicyDenial } from '../media/policy.js';
 import { formatMediaTaskDiagnostic } from '../media/diagnostics.js';
 import { findMediaModel, hostedAudioKind, hostedAudioParams, hostedModelSurface, type MediaModel } from '../media/models.js';
-import { ImageOutputSizeError, OPENPIXO_MEDIA_PROVIDER_ID, resolveImageOutputSize } from '@openpixo/contracts';
+import { ImageOutputSizeError, OPENPIXO_MEDIA_PROVIDER_ID, hostedResolution, resolveImageOutputSize } from '@openpixo/contracts';
 import { AccountError } from '../account/errors.js';
 import { CLOUD_REQUEST_ID } from '../account/cloud-media.js';
 import { accountError } from '../account/errors.js';
@@ -1210,8 +1210,11 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
       }
       const projectDir = resolveProjectDir(PROJECTS_DIR, project.id, project.metadata);
       const references = await resolveProjectImageRefs(body.image, body.images, projectDir);
+      const resolution = hostedResolution(body.resolution);
       const quote = await hosted.quote(body.service, {
         prompt: body.prompt, ...(body.aspect !== undefined ? { aspect: body.aspect } : {}), ...(body.style !== undefined ? { style: body.style } : {}),
+        // The generate call sends the same resolution, read the same way, so the quote matches it.
+        ...(resolution ? { resolution } : {}),
       }, references.map(ref => ({ bytes: Buffer.from(ref.dataUrl.slice(ref.dataUrl.indexOf(',') + 1), 'base64'), mime: ref.mime })));
       return res.json(quote);
     } catch (error) {

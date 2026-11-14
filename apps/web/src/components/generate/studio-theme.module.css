@@ -1,0 +1,28 @@
+/*
+ * The 生成 studio's colours: the app's dark tokens (the element carries
+ * data-theme="dark") plus the studio's own. Used by the page and by its dialogs,
+ * which render outside the page. Aliases that :root derives from the light values
+ * resolve there, so this scope declares them again to pick up the dark ones.
+ */
+.studio {
+  --studio-ground: #0C0A13;
+  --studio-glass: rgba(26, 23, 38, 0.8);
+  --studio-edge: rgba(255, 255, 255, 0.09);
+  --studio-on-lime: #141128;
+  --bg: var(--studio-ground);
+  --bg-panel: #16131F;
+  --bg-elevated: #1F1B2C;
+  --pixo-green: var(--lime); --entry-ground: var(--bg);
+  --border: var(--line); --border-strong: var(--line-2); --border-selected: var(--selected);
+  --accent: var(--violet); --accent-strong: var(--violet-strong); --accent-soft: var(--violet-soft); --accent-hover: var(--violet-strong);
+  --brand: var(--accent); --brand-weak: var(--accent-soft); --brand-soft: var(--accent-tint); --brand-text: var(--accent); --brand-ink: var(--accent); --brand-surface: var(--accent-soft);
+  --selected: var(--accent); --selected-soft: var(--violet-soft); --select-ink: var(--accent);
+  --focus-ring: var(--violet); --focus-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft);
+  --send-ground: var(--accent-contrast); --send-ink: var(--accent); --upgrade-ground: var(--accent); --upgrade-ink: var(--accent-contrast);
+  --purple: var(--violet); --purple-bg: var(--violet-soft);
+  --success: var(--green); --warning: var(--amber-ink); --danger: var(--red); --info: var(--blue);
+  --tag-prototype-ink: var(--text-muted); --tag-prototype-tint: var(--bg-subtle); --tag-media-ink: var(--text-muted);
+  --shadow-sm: var(--sh-1); --shadow-md: var(--sh-2); --shadow-lg: var(--sh-3);
+  --code-header-bg: var(--bg-subtle); --code-body-bg: var(--bg-panel);
+  color: var(--ink);
+}

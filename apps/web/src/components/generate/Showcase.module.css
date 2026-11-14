@@ -1,0 +1,55 @@
+/*
+ * 生成's showcase: the drifting wall of games behind the headline, and the style cards.
+ * Pictures carry the page; text sits on them over a dark shade.
+ */
+.wall { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; justify-content: center; gap: 14px; overflow: hidden; pointer-events: none;
+  opacity: 0.55; transform: rotate(-4deg) scale(1.12);
+  -webkit-mask-image: radial-gradient(70% 75% at 50% 45%, #000 30%, transparent 85%); mask-image: radial-gradient(70% 75% at 50% 45%, #000 30%, transparent 85%); }
+.wall[data-empty] { display: none; }
+.wallRow { display: flex; gap: 14px; width: max-content; animation: drift 120s linear infinite; }
+.wallRow[data-reverse] { animation-direction: reverse; animation-duration: 140s; }
+.wallRow img { flex: none; width: 300px; aspect-ratio: 16 / 9; border-radius: 14px; object-fit: cover; box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.9); }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* A strip of cards across the page, scrolling sideways, its ends fading out. Room above and below for the hover lift. */
+.strip { position: relative; min-width: 0; }
+.stripList { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(240px, 22vw, 340px); gap: 16px; margin: -8px 0 -12px; padding: 8px 2px 12px; overflow-x: auto; list-style: none;
+  scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+.stripList::-webkit-scrollbar { display: none; }
+.strip[data-start] .stripList { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.strip[data-end] .stripList { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px); mask-image: linear-gradient(to right, transparent, #000 40px); }
+.strip[data-start][data-end] .stripList { -webkit-mask-image: none; mask-image: none; }
+.stripList > li { scroll-snap-align: start; }
+.arrow { position: absolute; top: 50%; z-index: 2; display: grid; place-items: center; width: 40px; height: 40px; min-height: 0; padding: 0 0 3px; border: 0; border-radius: 20px;
+  color: #fff; font-size: 24px; line-height: 1; cursor: pointer; transform: translateY(-50%);
+  background: rgba(12, 10, 20, 0.72); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 10px 30px -10px rgba(0, 0, 0, 0.9);
+  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), background-color 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.arrow:hover { color: #fff; background: rgba(40, 34, 60, 0.9); }
+.arrow[data-side='start'] { left: -8px; }
+.arrow[data-side='end'] { right: -8px; }
+.strip[data-start] .arrow[data-side='start'], .strip[data-end] .arrow[data-side='end'] { opacity: 0; pointer-events: none; }
+/* Height and padding are set here because the global button rules give every button a fixed height. */
+.style { position: relative; display: block; width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 10; padding: 0; overflow: hidden; border: 0; border-radius: 18px;
+  color: #fff; text-align: left; cursor: pointer; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.style img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 400ms cubic-bezier(0.23, 1, 0.32, 1); }
+.style:hover { color: #fff; transform: translateY(-3px); box-shadow: 0 24px 48px -22px rgba(0, 0, 0, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.style:hover img { transform: scale(1.05); }
+.style[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--lime), 0 0 0 4px rgba(196, 245, 66, 0.14); }
+.style:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--studio-ground, var(--bg)), 0 0 0 4px var(--lime); }
+.styleShade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(8, 6, 14, 0.88), rgba(8, 6, 14, 0.1) 55%, transparent); }
+.styleName { position: absolute; left: 14px; right: 90px; bottom: 12px; overflow: hidden; font-size: 14.5px; font-weight: 650; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
+.styleUse { position: absolute; right: 10px; bottom: 10px; padding: 5px 11px; border-radius: 999px; color: var(--studio-on-lime, #141128); background: var(--lime);
+  font-size: 12px; font-weight: 700; opacity: 0; transform: translateY(4px);
+  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.style:hover .styleUse, .style:focus-visible .styleUse, .style[aria-pressed='true'] .styleUse { opacity: 1; transform: none; }
+
+@media (max-width: 640px) { .stripList { grid-auto-columns: 72vw; } .wallRow img { width: 200px; } .arrow { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wallRow { animation: none; }
+  .style, .style img, .styleUse, .arrow { transition: none; }
+  .style:hover, .style:hover img { transform: none; }
+}

@@ -142,5 +142,24 @@
         "name": "{{name}}_albedo"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Mossy cobblestone, tiled",
+      "title_i18n": {
+        "zh-CN": "苔藓石板路（平铺预览）"
+      },
+      "prompt": "mossy cobblestone path",
+      "prompt_i18n": {
+        "zh-CN": "长着苔藓的石板路"
+      },
+      "inputs": {
+        "material": "mossy cobblestone path",
+        "style": "stylized hand-painted",
+        "resolution": "512",
+        "name": "cobblestone"
+      },
+      "after": "examples/cobblestone-after.webp"
+    }
+  ]
 }

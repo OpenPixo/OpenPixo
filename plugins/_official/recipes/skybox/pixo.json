@@ -148,5 +148,24 @@
         "name": "{{name}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Sunset above the clouds",
+      "title_i18n": {
+        "zh-CN": "云海日落"
+      },
+      "prompt": "floating islands above a sea of clouds",
+      "prompt_i18n": {
+        "zh-CN": "云海之上的浮空岛"
+      },
+      "inputs": {
+        "scene": "floating islands above a sea of clouds",
+        "timeOfDay": "sunset",
+        "style": "stylized painterly",
+        "name": "islands"
+      },
+      "after": "examples/islands-after.webp"
+    }
+  ]
 }

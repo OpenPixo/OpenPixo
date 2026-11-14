@@ -13,11 +13,11 @@ export function mergeRuns(current: readonly RecipeRun[], incoming: readonly Reci
 }
 
 /**
- * This project's runs as the daemon lists them: the user's and the agent's, on this
- * machine only. Read while 生成 is showing, again when the window comes back, and
- * every 1.5 s while any run is still working.
+ * Runs as the daemon lists them, the user's and the agent's, on this machine only: one
+ * game's, or every run when no game is picked. Read while 生成 is showing, again when
+ * the window comes back, and every 1.5 s while any run is still working.
  */
-export function useRunHistory(projectId: string, active: boolean) {
+export function useRunHistory(projectId: string | null, active: boolean) {
   const [runs, setRuns] = useState<RecipeRun[] | null>(null);
   const [failed, setFailed] = useState(false);
   const controller = useRef<AbortController | null>(null);

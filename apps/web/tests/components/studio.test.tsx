@@ -115,13 +115,13 @@ describe('Studio', () => {
       if (url === '/api/projects/game/characters') return json(characters);
       if (url === '/api/recipes/good') return json(good);
       if (url === '/api/recipes/blocked') return json(blocked);
-      if (url === '/api/projects/game/recipe-runs') {
+      if (url === '/api/generate/runs') {
         const body = JSON.parse(String(init?.body));
         return body.recipeId === 'blocked' ? json({ error: { code: 'RECIPE_NO_MODEL', message: reason } }, 409)
           : json({ ...ready, status: 'queued', candidates: [] }, 202);
       }
-      if (url === '/api/projects/game/recipe-runs/run-1') return json(ready);
-      if (url === '/api/projects/game/recipe-runs/run-1/adopt') return json({ ...ready,
+      if (url === '/api/generate/runs/run-1') return json(ready);
+      if (url === '/api/generate/runs/run-1/adopt') return json({ ...ready,
         candidates: ready.candidates.map(candidate => candidate.id === 'candidate-2' ? { ...candidate, adoptedPaths: ['art/fox-2.png'] } : candidate) });
       throw new Error(`Unexpected fetch: ${url}`);
     });
@@ -150,17 +150,17 @@ describe('Studio', () => {
     expect(screen.getByLabelText<HTMLSelectElement>('Reference').value).toBe('art/ref.png');
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
     await screen.findByText(/has-alpha: Failed/);
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/game/recipe-runs', expect.objectContaining({ method: 'POST', body: JSON.stringify({
-      recipeId: 'good', inputs: { aspect: '1:1', variants: 3, reference: 'art/ref.png', prompt: 'A walking fox', character: 'fox' },
+    expect(fetchMock).toHaveBeenCalledWith('/api/generate/runs', expect.objectContaining({ method: 'POST', body: JSON.stringify({
+      recipeId: 'good', inputs: { aspect: '1:1', variants: 3, reference: 'art/ref.png', prompt: 'A walking fox', character: 'fox' }, projectId: 'game',
     }) }));
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/game/recipe-runs/run-1', expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith('/api/generate/runs/run-1', expect.anything());
     fireEvent.click(screen.getByRole('button', { name: 'Enlarge Candidate 2' }));
     expect(screen.getByRole('dialog', { name: 'Candidate 2' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Candidate 2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Adopt selected' }));
     await screen.findByRole('button', { name: 'art/fox-2.png' });
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/game/recipe-runs/run-1/adopt', expect.objectContaining({ method: 'POST', body: '{"candidateIds":["candidate-2"]}' }));
+    expect(fetchMock).toHaveBeenCalledWith('/api/generate/runs/run-1/adopt', expect.objectContaining({ method: 'POST', body: '{"projectId":"game","candidateIds":["candidate-2"]}' }));
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole('button', { name: 'art/fox-2.png' }));
     expect(openFile).toHaveBeenCalledWith('art/fox-2.png');
@@ -175,7 +175,7 @@ describe('Studio', () => {
       if (url === '/api/recipes') return json([code]);
       if (url === '/api/recipes/code') return json(code);
       if (url.endsWith('/characters')) return json([]);
-      if (url.endsWith('/recipe-runs')) return json({ status: 'missing-skills', query: 'Add saves', missingSkills: ['godot-gdscript'] }, 409);
+      if (url.endsWith('/api/generate/runs')) return json({ status: 'missing-skills', query: 'Add saves', missingSkills: ['godot-gdscript'] }, 409);
       throw new Error(url);
     }));
     const extensions = vi.fn();

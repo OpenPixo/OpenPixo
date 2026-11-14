@@ -291,6 +291,7 @@ function reviveTab(value: unknown): WorkspaceChromeTab | null {
       || view === 'plugins'
       || view === 'community'
       || view === 'store'
+      || view === 'generate'
       || view === 'integrations'
     ) {
       return { id, kind: 'entry', view: currentEntryView(view), createdAt, lastActiveAt };
@@ -2134,6 +2135,7 @@ function displayTabFor(
     onboarding: t('settings.welcomeTitle'),
     projects: t('entry.navProjects'),
     store: t('store.title'),
+    generate: t('generate.pageTitle'),
     integrations: t('entry.navIntegrations'),
     drafts: t('entry.navDrafts'),
     'all-projects': t('entry.navAllProjects'),
@@ -2145,6 +2147,7 @@ function displayTabFor(
     onboarding: 'sparkles',
     projects: 'folder',
     store: 'blocks',
+    generate: 'sparkles',
     integrations: 'link',
     drafts: 'file',
     'all-projects': 'folder',

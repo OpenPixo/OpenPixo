@@ -180,5 +180,25 @@
         "name": "{{name}}_{{state}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Wooden panel",
+      "title_i18n": {
+        "zh-CN": "木质面板"
+      },
+      "prompt": "wooden fantasy panel with brass corners",
+      "prompt_i18n": {
+        "zh-CN": "带黄铜包角的奇幻木质面板"
+      },
+      "inputs": {
+        "element": "panel",
+        "state": "normal",
+        "theme": "wooden fantasy panel with brass corners",
+        "style": "hand-painted fantasy",
+        "name": "wood_panel"
+      },
+      "after": "examples/wood_panel-after.webp"
+    }
+  ]
 }

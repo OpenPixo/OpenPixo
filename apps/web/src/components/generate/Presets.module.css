@@ -1,0 +1,125 @@
+/* 生成's presets as pictures (specs/current/asset-generator.md §6.4, slice 3). */
+.muted { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
+.problem { margin: 0; color: var(--red); font-size: 13px; line-height: 1.55; }
+
+/* Each kind has its own light: images violet, audio cyan, 3D blue. */
+.card { --tint: 164, 140, 255; }
+.card[data-surface='audio'] { --tint: 79, 209, 232; }
+.card[data-surface='model3d'] { --tint: 102, 170, 255; }
+
+/* Presets: a picture of what each makes, its name on it. */
+.cards[data-compact] { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+/* On the page: cards in the shared strip (Showcase.module.css), a little narrower than the styles. */
+ul.stripCards { grid-auto-columns: clamp(180px, 14.5vw, 236px); }
+.cards[data-compact] .card { aspect-ratio: 1; border-radius: 14px; }
+.cards[data-compact] .caption { left: 9px; right: 9px; bottom: 8px; }
+.cards[data-compact] .cardTitle { font-size: 12.5px; }
+.cards[data-compact] .before img { width: 28px; height: 28px; }
+.cards[data-compact] .use { display: none; }
+/* Height and padding are set here because the global button rules give every button a fixed height. */
+.card { position: relative; display: block; width: 100%; height: auto; min-height: 0; aspect-ratio: 4 / 5; padding: 0; overflow: hidden; border: 0;
+  border-radius: 20px; color: #fff; text-align: left; white-space: normal; cursor: pointer;
+  background: radial-gradient(100% 75% at 50% 35%, rgba(var(--tint), 0.2), transparent 70%), linear-gradient(to bottom, #1A1626, #110E19);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: box-shadow 220ms cubic-bezier(0.23, 1, 0.32, 1), transform 220ms cubic-bezier(0.23, 1, 0.32, 1); }
+.card:hover { color: #fff; transform: translateY(-4px); box-shadow: inset 0 0 0 1px rgba(var(--tint), 0.55), 0 30px 60px -28px rgba(0, 0, 0, 0.95), 0 0 50px -20px rgba(var(--tint), 0.5); }
+.card[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--lime), 0 0 0 4px rgba(196, 245, 66, 0.14); }
+.card:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--studio-ground, var(--bg)), 0 0 0 4px var(--lime); }
+.art { position: absolute; inset: 0 0 52px; display: grid; place-items: center; overflow: hidden; }
+.art[data-cover] { inset: 0; }
+.after { width: 100%; height: 100%; padding: 18px 16px 6px; object-fit: contain; filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55));
+  transition: transform 450ms cubic-bezier(0.23, 1, 0.32, 1); }
+.art[data-cover] .after { padding: 0; object-fit: cover; filter: none; }
+.card:hover .after { transform: scale(1.06); }
+.before { position: absolute; left: 10px; top: 10px; display: flex; align-items: center; gap: 4px; padding: 3px 7px 3px 3px; border-radius: 10px; color: var(--ink);
+  background: rgba(12, 10, 20, 0.72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.before img { width: 36px; height: 36px; border-radius: 7px; object-fit: cover; background: rgba(255, 255, 255, 0.08); }
+.beforeArrow { color: var(--ink-2); font-size: 12px; }
+.cardShade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(10, 8, 16, 0.92) 0%, rgba(10, 8, 16, 0.4) 22%, transparent 40%); }
+.caption { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 4px; }
+.cardTitle { color: #fff; font-size: 15px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em; }
+/* 做同款 · price: shown on hover (in place of the title), and kept on the one in the box. */
+.use { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px;
+  border-radius: 999px; color: var(--studio-on-lime, #141128); background: var(--lime); font-size: 13px; font-weight: 750;
+  box-shadow: 0 10px 24px -10px rgba(196, 245, 66, 0.85); opacity: 0; transform: translateY(6px);
+  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.usePrice { padding: 2px 8px; border-radius: 999px; background: rgba(20, 17, 40, 0.14); font-size: 12px; font-weight: 700; }
+.card:hover .use, .card:focus-visible .use, .card[aria-pressed='true'] .use { opacity: 1; transform: none; }
+.card:hover .caption, .card:focus-visible .caption, .card[aria-pressed='true'] .caption { opacity: 0; }
+.caption { transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1); }
+
+/* A preset opened: its example large on the left, its form on the right. */
+.drawer { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: min(560px, 80vh); }
+.drawer[data-examples] { grid-template-columns: minmax(0, 1.1fr) minmax(340px, 1fr); }
+.showcase { position: relative; display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; background: #0C0A13;
+  border-right: 1px solid rgba(255, 255, 255, 0.06); }
+.showcaseArt { position: relative; display: grid; flex: 1; place-items: center; min-height: 320px; overflow: hidden; border-radius: 18px;
+  background: radial-gradient(80% 70% at 50% 40%, rgba(164, 140, 255, 0.22), transparent 70%), linear-gradient(to bottom, #1A1626, #110E19);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.showcaseAfter { position: absolute; inset: 0; width: 100%; height: 100%; padding: 28px; object-fit: contain; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.6));
+  animation: art-in 260ms cubic-bezier(0.23, 1, 0.32, 1); }
+.showcaseArt[data-cover] .showcaseAfter { padding: 0; object-fit: cover; filter: none; }
+.showcaseBefore { position: absolute; left: 14px; top: 14px; display: flex; align-items: center; gap: 6px; padding: 4px 9px 4px 4px; border-radius: 12px; color: var(--ink-2);
+  background: rgba(12, 10, 20, 0.75); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.showcaseBefore img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: rgba(255, 255, 255, 0.08); }
+.showcaseCaption { position: absolute; left: 14px; bottom: 12px; padding: 4px 10px; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 600;
+  background: rgba(12, 10, 20, 0.7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+/* The other examples, as thumbnails: a click fills the form with what made it. */
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.example { display: block; width: 64px; height: 64px; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 12px; cursor: pointer; background: #15121E;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); transition: box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.example img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
+.example:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); }
+.example[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--lime); }
+.useExample { align-self: flex-start; height: 34px; min-height: 0; padding: 0 14px; border: 0; border-radius: 999px; color: var(--ink); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.useExample:hover { color: var(--ink); background: rgba(255, 255, 255, 0.12); }
+.useExample[aria-pressed='true'] { color: var(--studio-on-lime, #141128); background: var(--lime); box-shadow: none; }
+
+.panel { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-height: 80vh; padding: 24px 24px 22px; overflow-y: auto; scrollbar-width: thin; }
+.drawerHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.drawerTitle { margin: 0; color: #fff; font: 750 24px/1.2 var(--sans); letter-spacing: -.03em; outline: none; }
+.drawerClose { flex: none; width: 34px; height: 34px; min-height: 0; margin: -4px -6px 0 0; padding: 0; border-radius: 17px; color: var(--ink-2); }
+.drawerLine { margin: 0 0 8px; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
+.drawerForm { display: flex; flex: 1; flex-direction: column; gap: 14px; min-width: 0; }
+
+/*
+ * The shared recipe form, in the studio's dress. It is styled by element and by its
+ * global plugin-inputs-form names, so the form itself stays as it is everywhere else.
+ */
+.drawer .studioForm form { display: flex; flex: 1; flex-direction: column; gap: 16px; }
+.drawer .studioForm fieldset { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; border: 0; }
+.drawer .studioForm :global(.plugin-inputs-form) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.drawer .studioForm :global(.plugin-inputs-form__field) { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.drawer .studioForm :global(.plugin-inputs-form__field)[data-field-type='text'],
+.drawer .studioForm :global(.plugin-inputs-form__field)[data-field-type='string'],
+.drawer .studioForm :global(.plugin-inputs-form__field)[data-field-type='character-ref'],
+.drawer .studioForm :global(.plugin-inputs-form__field)[data-field-type='image-ref'],
+.drawer .studioForm :global(.plugin-inputs-form__field)[data-field-type='asset-ref'] { grid-column: 1 / -1; }
+.drawer .studioForm label { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.drawer .studioForm fieldset > label { display: flex; flex-direction: column; gap: 7px; }
+.drawer .studioForm :global(.plugin-inputs-form__label) { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.drawer .studioForm :global(.plugin-inputs-form__required) { margin-left: 3px; color: var(--lime); }
+.drawer .studioForm select, .drawer .studioForm input:not([type='checkbox']):not([type='radio']):not([type='file']), .drawer .studioForm textarea {
+  width: 100%; height: 44px; padding: 0 14px; border: 0; border-radius: 12px; color: var(--ink); font-size: 14px; font-weight: 500;
+  background-color: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1), background-color 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.drawer .studioForm textarea { height: auto; min-height: 96px; padding: 12px 14px; line-height: 1.55; resize: vertical; }
+.drawer .studioForm select:hover, .drawer .studioForm input:not([type='checkbox']):not([type='radio']):hover, .drawer .studioForm textarea:hover { background-color: rgba(255, 255, 255, 0.08); }
+.drawer .studioForm select:focus, .drawer .studioForm input:not([type='checkbox']):not([type='radio']):focus, .drawer .studioForm textarea:focus {
+  outline: none; border: 0; background-color: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft); }
+.drawer .studioForm select option { color: var(--ink); background: var(--bg-elevated); }
+/* Generate: the lime button, full width at the foot of the form. */
+.drawer .studioForm button[type='submit'] { width: 100%; height: 48px; margin-top: auto; border: 0; border-radius: 999px; color: var(--studio-on-lime, #141128); font-size: 15px; font-weight: 750;
+  background: linear-gradient(120deg, #D6FF5C, var(--lime) 55%, #9BE84A);
+  box-shadow: 0 0 0 1px rgba(196, 245, 66, 0.4), 0 14px 34px -12px rgba(196, 245, 66, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), filter 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.drawer .studioForm button[type='submit']:hover:not(:disabled) { color: var(--studio-on-lime, #141128); background: linear-gradient(120deg, #D6FF5C, var(--lime) 55%, #9BE84A); filter: brightness(1.06); transform: translateY(-1px); }
+.drawer .studioForm button[type='submit']:disabled, .drawer .studioForm button[type='submit']:disabled:hover { color: var(--studio-on-lime, #141128); background: linear-gradient(120deg, #D6FF5C, var(--lime) 55%, #9BE84A);
+  opacity: 0.4; box-shadow: none; transform: none; cursor: not-allowed; }
+.drawer .studioForm button[type='submit']:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--lime); }
+
+@keyframes art-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@media (max-width: 860px) { .drawer[data-examples] { grid-template-columns: minmax(0, 1fr); } .showcase { border-right: 0; } .showcaseArt { min-height: 240px; } .drawer .studioForm :global(.plugin-inputs-form) { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { ul.stripCards { grid-auto-columns: 44vw; } }
+@media (prefers-reduced-motion: reduce) { .card, .use, .after, .showcaseAfter, .example, .drawer .studioForm button[type='submit'] { transition: none; animation: none; } .card:hover, .card:hover .after { transform: none; } }

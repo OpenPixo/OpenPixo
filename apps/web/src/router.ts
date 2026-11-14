@@ -19,6 +19,8 @@ export type EntryHomeView =
   // Persisted workspace tabs resolve these destinations to current views.
   | 'plugins'
   | 'store'
+  // 生成: the one generator for images, audio and 3D, with or without a game.
+  | 'generate'
   | 'integrations'
   | 'community'
   | 'drafts'
@@ -34,10 +36,11 @@ export type Route =
       view: EntryHomeView;
       storeItemName?: string;
       storeTab?: 'style' | 'recipe' | 'character-card';
+      /** 生成 opened for this game (`/generate/:projectId`); absent is the page's last choice. */
+      generateProjectId?: string;
     } | {
       kind: 'project';
       projectId: string;
-      workspaceTab?: 'generate';
       /**
        * Deep-link to a specific conversation inside the project. When
        * present, the project view picks this conversation as the active
@@ -60,13 +63,17 @@ export function parseRoute(pathname: string): Route {
     return { kind: 'home', view: 'store', storeTab: movedStoreTabs[parts[1] as keyof typeof movedStoreTabs] };
   }
   if (parts[0] === 'store') return { kind: 'home', view: 'store', ...(parts[1] ? { storeItemName: decodeURIComponent(parts.slice(1).join('/')) } : {}) };
+  if (parts[0] === 'generate') {
+    return { kind: 'home', view: 'generate', ...(parts[1] ? { generateProjectId: decodeURIComponent(parts[1]) } : {}) };
+  }
   if (parts[0] === 'onboarding') {
     return { kind: 'home', view: 'onboarding' };
   }
   if (parts[0] === 'projects') {
     if (parts[1]) {
       const projectId = decodeURIComponent(parts[1]);
-      if (parts[2] === 'generate') return { kind: 'project', projectId, conversationId: null, fileName: null, workspaceTab: 'generate' };
+      // 生成 used to be a tab of each game; its old address opens the one page with that game picked.
+      if (parts[2] === 'generate') return { kind: 'home', view: 'generate', generateProjectId: projectId };
       // /projects/:id/conversations/:cid[/files/...]
       if (parts[2] === 'conversations' && parts[3]) {
         const conversationId = decodeURIComponent(parts[3]);
@@ -134,6 +141,7 @@ export function buildPath(route: Route): string {
       if (route.storeItemName) return `/store/${encodeURIComponent(route.storeItemName)}`;
       return route.storeTab ? `/store/${{ style: 'styles', recipe: 'recipes', 'character-card': 'character-cards' }[route.storeTab]}` : '/store';
     }
+    if (route.view === 'generate') return route.generateProjectId ? `/generate/${encodeURIComponent(route.generateProjectId)}` : '/generate';
     if (route.view === 'integrations') return '/integrations';
     if (route.view === 'community') return '/';
     if (route.view === 'drafts') return '/drafts';
@@ -145,7 +153,6 @@ export function buildPath(route: Route): string {
   if (route.kind === 'marketplace') return '/marketplace';
   if (route.kind === 'marketplace-detail') return `/marketplace/${encodeURIComponent(route.pluginId)}`;
   const id = encodeURIComponent(route.projectId);
-  if (route.workspaceTab === 'generate') return `/projects/${id}/generate`;
   const file = route.fileName
     ? route.fileName.split('/').map((s) => encodeURIComponent(s)).join('/')
     : null;

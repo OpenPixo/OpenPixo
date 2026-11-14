@@ -163,6 +163,15 @@ export const PluginExampleSchema = z.object({
   title_i18n: z.object({ 'zh-CN': z.string() }).strict().optional(),
   prompt: z.string(),
   prompt_i18n: z.object({ 'zh-CN': z.string() }).strict().optional(),
+  /**
+   * Recipes only: the form values this example fills in besides the prompt, and its
+   * pictures, relative to the plugin folder. `after` is what the recipe made; `before` the
+   * picture it started from, if any; `cover` stands in for a result with no picture (audio).
+   */
+  inputs: z.record(z.unknown()).optional(),
+  before: z.string().refine(isRecipeRelativePath, 'Example pictures must be relative with no ..').optional(),
+  after: z.string().refine(isRecipeRelativePath, 'Example pictures must be relative with no ..').optional(),
+  cover: z.string().refine(isRecipeRelativePath, 'Example pictures must be relative with no ..').optional(),
 }).strict();
 export type PluginExample = z.infer<typeof PluginExampleSchema>;
 

@@ -1,13 +1,14 @@
 import type {
   OpenPixoCloudGenerationJob, OpenPixoGenerationAspect, OpenPixoGenerationAudioKind, OpenPixoGenerationJobState, OpenPixoGenerationParams,
-  OpenPixoGenerationQuote, OpenPixoGenerationReferenceResponse, OpenPixoGenerationService, OpenPixoGenerationServicesResponse,
+  OpenPixoGenerationQuote, OpenPixoGenerationReferenceResponse, OpenPixoGenerationResolution, OpenPixoGenerationService, OpenPixoGenerationServicesResponse,
   OpenPixoModel3dQuality,
 } from '@openpixo/contracts';
-import { isOpenPixoModel3dService, OPENPIXO_MODEL3D_QUALITIES } from '@openpixo/contracts';
+import { isOpenPixoModel3dService, OPENPIXO_GENERATION_ASPECTS, OPENPIXO_GENERATION_RESOLUTIONS, OPENPIXO_MODEL3D_QUALITIES, parseOpenPixoResolution } from '@openpixo/contracts';
 import { AccountError, cloudServiceError } from './errors.js';
 import { record } from './supabase.js';
 
-const ASPECTS: readonly OpenPixoGenerationAspect[] = ['1:1', '2:3', '3:2', '4:3', '3:4', '16:9', '9:16'];
+const ASPECTS: readonly OpenPixoGenerationAspect[] = OPENPIXO_GENERATION_ASPECTS;
+const RESOLUTIONS: readonly unknown[] = OPENPIXO_GENERATION_RESOLUTIONS;
 const SHA256 = /^[0-9a-f]{64}$/u;
 export const MAX_HOSTED_REFERENCES = 4;
 const STATES: readonly OpenPixoGenerationJobState[] = ['queued', 'running', 'checking', 'succeeded', 'failed'];
@@ -37,6 +38,11 @@ function seconds(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= MAX_DURATION_SECONDS ? value : invalid();
 }
 
+function resolutionCredits(value: unknown): Partial<Record<OpenPixoGenerationResolution, number>> {
+  const item = record(value);
+  return Object.fromEntries(OPENPIXO_GENERATION_RESOLUTIONS.filter(key => item[key] !== undefined).map(key => [key, count(item[key])]));
+}
+
 // Cloud responses are re-built field by field; nothing unexpected reaches UI or CLI.
 export function generationServices(value: unknown): OpenPixoGenerationServicesResponse {
   const item = record(value);
@@ -62,11 +68,14 @@ export function generationServices(value: unknown): OpenPixoGenerationServicesRe
       priceVersion: count(row.priceVersion), maxPromptChars: count(row.maxPromptChars),
       ...(row.minPromptChars === undefined || row.minPromptChars === null ? {} : { minPromptChars: count(row.minPromptChars) }),
       ...(length ? { durationSeconds: { min: seconds(length.min), max: seconds(length.max), default: seconds(length.default) } } : {}),
-      aspects: (row.aspects as unknown[]).map((aspect) => ASPECTS.includes(aspect as OpenPixoGenerationAspect) ? aspect as OpenPixoGenerationAspect : invalid()),
+      // A shape newer than this app is left out, like a newer surface: the rest of the service still works.
+      aspects: (row.aspects as unknown[]).filter((aspect): aspect is OpenPixoGenerationAspect => ASPECTS.includes(aspect as OpenPixoGenerationAspect)),
+      ...(Array.isArray(row.resolutions) ? { resolutions: row.resolutions.filter((value): value is OpenPixoGenerationResolution => RESOLUTIONS.includes(value)) } : {}),
       styles: (row.styles as unknown[]).slice(0, 50).map((style) => text(style, 100)),
       references: { min: count(references.min), max: Math.min(count(references.max), MAX_HOSTED_REFERENCES) },
       pricing: { longPromptTokens: count(pricing.longPromptTokens), longPromptCredits: count(pricing.longPromptCredits),
-        maxPromptTokens: count(pricing.maxPromptTokens), extraReferenceCredits: count(pricing.extraReferenceCredits) },
+        maxPromptTokens: count(pricing.maxPromptTokens), extraReferenceCredits: count(pricing.extraReferenceCredits),
+        ...(pricing.resolutionCredits === undefined || pricing.resolutionCredits === null ? {} : { resolutionCredits: resolutionCredits(pricing.resolutionCredits) }) },
     };
   });
   return { services, generationPaused: item.generationPaused };
@@ -79,7 +88,8 @@ export function generationQuote(value: unknown): OpenPixoGenerationQuote {
   const breakdown = record(item.breakdown);
   return { quoteId: uuid(item.quoteId), service: serviceId(item.service), credits: count(item.credits),
     priceVersion: count(item.priceVersion), paramsDigest: digest, expiresAt: date(item.expiresAt), available: Number.isSafeInteger(item.available) ? item.available as number : invalid(),
-    breakdown: { base: count(breakdown.base), longPrompt: count(breakdown.longPrompt), extraReferences: count(breakdown.extraReferences) } };
+    breakdown: { base: count(breakdown.base), longPrompt: count(breakdown.longPrompt), extraReferences: count(breakdown.extraReferences),
+      ...(breakdown.resolution === undefined ? {} : { resolution: count(breakdown.resolution) }) } };
 }
 
 export function generationReference(value: unknown): OpenPixoGenerationReferenceResponse {
@@ -118,11 +128,14 @@ export function generationParams(value: unknown): OpenPixoGenerationParams {
   const item = record(value);
   if (typeof item.prompt !== 'string' || !item.prompt.trim() || item.prompt.length > 12_000) throw new AccountError('GENERATION_PARAMS_INVALID');
   if (item.aspect !== undefined && !ASPECTS.includes(item.aspect as OpenPixoGenerationAspect)) throw new AccountError('GENERATION_PARAMS_INVALID');
+  if (item.resolution !== undefined && parseOpenPixoResolution(item.resolution) !== item.resolution) throw new AccountError('GENERATION_PARAMS_INVALID');
   if (item.style !== undefined && (typeof item.style !== 'string' || !item.style || item.style.length > 100)) throw new AccountError('GENERATION_PARAMS_INVALID');
   if (item.duration !== undefined && (typeof item.duration !== 'number' || !Number.isFinite(item.duration) || item.duration <= 0 || item.duration > MAX_DURATION_SECONDS)) throw new AccountError('GENERATION_PARAMS_INVALID');
   if (item.references !== undefined && (!Array.isArray(item.references) || item.references.length > MAX_HOSTED_REFERENCES
     || item.references.some((ref) => typeof ref !== 'string' || !SHA256.test(ref)))) throw new AccountError('GENERATION_PARAMS_INVALID');
   return { prompt: item.prompt, ...(item.aspect !== undefined ? { aspect: item.aspect as OpenPixoGenerationAspect } : {}),
+    // `1k` is the default; leaving it out keeps the request what price version 2 quoted.
+    ...(item.resolution !== undefined && item.resolution !== '1k' ? { resolution: item.resolution as OpenPixoGenerationResolution } : {}),
     ...(item.style !== undefined ? { style: item.style as string } : {}),
     ...(item.duration !== undefined ? { duration: item.duration as number } : {}),
     ...(Array.isArray(item.references) && item.references.length ? { references: item.references as string[] } : {}) };

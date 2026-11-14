@@ -7,7 +7,7 @@
 - The AI can now see pictures when it uses DeepSeek V4.1 Flash: your screenshots, its own art and how the game looks while it plays it. Set a style reference image, and the AI uses it when it makes new art.
 - Art spending: choose **Ask me first** (the AI lists the art it wants to make and waits) or **Spend within budget**.
 - Moving characters get real animation frames, and a set of small images is made together at the price of one. **Check animation frames** and **Align animation frames** fix frames that jump or slide.
-- The **Generate** tab makes images, sound effects, voice, music and 3D models in one place, and recipes can now use your credits at a price you see first.
+- **Generate** has its own place in the left bar, next to the Workshop: make images, sound effects, voice, music and 3D models for any of your games, or before you have one, then save the results into a game. Presets show what they make as pictures, styles are picked from pictures, and recipes can now use your credits at a price you see first. Images come in eight shapes (21:9 included) at 1K, 2K or 4K, up to 8 at a time; a larger size costs a little more.
 - **Export playable game** saves a web game as one HTML file that plays offline. Double-click it or send it to a friend.
 - Pixel-art games stay sharp and their text stays readable.
 - OpenPixo starts faster on Windows, and the update button no longer covers the window buttons.
@@ -20,7 +20,7 @@ This build is not code signed yet. Windows may show "Unknown publisher" the firs
 - 用 DeepSeek V4.1 Flash 时 AI 能看图了：你的截图、它自己做的美术、试玩时游戏的样子。设一张风格参考图，AI 做新美术时会参考它。
 - 做素材怎么花积分：选「先问我」（AI 先列出要做的素材，等你同意），或「在预算内直接做」。
 - 会动的角色有真正的动画帧；同一画风的一组小图一起做，只花一张图的钱。「检查动画帧」和「对齐动画帧」能修好跳动、滑步的帧。
-- 「生成」页可以做图片、音效、配音、音乐和 3D 模型；配方现在也能用积分，花多少先告诉你。
+- 「生成」在左侧栏有了自己的位置，就在工坊旁边：为任意一个游戏做图片、音效、配音、音乐和 3D 模型，还没有游戏也能先做，之后再保存到游戏里。预设用图片展示能做出什么，画风也看图挑选；配方现在也能用积分，花多少先告诉你。图片有 8 种比例（含 21:9），可选 1K、2K、4K，一次最多 8 张；尺寸越大积分略多。
 - 「导出可玩版本」把网页游戏存成一个能离线玩的 HTML 文件，双击就能玩，也能直接发给朋友。
 - 像素风游戏画面保持清晰，字也看得清。
 - 在 Windows 上启动更快；更新按钮不再挡住窗口右上角的按钮。

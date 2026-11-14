@@ -34,7 +34,37 @@ export function isOpenPixoModel3dService(id: unknown): boolean {
 /** What is quoted and sent as a 3D service's prompt, whatever a caller typed, so a quote never drifts. */
 export const OPENPIXO_MODEL3D_PROMPT = 'A textured 3D model of the object in the reference image.';
 
-export type OpenPixoGenerationAspect = '1:1' | '2:3' | '3:2' | '4:3' | '3:4' | '16:9' | '9:16';
+export type OpenPixoGenerationAspect = '1:1' | '2:3' | '3:2' | '4:3' | '3:4' | '16:9' | '9:16' | '21:9';
+/** Every shape, in the order a picker shows them. `21:9` is listed only to apps that ask for `generation-services?v=4`. */
+export const OPENPIXO_GENERATION_ASPECTS: readonly OpenPixoGenerationAspect[] = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9'];
+
+/** How large a hosted image is: about 1, 4 or 8 megapixels. `1k` is the default and the base price. */
+export type OpenPixoGenerationResolution = '1k' | '2k' | '4k';
+export const OPENPIXO_GENERATION_RESOLUTIONS: readonly OpenPixoGenerationResolution[] = ['1k', '2k', '4k'];
+export const OPENPIXO_GENERATION_DEFAULT_RESOLUTION: OpenPixoGenerationResolution = '1k';
+
+/**
+ * The pixel size a hosted image service renders for each resolution and shape. Both edges are
+ * multiples of 16, no edge is over 3840 and no image is over 8,294,400 pixels, which is what the
+ * image model takes. 1K keeps the sizes price version 2 sold.
+ */
+export const OPENPIXO_IMAGE_SIZES: Readonly<Record<OpenPixoGenerationResolution, Readonly<Record<OpenPixoGenerationAspect, { width: number; height: number }>>>> = {
+  '1k': {
+    '1:1': { width: 1024, height: 1024 }, '4:3': { width: 1024, height: 768 }, '3:4': { width: 768, height: 1024 },
+    '16:9': { width: 1360, height: 768 }, '9:16': { width: 768, height: 1360 }, '3:2': { width: 1536, height: 1024 },
+    '2:3': { width: 1024, height: 1536 }, '21:9': { width: 1792, height: 768 },
+  },
+  '2k': {
+    '1:1': { width: 2048, height: 2048 }, '4:3': { width: 2304, height: 1728 }, '3:4': { width: 1728, height: 2304 },
+    '16:9': { width: 2560, height: 1440 }, '9:16': { width: 1440, height: 2560 }, '3:2': { width: 2304, height: 1536 },
+    '2:3': { width: 1536, height: 2304 }, '21:9': { width: 2688, height: 1152 },
+  },
+  '4k': {
+    '1:1': { width: 2880, height: 2880 }, '4:3': { width: 3264, height: 2448 }, '3:4': { width: 2448, height: 3264 },
+    '16:9': { width: 3840, height: 2160 }, '9:16': { width: 2160, height: 3840 }, '3:2': { width: 3456, height: 2304 },
+    '2:3': { width: 2304, height: 3456 }, '21:9': { width: 3840, height: 1648 },
+  },
+};
 
 /** Server-side price rules beyond the base price; all amounts are credits. */
 export interface OpenPixoGenerationPricing {
@@ -45,6 +75,8 @@ export interface OpenPixoGenerationPricing {
   maxPromptTokens: number;
   /** Each reference image beyond the first. */
   extraReferenceCredits: number;
+  /** Credits added for a resolution above `1k`; absent for a service with one size. */
+  resolutionCredits?: Partial<Record<OpenPixoGenerationResolution, number>>;
 }
 
 export type OpenPixoGenerationAudioKind = 'sfx' | 'speech' | 'music';
@@ -68,6 +100,8 @@ export interface OpenPixoGenerationService {
   durationSeconds?: { min: number; max: number; default: number };
   /** Empty when the service takes no shape, which is every audio service. */
   aspects: OpenPixoGenerationAspect[];
+  /** The resolutions an image service renders, `1k` first; absent means `1k` only. */
+  resolutions?: OpenPixoGenerationResolution[];
   /** Fixed style presets; for a speech service, its voices. Empty when the service has none. */
   styles: string[];
   /** How many reference images the service takes; `{ min: 0, max: 0 }` for text-to-image. */
@@ -85,6 +119,8 @@ export interface OpenPixoGenerationServicesResponse {
 export interface OpenPixoGenerationParams {
   prompt: string;
   aspect?: OpenPixoGenerationAspect;
+  /** For a service with `resolutions`; absent means `1k`. */
+  resolution?: OpenPixoGenerationResolution;
   style?: string;
   /** Seconds, for a service with `durationSeconds`. The cloud refuses it anywhere else. */
   duration?: number;
@@ -115,7 +151,7 @@ export interface OpenPixoGenerationQuote {
   /** Available credits when the quote was made (reserved credits excluded). */
   available: number;
   /** How `credits` was reached. */
-  breakdown: { base: number; longPrompt: number; extraReferences: number };
+  breakdown: { base: number; longPrompt: number; extraReferences: number; resolution?: number };
 }
 
 /**
@@ -185,4 +221,21 @@ export interface OpenPixoMediaGenerationFields {
 export interface OpenPixoCloudGenerationJob extends OpenPixoGenerationJob {
   /** Where to fetch the artifact once `succeeded`: signed cloud storage, or the vendor's link on direct delivery. */
   download: { url: string; expiresAt: string } | null;
+}
+
+/** A resolution written any way a person or an agent might (`2K`, `2k`), or undefined when it names none of them. */
+export function parseOpenPixoResolution(value: unknown): OpenPixoGenerationResolution | undefined {
+  const lower = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return (OPENPIXO_GENERATION_RESOLUTIONS as readonly string[]).includes(lower) ? lower as OpenPixoGenerationResolution : undefined;
+}
+
+/** Credits a hosted image service adds for a resolution; 0 for `1k` or a service with one size. */
+export function openPixoResolutionCredits(service: Pick<OpenPixoGenerationService, 'pricing'> | undefined, resolution: OpenPixoGenerationResolution | undefined): number {
+  return resolution ? service?.pricing.resolutionCredits?.[resolution] ?? 0 : 0;
+}
+
+/** The resolution a hosted request sends: a larger one when asked for; `1k`, the default, goes unsaid. */
+export function hostedResolution(value: unknown): Exclude<OpenPixoGenerationResolution, '1k'> | undefined {
+  const parsed = parseOpenPixoResolution(value);
+  return parsed === '1k' ? undefined : parsed;
 }

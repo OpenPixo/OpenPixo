@@ -23,23 +23,36 @@ export function studioRunErrorMessage(cause: unknown, fallback: string, codexMes
 }
 
 /** A recipe's form, its run and its results. The title and description above it belong to the detail view. */
-export function RecipeRunner({ projectId, detail, files, characters, referencePaths, viewerOnly, unavailable, missingCapabilities = [], mediaReady = true, projectDimension, engineMismatch,
+export function RecipeRunner({ projectId, saveTo, detail, files, fileLabels, initialInputs, characters, referencePaths, viewerOnly, unavailable, missingCapabilities = [], mediaReady = true, projectDimension, engineMismatch,
   onOpenMediaSettings = openMediaSettings, onNewCharacter,
-  onUnavailable, onAdopted, onOpenFile, onOpenExtensions, onBrowseStyles }: {
-  projectId: string; detail: RecipeDetail; files: ProjectFile[]; characters: CharacterCard[];
+  onUnavailable, onAdopted, onOpenFile, onOpenExtensions, onBrowseStyles, onStarted }: {
+  /** The game the run is for, or null for one made on 生成 with no game. */
+  projectId: string | null;
+  /** Where a run with no game is saved; null until a game is picked. Defaults to the run's own game. */
+  saveTo?: string | null;
+  detail: RecipeDetail; files: ProjectFile[];
+  /** Names to show for references that are not game files (uploaded pictures). */
+  fileLabels?: Readonly<Record<string, string>>;
+  /** An example's values, filled in over the recipe's defaults. */
+  initialInputs?: Readonly<Record<string, unknown>> | undefined;
+  characters: CharacterCard[];
   referencePaths: string[]; viewerOnly?: boolean; unavailable?: string; missingCapabilities?: string[]; mediaReady?: boolean;
   projectDimension?: ProjectArtDimension | null; engineMismatch?: boolean;
   onOpenMediaSettings?: () => void;
   onBrowseStyles?: () => void;
   onNewCharacter?: () => void;
   onUnavailable: (reason: string) => void; onAdopted: () => Promise<void>; onOpenFile: (path: string) => void; onOpenExtensions: () => void;
+  /** A run started here, so the page's history shows it at once. */
+  onStarted?: (run: RecipeRun) => void;
 }) {
   const { locale, t } = useI18n();
   const copy = studioCopy(locale);
   const recipe = detail.manifest.pixo!.recipe!;
   const hasCountInput = recipe.inputs.some(field => field.type === 'count');
   const fields = useMemo(() => localizedRecipeInputs(recipe.inputs, locale), [recipe.inputs, locale]);
-  const [inputs, setInputs] = useState<Record<string, unknown>>(() => Object.fromEntries(fields.filter(field => field.default !== undefined).map(field => [field.name, field.default])));
+  const [inputs, setInputs] = useState<Record<string, unknown>>(() => ({
+    ...Object.fromEntries(fields.filter(field => field.default !== undefined).map(field => [field.name, field.default])), ...initialInputs }));
+  const target = saveTo === undefined ? projectId : saveTo;
   const [valid, setValid] = useState(false);
   const [count, setCount] = useState(recipe.generation?.count.default ?? 1);
   const [styleId, setStyleId] = useState<string | null | undefined>();
@@ -65,7 +78,7 @@ export function RecipeRunner({ projectId, detail, files, characters, referencePa
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
       try {
-        const next = await getStudioRun(projectId, runId!, controller.signal);
+        const next = await getStudioRun(runId!, controller.signal);
         if (controller.signal.aborted) return;
         setRun(next); setPollError('');
         if (studioRunIsActive(next)) timer = setTimeout(() => void poll(), 1500);
@@ -87,7 +100,7 @@ export function RecipeRunner({ projectId, detail, files, characters, referencePa
         ...(recipe.surface !== 'code' && !hasCountInput ? { count } : {}) });
       if (!mounted.current) return;
       setSelected([]);
-      if ('candidates' in result) { setRun(result); setCodeRun(null); }
+      if ('candidates' in result) { setRun(result); setCodeRun(null); onStarted?.(result); }
       else { setRun(null); setCodeRun(result); }
     } catch (cause) {
       if (!mounted.current) return;
@@ -97,10 +110,10 @@ export function RecipeRunner({ projectId, detail, files, characters, referencePa
     } finally { if (mounted.current) setPending(false); }
   }
   async function adopt() {
-    if (!run || viewerOnly || pending || !selected.length) return;
+    if (!run || viewerOnly || pending || !selected.length || !target) return;
     setPending(true); setError('');
     try {
-      const next = await adoptStudioCandidates(projectId, run.id, selected);
+      const next = await adoptStudioCandidates(target, run.id, selected);
       if (!mounted.current) return;
       setRun(next); setSelected([]);
       await onAdopted();
@@ -116,7 +129,7 @@ export function RecipeRunner({ projectId, detail, files, characters, referencePa
     {detail.verified !== true && !isStarterRecipe(detail) && <p className={styles.muted} role="note">{t('studio.panel.untestedNote')}</p>}
     <form onSubmit={event => void generate(event)} className={styles.form}>
       <fieldset className={styles.fieldset} disabled={pending || active || viewerOnly}>
-        <RecipeInputs fields={fields} values={inputs} files={files} characters={characters} maxCount={recipe.generation?.count.max ?? 4}
+        <RecipeInputs fields={fields} values={inputs} files={files} fileLabels={fileLabels} characters={characters} maxCount={recipe.generation?.count.max ?? 4}
           onChange={setInputs} onValidityChange={setValid} onNewCharacter={onNewCharacter} />
         {recipe.surface !== 'code' && !hasCountInput && <label className={styles.field}>{copy.count}<Input type="number" min={1}
           max={recipe.generation?.count.max ?? 4} step={1} value={count}
@@ -138,7 +151,8 @@ export function RecipeRunner({ projectId, detail, files, characters, referencePa
         <Button size="sm" onClick={onOpenExtensions}>{copy.extensions}</Button></> : <p>{copy.started}{codeRun.runId ? ` · ${codeRun.runId}` : ''}</p>}
     </div>}
     {pollError && <div role="alert" className={styles.error}><p>{pollError}</p><Button size="sm" onClick={() => setPollRetry(value => value + 1)}>{copy.retry}</Button></div>}
-    {run && <CandidateGrid run={run} selected={selected} pending={pending} readOnly={viewerOnly}
+    {run && !target && <p className={styles.muted} role="note">{t('generate.pickGameToSave')}</p>}
+    {run && <CandidateGrid run={run} selected={selected} pending={pending} readOnly={viewerOnly || !target}
       onSelect={setSelected} onAdopt={() => void adopt()} onOpenFile={onOpenFile} />}
   </div>;
 }

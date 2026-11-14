@@ -180,5 +180,25 @@
         "name": "{{setName}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Potion set",
+      "title_i18n": {
+        "zh-CN": "药水图标组"
+      },
+      "prompt": "red health potion, blue mana potion, green poison flask, golden elixir",
+      "prompt_i18n": {
+        "zh-CN": "红色生命药水，蓝色法力药水，绿色毒药瓶，金色灵药"
+      },
+      "inputs": {
+        "items": "red health potion, blue mana potion, green poison flask, golden elixir",
+        "grid": "2x2",
+        "style": "pixel art",
+        "iconSize": "64",
+        "setName": "potions"
+      },
+      "after": "examples/potions-after.webp"
+    }
+  ]
 }

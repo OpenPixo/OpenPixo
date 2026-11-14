@@ -6,7 +6,9 @@ import {
   type ArtBudgetApproval,
   OPENPIXO_MODEL3D_PROMPT,
   type OpenPixoGenerationAspect,
+  type OpenPixoGenerationResolution,
   type OpenPixoGenerationService,
+  parseOpenPixoResolution,
   type ProjectArtBudget,
   type ProjectMetadata,
 } from '@openpixo/contracts';
@@ -25,6 +27,8 @@ export interface AgentHostedRequest {
   prompt: string;
   /** The exact aspect that was priced; absent when the request names none. */
   aspect?: OpenPixoGenerationAspect | undefined;
+  /** The resolution that was priced; absent means `1k`. */
+  resolution?: OpenPixoGenerationResolution | undefined;
   /** The exact voice and length that were priced, for audio. */
   style?: string | undefined;
   duration?: number | undefined;
@@ -51,7 +55,7 @@ export interface AgentHostedRequestInput {
   prompt: unknown;
   pixelArt: boolean;
   /** Read for shape only. No quote, price or request id is ever taken from here. */
-  body: { image?: unknown; images?: unknown; width?: unknown; height?: unknown; aspect?: unknown; background?: unknown; voice?: unknown; duration?: unknown };
+  body: { image?: unknown; images?: unknown; width?: unknown; height?: unknown; aspect?: unknown; resolution?: unknown; background?: unknown; voice?: unknown; duration?: unknown };
   /**
    * Tells apart requests that are meant to be separate images although they read the
    * same, like a recipe's candidates, so each gets its own charge and request id.
@@ -104,12 +108,13 @@ function nearestAspect(wanted: string, offered: readonly OpenPixoGenerationAspec
 }
 
 /** The voice and length count too, but only when set, so an image's open charge still matches after an update. */
-function fingerprintOf(service: string, prompt: string, aspect: string | undefined, references: readonly HostedReferenceImage[], style?: string, duration?: number, variant?: number): string {
+function fingerprintOf(service: string, prompt: string, aspect: string | undefined, references: readonly HostedReferenceImage[], style?: string, duration?: number, variant?: number, resolution?: string): string {
   const hashes = references.map(reference => createHash('sha256').update(reference.bytes).digest('hex'));
   const audio = style === undefined && duration === undefined ? [] : [style ?? null, duration ?? null];
   // Like the audio fields, only when set, so a single request's open charge still matches.
   const variants = variant === undefined ? [] : [{ variant }];
-  return createHash('sha256').update(JSON.stringify([service, prompt, aspect ?? null, hashes, ...audio, ...variants])).digest('hex');
+  const size = resolution === undefined ? [] : [{ resolution }];
+  return createHash('sha256').update(JSON.stringify([service, prompt, aspect ?? null, hashes, ...audio, ...variants, ...size])).digest('hex');
 }
 
 /** What the service's own catalogue entry allows for one audio request, checked before it is priced. */
@@ -142,6 +147,8 @@ function planHostedAudio(entry: OpenPixoGenerationService | undefined, service: 
 export interface HostedRequestPlan {
   prompt: string;
   aspect?: OpenPixoGenerationAspect | undefined;
+  /** Above `1k` only, and only for a service that offers it. */
+  resolution?: OpenPixoGenerationResolution | undefined;
   style?: string | undefined;
   duration?: number | undefined;
   references: HostedReferenceImage[];
@@ -166,6 +173,7 @@ export async function planHostedRequest(input: HostedRequestPlanInput):
   if (!model3d && (typeof input.prompt !== 'string' || !input.prompt.trim())) return refuse(400, 'GENERATION_PARAMS_INVALID', 'A prompt is required.');
   let references: HostedReferenceImage[] = [];
   let aspect: string | undefined;
+  let resolution: OpenPixoGenerationResolution | undefined;
   let style: string | undefined;
   let duration: number | undefined;
   const warnings: string[] = [];
@@ -196,11 +204,18 @@ export async function planHostedRequest(input: HostedRequestPlanInput):
           if (nearest) { warnings.push(`aspect ${aspect} rendered as ${nearest}, the nearest this service offers`); aspect = nearest; }
         }
       }
+      // 1K is the base size and goes unsaid; a larger one is sent only where the service sells it.
+      const asked = plan ? parseOpenPixoResolution(body.resolution) : undefined;
+      if (asked && asked !== '1k') {
+        const offered = (await hosted.services()).services.find(entry => entry.id === service)?.resolutions ?? [];
+        if (offered.includes(asked)) resolution = asked;
+        else warnings.push(`resolution ${asked} is not offered by this service; rendered at 1k`);
+      }
     }
   } catch (error) {
     return fromCloud(error);
   }
-  return { ok: true, plan: { prompt, aspect: aspect as OpenPixoGenerationAspect | undefined, ...(style !== undefined ? { style } : {}),
+  return { ok: true, plan: { prompt, aspect: aspect as OpenPixoGenerationAspect | undefined, ...(resolution ? { resolution } : {}), ...(style !== undefined ? { style } : {}),
     ...(duration !== undefined ? { duration } : {}), references, warnings } };
 }
 
@@ -231,15 +246,15 @@ export async function prepareAgentHostedRequest(input: AgentHostedRequestInput):
   }
   const planned = await planHostedRequest(input);
   if (!planned.ok) return planned;
-  const { prompt, aspect, style, duration, references, warnings } = planned.plan;
+  const { prompt, aspect, resolution, style, duration, references, warnings } = planned.plan;
 
-  const fingerprint = fingerprintOf(service, prompt, aspect, references, style, duration, input.variant);
+  const fingerprint = fingerprintOf(service, prompt, aspect, references, style, duration, input.variant, resolution);
   const runId = grant.runId ?? null;
   // In ask mode only an approved art card pays. Planning's style samples are the
   // exception: the plan gate ahead of this already holds them to a few images.
   const requireApproval = ledger.readMode(projectId) === 'ask' && !gamePlanIsPending(input.metadata);
   const request = (charge: { quoteId: string; requestId: string }): AgentHostedDecision => ({ ok: true, hosted: {
-    quoteId: charge.quoteId, cloudRequestId: charge.requestId, prompt, aspect: aspect as OpenPixoGenerationAspect | undefined,
+    quoteId: charge.quoteId, cloudRequestId: charge.requestId, prompt, aspect: aspect as OpenPixoGenerationAspect | undefined, ...(resolution ? { resolution } : {}),
     ...(style !== undefined ? { style } : {}), ...(duration !== undefined ? { duration } : {}), warnings,
   } });
 
@@ -254,7 +269,7 @@ export async function prepareAgentHostedRequest(input: AgentHostedRequestInput):
 
   let quote;
   try {
-    quote = await hosted.quote(service, { prompt, ...(aspect ? { aspect: aspect as OpenPixoGenerationAspect } : {}),
+    quote = await hosted.quote(service, { prompt, ...(aspect ? { aspect: aspect as OpenPixoGenerationAspect } : {}), ...(resolution ? { resolution } : {}),
       ...(style !== undefined ? { style } : {}), ...(duration !== undefined ? { duration } : {}) }, references);
   } catch (error) {
     return fromCloud(error);

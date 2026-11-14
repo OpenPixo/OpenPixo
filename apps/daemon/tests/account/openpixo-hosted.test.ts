@@ -181,13 +181,24 @@ describe('hosted audio', () => {
     expect(() => generationJob(job('succeeded', { artifact: { mime: 'audio/wav', bytes: 10, sha256: null } }))).toThrow();
   });
 
-  it('asks the cloud for every surface and every 3D tier', async () => {
+  it('reads image resolutions and their prices, and leaves out a shape it does not know', () => {
+    const image = { id: 'openpixo-image', surface: 'image', label: 'Image', credits: 4, priceVersion: 3, maxPromptChars: 12000,
+      aspects: ['1:1', '21:9', '5:1'], resolutions: ['1k', '2k', '4k', '8k'], styles: [], references: { min: 0, max: 0 },
+      pricing: { longPromptTokens: 2000, longPromptCredits: 1, maxPromptTokens: 3000, extraReferenceCredits: 1, resolutionCredits: { '2k': 2, '4k': 5 } } };
+    const [service] = generationServices({ generationPaused: false, services: [image] }).services;
+    expect(service).toMatchObject({ aspects: ['1:1', '21:9'], resolutions: ['1k', '2k', '4k'], pricing: { resolutionCredits: { '2k': 2, '4k': 5 } } });
+    expect(generationParams({ prompt: 'a chest', resolution: '2k' })).toEqual({ prompt: 'a chest', resolution: '2k' });
+    expect(generationParams({ prompt: 'a chest', resolution: '1k' })).toEqual({ prompt: 'a chest' });
+    expect(() => generationParams({ prompt: 'a chest', resolution: '2K' })).toThrow();
+  });
+
+  it('asks the cloud for every surface, every 3D tier and every image size', async () => {
     const h = await accountHarness();
     cleanup.push(h.close);
     let query = '';
     h.cloud.handlers.set('GET /functions/v1/generation-services', (request) => { query = request.url.search; return { body: { generationPaused: false, services: [] } }; });
     await h.account.generationServices();
-    expect(query).toBe('?v=3');
+    expect(query).toBe('?v=4');
   });
 });
 

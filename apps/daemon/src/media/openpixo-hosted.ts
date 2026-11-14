@@ -469,7 +469,7 @@ export class OpenPixoHostedMedia {
       usedStubFallback: false, intentionalStub: false, warnings: [] as string[], cloudJobId: job.jobId, creditsCharged: charged,
       assetProvenance: {
         contentHash: sha256, provider: 'openpixo', model: link.service, promptText: params.prompt,
-        params: { surface, aspect: params.aspect, style: params.style, duration: params.duration, cloudJobId: job.jobId, cloudRequestId: link.request_id },
+        params: { surface, aspect: params.aspect, resolution: params.resolution, style: params.style, duration: params.duration, cloudJobId: job.jobId, cloudRequestId: link.request_id },
         referenceHashes: params.references ?? [],
       } satisfies GeneratedProjectAssetFile['assetProvenance'],
     };

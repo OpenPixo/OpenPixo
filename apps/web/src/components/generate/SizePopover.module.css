@@ -1,0 +1,61 @@
+/*
+ * The box's 比例 · 分辨率 and 数量 pills and the panels they open: dark glass under the
+ * pill, shapes drawn to their proportions, sizes with what they add to the price.
+ */
+.trigger { display: inline-flex; align-items: center; gap: 8px; height: 34px; min-height: 0; padding: 0 10px 0 12px; border: 0; border-radius: 999px; color: var(--ink);
+  background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.trigger:hover { background: rgba(255, 255, 255, 0.1); }
+.trigger[aria-expanded='true'] { background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1px rgba(var(--tint, 164, 140, 255), 0.7); }
+.trigger:focus-visible { outline: none; box-shadow: inset 0 0 0 1px rgba(var(--tint, 164, 140, 255), 0.9), 0 0 0 3px rgba(var(--tint, 164, 140, 255), 0.25); }
+.value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dot { width: 3px; height: 3px; border-radius: 2px; background: var(--faint, rgba(255, 255, 255, 0.35)); }
+.caret { width: 6px; height: 6px; margin: -3px 0 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg);
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.trigger[aria-expanded='true'] .caret { margin-top: 3px; transform: rotate(-135deg); }
+
+.ratioBox { display: inline-grid; flex: none; place-items: center; }
+.ratio { display: block; border: 1.5px solid currentColor; border-radius: 3px; opacity: 0.85; }
+/* Three stacked cards: how many. */
+.stack { position: relative; width: 14px; height: 14px; border: 1.5px solid currentColor; border-radius: 3px; opacity: 0.85;
+  box-shadow: 3px -3px 0 -1.5px var(--studio-glass-solid, #1B1726), 3px -3px 0 0 currentColor; margin: 3px 3px 0 0; }
+
+/* The panel, in the top layer under its pill; it flips above when there is no room below. */
+.panel { position: fixed; inset: auto; top: anchor(bottom); left: anchor(left); margin: 10px 0 0; padding: 16px; overflow: visible;
+  position-try-fallbacks: flip-block, flip-inline; width: max-content; max-width: min(460px, calc(100vw - 32px));
+  border: 0; border-radius: 18px; color: var(--ink);
+  background: linear-gradient(to bottom, rgba(36, 32, 52, 0.98), rgba(26, 23, 38, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 28px 60px -18px rgba(0, 0, 0, 0.85);
+  opacity: 0; transform: translateY(-4px) scale(0.98); transform-origin: top left;
+  transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 140ms cubic-bezier(0.23, 1, 0.32, 1), overlay 140ms allow-discrete, display 140ms allow-discrete; }
+.panel:popover-open { opacity: 1; transform: none; transition-duration: 200ms; }
+@starting-style { .panel:popover-open { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+
+.sections { display: flex; flex-direction: column; gap: 18px; }
+.section { display: flex; flex-direction: column; gap: 10px; }
+.heading { margin: 0; color: var(--muted); font-size: 12.5px; font-weight: 600; letter-spacing: .01em; }
+
+.aspects { display: grid; grid-template-columns: repeat(8, 48px); gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); }
+.aspect, .resolution, .countOption { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 0; padding: 0;
+  border: 0; border-radius: 10px; color: var(--ink-2); background: transparent; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1), color 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.aspect { height: 58px; }
+.aspect:hover:not(:disabled), .resolution:hover:not(:disabled), .countOption:hover { color: var(--ink); background: rgba(255, 255, 255, 0.07); }
+.aspect[aria-checked='true'], .resolution[aria-checked='true'], .countOption[aria-checked='true'] { color: #fff; background: rgba(var(--tint, 164, 140, 255), 0.22);
+  box-shadow: inset 0 0 0 1px rgba(var(--tint, 164, 140, 255), 0.75); }
+.aspect[aria-checked='true'] .ratio { opacity: 1; background: rgba(var(--tint, 164, 140, 255), 0.35); }
+.aspect:disabled, .resolution:disabled { opacity: 0.32; cursor: not-allowed; }
+.aspect:focus-visible, .resolution:focus-visible, .countOption:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(var(--tint, 164, 140, 255), 0.9); }
+
+.resolutions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); }
+.resolution { flex-direction: row; gap: 8px; height: 40px; font-size: 13.5px; }
+.resolutionName { font-weight: 700; }
+.extra { padding: 2px 7px; border-radius: 999px; color: var(--lime); background: rgba(196, 245, 66, 0.1); font-size: 11px; font-weight: 650; }
+.pixels { margin: 0; color: var(--faint, rgba(255, 255, 255, 0.45)); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.counts { display: grid; grid-template-columns: repeat(4, 44px); gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); }
+.countOption { height: 40px; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel, .caret { transition: none; }
+}

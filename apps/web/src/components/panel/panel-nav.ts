@@ -1,6 +1,6 @@
 // Navigation model of the project side panel (specs/current/openpixo-game-panel.md §3).
 //
-// The panel shows one of four views. Each view keeps its own small stack of
+// The panel shows one of three views (生成 is its own page beside 工坊). Each view keeps its own small stack of
 // opened items — a file name, a `terminal:<id>` or a `chat:<id>` — and the top
 // of the current view's stack replaces that view's body. An empty stack shows
 // the view's own root. Switching views never touches a stack, so returning to
@@ -10,9 +10,9 @@
 // moves it, so a single viewer instance (one retained iframe, one terminal
 // surface) is never claimed by two views at once.
 
-export type PanelView = 'game' | 'changes' | 'library' | 'generate';
+export type PanelView = 'game' | 'changes' | 'library';
 
-export const PANEL_VIEWS: readonly PanelView[] = ['game', 'changes', 'library', 'generate'];
+export const PANEL_VIEWS: readonly PanelView[] = ['game', 'changes', 'library'];
 export const DEFAULT_PANEL_VIEW: PanelView = 'game';
 
 export type PanelStacks = Readonly<Record<PanelView, readonly string[]>>;
@@ -22,14 +22,14 @@ export interface PanelNav {
   stacks: PanelStacks;
 }
 
-const EMPTY_STACKS: PanelStacks = { game: [], changes: [], library: [], generate: [] };
+const EMPTY_STACKS: PanelStacks = { game: [], changes: [], library: [] };
 
 export function initialPanelNav(view: PanelView = DEFAULT_PANEL_VIEW): PanelNav {
   return { view, stacks: EMPTY_STACKS };
 }
 
 export function isPanelView(value: unknown): value is PanelView {
-  return value === 'game' || value === 'changes' || value === 'library' || value === 'generate';
+  return value === 'game' || value === 'changes' || value === 'library';
 }
 
 /** The item a view is showing, or null when it shows its own root. */
@@ -186,6 +186,8 @@ export function readStoredPanelView(projectId: string): PanelView {
     window.localStorage.removeItem(legacyWorkspaceTabStorageKey(projectId));
     const saved = window.localStorage.getItem(panelViewStorageKey(projectId));
     if (isPanelView(saved)) return saved;
+    // 生成 was a view here until it became one page for every game; its files were in 资源库.
+    if (saved === 'generate') return 'library';
   } catch {
     // Storage may be unavailable; the panel still works in memory.
   }

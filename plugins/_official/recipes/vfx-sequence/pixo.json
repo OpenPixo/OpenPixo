@@ -176,5 +176,25 @@
         "name": "{{name}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Magic burst, 9 frames",
+      "title_i18n": {
+        "zh-CN": "魔法爆发（9 帧）"
+      },
+      "prompt": "magic explosion burst",
+      "prompt_i18n": {
+        "zh-CN": "魔法爆炸"
+      },
+      "inputs": {
+        "effect": "magic explosion burst",
+        "palette": "purple and gold",
+        "grid": "3x3",
+        "style": "hand-drawn anime",
+        "name": "magic_burst"
+      },
+      "after": "examples/magic_burst-after.webp"
+    }
+  ]
 }

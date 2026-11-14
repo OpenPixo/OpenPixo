@@ -5,7 +5,7 @@ import {
   isGenerateKind,
   isWorkshopItem,
   mostRecentStoreProject,
-  openProjectGenerate,
+  openGenerate,
 } from '../../src/state/store';
 
 vi.mock('../../src/router', () => ({ navigate: vi.fn() }));
@@ -79,15 +79,11 @@ describe('Workshop Generate destination', () => {
     expect(mostRecentStoreProject(projects)).toBe(projects[1]);
   });
 
-  it('opens the selected project directly on its Generate tab', () => {
-    openProjectGenerate({ id: 'latest' });
+  it('opens the 生成 page, with a game picked when one is given', () => {
+    openGenerate('latest');
+    openGenerate(undefined, true);
 
-    expect(navigate).toHaveBeenCalledTimes(1);
-    expect(navigate).toHaveBeenCalledWith({
-      kind: 'project',
-      projectId: 'latest',
-      fileName: null,
-      workspaceTab: 'generate',
-    }, { replace: false });
+    expect(navigate).toHaveBeenNthCalledWith(1, { kind: 'home', view: 'generate', generateProjectId: 'latest' }, { replace: false });
+    expect(navigate).toHaveBeenNthCalledWith(2, { kind: 'home', view: 'generate' }, { replace: true });
   });
 });

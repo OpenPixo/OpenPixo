@@ -13,7 +13,6 @@ const VIEW_LABEL_KEYS = {
   game: 'panel.view.game',
   changes: 'panel.view.changes',
   library: 'panel.view.library',
-  generate: 'panel.view.generate',
 } as const;
 
 export interface PanelHeaderProps {

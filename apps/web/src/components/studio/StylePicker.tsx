@@ -20,16 +20,18 @@ export function StyleThumbnail({ style }: { style?: ArtStyle | null }) {
   </div>;
 }
 
-export function StyleChoices({ items, value, onChange, disabled, firstLabel, firstStyle, firstValue, includeNone }: {
+export function StyleChoices({ items, value, onChange, disabled, firstLabel, firstStyle, firstValue, includeNone, layout = 'row' }: {
   items: ArtStyle[]; value: string | null | undefined; onChange: (id: string | null | undefined) => void;
   disabled?: boolean; firstLabel: string; firstStyle?: ArtStyle | null; firstValue: null | undefined;
   includeNone?: boolean;
+  /** A scrolling row (the default), or a wrapping grid of larger pictures. */
+  layout?: 'row' | 'grid';
 }) {
   const { t } = useI18n();
   const choices = [{ id: firstValue, label: firstLabel, style: firstStyle },
     ...(includeNone ? [{ id: null, label: t('studio.style.none'), style: null }] : []),
     ...items.map(style => ({ id: style.id, label: style.title, style }))];
-  return <div className={styles.choices} role="group" aria-label={t('studio.style.title')}>
+  return <div className={styles.choices} data-layout={layout} role="group" aria-label={t('studio.style.title')}>
     {choices.map(choice => <Button key={choice.id === undefined ? 'project-default' : choice.id === null ? 'no-style' : 'style:' + choice.id} type="button" variant="ghost" className={styles.choice}
       disabled={disabled} aria-pressed={value === choice.id} title={choice.style?.description}
       onClick={() => onChange(choice.id)}>
@@ -42,7 +44,7 @@ export function StyleChoices({ items, value, onChange, disabled, firstLabel, fir
 }
 
 export function RecipeStylePicker({ projectId, value, onChange, disabled, onBrowseStyles, dimension }: {
-  projectId: string; value: string | null | undefined; onChange: (id: string | null | undefined) => void;
+  projectId: string | null; value: string | null | undefined; onChange: (id: string | null | undefined) => void;
   disabled?: boolean; onBrowseStyles?: () => void;
   dimension?: ProjectArtDimension | null;
 }) {

@@ -82,6 +82,32 @@
           "default": "1:1"
         },
         {
+          "name": "resolution",
+          "label": "Resolution",
+          "label_i18n": {
+            "zh-CN": "分辨率"
+          },
+          "type": "select",
+          "options": [
+            "1k",
+            "2k",
+            "4k"
+          ],
+          "optionLabels_i18n": {
+            "en": {
+              "1k": "1K",
+              "2k": "2K",
+              "4k": "4K"
+            },
+            "zh-CN": {
+              "1k": "1K",
+              "2k": "2K",
+              "4k": "4K"
+            }
+          },
+          "default": "1k"
+        },
+        {
           "name": "transparent",
           "label": "Transparent background",
           "label_i18n": {
@@ -110,7 +136,7 @@
       "generation": {
         "count": {
           "default": 4,
-          "max": 4
+          "max": 8
         }
       },
       "output": {

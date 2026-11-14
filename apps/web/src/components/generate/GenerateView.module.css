@@ -1,81 +1,191 @@
-/* 生成, the panel's generator view (specs/current/asset-generator.md §6). */
-.view { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; color: var(--ink); background: var(--bg-panel); }
-.view[hidden] { display: none; }
-.body { display: flex; flex-direction: column; gap: 28px; min-width: 0; padding: 16px 20px 32px; }
+/*
+ * 生成, the one generator page (specs/current/asset-generator.md §6), in two parts.
+ * 创作: a headline, the prompt box, the newest results, then what the box can make
+ * as pictures. 我的作品: every result as a card. Each part scrolls on its own.
+ */
+.view { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; overflow: clip; color: var(--ink); }
+.scroll { position: relative; display: flex; flex: 1; flex-direction: column; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
+.scroll[hidden] { display: none; }
+.scroll > * { flex: none; }
+/* The page's bar floats over the top 64px, so 我的作品 starts below it. */
+.body { width: 100%; max-width: 1680px; min-width: 0; margin: 0 auto; padding: 84px clamp(20px, 3vw, 48px) 48px; }
 
-.sectionTitle { margin: 0; color: var(--ink); font: 600 15px/1.3 var(--sans); letter-spacing: -.015em; }
+/* 创作: the headline and the box, centred; then the sections. */
+.hero { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%;
+  min-height: clamp(340px, 46vh, 460px); margin: 0 auto; padding: 96px 20px 84px; overflow: hidden; text-align: center; }
+/* The headline sits on a dark pool over the drifting wall, so it always reads. */
+.hero::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(42% 46% at 50% 50%, rgba(12, 10, 19, 0.82), transparent 75%), linear-gradient(to bottom, transparent 55%, var(--studio-ground, #0C0A13)); }
+.kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 5px 13px; border-radius: 999px; color: var(--ink); font-size: 12.5px; font-weight: 600;
+  background: rgba(12, 10, 19, 0.6); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.kicker::before { content: ''; width: 7px; height: 7px; border-radius: 4px; background: var(--lime); box-shadow: 0 0 10px var(--lime); }
+.heroTitle { margin: 0; color: #fff; font: 800 clamp(36px, 4.6vw, 62px)/1.04 var(--sans); letter-spacing: -.045em; text-shadow: 0 6px 48px rgba(0, 0, 0, 0.65); }
+/* One word in lime, the brand's own colour, with a soft underglow. */
+.heroAccent { color: var(--lime); text-shadow: 0 0 36px rgba(196, 245, 66, 0.35), 0 6px 48px rgba(0, 0, 0, 0.65); }
+.heroLead { max-width: 560px; margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.6; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8); }
+.heroBox { position: relative; z-index: 1; width: 100%; max-width: 1080px; margin: -52px auto 0; padding: 0 20px; }
+.home { display: flex; flex-direction: column; gap: 56px; width: 100%; max-width: 1680px; margin: 0 auto; padding: 48px clamp(20px, 3vw, 48px) 64px; }
+.homeSection, .recent { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sectionHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; min-width: 0; }
+/* 全部 | 图片 | 音频 at the right of the presets' heading. */
+.presetFilter { margin-left: auto; padding: 3px; gap: 2px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.presetFilter [role='tab'] { height: 28px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 12.5px; }
+.presetFilter [role='tab']:hover:not(:disabled) { color: var(--ink); }
+.presetFilter [role='tab'][aria-selected='true'], .presetFilter [role='tab'][aria-selected='true']:hover:not(:disabled) { color: var(--ink); background: rgba(255, 255, 255, 0.12); box-shadow: none; }
+.sectionLink { display: inline-flex; align-items: center; gap: 4px; height: 28px; min-height: 0; margin-left: auto; padding: 0 10px; border-radius: 9px; color: var(--ink-2); font-size: 12.5px; }
+.sectionLink:hover { color: var(--ink); }
+/* One full row of the newest results, however wide the window: further tiles wrap into rows of no height. */
+.recentTiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-template-rows: auto; grid-auto-rows: 0; column-gap: 12px; row-gap: 0; overflow: hidden; }
+.recentTiles .tile, .recentTiles .tileWaiting { border-radius: 14px; }
+
+/* 我的作品 with nothing in it. */
+.libraryEmpty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: clamp(40px, 12vh, 120px) 20px; text-align: center; }
+.libraryEmptyArt { display: flex; margin-bottom: 6px; }
+.libraryEmptyArt img { width: 120px; aspect-ratio: 3 / 2; border-radius: 14px; object-fit: cover; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.libraryEmptyArt img:nth-child(1) { transform: rotate(-8deg) translate(18px, 6px); }
+.libraryEmptyArt img:nth-child(2) { position: relative; z-index: 1; transform: translateY(-6px); }
+.libraryEmptyArt img:nth-child(3) { transform: rotate(8deg) translate(-18px, 6px); }
+.libraryEmptyTitle { margin: 0; color: var(--ink); font-size: 16px; font-weight: 600; }
+.libraryEmptyButton { height: 40px; padding: 0 18px; border: 0; border-radius: 12px; color: var(--studio-on-lime, #141128); background: var(--lime); font-weight: 650; }
+.libraryEmptyButton:hover { color: var(--studio-on-lime, #141128); background: var(--lime); filter: brightness(1.06); }
+
+@media (max-width: 640px) { .home { padding: 36px 16px 40px; } .body { padding: 16px 16px 32px; } .heroBox { padding: 0 12px; } }
+
+.sectionTitle { margin: 0; color: #fff; font: 700 21px/1.25 var(--sans); letter-spacing: -.025em; }
 .muted { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
-.note { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
-.problem { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0; color: var(--danger, #b42318); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
-.problemText { margin: 0; color: var(--danger, #b42318); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.problem { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0; color: var(--red); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.problemText { margin: 0; color: var(--red); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 
-/* The box: kind, description, options, price and Generate. */
-.box { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-card, 12px); background: var(--bg-panel); }
-.tabs, .subTabs { width: fit-content; max-width: 100%; }
-.fields { display: flex; flex-direction: column; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.prompt { display: block; }
-.prompt textarea { width: 100%; min-height: 76px; resize: vertical; }
-.options { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
-.option { display: flex; flex-direction: column; gap: 4px; color: var(--ink-2); font-size: 12.5px; }
-.check { display: flex; align-items: center; gap: 6px; height: 32px; color: var(--ink-2); font-size: 13px; }
-.check > input { width: 14px; height: 14px; margin: 0; padding: 0; }
-.references { min-width: 0; margin: 0; padding: 0; border: 0; }
-.references legend { margin-bottom: 6px; color: var(--ink-2); font-size: 12.5px; }
-.referenceList { display: flex; flex-wrap: wrap; gap: 4px 12px; max-height: 120px; overflow-y: auto; }
-.referenceOption { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--ink); font-size: 13px; }
-/* The global input rules stretch every input; a picker's box stays its own size. */
-.referenceOption > input { flex: none; width: 14px; height: 14px; margin: 0; padding: 0; }
-.referenceOption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.signIn { display: flex; flex-direction: column; gap: 10px; }
-.footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px 14px; }
-.estimate, .realPrice { margin-right: auto; color: var(--ink-2); font-size: 13px; }
-.realPrice { color: var(--ink); font-weight: 500; }
-.actions { display: flex; gap: 8px; }
+/* 我的作品: a large title with the count, filters at the right, then the results by day. */
+.history { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.historyHeader { display: flex; align-items: flex-end; flex-wrap: wrap; justify-content: space-between; gap: 14px 20px; }
+.libraryHeading { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.libraryTitle { margin: 0; color: #fff; font: 800 clamp(26px, 2.6vw, 34px)/1.1 var(--sans); letter-spacing: -.04em; }
+.libraryCount { color: var(--muted); font-size: 14px; font-weight: 550; }
+.libraryFilters { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.filterTabs { padding: 3px; gap: 2px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.filterTabs [role='tab'] { height: 30px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 12.5px; }
+.filterTabs [role='tab']:hover:not(:disabled) { color: var(--ink); }
+.filterTabs [role='tab'][aria-selected='true'], .filterTabs [role='tab'][aria-selected='true']:hover:not(:disabled) { color: var(--ink); background: rgba(255, 255, 255, 0.12); box-shadow: none; }
+.originFilter { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding-left: 14px; border-radius: 999px; color: var(--muted); font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.originLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.originSelect { width: auto; height: 34px; padding-top: 0; padding-bottom: 0; padding-left: 0; border: 0; color: var(--ink); background-color: transparent; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.originSelect:focus { border: 0; box-shadow: none; }
+.originSelect option { color: var(--ink); background: var(--bg-elevated); }
 
-/* History: one card per run, its results as tiles. */
-.history { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.historyHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
-.filters { display: flex; flex-wrap: wrap; gap: 8px; }
-.filterTabs { font-size: 12.5px; }
-.runs { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; }
-.run { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
-.runHeader { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.runTitle { min-width: 0; overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.runTime { margin-left: auto; flex: none; color: var(--muted); font-size: 12px; }
-.runSummary { margin: 0; overflow: hidden; color: var(--ink-2); font-size: 13px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
-.badge { flex: none; padding: 1px 6px; border-radius: 999px; color: var(--violet-strong); background: var(--violet-soft); font-size: 11.5px; font-weight: 500; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.day { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.dayTitle { margin: 0; color: var(--ink-2); font-size: 14px; font-weight: 650; }
+/* Every result one card in the day's grid; a run's own box steps aside. */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 22px 16px; margin: 0; padding: 0; list-style: none; }
+.run { display: contents; }
+.result { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.resultMeta { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 0 2px; }
+.tileEmpty { display: block; aspect-ratio: 1; border-radius: 16px; background: #14111C; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.runSummary { margin: 0; overflow: hidden; color: var(--ink); font-size: 13.5px; font-weight: 500; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.runHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.runTitle, .runGame, .badge { flex: none; max-width: 100%; overflow: hidden; padding: 1px 7px; border-radius: 6px; font-size: 11px; line-height: 1.6; text-overflow: ellipsis; white-space: nowrap; }
+.runTitle { color: var(--ink-2); background: rgba(255, 255, 255, 0.07); }
+.runGame { color: var(--ink-2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.runTime { margin-left: auto; color: var(--faint); font-size: 11px; }
+.badge { color: var(--studio-on-lime, #141128); background: var(--lime); font-weight: 650; }
+.working { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--lime); font-size: 12px; font-weight: 500; }
+.working::before { content: ''; width: 7px; height: 7px; border-radius: 4px; background: var(--lime); box-shadow: 0 0 10px var(--lime); animation: pulse 1.2s ease-in-out infinite alternate; }
+
 /* Width and height are set here because the global button rules give every button a fixed height. */
-.tile { position: relative; display: grid; place-items: center; width: 100%; height: auto; min-height: 0; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
-  background-color: var(--bg-subtle);
-  background-image: linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%), linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%);
-  background-position: 0 0, 6px 6px; background-size: 12px 12px;
-  transition: border-color 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
-.tile:hover { border-color: var(--violet); }
-.tile:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft); }
-.tileImage { display: block; width: 100%; height: 100%; object-fit: contain; }
-.tileGlyph { color: var(--violet-strong); font: 600 18px/1 var(--sans); }
-.tilePending { width: 40%; height: 4px; border-radius: 2px; background: var(--violet-soft); }
-.tileProblem { padding: 4px; color: var(--danger, #b42318); font-size: 11.5px; text-align: center; }
-.tileBadge { position: absolute; right: 4px; bottom: 4px; padding: 1px 5px; border-radius: 999px; color: var(--ink); background: var(--bg-panel); font-size: 10.5px; }
+.tile, .tileWaiting { position: relative; display: grid; place-items: center; width: 100%; height: auto; min-height: 0; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 0; border-radius: 16px; cursor: pointer;
+  background-color: #14111C;
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.022) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.022) 75%), linear-gradient(45deg, rgba(255, 255, 255, 0.022) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.022) 75%);
+  background-position: 0 0, 8px 8px; background-size: 16px 16px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  transition: box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.tile:hover { box-shadow: inset 0 0 0 1.5px rgba(196, 245, 66, 0.8), 0 18px 40px -20px rgba(0, 0, 0, 0.9); transform: translateY(-2px); }
+.tile:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--studio-ground, var(--bg)), 0 0 0 4px var(--lime); }
+.tileImage { display: block; width: 100%; height: 100%; padding: 6px; object-fit: contain; transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1); }
+.tile:hover .tileImage { transform: scale(1.03); }
+.tileCover { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+/* A result still being made shimmers. */
+.tilePending, .tileWaiting::after { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(164, 140, 255, 0.16) 45%, rgba(196, 245, 66, 0.12) 55%, transparent 70%);
+  background-size: 250% 100%; animation: shimmer 1.6s linear infinite; }
+.tileWaiting { cursor: default; }
+.tileProblem { padding: 6px; color: var(--red); font-size: 12px; text-align: center; }
+.tileBadge { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 7px; color: var(--studio-on-lime, #141128); background: var(--lime); font-size: 11px; font-weight: 650; }
 
-/* One result, large. */
-.detail { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 12px 20px 32px; }
-.back { align-self: flex-start; gap: 6px; margin-left: -8px; color: var(--ink-2); font-weight: 500; }
-.detailTitle { margin: 0; color: var(--ink); font: 600 17px/1.3 var(--sans); letter-spacing: -.02em; outline: none; }
-.preview { display: grid; place-items: center; min-height: 160px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-subtle); }
-.preview img { max-width: 100%; max-height: 60vh; object-fit: contain; image-rendering: auto; }
+/* The dialogs: a preset, a result, the game's style. */
+.dialog { width: min(1080px, calc(100vw - 48px)); max-width: none; color: var(--ink); background: var(--bg-panel); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 40px 100px -30px rgba(0, 0, 0, 0.9); }
+
+/* One result, large: the picture beside what made it and what to do with it. */
+.detail { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-width: 0; min-height: min(640px, 80vh); }
+.stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px; background: var(--studio-ground, var(--bg)); }
+.preview { display: grid; flex: 1; place-items: center; min-height: 280px; padding: 12px; border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.02);
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.035) 75%), linear-gradient(45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.035) 75%);
+  background-position: 0 0, 10px 10px; background-size: 20px 20px; }
+.preview img { max-width: 100%; max-height: 66vh; object-fit: contain; image-rendering: auto; }
 .preview audio { width: 100%; }
-.derived { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.derivedBox { color: var(--muted); font-size: 12px; }
+/* The run's other results, to flip between without closing. */
+.siblings { display: flex; flex-wrap: wrap; gap: 8px; }
+.sibling { display: grid; place-items: center; width: 56px; height: 56px; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 12px; cursor: pointer;
+  color: var(--ink-2); background: #15121E; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); transition: box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.sibling img { width: 100%; height: 100%; padding: 3px; object-fit: contain; }
+.sibling:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); }
+.sibling[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--lime); }
+.derivedBox > summary { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 999px; cursor: pointer; background: rgba(255, 255, 255, 0.05); }
+.derivedBox > summary:hover { color: var(--ink); }
+.derived { display: flex; flex-wrap: wrap; gap: 4px 12px; max-height: 120px; margin: 8px 0 0; padding: 0; overflow-y: auto; list-style: none; font-size: 12px; }
+.info { display: flex; flex-direction: column; gap: 18px; min-width: 0; padding: 24px 22px 22px; border-left: 1px solid rgba(255, 255, 255, 0.07); overflow-y: auto; }
+.infoHeader { display: flex; align-items: flex-start; gap: 8px; }
+.infoHeading { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
+.detailMeta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; color: var(--muted); font-size: 12.5px; }
+.detailTitle { margin: 0; color: #fff; font: 750 22px/1.25 var(--sans); letter-spacing: -.03em; outline: none; }
+.detailTitle:focus, .detailTitle:focus-visible { outline: none; box-shadow: none; }
+.close { flex: none; width: 34px; height: 34px; min-height: 0; margin: -4px -6px 0 0; padding: 0; border-radius: 17px; color: var(--ink-2); }
+.asked { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.askedLabel { color: var(--muted); font-size: 11.5px; font-weight: 650; letter-spacing: .02em; }
+.asked blockquote { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .checks { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 12.5px; line-height: 1.6; }
-.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 13px; line-height: 1.55; }
+/* What made it, as rows with hairlines between them. */
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; font-size: 13px; line-height: 1.5; }
+.facts dt, .facts dd { padding: 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.facts dt:first-of-type, .facts dt:first-of-type + dd { border-top: 0; }
 .facts dt { color: var(--muted); }
-.facts dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.facts dd { margin: 0; padding-left: 16px; color: var(--ink); font-weight: 550; text-align: right; overflow-wrap: anywhere; }
 .paths { margin: 0; padding: 0; list-style: none; }
 .paths button { max-width: 100%; height: auto; padding: 0; white-space: normal; text-align: left; overflow-wrap: anywhere; }
-.detailActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.download { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-control, 8px); color: var(--ink); font-size: 13.5px; font-weight: 500; text-decoration: none; }
-.download:hover { background: var(--sidebar-hover); }
-.download:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft); }
+.saveRow { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.saveTarget { display: flex; flex-direction: column; align-items: stretch; gap: 6px; color: var(--muted); font-size: 12px; text-align: left; }
+.saveTarget select { width: 100%; min-width: 0; }
+.savedGame { display: block; margin-bottom: 2px; color: var(--ink); font-weight: 500; }
+.saveButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 48px; border: 0; border-radius: 999px; font-size: 15px; font-weight: 750;
+  color: var(--studio-on-lime, #141128); background: var(--lime); font-size: 14px; font-weight: 650; }
+.saveButton:hover:not(:disabled) { color: var(--studio-on-lime, #141128); background: var(--lime); filter: brightness(1.06); }
+.saveButton:disabled { color: var(--ink-2); background: rgba(255, 255, 255, 0.08); cursor: default; }
+.detailActions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+/* 下载 / 再来一次 / 改一下: equal pills under the main button. */
+.secondaryAction { display: inline-flex; align-items: center; justify-content: center; height: 40px; min-height: 0; padding: 0 10px; border: 0; border-radius: 999px; color: var(--ink);
+  font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: background-color 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.secondaryAction:hover { color: var(--ink); background: rgba(255, 255, 255, 0.11); }
+.secondaryAction:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft); }
 
-@media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
+@media (max-width: 860px) {
+  .detail { grid-template-columns: minmax(0, 1fr); }
+  .info { border-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+}
+@media (max-width: 760px) {
+  .body { padding: 8px 16px 32px; }
+  .dock { padding: 0 12px 12px; }
+  .heroPresets { padding: 40px 16px 32px; }
+  .runs { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .run[data-many] { grid-column: auto; }
+}
+@keyframes shimmer { from { background-position: 125% 0; } to { background-position: -125% 0; } }
+@keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .tile, .tileImage { transition: none; }
+  .tile:hover, .tile:hover .tileImage { transform: none; }
+  .tilePending, .tileWaiting::after, .working::before { animation: none; }
+}

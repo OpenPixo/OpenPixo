@@ -181,5 +181,23 @@
         "name": "{{name}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Coin pickup",
+      "title_i18n": {
+        "zh-CN": "拾取金币"
+      },
+      "prompt": "bright and bubbly",
+      "prompt_i18n": {
+        "zh-CN": "明亮、有弹性"
+      },
+      "inputs": {
+        "sound": "coin pickup",
+        "timbre": "bright and bubbly",
+        "name": "coin"
+      },
+      "cover": "examples/coin-cover.webp"
+    }
+  ]
 }

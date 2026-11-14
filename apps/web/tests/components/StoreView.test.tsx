@@ -205,9 +205,9 @@ it('paints designed fallback art when a cover is missing or fails to load', asyn
   expect(covered.querySelector('[data-cover-state]')?.getAttribute('data-cover-state')).toBe('fallback');
 });
 
-it('links the Generate note to the most recently updated project', async () => {
+it('links the Generate note to the 生成 page, game or not', async () => {
   mockCatalog([item('Game feel')]);
-  render(<StoreView projects={[{ id: 'old', name: 'Older game', updatedAt: 10 }, { id: 'latest', name: 'Latest game', updatedAt: 20 }]} />);
-  const link = await screen.findByRole('link', { name: 'Open Latest game in Generate →' });
-  expect(link.getAttribute('href')).toBe('/projects/latest/generate');
+  render(<StoreView projects={[]} />);
+  const link = await screen.findByRole('link', { name: 'Open Generate →' });
+  expect(link.getAttribute('href')).toBe('/generate');
 });

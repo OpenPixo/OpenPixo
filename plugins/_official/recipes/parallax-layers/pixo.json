@@ -143,5 +143,24 @@
         "name": "{{name}}_{{layer}}"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Far forest layer",
+      "title_i18n": {
+        "zh-CN": "远景森林层"
+      },
+      "prompt": "misty pine forest at dusk",
+      "prompt_i18n": {
+        "zh-CN": "黄昏时起雾的松林"
+      },
+      "inputs": {
+        "scene": "misty pine forest at dusk",
+        "layer": "far",
+        "style": "pixel art",
+        "name": "forest_far"
+      },
+      "after": "examples/forest_far-after.webp"
+    }
+  ]
 }

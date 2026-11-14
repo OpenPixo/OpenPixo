@@ -139,5 +139,23 @@
         "name": "{{character.slug}}_turnaround"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Knight turnaround",
+      "title_i18n": {
+        "zh-CN": "骑士三视图"
+      },
+      "prompt": "front, side and back",
+      "prompt_i18n": {
+        "zh-CN": "正面、侧面和背面"
+      },
+      "inputs": {
+        "views": "front, side and back",
+        "style": "match the reference images"
+      },
+      "before": "examples/knight-before.webp",
+      "after": "examples/knight-after.webp"
+    }
+  ]
 }

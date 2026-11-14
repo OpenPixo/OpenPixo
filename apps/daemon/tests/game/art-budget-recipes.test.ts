@@ -40,13 +40,14 @@ const CLOUD_ORIGIN = 'https://cloud.test';
 function fakeCloud() {
   const jobs = new Map<string, OpenPixoCloudGenerationJob>();
   const byKey = new Map<string, OpenPixoCloudGenerationJob>();
+  // Only text-to-image sells larger sizes here, so the edit service shows the fallback.
   const image = (id: string, min: number) => ({ id, surface: 'image' as const, label: id, credits: 4, priceVersion: 1, maxPromptChars: 12000,
-    aspects: ['1:1', '3:2'] as const, styles: [], references: { min, max: 4 },
+    aspects: ['1:1', '3:2'] as const, styles: [], references: { min, max: 4 }, ...(min ? {} : { resolutions: ['1k', '2k', '4k'] as const }),
     pricing: { longPromptTokens: 2000, longPromptCredits: 1, maxPromptTokens: 3000, extraReferenceCredits: 1 } });
   const cloud = {
     charged: 0,
     quotes: [] as Array<{ service: string; params: OpenPixoGenerationParams }>,
-    submits: [] as Array<{ idempotencyKey: string; service: string }>,
+    submits: [] as Array<{ idempotencyKey: string; service: string; params?: OpenPixoGenerationParams }>,
     api: {
       cloudOrigin: () => CLOUD_ORIGIN,
       generationServices: async () => ({ generationPaused: false, services: [image('openpixo-image', 0), image('openpixo-image-edit', 1),
@@ -62,7 +63,7 @@ function fakeCloud() {
         return { quoteId: randomUUID(), service, credits: 4, priceVersion: 1, paramsDigest: 'a'.repeat(64),
           expiresAt: new Date(Date.now() + 3_600_000).toISOString(), available: 1000, breakdown: { base: 4, longPrompt: 0, extraReferences: 0 } };
       },
-      generationSubmit: async (input: { quoteId: string; idempotencyKey: string; service: string }) => {
+      generationSubmit: async (input: { quoteId: string; idempotencyKey: string; service: string; params?: OpenPixoGenerationParams }) => {
         cloud.submits.push(input);
         const existing = byKey.get(input.idempotencyKey);
         if (existing) return { ...existing };
@@ -85,7 +86,8 @@ function fakeCloud() {
 
 const RECIPE = { name: 'test-hosted', title: 'Hosted sprite', version: '0.1.0', pixo: { kind: 'recipe', recipe: {
   surface: 'image', category: 'character', engines: ['any'],
-  inputs: [{ name: 'prompt', type: 'text', default: 'a hero' }, { name: 'reference', type: 'image-ref' }],
+  inputs: [{ name: 'prompt', type: 'text', default: 'a hero' }, { name: 'reference', type: 'image-ref' },
+    { name: 'resolution', type: 'select', options: ['1k', '2k', '4k'], default: '1k' }],
   prompt: '{{prompt}} sprite', models: { requires: [], recommended: [], fallback: [] },
   generation: { count: { default: 3, max: 4 }, aspect: '1:1' },
   output: { dir: 'sprites', name: 'hero' },
@@ -336,6 +338,23 @@ describe('recipes that spend credits', () => {
       expect((await again.json() as RecipeRun).id).toBe(run.id);
       expect(cloud.charged).toBe(8);
       expect(cloud.quotes).toHaveLength(2);
+    });
+
+    it('prices and sends the resolution the user picked, where the service sells it', async () => {
+      const id = project();
+      const quote = await quoted(id, { inputs: { resolution: '2k' } });
+      expect(cloud.quotes.at(-1)!.params).toMatchObject({ resolution: '2k' });
+      await ready(id, await runRecipe(id, { inputs: { resolution: '2k' }, quoteId: quote.quoteId }));
+      expect(cloud.submits.at(-1)!.params).toMatchObject({ resolution: '2k' });
+      // 1K is the base size: it is never sent, so the request reads as it always has.
+      await quoted(id, { inputs: { resolution: '1k' } });
+      expect(cloud.quotes.at(-1)!.params).not.toHaveProperty('resolution');
+      // A service that does not sell 2K renders the base size and says so.
+      await writeFile(path.join(projectsDir(), id, 'ref.png'), PNG);
+      const edit = await quoted(id, { inputs: { resolution: '2k', reference: 'ref.png' } });
+      expect(cloud.quotes.at(-1)).toMatchObject({ service: 'openpixo-image-edit' });
+      expect(cloud.quotes.at(-1)!.params).not.toHaveProperty('resolution');
+      expect(edit.warnings).toContain('resolution 2k is not offered by this service; rendered at 1k');
     });
 
     it('needs a price before it spends, and refuses one for a different run', async () => {

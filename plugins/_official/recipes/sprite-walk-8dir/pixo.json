@@ -155,5 +155,23 @@
         "name": "{{character.slug}}_walk"
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "title": "Knight walking, 8 directions",
+      "title_i18n": {
+        "zh-CN": "骑士 8 方向行走"
+      },
+      "prompt": "pixel art, 32px character",
+      "prompt_i18n": {
+        "zh-CN": "像素风，32 像素角色"
+      },
+      "inputs": {
+        "style": "pixel art, 32px character",
+        "frames": "6"
+      },
+      "before": "examples/knight-before.webp",
+      "after": "examples/knight-after.webp"
+    }
+  ]
 }

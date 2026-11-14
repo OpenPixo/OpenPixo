@@ -26,12 +26,12 @@ function whenIdle(run: () => void): () => void {
  * going on, so the first click on Generate already has its content. A failed
  * read stays silent here; the sheet asks again when it opens.
  */
-export function useStudioPrefetch(projectId: string) {
+export function useStudioPrefetch(projectId: string | null) {
   const { projectResourceAuthority } = useProjectPreviewContext();
   const readable = projectResourceAuthority !== 'pending' && projectResourceAuthority !== 'denied';
   const hosted = isCloudAccountAvailable(useOpenPixoAccount().status);
   useEffect(() => {
-    if (!readable) return;
+    if (!readable || !projectId) return;
     return whenIdle(() => { void prefetchStudioProject(projectId); });
   }, [projectId, readable]);
   useEffect(() => {

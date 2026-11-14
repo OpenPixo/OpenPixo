@@ -11,6 +11,8 @@
 .defaultName { padding: 0 var(--spacing-4, 4px) var(--spacing-4, 4px); color: var(--text-muted); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .check { position: absolute; right: var(--spacing-4, 4px); bottom: var(--spacing-4, 4px); display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-circular); color: var(--accent-contrast); background: var(--accent); opacity: 0; transform: scale(.9); transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 140ms cubic-bezier(0.23, 1, 0.32, 1); }
 .choice[aria-pressed="true"] .check { opacity: 1; transform: scale(1); transition-duration: 200ms; }
+.choices[data-layout='grid'] { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; overflow: visible; }
+.choices[data-layout='grid'] .choice { width: auto; min-width: 0; border-radius: 14px; }
 .status { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-8, 8px); margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
 .chip { max-width: 100%; white-space: normal; font-size: 13px; }
 .chipThumbnail { flex: none; width: 24px; overflow: hidden; border-radius: var(--radius-medium); }

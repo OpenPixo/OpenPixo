@@ -5,6 +5,7 @@
 // first-run `/onboarding` view to `OnboardingView`. `EntryView` is a thin
 // wrapper that passes data and callbacks through to this shell.
 
+import { GeneratePage } from './generate/GeneratePage';
 import { StoreProjectActions } from './StoreProjectActions';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { defaultScenarioPluginIdForProjectMetadata, type ChatSessionMode, type CreateProjectExampleReference, type RunContextSelection } from '@openpixo/contracts';
@@ -755,7 +756,7 @@ export function EntryShell({
           />
         ) : null}
         <main
-          className={`entry-main entry-main--scroll${view === 'home' ? ` ${styles.homeScroll}` : ''}`}
+          className={`entry-main entry-main--scroll${view === 'home' ? ` ${styles.homeScroll}` : ''}${view === 'generate' ? ` ${styles.generateScroll}` : ''}`}
           ref={entryMainScrollRef}
         >
           {/* Navigation and search belong to the rail; the home content uses
@@ -767,6 +768,7 @@ export function EntryShell({
             className={[
               'entry-main__inner',
               view === 'home' ? '' : 'entry-main__inner--wide',
+              view === 'generate' ? styles.generateInner : '',
             ].filter(Boolean).join(' ')}
           >
             <div className="entry-main__view-home" data-testid="entry-view-home" data-active={view === 'home' ? 'true' : 'false'} {...inactiveViewProps(view === 'home')}>
@@ -812,6 +814,8 @@ export function EntryShell({
               )}
             </div>
 
+            {view === 'generate' ? <GeneratePage routeProjectId={route.kind === 'home' ? route.generateProjectId : undefined} games={projects}
+              onOpenAccount={() => onOpenSettings('account')} onOpenExtensions={() => changeView('store')} /> : null}
             {view === 'store' ? <StoreProjectActions itemName={route.kind === 'home' ? route.storeItemName : undefined} initialTab={route.kind === 'home' ? route.storeTab : undefined} projects={projects} onOpenProject={onOpenProject} onOpenAccount={() => onOpenSettings('account')} /> : null}
             {null}
             {null}

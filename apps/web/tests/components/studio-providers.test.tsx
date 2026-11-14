@@ -39,7 +39,7 @@ function mockStudio(capabilities: () => Response | Promise<Response>) {
     const detail = recipes.find(entry => url === `/api/recipes/${entry.id}`);
     if (detail) return json(detail);
     if (url === '/api/projects/game/characters') return json([]);
-    if (url === '/api/projects/game/recipe-runs') return json({ status: 'started', runId: 'code-run' }, 202);
+    if (url === '/api/generate/runs') return json({ status: 'started', runId: 'code-run' }, 202);
     throw new Error(`Unexpected fetch: ${url}`);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -87,7 +87,7 @@ describe('Studio media provider guidance', () => {
     expect(within(runner).queryByRole('button', { name: 'Generate' })).toBeNull();
     fireEvent.click(within(runner).getByRole('button', { name: 'Set up provider' }));
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'openpixo:open-media-settings' }));
-    expect(fetchMock.mock.calls.some(([url]) => url === '/api/projects/game/recipe-runs')).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]) => url === '/api/generate/runs')).toBe(false);
 
     back();
     fireEvent.click(screen.getByRole('button', { name: 'Art' }));
@@ -125,7 +125,7 @@ describe('Studio media provider guidance', () => {
     const codeRunner = await screen.findByRole('region', { name: code.title });
     await waitFor(() => expect(within(codeRunner).getByRole<HTMLButtonElement>('button', { name: 'Generate' }).disabled).toBe(false));
     fireEvent.click(within(codeRunner).getByRole('button', { name: 'Generate' }));
-    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === '/api/projects/game/recipe-runs')).toBe(true));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === '/api/generate/runs')).toBe(true));
 
     await act(async () => { complete(json(media())); });
     await screen.findByText(banner);

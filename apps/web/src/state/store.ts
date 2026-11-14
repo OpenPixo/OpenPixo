@@ -28,8 +28,9 @@ export function mostRecentStoreProject<T extends WorkshopProject>(projects: T[])
   }, undefined);
 }
 
-export function openProjectGenerate(project: Pick<WorkshopProject, 'id'>, replace = false): void {
-  navigate({ kind: 'project', projectId: project.id, fileName: null, workspaceTab: 'generate' }, { replace });
+/** Opens 生成, with this game picked when one is given. */
+export function openGenerate(projectId?: string, replace = false): void {
+  navigate({ kind: 'home', view: 'generate', ...(projectId ? { generateProjectId: projectId } : {}) }, { replace });
 }
 
 /** A failed Workshop request, carrying the daemon's error code so the UI can pick a state instead of parsing text. */

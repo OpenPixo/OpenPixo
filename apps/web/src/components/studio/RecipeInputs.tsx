@@ -5,8 +5,10 @@ import { useI18n } from '../../i18n';
 import { studioCopy } from './copy';
 import styles from './StudioPanel.module.css';
 
-export function RecipeInputs({ fields, values, files, characters, maxCount, onChange, onValidityChange, onNewCharacter }: {
+export function RecipeInputs({ fields, values, files, fileLabels, characters, maxCount, onChange, onValidityChange, onNewCharacter }: {
   fields: InputField[]; values: Record<string, unknown>; files: ProjectFile[]; characters: CharacterCard[];
+  /** Names to show for files that are not the game's own (pictures uploaded to 生成). */
+  fileLabels?: Readonly<Record<string, string>> | undefined;
   maxCount: number;
   /** Offered right at a character field when the project has no cards yet. */
   onNewCharacter?: () => void;
@@ -23,7 +25,7 @@ export function RecipeInputs({ fields, values, files, characters, maxCount, onCh
           return <Select value={text} required={field.required} onChange={event => update(event.target.value || undefined)}>
             <option value="">{copy.select}</option>
             {text && !paths.includes(text) && <option value={text}>{text}</option>}
-            {paths.map(path => <option key={path} value={path}>{path}</option>)}
+            {paths.map(path => <option key={path} value={path}>{fileLabels?.[path] ?? path}</option>)}
           </Select>;
         }
         if (field.type === 'character-ref') return <>

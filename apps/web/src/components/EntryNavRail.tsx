@@ -603,6 +603,8 @@ export function EntryNavRail({
           >
             <Icon name="file" size={16} />
           </NavButton>
+          <NavButton active={view === 'generate'} ariaLabel={t('generate.pageTitle')} label={t('generate.pageTitle')}
+            onClick={() => selectView('generate')} testId="entry-nav-generate"><Icon name="sparkles" size={16} /></NavButton>
           <NavButton active={view === 'store'} ariaLabel={t('store.title')} label={t('store.title')}
             onClick={() => selectView('store')} testId="entry-nav-store"><Icon name="blocks" size={16} /></NavButton>
         </div>

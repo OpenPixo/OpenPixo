@@ -32,6 +32,18 @@ export async function recipeCliApi(flagUrl?: string): Promise<(route: string, me
     return data;
   };
 }
+/** Sends one file as multipart `file`, the way the 生成 page uploads a reference picture. */
+export async function recipeCliUpload(flagUrl: string | undefined, route: string, bytes: Buffer, name: string): Promise<unknown> {
+  const base = (await resolveDaemonUrl({ flagUrl: flagUrl ?? null })).replace(/\/$/, '');
+  const headers: Record<string, string> = { Origin: new URL(base).origin };
+  if (process.env.PIXO_TOOL_TOKEN) headers.authorization = `Bearer ${process.env.PIXO_TOOL_TOKEN}`;
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(bytes)]), name);
+  const response = await fetch(`${base}${route}`, { method: 'POST', headers, body: form });
+  const data = await response.json() as { error?: { message?: string } };
+  if (!response.ok) throw new Error(data.error?.message ?? `Request failed (${response.status})`);
+  return data;
+}
 export function recipeCliError(error: unknown, json: boolean): void {
   const message = error instanceof Error ? error.message : String(error);
   if (json) console.log(JSON.stringify({ error: { message } })); else console.error(message);

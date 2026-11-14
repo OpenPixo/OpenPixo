@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { isRecipeRelativePath, type ArtStyle, type AssetOpRequest, type EngineProfile, type Recipe, type RecipeDetail, type RecipeRun, type RecipeRunOrigin, type RecipeRunRequest } from '@openpixo/contracts';
+import { isRecipeRelativePath, OPENPIXO_IMAGE_SIZES, parseOpenPixoResolution, type OpenPixoGenerationAspect, type ArtStyle, type AssetOpRequest, type EngineProfile, type Recipe, type RecipeDetail, type RecipeRun, type RecipeRunOrigin, type RecipeRunRequest } from '@openpixo/contracts';
 import { recordAssetProvenance } from '../assets/provenance-store.js';
 import { runAssetOp } from '../assets/ops/index.js';
 import { generateMedia } from '../media/index.js';
@@ -31,7 +31,25 @@ function recipeFailure(error: unknown): { error: string; errorCode?: string; err
     ...(typeof failure?.reason === 'string' ? { errorReason: failure.reason } : {}) };
 }
 const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
-interface StoredRun { run: RecipeRun; prompt: string; resolution?: string | undefined; background?: 'transparent' | undefined; output: { dir: string; name: string }; referenceHashes: string[] }
+interface StoredRun {
+  run: RecipeRun; prompt: string; resolution?: string | undefined; background?: 'transparent' | undefined; output: { dir: string; name: string }; referenceHashes: string[];
+  /**
+   * The recipe's output templates, kept so a run made with no game is saved at the paths of
+   * the game it goes into. Absent on runs recorded before no-game runs, and on runs whose
+   * output names a character: those are saved only at the paths they were made with.
+   */
+  outputTemplate?: { dir: string; name: string } | undefined;
+}
+/** Matches every run, whichever game it was made for, or none: the 生成 page's own view. */
+export const ALL_GAMES = Symbol('all games');
+/** Which runs a lookup may see: one game's, the runs made with no game (null), or all of them. */
+export type RunScope = string | null | typeof ALL_GAMES;
+const inScope = (run: RecipeRun, scope: RunScope) => scope === ALL_GAMES || run.projectId === scope;
+/** A game's history also lists art made with no game and then saved into it. */
+const listedFor = (run: RecipeRun, scope: RunScope) => inScope(run, scope)
+  || (typeof scope === 'string' && run.projectId === null && run.candidates.some(candidate => candidate.adoptedProjectId === scope));
+/** The game a candidate is saved into, and its engine, which decides a no-game run's paths. */
+export interface AdoptTarget { projectId: string; root: string; engine?: EngineProfile | null | undefined }
 export interface RecipeExecutorDeps {
   runtimeDataDir: string;
   projectRoot: string;
@@ -48,6 +66,8 @@ export interface RecipePricingInput {
   /** Project-relative reference images. */
   references: string[];
   aspect?: string | undefined;
+  /** An image recipe's `resolution` input (`1k`, `2k`, `4k`); a hosted service prices it. */
+  resolution?: string | undefined;
   background?: 'transparent' | undefined;
   voice?: string | undefined;
   duration?: number | undefined;
@@ -166,29 +186,29 @@ export class RecipeExecutor {
       if (now - (await stat(dir)).mtimeMs > RECIPE_RETENTION_MS) await rm(dir, { recursive: true, force: true });
     }
   }
-  async get(projectId: string, id: string): Promise<RecipeRun> {
+  async get(scope: RunScope, id: string): Promise<RecipeRun> {
     await this.initialized;
     const record = this.records.get(id);
-    if (!record || record.run.projectId !== projectId) throw new Error('Recipe run not found');
+    if (!record || !inScope(record.run, scope)) throw Object.assign(new Error('Recipe run not found'), { code: 'ENOENT' });
     return structuredClone(record.run);
   }
   /** Absolute path of one staged candidate file, re-resolved inside the run's staging dir. */
-  async stagedFile(projectId: string, id: string, candidateId: string, index: number): Promise<{ file: string; mime: string }> {
-    const run = await this.get(projectId, id);
+  async stagedFile(scope: RunScope, id: string, candidateId: string, index: number): Promise<{ file: string; mime: string }> {
+    const run = await this.get(scope, id);
     const candidate = run.candidates.find(item => item.id === candidateId);
     const staged = candidate?.stagedFiles[index];
     if (!candidate || !staged) throw Object.assign(new Error('Staged file not found'), { code: 'ENOENT' });
     const candidateRoot = await recipePath(this.root, `${id}/${candidate.id}`);
     return { file: await recipePath(candidateRoot, path.relative(candidateRoot, staged.ref)), mime: staged.mime };
   }
-  /** This project's runs on this machine, newest first. Nothing about them is kept anywhere else. */
-  async list(projectId: string, filter: { surface?: string | undefined; origin?: string | undefined; limit?: number | undefined } = {}): Promise<RecipeRun[]> {
+  /** One game's runs, the no-game ones, or all, on this machine, newest first. Nothing about them is kept anywhere else. */
+  async list(scope: RunScope, filter: { surface?: string | undefined; origin?: string | undefined; limit?: number | undefined } = {}): Promise<RecipeRun[]> {
     await this.initialized;
     return [...this.records.values()].map(record => record.run)
-      .filter(run => run.projectId === projectId && (!filter.surface || run.surface === filter.surface) && (!filter.origin || run.origin === filter.origin))
+      .filter(run => listedFor(run, scope) && (!filter.surface || run.surface === filter.surface) && (!filter.origin || run.origin === filter.origin))
       .sort((a, b) => b.createdAt - a.createdAt).slice(0, filter.limit ?? 100).map(run => structuredClone(run));
   }
-  async wait(projectId: string, id: string): Promise<RecipeRun> { await this.jobs.get(id); return this.get(projectId, id); }
+  async wait(scope: RunScope, id: string): Promise<RecipeRun> { await this.jobs.get(id); return this.get(scope, id); }
   /**
    * Renders the run without starting it: prompt, output, count, post-processing and
    * the pricing input. A quote and the run it pays for both come from here, so the
@@ -227,13 +247,21 @@ export class RecipeExecutor {
     const background = recipe.surface === 'image' && (recipe.generation?.background === 'transparent' || prepared.inputs.transparent === true) ? 'transparent' as const : undefined;
     const duration = Number(prepared.variables.duration ?? prepared.variables.lengthSec);
     const voice = prepared.variables.voice;
-    const pricing: RecipePricingInput = { prompt, references: prepared.references, ...(aspect ? { aspect } : {}), ...(background ? { background } : {}),
+    // An image recipe may let the user pick a resolution; an own tool gets it as a pixel size hint.
+    const picked = recipe.surface === 'image' ? parseOpenPixoResolution(prepared.inputs.resolution) : undefined;
+    const pickedSize = picked ? OPENPIXO_IMAGE_SIZES[picked][(aspect ?? '1:1') as OpenPixoGenerationAspect] : undefined;
+    const resolution = pickedSize ? `${pickedSize.width}x${pickedSize.height}` : imageRequest?.resolution;
+    const pricing: RecipePricingInput = { prompt, references: prepared.references, ...(aspect ? { aspect } : {}), ...(picked ? { resolution: picked } : {}), ...(background ? { background } : {}),
       ...(recipe.surface === 'audio' && typeof voice === 'string' && voice ? { voice } : {}),
       ...(recipe.surface === 'audio' && Number.isFinite(duration) ? { duration } : {}) };
-    return { recipe, prepared, prompt, ...(imageRequest?.resolution ? { resolution: imageRequest.resolution } : {}), ...(background ? { background } : {}),
+    return { recipe, prepared, prompt, ...(resolution ? { resolution } : {}), ...(background ? { background } : {}),
       output, count, steps, ...(aspect ? { aspect } : {}), pricing };
   }
-  async start(detail: RecipeDetail, projectId: string, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null, hosted?: RecipeHostedSpending, origin: RecipeRunOrigin = 'user'): Promise<RecipeRun> {
+  /**
+   * `projectId` null is a run the user made on the 生成 page with no game: `projectRoot` is
+   * then the daemon's generate area, where its uploaded references live.
+   */
+  async start(detail: RecipeDetail, projectId: string | null, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null, hosted?: RecipeHostedSpending, origin: RecipeRunOrigin = 'user'): Promise<RecipeRun> {
     await this.initialized;
     const recipe = detail.manifest.pixo!.recipe!;
     if (recipe.surface === 'code') throw new Error(`No media backend for surface: ${recipe.surface}`);
@@ -262,10 +290,12 @@ export class RecipeExecutor {
       }
     } else if (paid && hosted!.kind === 'confirmed') paidRequests.push(...hosted!.requests);
     const surface = recipe.surface as Exclude<Recipe['surface'], 'code'>;
+    const namesCharacter = recipe.inputs.some(field => field.type === 'character-ref' && prepared.inputs[field.name]);
     const record: StoredRun = { run: { id, projectId, recipeId: detail.id, recipeVersion: detail.version, surface, origin, inputs: prepared.inputs, ...(recipe.surface === 'image' ? { styleId: artStyle?.id ?? null } : {}),
       model: { provider: model.provider, id: model.id }, status: 'queued', candidates: Array.from({ length: count }, (_, index) => ({ id: randomUUID(), index, stagedFiles: [], checks: [] })), createdAt: Date.now(), updatedAt: Date.now() },
       prompt, ...(plan.resolution ? { resolution: plan.resolution } : {}),
-      ...(plan.background ? { background: plan.background } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)) };
+      ...(plan.background ? { background: plan.background } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)),
+      ...(namesCharacter ? {} : { outputTemplate: { dir: recipe.output!.dir, name: recipe.output!.name } }) };
     this.records.set(id, record);
     try { await this.save(record); }
     catch (error) { releasePaid(); throw error; }
@@ -298,14 +328,17 @@ export class RecipeExecutor {
         const file = await recipePath(candidateRoot, name); await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, ref.bytes); images.push(name);
       }
       if (cancelled()) return;
-      const task = this.deps.mediaTasks.createMediaTask(randomUUID(), run.projectId, { surface, model: model.id });
-      candidate.mediaTaskId = task.id; task.status = 'running'; this.deps.mediaTasks.persistMediaTask(task);
+      // A media task belongs to a game; a run with no game keeps its state in this record only.
+      const gameId = run.projectId;
+      const task = gameId === null ? detachedTask() : this.deps.mediaTasks.createMediaTask(randomUUID(), gameId, { surface, model: model.id });
+      task.status = 'running';
+      if (gameId !== null) { candidate.mediaTaskId = task.id; this.deps.mediaTasks.persistMediaTask(task as LiveTask); }
       try {
         const audioKind = model.caps.includes('tts') ? 'speech' : model.caps.includes('sfx') ? 'sfx' : 'music';
         const paidRequest = paidFor?.requests[candidate.index];
         const meta = await (this.deps.generate ?? generateMedia)({ projectRoot: this.deps.projectRoot, runtimeDataDir: this.deps.runtimeDataDir, signal,
           // What was priced is sent as priced; the job counts against the project, the file lands in staging.
-          ...(paidFor && paidRequest ? { openpixoHosted: paidFor.media, hosted: { ...paidRequest, taskId: task.id, projectId: run.projectId } } : {}),
+          ...(paidFor && paidRequest ? { openpixoHosted: paidFor.media, hosted: { ...paidRequest, taskId: task.id, projectId: gameId ?? NO_GAME_HOSTED_PROJECT } } : {}),
           projectsRoot: path.dirname(candidateRoot), projectId: path.basename(candidateRoot), surface, model: model.id,
           prompt: record.prompt, output: `primary.${surface === 'image' ? 'png' : surface === 'audio' ? 'wav' : surface === 'model3d' ? 'glb' : 'mp4'}`,
           images, ...(record.resolution ? { resolution: record.resolution } : {}), ...(aspect ? { aspect } : {}), ...(surface === 'audio' ? { audioKind } : {}),
@@ -313,7 +346,7 @@ export class RecipeExecutor {
           ...(Number.isFinite(Number(variables.duration ?? variables.lengthSec)) ? { duration: Number(variables.duration ?? variables.lengthSec) } : {}),
           ...(typeof variables.voice === 'string' ? { voice: variables.voice } : {}),
           ...(typeof variables.language === 'string' ? { language: variables.language } : {}),
-          onProgress: line => this.deps.mediaTasks.appendTaskProgress(task, line),
+          onProgress: line => { if (gameId !== null) this.deps.mediaTasks.appendTaskProgress(task as LiveTask, line); },
         });
         if (meta.providerError || ((meta.providerId === 'stub' || model.provider === 'stub' || meta.intentionalStub || meta.usedStubFallback) && process.env.NODE_ENV !== 'test')) throw new Error(meta.providerError || 'Stub provider output rejected');
         task.status = 'done';
@@ -354,7 +387,8 @@ export class RecipeExecutor {
         if (!cancelled()) Object.assign(candidate, failure);
         if (task.status !== 'done') { task.status = 'failed'; task.error = { message: failure.error, ...(failure.errorCode ? { code: failure.errorCode } : {}) }; }
       } finally {
-        task.endedAt = Date.now(); this.deps.mediaTasks.persistMediaTask(task); this.deps.mediaTasks.notifyTaskWaiters(task);
+        task.endedAt = Date.now();
+        if (gameId !== null) { this.deps.mediaTasks.persistMediaTask(task as LiveTask); this.deps.mediaTasks.notifyTaskWaiters(task as LiveTask); }
         if (cancelled()) { candidate.stagedFiles = []; candidate.checks = []; }
         await this.save(record);
       }
@@ -369,19 +403,29 @@ export class RecipeExecutor {
     }
     await this.save(record);
   }
-  async cancel(projectId: string, id: string): Promise<RecipeRun> {
-    await this.get(projectId, id);
+  async cancel(scope: RunScope, id: string): Promise<RecipeRun> {
+    await this.get(scope, id);
     const record = this.records.get(id)!;
     if (!terminal(record.run)) {
       record.run.status = 'cancelled'; this.controllers.get(id)?.abort(); await this.save(record);
     }
     // Providers that finish after abort still leave their results quarantined.
-    return this.get(projectId, id);
+    return this.get(scope, id);
   }
-  async adopt(projectId: string, id: string, candidateIds: string[], projectRoot: string): Promise<RecipeRun> {
-    await this.get(projectId, id);
+  /**
+   * Saves candidates into a game. A game's run goes only into its own game, at the paths
+   * worked out when it ran. A run made with no game goes into any game, at the paths that
+   * game's engine gives the recipe's output; saving it into another game later copies it again.
+   */
+  async adopt(scope: RunScope, id: string, candidateIds: string[], target: AdoptTarget): Promise<RecipeRun> {
+    await this.get(scope, id);
     const record = this.records.get(id)!;
+    const { projectId, root: projectRoot } = target;
+    if (record.run.projectId !== null && record.run.projectId !== projectId) {
+      throw Object.assign(new Error('This result belongs to another game; it can be saved only into that game.'), { code: 'EEXIST' });
+    }
     if (record.run.status !== 'ready') throw new Error('Recipe run is not ready for adoption');
+    const output = record.run.projectId === null ? this.outputFor(record, target.engine) : record.output;
     if (this.adopting.has(id)) throw new Error('Adoption already in progress');
     const candidates = [...new Set(candidateIds)].map(candidateId => {
       const candidate = record.run.candidates.find(candidate => candidate.id === candidateId);
@@ -391,16 +435,16 @@ export class RecipeExecutor {
     this.adopting.add(id);
     try {
       for (const candidate of candidates) {
-        if (candidate.adoptedPaths?.length) continue;
+        if (candidate.adoptedPaths?.length && (candidate.adoptedProjectId ?? record.run.projectId) === projectId) continue;
         const written: string[] = [];
         try {
           const candidateRoot = await recipePath(this.root, `${id}/${candidate.id}`);
           for (const [index, file] of candidate.stagedFiles.entries()) {
             const source = await recipePath(candidateRoot, path.relative(candidateRoot, file.ref));
-            const stem = recipeFileName(index === 0 ? record.output.name : `${record.output.name}_${path.basename(file.ref, path.extname(file.ref))}`);
+            const stem = recipeFileName(index === 0 ? output.name : `${output.name}_${path.basename(file.ref, path.extname(file.ref))}`);
             let rel = '';
             for (let suffix = 0; ; suffix++) {
-              rel = path.posix.join(record.output.dir.replaceAll('\\', '/'), `${stem}${suffix ? `_${suffix}` : ''}${path.extname(file.ref)}`);
+              rel = path.posix.join(output.dir.replaceAll('\\', '/'), `${stem}${suffix ? `_${suffix}` : ''}${path.extname(file.ref)}`);
               const destination = await recipePath(projectRoot, rel); await mkdir(path.dirname(destination), { recursive: true });
               await recipePath(projectRoot, rel);
               try { await copyFile(source, destination, constants.COPYFILE_EXCL); written.push(rel); break; }
@@ -450,15 +494,36 @@ export class RecipeExecutor {
             }
           })();
           candidate.adoptedPaths = written;
+          if (record.run.projectId === null) candidate.adoptedProjectId = projectId;
           await this.save(record);
         } catch (error) {
-          if (!candidate.adoptedPaths) for (const rel of written) await rm(await recipePath(projectRoot, rel), { force: true });
+          if (candidate.adoptedPaths !== written) for (const rel of written) await rm(await recipePath(projectRoot, rel), { force: true });
           throw error;
         }
       }
-      return this.get(projectId, id);
+      return this.get(scope, id);
     } finally { this.adopting.delete(id); }
   }
+  /** A no-game run's output folder and name, rendered for the engine of the game it is saved into. */
+  private outputFor(record: StoredRun, engine: EngineProfile | null | undefined): { dir: string; name: string } {
+    if (!record.outputTemplate) return record.output;
+    const variables = recipeVariables(record.run.inputs, engine);
+    const dir = renderRecipeTemplate(record.outputTemplate.dir, variables);
+    if (!isRecipeRelativePath(dir)) throw new Error('Rendered output.dir must be relative and contain no ..');
+    return { dir, name: recipeFileName(renderRecipeTemplate(record.outputTemplate.name, variables)) };
+  }
+}
+
+/**
+ * The project id a no-game run's hosted job is recorded under. The job table has no link to
+ * projects and delivers into the run's staging folder (`write_root`), so it names no game.
+ */
+export const NO_GAME_HOSTED_PROJECT = '';
+
+type LiveTask = ReturnType<RecipeExecutorDeps['mediaTasks']['createMediaTask']>;
+/** The fields of a media task a candidate updates, for a run with no game, which keeps no task. */
+function detachedTask(): Pick<LiveTask, 'id' | 'status' | 'file' | 'error' | 'endedAt'> {
+  return { id: randomUUID(), status: 'queued' } as Pick<LiveTask, 'id' | 'status' | 'file' | 'error' | 'endedAt'>;
 }
 
 function hashFileSync(root: string, relative: string): string { return hash(readFileSync(path.join(root, relative))); }

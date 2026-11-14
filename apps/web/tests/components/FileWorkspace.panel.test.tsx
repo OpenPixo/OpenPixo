@@ -33,11 +33,6 @@ vi.mock('../../src/components/FileViewer', () => ({
 vi.mock('../../src/components/workspace/TerminalViewer', () => ({
   TerminalViewer: ({ terminalId }: { terminalId: string }) => <div data-testid="terminal-viewer">{terminalId}</div>,
 }));
-vi.mock('../../src/components/generate/GenerateView', () => ({
-  GenerateView: ({ hidden, referencePaths = [] }: { hidden: boolean; referencePaths?: string[] }) => hidden ? null : (
-    <div data-testid="generate-view">Generator<span data-testid="studio-references">{referencePaths.join(',')}</span></div>
-  ),
-}));
 vi.mock('../../src/components/ProjectExtensionsPanel', () => ({ ProjectExtensionsPanel: () => <div>Extensions form</div> }));
 
 beforeAll(() => {
@@ -290,52 +285,44 @@ describe('where opens land', () => {
     }
   });
 
-  it('routes checklist requests: assets to 资源库 showing 图片, generate to 生成', () => {
+  // 生成 is one page beside 工坊 now: requests for it leave the panel for /generate/<game>.
+  const handoff = () => JSON.parse(window.sessionStorage.getItem('openpixo:generate-handoff') ?? 'null') as { projectId: string; references?: string[] } | null;
+
+  it('routes checklist requests: assets to 资源库 showing 图片, generate to the 生成 page', () => {
     const { rerender } = render(<Harness files={[...FILES, { ...image('notes.md'), kind: 'text', mime: 'text/markdown' }]} />);
     rerender(<Harness files={[...FILES, { ...image('notes.md'), kind: 'text', mime: 'text/markdown' }]} gameTabRequest={{ tab: 'assets', nonce: 1 }} />);
     expect(selectedView()).toBe('Files');
     expect(document.getElementById('library-type-image')).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByTestId('design-file-row-notes.md')).toBeNull();
-    expect(screen.queryByTestId('generate-view')).toBeNull();
+    expect(window.location.pathname).toBe('/');
     rerender(<Harness gameTabRequest={{ tab: 'generate', nonce: 2 }} />);
-    expect(selectedView()).toBe('Generate');
-    expect(screen.getByTestId('generate-view')).toBeTruthy();
+    expect(window.location.pathname).toBe('/generate/game');
   });
 
-  it('switches to 生成 from 生成素材… and from an image, with it as the reference', () => {
+  it('has no 生成 view of its own, and a saved one opens 资源库', () => {
+    window.localStorage.setItem('pixo:project-panel-view:game', 'generate');
+    render(<Harness />);
+    expect(selectedView()).toBe('Files');
+    expect(screen.queryByRole('tab', { name: /^Generate/ })).toBeNull();
+  });
+
+  it('opens the 生成 page for this game from 生成素材… and from an image, with it as the reference', () => {
     render(<Harness />);
     fireEvent.click(view('Files'));
     fireEvent.click(screen.getByTestId('panel-library-generate'));
-    expect(selectedView()).toBe('Generate');
-    expect(screen.getByTestId('studio-references').textContent).toBe('');
+    expect(window.location.pathname).toBe('/generate/game');
+    expect(handoff()).toEqual({ projectId: 'game' });
 
-    fireEvent.click(view('Files'));
+    window.history.replaceState(null, '', '/');
     fireEvent.click(screen.getByTestId('design-file-menu-hero.png'));
     fireEvent.click(screen.getByTestId('design-file-menu-generate-from'));
-    expect(selectedView()).toBe('Generate');
-    expect(screen.getByTestId('studio-references').textContent).toBe('hero.png');
+    expect(window.location.pathname).toBe('/generate/game');
+    expect(handoff()).toEqual({ projectId: 'game', references: ['hero.png'] });
 
-    // A plain 生成素材… afterwards starts without the earlier references.
-    fireEvent.click(view('Files'));
     for (const name of ['hero.png', 'enemy.png']) {
       fireEvent.click(screen.getByRole('checkbox', { name: `Select ${name}` }));
     }
     fireEvent.click(screen.getByTestId('file-list-batch-generate-from'));
-    expect(screen.getByTestId('studio-references').textContent).toBe('hero.png,enemy.png');
-    fireEvent.click(view('Files'));
-    fireEvent.click(screen.getByTestId('panel-library-generate'));
-    expect(screen.getByTestId('studio-references').textContent).toBe('');
-  });
-
-  it('opens 生成 for the /generate deep link and a queued recipe', () => {
-    const first = render(<Harness routedGenerate />);
-    expect(selectedView()).toBe('Generate');
-    expect(screen.getByTestId('generate-view')).toBeTruthy();
-    first.unmount();
-
-    window.sessionStorage.setItem('openpixo:studio-entry:game', 'recipe-1');
-    render(<Harness />);
-    expect(selectedView()).toBe('Generate');
-    expect(window.sessionStorage.getItem('openpixo:studio-entry:game')).toBeNull();
+    expect(handoff()).toEqual({ projectId: 'game', references: ['hero.png', 'enemy.png'] });
   });
 });

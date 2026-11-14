@@ -24,25 +24,16 @@ describe('Workshop routes', () => {
     });
   });
 
-  it('parses the project Generate tab', () => {
-    expect(parseRoute('/projects/my-game/generate')).toEqual({
-      kind: 'project',
-      projectId: 'my-game',
-      workspaceTab: 'generate',
-      conversationId: null,
-      fileName: null,
-    });
+  it('opens 生成 as its own page, for no game or for one', () => {
+    expect(parseRoute('/generate')).toEqual({ kind: 'home', view: 'generate' });
+    expect(parseRoute('/generate/my-game')).toEqual({ kind: 'home', view: 'generate', generateProjectId: 'my-game' });
+    expect(buildPath({ kind: 'home', view: 'generate' })).toBe('/generate');
+    expect(buildPath({ kind: 'home', view: 'generate', generateProjectId: 'my game' })).toBe('/generate/my%20game');
   });
 
-  it('builds the project Generate tab URL', () => {
-    const route: Route = {
-      kind: 'project',
-      projectId: 'my-game',
-      workspaceTab: 'generate',
-      conversationId: null,
-      fileName: null,
-    };
-
-    expect(buildPath(route)).toBe('/projects/my-game/generate');
+  it('sends the old per-game Generate tab to the page with that game picked', () => {
+    expect(parseRoute('/projects/my-game/generate')).toEqual({ kind: 'home', view: 'generate', generateProjectId: 'my-game' });
+    const route: Route = { kind: 'project', projectId: 'my-game', conversationId: null, fileName: null };
+    expect(buildPath(route)).toBe('/projects/my-game');
   });
 });

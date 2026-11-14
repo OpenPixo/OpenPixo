@@ -518,8 +518,6 @@ interface Props {
    * pass the value from `useRoute()`.
    */
   routeConversationId?: string | null;
-  /** `/projects/:id/generate`: the panel opens the generator in 资源库. */
-  routeWorkspaceTab?: 'generate';
   config: AppConfig;
   agents: AgentInfo[];
   // Mentionable functional skills — already filtered by config.disabledSkills
@@ -1316,7 +1314,6 @@ export function ProjectView({
 
   routeFileName,
   routeConversationId = null,
-  routeWorkspaceTab,
 
 
   config: savedConfig,
@@ -3633,11 +3630,8 @@ export function ProjectView({
     const nextKey = `${effectiveConversationId ?? ''}:${target ?? ''}`;
     // The project row navigates to the bare project, which says nothing about
     // the conversation. The pane stays where it is, so the URL has to get that
-    // conversation back or the sidebar loses its highlight. `/generate` is a
-    // route of its own and keeps its shape.
-    const routeDroppedConversation = Boolean(
-      activeConversationId && !routeConversationId && !routeWorkspaceTab,
-    );
+    // conversation back or the sidebar loses its highlight.
+    const routeDroppedConversation = Boolean(activeConversationId && !routeConversationId);
     if (nextKey === lastSyncedRouteKeyRef.current && !routeDroppedConversation) return;
     lastSyncedRouteKeyRef.current = nextKey;
     lastSyncedRouteFileRef.current = target;
@@ -3659,7 +3653,7 @@ export function ProjectView({
       },
       { replace: true },
     );
-  }, [openTabsState.active, projectFileNames, project.id, activeConversationId, routeConversationId, routeWorkspaceTab]);
+  }, [openTabsState.active, projectFileNames, project.id, activeConversationId, routeConversationId]);
 
   const handleEnsureProject = useCallback(async (): Promise<string | null> => {
     return project.id;
@@ -9181,7 +9175,6 @@ export function ProjectView({
           // already writing.
           runInFlight={currentConversationStreaming || currentConversationHasActiveRun}
           routeFileName={routeFileName}
-          routedGenerate={routeWorkspaceTab === 'generate'}
           openRequest={openRequest}
           downloadRequest={downloadRequest}
           tabsState={openTabsState}

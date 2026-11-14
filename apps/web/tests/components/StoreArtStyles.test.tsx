@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import type { StoreItemDetail } from '@openpixo/contracts';
 import { StoreView } from '../../src/components/store/StoreView';
 import { I18nProvider } from '../../src/i18n';
@@ -12,8 +12,6 @@ vi.mock('../../src/router', async (importOriginal) => ({
   navigate: vi.fn(),
 }));
 
-const generateExplanation = 'Art styles, recipes and character cards now live in your project’s Generate page.';
-const projectRequired = 'Open or create a project to choose a style, run a recipe or create a character card.';
 
 function item(kind: StoreItemDetail['kind'], name: string = kind): StoreItemDetail {
   return {
@@ -65,94 +63,20 @@ describe('moved Store content', () => {
     { id: 'latest', name: 'Latest project', updatedAt: 300 },
   ];
 
-  it.each(['style', 'recipe', 'character-card'] as const)('redirects a %s item deep link to the latest project Generate tab', async (kind) => {
+  it.each(['style', 'recipe', 'character-card'] as const)('sends a %s item deep link to 生成', async (kind) => {
     const resource = item(kind);
     mockCatalog([resource]);
 
     render(<I18nProvider initial="en"><StoreView itemName={resource.name} projects={projects} /></I18nProvider>);
 
-    expect(await screen.findByText(generateExplanation)).toBeTruthy();
-    await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({
-        kind: 'project',
-        projectId: 'latest',
-        fileName: null,
-        workspaceTab: 'generate',
-      }, { replace: true });
-    });
-    expect(screen.queryByRole('button', { name: /^Install$/i })).toBeNull();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ kind: 'home', view: 'generate' }, { replace: true }));
   });
 
-  it.each(['style', 'recipe', 'character-card'] as const)('redirects the old %s tab to Generate', async (kind) => {
+  it.each(['style', 'recipe', 'character-card'] as const)('sends the old %s tab to 生成, with or without a game', async (kind) => {
     mockCatalog([item(kind)]);
 
-    render(<I18nProvider initial="en"><StoreView initialTab={kind} projects={projects} /></I18nProvider>);
+    render(<I18nProvider initial="en"><StoreView initialTab={kind} projects={[]} /></I18nProvider>);
 
-    expect(await screen.findByText(generateExplanation)).toBeTruthy();
-    await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({
-        kind: 'project',
-        projectId: 'latest',
-        fileName: null,
-        workspaceTab: 'generate',
-      }, { replace: true });
-    });
-  });
-
-  it('explains the move and offers projects when there is no project to open', async () => {
-    const resource = item('style');
-    mockCatalog([resource]);
-
-    render(<I18nProvider initial="en"><StoreView itemName={resource.name} projects={[]} /></I18nProvider>);
-
-    expect(await screen.findByText(generateExplanation)).toBeTruthy();
-    expect(screen.getByText(projectRequired)).toBeTruthy();
-    expect(navigate).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Go to projects' }));
-
-    expect(navigate).toHaveBeenCalledWith({ kind: 'home', view: 'projects' });
-  });
-});
-
-describe('Workshop skill details', () => {
-  it.each([
-    { locale: 'en' as const, title: 'Battle HUD', prompt: 'Create a compact battle HUD.', action: 'Try in project' },
-    { locale: 'zh-CN' as const, title: '战斗界面', prompt: '生成紧凑的战斗界面。', action: '在项目中试试' },
-  ])('keeps examples and their project action localized in $locale', async ({ locale, title, prompt, action }) => {
-    const resource = {
-      ...item('skill', 'game-interface'),
-      title: 'Game Interface Skill',
-      examples: [{
-        title: 'Battle HUD',
-        prompt: 'Create a compact battle HUD.',
-        title_i18n: { 'zh-CN': '战斗界面' },
-        prompt_i18n: { 'zh-CN': '生成紧凑的战斗界面。' },
-      }],
-    } satisfies StoreItemDetail;
-    mockCatalog([resource]);
-    const onTryExample = vi.fn();
-
-    render(<I18nProvider initial={locale}><StoreView itemName={resource.name} projects={[]} onTryExample={onTryExample} /></I18nProvider>);
-
-    expect(await screen.findByText(title)).toBeTruthy();
-    expect(screen.getByText(prompt)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: action }));
-
-    expect(onTryExample).toHaveBeenCalledTimes(1);
-    expect(onTryExample.mock.calls[0]?.[0]).toBe(prompt);
-  });
-
-  it('keeps skill installation and license details visible', async () => {
-    const resource = item('skill', 'game-interface');
-    mockCatalog([resource]);
-
-    render(<I18nProvider initial="en"><StoreView itemName={resource.name} projects={[]} /></I18nProvider>);
-
-    expect(await screen.findByRole('button', { name: /^Install$/i })).toBeTruthy();
-    expect(screen.getAllByText(/1\.0\.0/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Apache-2\.0/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/commercial/i).length).toBeGreaterThan(0);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ kind: 'home', view: 'generate' }, { replace: true }));
   });
 });

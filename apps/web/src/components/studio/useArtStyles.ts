@@ -3,7 +3,8 @@ import type { ArtStyle, ProjectArtStyleResponse } from '@openpixo/contracts';
 import { useI18n } from '../../i18n';
 import { getProjectArtStyle, listArtStyles, PROJECT_ART_STYLE_CHANGED } from '../../providers/styles';
 
-export function useArtStyles(projectId: string) {
+/** The installed styles, and the game's own style when there is a game (none on 生成 with no game). */
+export function useArtStyles(projectId: string | null) {
   const { locale } = useI18n();
   const [styles, setStyles] = useState<ArtStyle[]>([]);
   const [projectStyle, setProjectStyle] = useState<ProjectArtStyleResponse | null>(null);
@@ -14,11 +15,11 @@ export function useArtStyles(projectId: string) {
     const controller = new AbortController();
     setLoading(true); setFailed(false); setProjectStyle(null); setStyles([]);
     void Promise.allSettled([
-      listArtStyles(controller.signal, locale), getProjectArtStyle(projectId, controller.signal, locale),
+      listArtStyles(controller.signal, locale), projectId ? getProjectArtStyle(projectId, controller.signal, locale) : Promise.resolve(null),
     ]).then(([catalog, project]) => {
       if (controller.signal.aborted) return;
       if (catalog.status === 'fulfilled') setStyles(catalog.value);
-      if (project.status === 'fulfilled') setProjectStyle(project.value);
+      if (project.status === 'fulfilled' && project.value) setProjectStyle(project.value);
       setFailed(catalog.status === 'rejected' || project.status === 'rejected');
       setLoading(false);
     });

@@ -68,7 +68,7 @@ import { promisify } from 'node:util';
 import { Agent as UndiciAgent } from 'undici';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { load as loadHtml } from 'cheerio';
-import { ImageOutputSizeError, SETTINGS_MEDIA_PROVIDERS_PATH, type GeneratedProjectAssetFile, type MediaSheetPiece, type MediaSheetResult, type OpenPixoGenerationAspect, type ProjectMetadata } from '@openpixo/contracts';
+import { ImageOutputSizeError, SETTINGS_MEDIA_PROVIDERS_PATH, type GeneratedProjectAssetFile, type MediaSheetPiece, type MediaSheetResult, type OpenPixoGenerationAspect, type OpenPixoGenerationResolution, type ProjectMetadata, hostedResolution } from '@openpixo/contracts';
 import {
   findRealTagOffset,
   HTML_TAG_PATTERNS,
@@ -421,7 +421,7 @@ async function generateMediaFile(args: {
    * under the art budget; without it nothing is spent. `prompt` and `aspect`, when
    * set, are what the daemon priced and are sent as they are.
    */
-  hosted?: { taskId: string; quoteId: string; cloudRequestId: string; style?: string | undefined; prompt?: string | undefined; aspect?: string | undefined; duration?: number | undefined; warnings?: readonly string[] | undefined;
+  hosted?: { taskId: string; quoteId: string; cloudRequestId: string; style?: string | undefined; prompt?: string | undefined; aspect?: string | undefined; resolution?: OpenPixoGenerationResolution | undefined; duration?: number | undefined; warnings?: readonly string[] | undefined;
     /**
      * The project this is spent for, when this call's folder is not that project but
      * a staging folder (a recipe candidate): the job is recorded under the project,
@@ -636,8 +636,11 @@ async function generateMediaFile(args: {
     // the delivered bytes are reshaped here, and the snapshot sees the final file.
     const shapeHosted = imagePlan && planNeedsShaping(imagePlan) ? imagePlan : null;
     const hostedAspect = args.hosted.prompt === undefined ? effectiveAspect : args.hosted.aspect;
+    // Like the aspect: what was priced, else the user's own quoted request. `1k` is the default and goes unsaid.
+    const sentResolution = args.hosted.prompt === undefined ? hostedResolution(resolution) : hostedResolution(args.hosted.resolution);
     const generated = await args.openpixoHosted.generate({ taskId: args.hosted.taskId, ...jobProject, metadata: args.metadata, service: def.id,
       params: { prompt: args.hosted.prompt ?? prompt ?? '', ...(hostedAspect ? { aspect: hostedAspect as OpenPixoGenerationAspect } : {}),
+        ...(sentResolution ? { resolution: sentResolution } : {}),
         ...(args.hosted.style ? { style: args.hosted.style } : {}) },
       // The cloud checks the count against the service; the order is part of the quoted price.
       references: imageRefs.map(ref => ({ bytes: Buffer.from(ref.dataUrl.slice(ref.dataUrl.indexOf(',') + 1), 'base64'), mime: ref.mime })),

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Button, Dialog, DialogBody, DialogFooter, DialogTitle, Input } from '@openpixo/components';
 import type { RecipeCandidate, RecipeRun } from '@openpixo/contracts';
 import { useI18n } from '../../i18n';
+import { stagedCandidateFileUrl } from '../../providers/studio';
 import { Model3dViewer } from '../Model3dViewer';
 import { RecipeFailure } from './RecipeFailure';
 import { studioCopy } from './copy';
@@ -10,7 +11,7 @@ import styles from './StudioPanel.module.css';
 
 /** Staged refs are daemon filesystem paths; the browser reads them through the staged-file route. */
 export function stagedFileUrl(run: RecipeRun, candidate: RecipeCandidate, index: number): string {
-  return `/api/projects/${encodeURIComponent(run.projectId)}/recipe-runs/${encodeURIComponent(run.id)}/candidates/${encodeURIComponent(candidate.id)}/files/${index}`;
+  return stagedCandidateFileUrl(run.id, candidate.id, index);
 }
 
 export function CandidateMedia({ file, url, label }: { file: RecipeCandidate['stagedFiles'][number]; url: string; label: string }) {
