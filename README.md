@@ -27,12 +27,14 @@
   <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-<p align="center"><img src="docs/readme/openpixo-app.webp" alt="OpenPixo desktop app: a Codex turn with its execution record on the left and the code diff on the right" width="100%"></p>
-<p align="center"><sub>One Codex turn in OpenPixo. It loads the Phaser skill, plans three steps, makes the edit, runs <code>pixo game verify</code> and a scripted WASD playtest, and reports the diff.</sub></p>
+<p align="center"><img src="docs/readme/openpixo-hero.webp" alt="OpenPixo desktop app: a playtest note and Codex's stage 4 fix on the left, the Phaser game running on the right, last verification passed" width="100%"></p>
+<p align="center"><sub><i>Sakura Nightfall</i>, a Phaser game Codex built in five stages inside OpenPixo. The user plays a stage and says what's wrong, the agent fixes it, and <code>pixo game verify</code> must pass before the turn ends.</sub></p>
 
 ## What is OpenPixo?
 
 General coding agents can write a game's code, but they can't see the game: they don't know how to build a Godot project, press keys in a running Phaser game, or make a sprite sheet. OpenPixo is a local app and daemon that sits between the agent and your project. It starts the agent CLI you already have, adds game-development context to its prompt, and exposes build, playtest, asset and tuning tools that the agent calls as `pixo` commands mid-task. You work with it in a desktop app; scripts and other agents use the same tools from the CLI.
+
+<p align="center"><img src="docs/readme/openpixo-workflow.webp" alt="Three steps from one project: style samples during planning, the art list waiting for approval, and the frame sheet from a scripted playtest" width="100%"></p>
 
 ## Features
 
@@ -40,6 +42,8 @@ General coding agents can write a game's code, but they can't see the game: they
 - Runs **Codex**, **Claude Code** or **OpenCode** from your own install and subscription, or OpenCode with your own API key (BYOK).
 - Streams every turn into an execution record: skills used, plan steps, tool calls, files changed, media generated, context usage.
 - Steer a running turn, undo a turn's file changes, and resume native agent sessions across turns.
+
+<p align="center"><img src="docs/readme/openpixo-execution-record.webp" alt="Execution record of one Codex turn: skills used, a three-step plan, verify and WASD playtest, and the changed file" width="68%"></p>
 
 **Game loop**
 - Detects the engine and derives check, build and run commands for the project.

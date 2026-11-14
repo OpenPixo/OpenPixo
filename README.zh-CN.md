@@ -27,12 +27,14 @@
   <a href="README.md">English</a>
 </p>
 
-<p align="center"><img src="docs/readme/openpixo-app.webp" alt="OpenPixo 桌面应用：左边是 Codex 一轮任务的执行记录，右边是代码改动" width="100%"></p>
-<p align="center"><sub>OpenPixo 里 Codex 的一轮任务：读取 Phaser 技能，列出三步计划，改代码，运行 <code>pixo game verify</code> 和脚本化 WASD 试玩，最后给出改动。</sub></p>
+<p align="center"><img src="docs/readme/openpixo-hero.webp" alt="OpenPixo 桌面应用：左边是试玩反馈和 Codex 第 4 阶段的修复，右边是正在运行的 Phaser 游戏，上次验证通过" width="100%"></p>
+<p align="center"><sub>《Sakura Nightfall》是 Codex 在 OpenPixo 里分五个阶段做出来的 Phaser 游戏。用户玩一个阶段、说出问题，agent 修好，<code>pixo game verify</code> 通过后这一轮才算完成。</sub></p>
 
 ## OpenPixo 是什么？
 
 通用编程 agent 能写游戏代码，却看不到游戏本身：它不知道怎么构建 Godot 项目，不会在运行中的 Phaser 游戏里按键，也做不了精灵图。OpenPixo 是夹在 agent 和项目之间的本地应用和 daemon。它启动你已经装好的 agent 命令行，在提示词里加上游戏开发的上下文，并提供构建、试玩、素材和调参工具，agent 在任务中途以 `pixo` 命令调用它们。你在桌面应用里使用它；脚本和其他 agent 通过命令行使用同一套工具。
+
+<p align="center"><img src="docs/readme/openpixo-workflow.webp" alt="同一个项目里的三步：规划时的画风样图、等待批准的美术清单、脚本化试玩的帧总览" width="100%"></p>
 
 ## 功能
 
@@ -40,6 +42,8 @@
 - 运行你自己安装和订阅的 **Codex**、**Claude Code** 或 **OpenCode**，也可以用 OpenCode 加你自己的 API key（BYOK）。
 - 每一轮都实时显示在执行记录里：用了哪些技能、计划步骤、工具调用、改了哪些文件、生成了哪些素材、上下文用量。
 - 可以在一轮运行中途引导它，撤销一轮的文件改动，并跨轮次续接 agent 原生会话。
+
+<p align="center"><img src="docs/readme/openpixo-execution-record.webp" alt="Codex 一轮任务的执行记录：用到的技能、三步计划、验证和 WASD 试玩、改动的文件" width="68%"></p>
 
 **游戏循环**
 - 识别引擎，推出这个项目的检查、构建和运行命令。
