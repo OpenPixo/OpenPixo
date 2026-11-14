@@ -74,7 +74,7 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
       if (error instanceof CheckpointError) {
         sendApiError(res, checkpointErrorStatus(error.code), error.code, error.message);
       } else {
-        console.warn('[checkpoints] project operation failed', { projectId, action, error });
+        console.warn('[checkpoints] project operation failed', { projectId, action, error: checkpointFailureForLog(error) });
         sendApiError(res, 500, 'CHECKPOINT_FAILED', 'Could not complete the checkpoint operation');
       }
     }
@@ -86,6 +86,19 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
   app.get(`${base}/:checkpointId/file`, requireLocalDaemonRequest, (req, res) => respond(req, res, 'file'));
   app.post(`${base}/:checkpointId/restore`, requireLocalDaemonRequest, (req, res) => respond(req, res, 'restore'));
   app.post(`${base}/enable`, requireLocalDaemonRequest, (req, res) => respond(req, res, 'enable'));
+}
+
+/**
+ * A failed `git add` prints one line-ending warning per file before the real error; on a game with
+ * thousands of assets that buried the cause under ~2,000 lines per failure. Keep Git's errors only.
+ */
+function checkpointFailureForLog(error: unknown): unknown {
+  if (!(error instanceof Error)) return error;
+  const stderr = (error as { stderr?: unknown }).stderr;
+  const lines = typeof stderr === 'string'
+    ? stderr.split(/\r?\n/u).filter(line => line.trim() && !/^warning: in the working copy of /u.test(line))
+    : [];
+  return { message: error.message.split('\n')[0]?.slice(0, 300), stderr: lines.slice(-20).join('\n') };
 }
 
 /** The files are already back by now, so a history that cannot be updated never fails the undo. */
