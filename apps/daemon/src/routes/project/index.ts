@@ -1,5 +1,6 @@
 
 import { removeCheckpointStore } from '../../projects/checkpoint-store.js';
+import { createCoalescedScan } from '../../projects/coalesced-scan.js';
 import { type ProjectMutations } from '../../projects/mutations.js';
 
 
@@ -2686,6 +2687,7 @@ export interface RegisterProjectFileRoutesDeps extends RouteDeps<'db' | 'http' |
 
 export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFileRoutesDeps) {
   const { db } = ctx;
+  const coalescedProjectFileListing = createCoalescedScan<Buffer>();
   const { sendApiError, sendMulterError } = ctx.http;
   // The design-token suggestion route reads the design-system roots to resolve
   // a project's tokens, so this scope needs them alongside PROJECTS_DIR.
@@ -3349,10 +3351,19 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
       if (project?.metadata?.teamMirrorRevokedAt) {
         return sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'not found');
       }
-      const files = await listFiles(PROJECTS_DIR, req.params.id, {
-        since: Number.isFinite(since) ? since : undefined,
-        metadata: project?.metadata,
-      });
+      const sinceValue = Number.isFinite(since) ? since : undefined;
+      // Concurrent requests share one scan that started after they asked, serialized once
+      // (see coalesced-scan.ts): a large game's listing costs seconds and megabytes.
+      const body = await coalescedProjectFileListing(
+        `${req.params.id}\0${resolveProjectDir(PROJECTS_DIR, req.params.id, project?.metadata)}\0${sinceValue ?? ''}`,
+        async () => {
+          const files = await listFiles(PROJECTS_DIR, req.params.id, { since: sinceValue, metadata: project?.metadata });
+          /** @type {import('@openpixo/contracts').ProjectFilesResponse} */
+          const response = { files };
+          return Buffer.from(JSON.stringify(response));
+        },
+      );
+      if (res.destroyed || res.writableEnded) return;
       // The directory is mutated outside HTTP by agent CLIs and filesystem
       // tools. A cached 200 can therefore outlive a completed Write even when
       // the daemon's fresh scan already sees the new file, leaving the
@@ -3360,9 +3371,7 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
       // request-coalescing window, so transport caches must always revalidate
       // this dynamic inventory.
       res.setHeader('Cache-Control', 'no-store');
-      /** @type {import('@openpixo/contracts').ProjectFilesResponse} */
-      const body = { files };
-      res.json(body);
+      res.type('application/json').send(body);
     } catch (err: any) {
       sendApiError(res, 400, 'BAD_REQUEST', String(err));
     }
