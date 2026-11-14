@@ -1,0 +1,13 @@
+/* Speed mark: an outlined bolt for Regular, a filled one for a faster tier. */
+.bolt {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+.bolt[data-on='true'] {
+  fill: var(--violet);
+  stroke: var(--violet);
+}

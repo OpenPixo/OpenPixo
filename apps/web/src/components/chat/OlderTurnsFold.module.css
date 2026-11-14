@@ -1,0 +1,28 @@
+/* The fold above the latest turns of a long conversation. */
+.fold {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 18px;
+}
+
+.line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--chat-border-soft);
+}
+
+.button {
+  flex: 0 0 auto;
+  gap: 6px;
+  border-radius: var(--chat-radius-pill);
+  color: var(--chat-text-muted);
+  font-size: var(--chat-t-cap);
+  transition: color 200ms var(--chat-ease-out), background-color 200ms var(--chat-ease-out);
+}
+
+.button:hover,
+.button:focus-visible {
+  color: var(--chat-text);
+  background: var(--chat-bg-fill-secondary);
+}

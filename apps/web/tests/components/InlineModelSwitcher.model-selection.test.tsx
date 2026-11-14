@@ -411,4 +411,41 @@ describe('InlineModelSwitcher local lists', () => {
     // Short lists are shown whole, with no search box.
     expect(screen.queryByTestId('inline-model-switcher-search-claude')).toBeNull();
   });
+  it('puts a Regular / Fast speed chip beside the model when the model has a faster tier', () => {
+    const codex = {
+      id: 'codex', name: 'Codex', bin: 'codex', available: true,
+      models: [
+        { id: 'default', label: 'Default', serviceTierOptions: [{ id: 'priority', label: 'Fast' }] },
+        { id: 'gpt-6-sol', label: 'GPT-6 Sol', serviceTierOptions: [{ id: 'priority', label: 'Fast' }] },
+      ],
+    } as AgentInfo;
+    const { onAgentModelChange } = renderPicker({
+      agents: [codex], config: { ...config, agentId: 'codex', agentModels: { codex: { model: 'default' } } },
+    });
+    const speed = screen.getByTestId('inline-model-switcher-speed');
+    // Nothing saved reads as Regular, not as the only tier the model lists.
+    expect(speed.getAttribute('data-value')).toBe('default');
+    expect(speed.textContent).toBe('Regular');
+    fireEvent.click(speed);
+    fireEvent.click(screen.getByTestId('inline-model-switcher-speed-priority'));
+    expect(onAgentModelChange).toHaveBeenLastCalledWith('codex', { serviceTier: 'priority' });
+  });
+
+  it('switches back to Regular by clearing the saved tier, and has no speed chip for a model without tiers', () => {
+    const codex = {
+      id: 'codex', name: 'Codex', bin: 'codex', available: true,
+      models: [{ id: 'gpt-6-sol', label: 'GPT-6 Sol', serviceTierOptions: [{ id: 'priority', label: 'Fast' }] }],
+    } as AgentInfo;
+    const { onAgentModelChange } = renderPicker({
+      agents: [codex], config: { ...config, agentId: 'codex', agentModels: { codex: { model: 'gpt-6-sol', serviceTier: 'priority' } } },
+    });
+    const speed = screen.getByTestId('inline-model-switcher-speed');
+    expect(speed.textContent).toBe('Fast');
+    fireEvent.click(speed);
+    fireEvent.click(screen.getByTestId('inline-model-switcher-speed-default'));
+    expect(onAgentModelChange).toHaveBeenLastCalledWith('codex', { serviceTier: undefined });
+    cleanup();
+    renderPicker();
+    expect(screen.queryByTestId('inline-model-switcher-speed')).toBeNull();
+  });
 });

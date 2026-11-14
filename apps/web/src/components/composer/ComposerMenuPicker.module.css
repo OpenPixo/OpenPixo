@@ -24,8 +24,15 @@
   cursor: default;
 }
 
+.chip[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--warning, #d9a400) 55%, transparent);
+}
+
 .value {
+  overflow: hidden;
+  max-width: 180px;
   font-weight: 500;
+  text-overflow: ellipsis;
 }
 
 .leading {

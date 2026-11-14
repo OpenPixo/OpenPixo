@@ -31,6 +31,7 @@ import { effectiveAgentModelId } from './agentModelSelection';
 import { modelOptionLabel } from './modelOptions';
 import { localAgentOffered, localModelView } from './localModelList';
 import { EffortPicker } from './EffortPicker';
+import { SpeedPicker } from './SpeedPicker';
 import { anchorSelectionInView } from './pickerSelectionAnchor';
 import {
   mergeProviderModelOptions,
@@ -125,9 +126,6 @@ export function InlineModelSwitcher({
     ?? reasoningOptions.find((option) => option.default)?.id
     ?? reasoningOptions[0]?.id;
   const serviceTierOptions = currentModel?.serviceTierOptions ?? [];
-  const serviceTier = serviceTierOptions.find((option) => option.id === currentChoice?.serviceTier)?.id
-    ?? serviceTierOptions.find((option) => option.default)?.id
-    ?? serviceTierOptions[0]?.id;
 
   const provider = KNOWN_PROVIDERS.find(
     (item) => item.protocol === apiProtocol && item.baseUrl === config.apiProviderBaseUrl,
@@ -270,21 +268,6 @@ export function InlineModelSwitcher({
     close();
   }
 
-  const modelControls = (
-    <>
-      {config.mode === 'daemon' && currentAgent && serviceTierOptions.length ? (
-        <label className={styles.controls}>
-          {t('avatar.serviceTierLabel')}
-          <select aria-label={t('avatar.serviceTierLabel')} value={serviceTier} tabIndex={open ? 0 : -1}
-            onChange={(event) => onAgentModelChange(currentAgent.id, { serviceTier: event.target.value })}>
-            {serviceTierOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-          </select>
-        </label>
-      ) : null}
-    </>
-  );
-  // Beside the model they belong to, not at the far end of a long list.
-  const hostedSelected = currentAgent?.id === OPENPIXO_AGENT_ID;
 
   // Only CLIs that are installed and reachable; installing one is a Settings task.
   const localRows = daemonLive ? LOCAL_CLIS.flatMap(({ id }) => {
@@ -405,7 +388,6 @@ export function InlineModelSwitcher({
             <span className={styles.label}>{t('homeModel.signIn')}</span>
           </Button>
         )}
-        {hostedSelected ? modelControls : null}
       </section> : null}
       {localRows.length || showOwnKey ? <section className={styles.section} role="group" aria-label={t('homeModel.local')}>
         <h3 className={styles.heading}>{t('homeModel.local')}</h3>
@@ -435,7 +417,6 @@ export function InlineModelSwitcher({
             ))}
           </div>
         ) : null}
-        {hostedSelected && cloudAvailable ? null : modelControls}
       </section> : null}
       <div className={styles.footer}>
         <Button variant="ghost" className={styles.row} role="menuitem" tabIndex={open ? 0 : -1}
@@ -480,6 +461,10 @@ export function InlineModelSwitcher({
             // Saved against the model in effect, even when that is its default.
             ...(currentModelId && currentModelId !== 'default' ? { model: currentModelId } : {}),
           })} />
+      ) : null}
+      {config.mode === 'daemon' && currentAgent && serviceTierOptions.length ? (
+        <SpeedPicker tiers={serviceTierOptions} value={currentChoice?.serviceTier}
+          onChange={(tier) => onAgentModelChange(currentAgent.id, { serviceTier: tier })} />
       ) : null}
       {mounted ? createPortal(menu, document.body) : null}
     </div>

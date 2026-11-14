@@ -311,7 +311,11 @@ test('codex derives service tiers from live speed tiers when service_tiers is ab
   }));
 
   assert.deepEqual(parsed, [
-    { id: 'default', label: 'Default (CLI config)' },
+    {
+      id: 'default',
+      label: 'Default (CLI config)',
+      serviceTierOptions: [{ id: 'priority', label: 'Fast' }],
+    },
     {
       id: 'gpt-5.5',
       label: 'GPT 5.5',
@@ -338,7 +342,14 @@ test('codex preserves explicit live service tiers from debug models JSON', () =>
   }));
 
   assert.deepEqual(parsed, [
-    { id: 'default', label: 'Default (CLI config)' },
+    {
+      id: 'default',
+      label: 'Default (CLI config)',
+      serviceTierOptions: [
+        { id: 'priority', label: 'Fast' },
+        { id: 'standard', label: 'Standard' },
+      ],
+    },
     {
       id: 'gpt-6-codex',
       label: 'GPT-6 Codex',
@@ -562,7 +573,11 @@ test('codex derives service tiers from live speed tiers when service_tiers is ab
   }));
 
   assert.deepEqual(parsed, [
-    { id: 'default', label: 'Default (CLI config)' },
+    {
+      id: 'default',
+      label: 'Default (CLI config)',
+      serviceTierOptions: [{ id: 'priority', label: 'Fast' }],
+    },
     {
       id: 'gpt-5.5',
       label: 'GPT-5.5',
@@ -589,7 +604,14 @@ test('codex preserves explicit live service tiers from debug models JSON', () =>
   }));
 
   assert.deepEqual(parsed, [
-    { id: 'default', label: 'Default (CLI config)' },
+    {
+      id: 'default',
+      label: 'Default (CLI config)',
+      serviceTierOptions: [
+        { id: 'priority', label: 'Fast' },
+        { id: 'standard', label: 'Standard' },
+      ],
+    },
     {
       id: 'gpt-6-codex',
       label: 'GPT-6 Codex',
@@ -613,7 +635,11 @@ test('codex preserves service tier labels from bare-array debug models JSON', ()
   ]));
 
   assert.deepEqual(parsed, [
-    { id: 'default', label: 'Default (CLI config)' },
+    {
+      id: 'default',
+      label: 'Default (CLI config)',
+      serviceTierOptions: [{ id: 'priority', label: 'Fast' }],
+    },
     {
       id: 'gpt-5.5',
       label: 'GPT-5.5',
@@ -762,4 +788,29 @@ test('codex args pass valid extraAllowedDirs with repeatable --add-dir flags', (
     args.filter((arg, index) => arg === '--add-dir' || args[index - 1] === '--add-dir'),
     ['--add-dir', '/repo/skills', '--add-dir', '/tmp/codex/generated_images'],
   );
+});
+
+test('codex offers on its default model the speed tiers every listed model shares', () => {
+  assert.ok(codex.listModels, 'codex must define live model discovery');
+  const shared = codex.listModels.parse(JSON.stringify({
+    models: [
+      { slug: 'gpt-6-sol', visibility: 'list', service_tiers: [{ id: 'priority', name: 'Fast' }, { id: 'flex', name: 'Flex' }] },
+      { slug: 'gpt-6-luna', visibility: 'list', service_tiers: [{ id: 'priority', name: 'Fast' }] },
+      // A hidden model is not one Codex would pick, so it does not narrow the default.
+      { slug: 'gpt-hidden', visibility: 'hidden' },
+    ],
+  }));
+  assert.deepEqual(shared?.[0], {
+    id: 'default',
+    label: 'Default (CLI config)',
+    serviceTierOptions: [{ id: 'priority', label: 'Fast' }],
+  });
+
+  const mixed = codex.listModels.parse(JSON.stringify({
+    models: [
+      { slug: 'gpt-6-sol', visibility: 'list', service_tiers: [{ id: 'priority', name: 'Fast' }] },
+      { slug: 'gpt-5-old', visibility: 'list' },
+    ],
+  }));
+  assert.deepEqual(mixed?.[0], { id: 'default', label: 'Default (CLI config)' });
 });

@@ -25,6 +25,10 @@ interface Props {
   busy?: boolean;
   /** Shown in the chip instead of the selected option (e.g. "not supported"). */
   triggerLabel?: string;
+  /** A mark that always leads the chip, whatever is selected (e.g. what the setting is about). */
+  triggerLeading?: ReactNode;
+  /** `warning` outlines the chip when the current choice needs attention. */
+  tone?: 'warning';
   title?: string;
   testId: string;
 }
@@ -35,7 +39,7 @@ interface Props {
  * one, instead of a native select.
  */
 export function ComposerMenuPicker({
-  label, hint, options, value, onChange, disabled, busy, triggerLabel, title, testId,
+  label, hint, options, value, onChange, disabled, busy, triggerLabel, triggerLeading, tone, title, testId,
 }: Props) {
   const menuId = useId();
   const [open, setOpen] = useState(false);
@@ -161,6 +165,7 @@ export function ComposerMenuPicker({
         className={styles.chip}
         data-testid={testId}
         data-value={current?.id}
+        data-tone={tone}
         aria-label={`${label} · ${shown}`}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -175,7 +180,8 @@ export function ComposerMenuPicker({
           setOpen(true);
         }}
       >
-        {!triggerLabel && current?.leading ? <span className={styles.leading} aria-hidden="true">{current.leading}</span> : null}
+        {triggerLeading ? <span className={styles.leading} aria-hidden="true">{triggerLeading}</span> : null}
+        {!triggerLeading && !triggerLabel && current?.leading ? <span className={styles.leading} aria-hidden="true">{current.leading}</span> : null}
         <span className={styles.value}>{shown}</span>
       </Button>
       {open && typeof document !== 'undefined' ? createPortal(menu, document.body) : null}

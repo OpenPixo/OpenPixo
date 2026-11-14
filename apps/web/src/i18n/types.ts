@@ -2086,6 +2086,10 @@ export interface Dict {
   'avatar.modelLabel': string;
   'avatar.reasoningLabel': string;
   'avatar.serviceTierLabel': string;
+  'avatar.speedLabel': string;
+  'avatar.speedStandard': string;
+  'avatar.speedFast': string;
+  'avatar.speedHint': string;
   'avatar.customSuffix': string;
 
   // Inline CLI / model switcher (entry topbar)
@@ -2261,6 +2265,7 @@ export interface Dict {
   'chat.forkConversationFailed': string;
   'chat.startTitle': string;
   'chat.jumpToLatest': string;
+  'chat.olderTurns.reveal': string;
   'chat.scrollToLatest': string;
   'chat.messageRail.aria': string;
   'chat.messageRail.jumpAria': string;
@@ -4042,9 +4047,9 @@ export interface Dict {
   'agentImageModel.hint': string;
   'agentImageModel.automatic': string;
   'agentImageModel.automaticNow': string;
+  'agentImageModel.automaticNowShort': string;
   'agentImageModel.automaticHint': string;
   'agentImageModel.none': string;
-  'agentImageModel.chipLabel': string;
   'agentImageModel.chipTitle': string;
   'agentImageModel.codexOption': string;
   'agentImageModel.hostedOption': string;

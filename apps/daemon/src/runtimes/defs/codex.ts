@@ -107,7 +107,29 @@ export function parseCodexDebugModels(stdout: string): RuntimeModelOption[] | nu
     if (serviceTierOptions) model.serviceTierOptions = serviceTierOptions;
     out.push(model);
   }
-  return out.length > 1 ? out : null;
+  if (out.length <= 1) return null;
+  const sharedTiers = serviceTiersSharedByEveryModel(out.slice(1));
+  if (sharedTiers) out[0] = { ...DEFAULT_MODEL_OPTION, serviceTierOptions: sharedTiers };
+  return out;
+}
+
+/**
+ * Codex's own default model is one of the listed ones, so a speed tier every
+ * listed model offers is safe to offer on "default" too. Without this the
+ * speed control disappears for the most common choice.
+ */
+function serviceTiersSharedByEveryModel(
+  models: readonly RuntimeModelOption[],
+): RuntimeModelOption[] | undefined {
+  let shared: RuntimeModelOption[] | undefined;
+  for (const model of models) {
+    const tiers = model.serviceTierOptions ?? [];
+    shared = shared
+      ? shared.filter((tier) => tiers.some((candidate) => candidate.id === tier.id))
+      : tiers.map((tier) => ({ ...tier }));
+    if (shared.length === 0) return undefined;
+  }
+  return shared;
 }
 
 const GPT_5_5_SERVICE_TIER_OPTIONS: RuntimeModelOption[] = [

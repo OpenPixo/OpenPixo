@@ -151,27 +151,6 @@
   font-size: 13px;
 }
 
-.controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  color: var(--ink-2);
-  font-size: 12px;
-}
-
-.controls select {
-  min-width: 0;
-  max-width: 55%;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-panel);
-  color: var(--text);
-  font: inherit;
-}
-
 .footer {
   margin-top: 6px;
   padding-top: 6px;

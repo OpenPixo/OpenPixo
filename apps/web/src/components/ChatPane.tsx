@@ -145,6 +145,12 @@ import { SupportDialog } from './chat/SupportDialog';
 import { Toast } from './Toast';
 import { supportChannels } from './chat/support-channels';
 import { ExportLogsAction } from './chat/ExportLogsAction';
+import { OlderTurnsFold } from './chat/OlderTurnsFold';
+import {
+  CHAT_INITIAL_VISIBLE_TURNS,
+  CHAT_REVEAL_TURNS_STEP,
+  olderTurnsWindow,
+} from '../runtime/chat/older-turns';
 import type { RecoveryActionBlockReason } from '../runtime/chat/recovery-gating';
 import type { SettingsSection } from './SettingsDialog';
 
@@ -703,9 +709,28 @@ export function ChatPane({
    * 只是此刻长得一样。见 `buildChatRenderItems` 的注释。
    */
   const chatRenderItems = useMemo(() => buildChatRenderItems(displayMessages), [displayMessages]);
+  /*
+   * A long conversation draws only its latest turns; the rest wait behind
+   * "show earlier" (`runtime/chat/older-turns.ts`). The body and the rail read
+   * this slice. Each conversation opens folded again.
+   */
+  const olderTurnsKey = activeConversationId ?? 'no-conversation';
+  const [olderTurnsReveal, setOlderTurnsReveal] = useState<{ key: string; turns: number }>(
+    () => ({ key: olderTurnsKey, turns: CHAT_INITIAL_VISIBLE_TURNS }),
+  );
+  const visibleTurns = olderTurnsReveal.key === olderTurnsKey
+    ? olderTurnsReveal.turns
+    : CHAT_INITIAL_VISIBLE_TURNS;
+  const olderTurns = useMemo(
+    () => olderTurnsWindow(chatRenderItems, visibleTurns),
+    [chatRenderItems, visibleTurns],
+  );
+  const visibleChatRenderItems = olderTurns.visible;
+  /** Distance from the bottom of the log before a reveal, so what the user was reading stays put. */
+  const olderTurnsRevealBottomRef = useRef<number | null>(null);
   /** Live handle on the chat-health surface, for the effects that feed it. */
   const chatSurfaceRef = useRef<ChatSurfaceHandle | null>(null);
-  const chatVirtualized = isChatVirtualized(chatRenderItems);
+  const chatVirtualized = isChatVirtualized(visibleChatRenderItems);
   /**
    * 这场对话背后**agent 事件的总条数**。
    *
@@ -2840,6 +2865,25 @@ export function ChatPane({
     settleFollowAfterPredictedScroll(el, distance);
   }
 
+  function revealOlderTurns(): void {
+    const el = logRef.current;
+    if (el) {
+      releaseFollow();
+      olderTurnsRevealBottomRef.current = el.scrollHeight - el.scrollTop;
+    }
+    setOlderTurnsReveal({ key: olderTurnsKey, turns: visibleTurns + CHAT_REVEAL_TURNS_STEP });
+  }
+
+  // Earlier turns land above what the user was reading; keep that in place.
+  useLayoutEffect(() => {
+    const fromBottom = olderTurnsRevealBottomRef.current;
+    const el = logRef.current;
+    olderTurnsRevealBottomRef.current = null;
+    if (fromBottom === null || !el) return;
+    writeLogScrollTop(el, Math.max(0, el.scrollHeight - fromBottom));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleTurns]);
+
   /**
    * The status line's "a question above is waiting ↑" button: bring the
    * waiting form back into view and put the keyboard on its first control.
@@ -3356,7 +3400,7 @@ export function ChatPane({
               <div className="chat-log-viewport">
                 <ChatScrollEdge scrollRef={logRef} />
                 <ChatMessageRail
-                  items={chatRenderItems}
+                  items={visibleChatRenderItems}
                   loading={loading}
                   logRef={logRef}
                   activeConversationKey={activeConversationId ?? 'no-conversation'}
@@ -3437,9 +3481,12 @@ export function ChatPane({
                     {projectId ? <EmptyConversation t={t} /> : null}
                   </div>
                 ) : null}
+                {!loading && olderTurns.hiddenTurns > 0 ? (
+                  <OlderTurnsFold hiddenTurns={olderTurns.hiddenTurns} onReveal={revealOlderTurns} />
+                ) : null}
                 <SkillNamesProvider skills={skills}>
                 <ChatRows
-                  items={chatRenderItems}
+                  items={visibleChatRenderItems}
                   messages={displayMessages}
                   streaming={streaming}
 

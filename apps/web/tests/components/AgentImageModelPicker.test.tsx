@@ -67,15 +67,43 @@ describe('the image model the AI uses', () => {
     expect((screen.getByTestId('agent-image-model-select') as HTMLSelectElement).value).toBe('grok-imagine-image');
   });
 
-  it('the composer chip shows the current choice and writes the same pref', async () => {
+  it('the composer chip shows the current choice and writes the same pref from its own menu', async () => {
     const { writes } = mockDaemon({ ...LIST, selected: 'gpt-image-2' });
     render(<AgentImageModelChip />);
-    const chip = await screen.findByTestId('agent-image-model-chip');
-    expect(chip.textContent).toContain('Images:');
-    const select = screen.getByLabelText('Image model the AI uses') as HTMLSelectElement;
-    expect(select.value).toBe('gpt-image-2');
-    fireEvent.change(select, { target: { value: 'codex-image' } });
+    const trigger = await screen.findByTestId('agent-image-model-chip-picker');
+    expect(trigger.getAttribute('aria-label')).toBe('Image model the AI uses · gpt-image-2');
+    // A styled menu, not the operating system's select list.
+    expect(screen.getByTestId('agent-image-model-chip').querySelector('select')).toBeNull();
+    fireEvent.click(trigger);
+    const menu = screen.getByTestId('agent-image-model-chip-picker-menu');
+    const rows = [...menu.querySelectorAll('[role="menuitemradio"]')];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'AutomaticNow Codex (ChatGPT sign-in)',
+      'Codex (ChatGPT sign-in)',
+      'gpt-image-2OpenAI',
+      'OpenPixo credits (uses the art budget)',
+    ]);
+    expect(screen.getByTestId('agent-image-model-chip-picker-gpt-image-2').getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByTestId('agent-image-model-chip-picker-codex-image'));
     await waitFor(() => expect(writes).toEqual([{ agentImageModel: 'codex-image' }]));
-    await waitFor(() => expect(select.value).toBe('codex-image'));
+    await waitFor(() => expect(trigger.getAttribute('data-value')).toBe('codex-image'));
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId('agent-image-model-chip-picker-auto'));
+    await waitFor(() => expect(writes).toEqual([{ agentImageModel: 'codex-image' }, { agentImageModel: 'auto' }]));
+  });
+
+  it('the composer chip marks a saved pick that cannot run now', async () => {
+    mockDaemon({
+      ...LIST,
+      selected: 'grok-imagine-image',
+      selectedUnavailable: 'not-connected',
+      options: [...LIST.options, { id: 'grok-imagine-image', label: 'grok-imagine-image', provider: 'grok', providerLabel: 'xAI Grok Imagine', hosted: false, available: false }],
+    });
+    render(<AgentImageModelChip />);
+    const trigger = await screen.findByTestId('agent-image-model-chip-picker');
+    expect(trigger.getAttribute('data-tone')).toBe('warning');
+    fireEvent.click(trigger);
+    expect(screen.getByTestId('agent-image-model-chip-picker-grok-imagine-image').textContent)
+      .toBe('grok-imagine-imagexAI Grok Imagine · not available now');
   });
 });
