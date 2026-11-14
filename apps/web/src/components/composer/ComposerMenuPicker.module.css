@@ -1,7 +1,12 @@
 /* Composer setting chips (reasoning effort, approval mode) and their menu. */
+/* A chip never grows past the slot its wrapper gets in the composer row: when a wrapper may
+   shrink (the approval picker), the value ends in an ellipsis instead of running under the send
+   button. */
 .chip {
   display: inline-flex;
   flex: none;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 6px;
   min-height: 30px;
@@ -25,6 +30,9 @@
 }
 
 .value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
 }
 
