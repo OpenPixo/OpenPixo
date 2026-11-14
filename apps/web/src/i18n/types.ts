@@ -1311,6 +1311,7 @@ export interface Dict {
   'settings.codexImageRateLimited': string;
   'settings.codexImageQuota': string;
   'settings.codexImageNoOutput': string;
+  'settings.codexImageContentBlocked': string;
   'settings.codexImageTimeout': string;
   'settings.codexImageCancelled': string;
   'settings.codexImageFailed': string;

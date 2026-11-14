@@ -10,6 +10,7 @@ const reasonKeys = {
   CODEX_IMAGE_TIMEOUT: 'settings.codexImageTimeout',
   CODEX_IMAGE_CANCELLED: 'settings.codexImageCancelled',
   CODEX_IMAGE_FAILED: 'settings.codexImageFailed',
+  CODEX_IMAGE_CONTENT_BLOCKED: 'settings.codexImageContentBlocked',
 } satisfies Record<CodexImageReasonCode, keyof Dict>;
 /** Never display a Codex diagnostic sentence as translated UI copy. */
 export function codexImageReasonKey(code: unknown): keyof Dict {

@@ -57,7 +57,16 @@ export function codexImageInstruction(options: CodexImageOptions): string {
   ].join('\n');
 }
 
+// What Codex reports when OpenAI's safety system refuses an image_gen call: the tool error carries
+// `moderation_blocked` / "rejected by the safety system", and the thread's last agent message says
+// it was "blocked by the safety system". The thread still exits 0 with no image, so without this
+// check the refusal reads as an empty result and the agent is told to switch models.
+const SAFETY_BLOCK_RE = /moderation_blocked|(?:blocked|rejected) by (?:the |OpenAI'?s )?safety system|content[ _]polic(?:y|ies)/i;
+
 function failureFromDiagnostic(diagnostic: string): CodexImageError {
+  if (SAFETY_BLOCK_RE.test(diagnostic)) {
+    return new CodexImageError('CODEX_IMAGE_CONTENT_BLOCKED', 'The image request was blocked by the safety system. Reword it and try again.', 400, false);
+  }
   if (/not (?:logged|signed) in|not authenticated|login required|please (?:log|sign) in|unauthorized|401|token.{0,30}expired/i.test(diagnostic)) {
     return new CodexImageError('CODEX_CLI_AUTH_REQUIRED', 'Codex sign-in is required. Run codex login with your ChatGPT account.', 401);
   }

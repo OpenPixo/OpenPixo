@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateCodexImages, generateCodexImageFiles, type CodexImageOptions } from '../../src/media/codex-image.js';
+import { mediaTaskErrorFromFailure } from '../../src/media/task-error.js';
 
 const fixture = fileURLToPath(new URL('../fixtures/codex-image-cli.ts', import.meta.url));
 let root: string;
@@ -61,6 +62,12 @@ describe('Codex image CLI adapter (fake executable only)', () => {
   it.each(['none', 'foreign'])('reports no output for %s and never steals another thread image', async value => {
     mode = value;
     await expect(generateCodexImages(options())).rejects.toMatchObject({ code: 'CODEX_IMAGE_NO_OUTPUT' });
+  });
+  it('reports a safety-system block as a content refusal, so the agent rewords instead of switching models', async () => {
+    mode = 'safety';
+    const failure = await generateCodexImages(options()).catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: 'CODEX_IMAGE_CONTENT_BLOCKED', retryable: false });
+    expect(mediaTaskErrorFromFailure(failure, { model: 'codex-image' }).nextStep).toBe('revise-request');
   });
   it.each([
     ['auth', 'CODEX_CLI_AUTH_REQUIRED'], ['quota', 'CODEX_IMAGE_QUOTA_EXCEEDED'], ['rate', 'CODEX_IMAGE_RATE_LIMITED'],

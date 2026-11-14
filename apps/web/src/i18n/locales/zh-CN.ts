@@ -3276,6 +3276,7 @@ export const zhCN: Dict = {
   'settings.codexImageRateLimited': "Codex 图片请求过于频繁，请稍后重试。",
   'settings.codexImageQuota': "Codex 套餐的图片额度已用完，请等待额度恢复或选择其他提供商。",
   'settings.codexImageNoOutput': "Codex 未返回图片，请调整提示词或选择其他提供商。",
+  'settings.codexImageContentBlocked': "图片没通过内容审核 —— 换个说法再试。",
   'settings.codexImageTimeout': "Codex 图片生成超时，请重试或选择其他提供商。",
   'settings.codexImageCancelled': "已取消 Codex 图片生成。",
   'settings.codexImageFailed': "Codex 图片生成失败，请检查本地 CLI 或选择其他提供商。",

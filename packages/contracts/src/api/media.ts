@@ -100,6 +100,7 @@ export const CODEX_IMAGE_REASON_CODES = [
   'CODEX_CLI_NOT_FOUND', 'CODEX_CLI_AUTH_REQUIRED', 'CODEX_CLI_AUTH_UNKNOWN',
   'CODEX_IMAGE_RATE_LIMITED', 'CODEX_IMAGE_QUOTA_EXCEEDED', 'CODEX_IMAGE_NO_OUTPUT',
   'CODEX_IMAGE_TIMEOUT', 'CODEX_IMAGE_CANCELLED', 'CODEX_IMAGE_FAILED',
+  'CODEX_IMAGE_CONTENT_BLOCKED',
 ] as const;
 export type CodexImageReasonCode = (typeof CODEX_IMAGE_REASON_CODES)[number];
 
@@ -417,8 +418,10 @@ const MEDIA_FAILURE_NEXT_STEP_BY_CODE: Readonly<Record<string, MediaFailureNextS
   CODEX_IMAGE_TIMEOUT: 'retry-later',
   CODEX_IMAGE_CANCELLED: 'retry-later',
   CODEX_IMAGE_FAILED: 'retry-later',
-  // Content policy. The one code that licenses "reword it".
+  // Content policy. The codes that license "reword it".
   safety_rejection: 'revise-request',
+  // OpenAI's safety system blocked Codex's image_gen (`moderation_blocked`).
+  CODEX_IMAGE_CONTENT_BLOCKED: 'revise-request',
   // Resend with the game's style reference, or with --no-reference. Nothing was spent.
   STYLE_REFERENCE_CHOICE_REQUIRED: 'revise-request',
   // Daemon/dispatcher policy for this run.

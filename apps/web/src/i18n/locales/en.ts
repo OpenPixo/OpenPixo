@@ -3142,6 +3142,7 @@ export const en: Dict = {
   'settings.codexImageRateLimited': 'Codex is receiving too many image requests. Try again later.',
   'settings.codexImageQuota': 'Your Codex plan image limit has been reached. Wait for it to reset or choose another provider.',
   'settings.codexImageNoOutput': 'Codex returned no image. Try another prompt or choose another provider.',
+  'settings.codexImageContentBlocked': "The image didn't pass content review. Reword the request and try again.",
   'settings.codexImageTimeout': 'Codex image generation timed out. Try again or choose another provider.',
   'settings.codexImageCancelled': 'Codex image generation was cancelled.',
   'settings.codexImageFailed': 'Codex image generation failed. Check the CLI or choose another provider.',
