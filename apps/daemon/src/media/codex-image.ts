@@ -13,6 +13,35 @@ const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const DIAGNOSTIC_LIMIT = 16 * 1024;
 
+/**
+ * An image job carries only what one image_gen call needs. A build makes
+ * 50–160 images on the user's own ChatGPT plan, and each turn otherwise loads
+ * the user's whole Codex setup: on Codex CLI 0.160.0 a real thread carried
+ * ~42 KB of global skill instructions, ~34 KB of AGENTS.md found by walking up
+ * from the temp cwd, the multi-agent role blocks and the recommended-plugin
+ * list, about 45k input tokens per request. The skill list also sent the model
+ * looking for an "imagegen skill" through a 41 KB tool listing before it drew.
+ *
+ * - `project_doc_max_bytes=0`: no AGENTS.md discovery.
+ * - `skills.include_instructions=false`: no skills block.
+ * - `agents.enabled=false`: no multi-agent role/mode blocks. The model catalogue
+ *   turns multi-agent v2 on for some models, so `--disable multi_agent` alone
+ *   does not remove them.
+ * - `--disable plugins` / `--disable apps`: no plugin or connector instructions.
+ *
+ * Measured with `codex debug prompt-input`: 85.7k → 10.7k characters of input
+ * items. The user's MCP servers stay configured: an empty `mcp_servers` table
+ * merges instead of clearing them. Image runs only; the agent runtime keeps the
+ * user's full setup.
+ */
+export const CODEX_IMAGE_CONTEXT_ARGS: readonly string[] = [
+  '-c', 'project_doc_max_bytes=0',
+  '-c', 'skills.include_instructions=false',
+  '-c', 'agents.enabled=false',
+  '--disable', 'plugins',
+  '--disable', 'apps',
+];
+
 export class CodexImageError extends Error {
   constructor(readonly code: CodexImageReasonCode, message: string,
     readonly status = 502, readonly retryable = false) {
@@ -92,7 +121,7 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
   const cwd = await mkdtemp(path.join(tempRoot, 'run-'));
   try {
     const args = ['exec', '--skip-git-repo-check', '-s', 'read-only', '--json', '--color', 'never',
-      ...(options.images ?? []).map(image => `--image=${path.resolve(image)}`), '-C', cwd, '-'];
+      ...CODEX_IMAGE_CONTEXT_ARGS, ...(options.images ?? []).map(image => `--image=${path.resolve(image)}`), '-C', cwd, '-'];
     const invocation = createCommandInvocation({ command: runtime.executable, args, env });
     let threadId: string | undefined;
     let diagnostic = '';

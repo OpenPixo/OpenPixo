@@ -39,7 +39,9 @@ describe('Codex image CLI adapter (fake executable only)', () => {
     expect(images).toHaveLength(1);
     expect(images[0]!.bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
     const invocation = await record();
-    expect(invocation.args).toEqual(['exec', '--skip-git-repo-check', '-s', 'read-only', '--json', '--color', 'never', '-C', invocation.cwd, '-']);
+    expect(invocation.args).toEqual(['exec', '--skip-git-repo-check', '-s', 'read-only', '--json', '--color', 'never',
+      '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', '-c', 'agents.enabled=false',
+      '--disable', 'plugins', '--disable', 'apps', '-C', invocation.cwd, '-']);
     expect(invocation.cwd.startsWith(path.join(root, 'data', 'tmp', 'codex-image') + path.sep)).toBe(true);
     expect(invocation.entries).toEqual([]);
     expect(invocation.dataRoot).toBe(path.join(root, 'data'));
