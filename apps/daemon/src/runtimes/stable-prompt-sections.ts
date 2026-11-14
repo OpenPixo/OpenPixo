@@ -54,6 +54,8 @@ const SECTION_INPUTS = {
     // agent from landing in `unattributed`.
     'planToolNote',
     'runtimeToolPrompt',
+    // Follows the hosted model and the cloud catalogue: whether the run sees images through `pixo look`.
+    'imageLook',
   ],
   'client-system': ['clientSystemPrompt'],
 } as const satisfies Readonly<Record<string, readonly string[]>>;

@@ -65,6 +65,11 @@ export interface GameProjectPromptInput {
   engineProfile?: EngineProfile | null | undefined;
   /** Pre-rendered `renderGameMediaGenerationContract` output for this run. */
   mediaContractBlock?: string | undefined;
+  /**
+   * The runtime reads text only and the agent looks at images through `pixo look` (the
+   * OpenPixo-credits agent when the cloud offers its image viewer). Absent or false: unchanged.
+   */
+  imageLook?: boolean | undefined;
   /** Recipes available to this project; the recipe block is omitted when absent or empty. */
   recipes?: ReadonlyArray<GameRecipePromptEntry> | undefined;
   planToolNote?: string | null | undefined;
@@ -728,6 +733,32 @@ export function renderGameShapeBlock(canRunTools = true): string {
   ].join('\n');
 }
 
+export const GAME_IMAGE_LOOK_BLOCK_HEADING = '## Looking at images';
+
+/**
+ * For a run whose runtime is told it reads text only: every picture stays out of the
+ * conversation, and a separate image model answers one question about one image. The
+ * other blocks keep their "if you can view images" wording; this block says a look is
+ * how this run views them.
+ */
+export function renderImageLookBlock(): string {
+  return `${GAME_IMAGE_LOOK_BLOCK_HEADING}
+
+You cannot open images directly in this run: a picture you read is not shown to you. Look at any image through the host instead, one question at a time:
+
+\`\`\`bash
+"$PIXO_NODE_BIN" "$PIXO_BIN" look <path> --question "<specific question>"
+\`\`\`
+
+PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN look <path> --question "..."\`. For a long question use \`--prompt-file <path|->\` instead of \`--question\`.
+
+- Use it for every image you need to judge: verification screenshots (\`screenshots[].path\`), the playtest overview (\`playtest.overview.path\`) and frames, generated art and recipe candidates, style samples, and the user's reference images. The path is a project file or a path the host returned. It prints a text answer; only that text joins this conversation.
+- Ask one specific question per look, naming what to check, never "describe this". For example: "Is the player sprite standing on the floor tiles, and is any HUD text cut off at the right edge?" or "How many coins are visible, and is the score number readable?"
+- A look costs a fraction of a credit. When an answer leaves a detail open, look again with a narrower question, or at a single frame, rather than guessing.
+- Wherever these instructions say "if you can view images", or tell you to open, view or inspect an image, \`look\` is how you do it, and it counts: you can view images. Opening each image only once does not apply to looks.
+- Report what the look answered, not what you expected to see. If a look fails, say the image was not inspected.`;
+}
+
 /**
  * All projects use their engine and files. A new project plans in chat first.
  * Block order is fixed: base rules, engine profile, project art style, game setup, the user's
@@ -755,6 +786,7 @@ export function composeOpenPixoGamePrompt(input: GameProjectPromptInput): string
   const planBlock = renderGamePlanBlock(input.gamePlan, input.engineProfile, canRunTools, input.gameSetup, input.gameExperience);
   if (planBlock) parts.push(planBlock);
   parts.push(renderGameShapeBlock(canRunTools));
+  if (canRunTools && input.imageLook) parts.push(renderImageLookBlock());
   if (canRunTools) parts.push(input.mediaContractBlock?.trim() ?? renderGameMediaGenerationContract({ engineProfile: input.engineProfile }));
   const recipesBlock = canRunTools && !planning ? renderGameRecipesBlock(input.recipes) : '';
   if (recipesBlock) parts.push(recipesBlock);

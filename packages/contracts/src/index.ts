@@ -7,6 +7,7 @@ export * from './api/openpixo-account.js';
 export * from './api/openpixo-cloud-media.js';
 export * from './api/openpixo-agent.js';
 export * from './api/openpixo-agent-models.js';
+export * from './api/image-look.js';
 export * from './settings-nav.js';
 export * from './tasks.js';
 export * from './api/app-config.js';

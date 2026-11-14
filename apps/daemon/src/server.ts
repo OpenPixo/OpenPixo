@@ -27,7 +27,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 
-import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote } from '@openpixo/contracts';
+import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote } from '@openpixo/contracts';
 
 
 import { composeGameSystemPrompt, gamePromptProjectInputs, promptEngineProfile } from './game/prompt.js';
@@ -466,8 +466,9 @@ import { registerOpenPixoAgentProxy, registerOpenPixoAgentRoutes } from './route
 import { OPENPIXO_AGENT_TOKEN_ENV, OpenPixoAgentGateway } from './openpixo-agent/gateway.js';
 import {
   buildOpenPixoAgentOpenCodeConfig, OPENPIXO_AGENT_ID, openpixoAgentChoice, openpixoAgentEffort, openpixoAgentModel,
-  openpixoAgentModelArg, openpixoAgentModelOffered, setOpenPixoAgentCatalogReader,
+  openpixoAgentModelArg, openpixoAgentModelOffered, openpixoAgentUsesImageViewer, setOpenPixoAgentCatalogReader,
 } from './openpixo-agent/runtime.js';
+import { registerImageLookRoutes } from './routes/image-look.js';
 import { chooseOpenPixoAutoRunModel } from './openpixo-agent/auto-model.js';
 import { contextLimitsForRun } from './runtimes/context-limits.js';
 import { gameRecipePromptEntries } from './recipes/catalog.js';
@@ -3495,9 +3496,6 @@ export async function startServer({
           }).model
         : openpixoAgentModel(typeof model === 'string' ? model : null);
     if (openpixoAgentRunModel) run.model = openpixoAgentRunModel;
-    const providerOpenCodeConfig = byokOpenCodeProvider?.config
-      ?? (openpixoAgentRunModel ? buildOpenPixoAgentOpenCodeConfig(daemonUrl, openpixoAgentRunModel) : null);
-    const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn);
     const requestedRuntimeModel = def.id === 'byok-opencode'
       ? byokOpenCodeProvider?.modelId ?? null
       : openpixoAgentRunModel
@@ -3624,6 +3622,13 @@ export async function startServer({
           ttlMs: toolTokenTtlMs,
         })
       : null;
+    // A hosted run that can call `pixo look` (it needs the tool token) sees no pictures in its conversation.
+    const openpixoAgentImageLook = Boolean(openpixoAgentRunModel && toolTokenGrant)
+      && await openpixoAgentModelOffered(OPENPIXO_AGENT_IMAGE_VIEWER_MODEL)
+      && openpixoAgentUsesImageViewer(openpixoAgentRunModel);
+    const providerOpenCodeConfig = byokOpenCodeProvider?.config
+      ?? (openpixoAgentRunModel ? buildOpenPixoAgentOpenCodeConfig(daemonUrl, openpixoAgentRunModel, { imageLook: openpixoAgentImageLook }) : null);
+    const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn);
     let toolTokenRevoked = false;
     let cleanupExtensionFiles = () => {};
     const revokeToolToken = (reason) => {
@@ -3742,6 +3747,7 @@ export async function startServer({
     appliedPluginSnapshotId,
     mediaExecution,
     byokMediaDefaults,
+    imageLook = false,
     projectExtensions: suppliedProjectExtensions = null,
   }) => {
     const project =
@@ -3945,6 +3951,7 @@ export async function startServer({
       // The Settings image pick applies to every run, not only BYOK ones.
       agentImageModel: appConfigForPrompt?.agentImageModel,
       userInstructions, projectInstructions,
+      ...(imageLook ? { imageLook: true } : {}),
     };
     const prompt = composeGameSystemPrompt(systemPromptInputs);
     const defaultSkills = projectId && cwd && streamFormat !== 'plain'
@@ -3999,6 +4006,7 @@ export async function startServer({
         sessionMode: runSessionMode,
         mediaExecution: await runMediaExecutionForPrompt(run?.mediaExecution, PROJECT_ROOT, artBudgetFacts.budgetImages, artBudgetFacts.budgetUnset),
         byokMediaDefaults,
+        imageLook: openpixoAgentImageLook,
         // Plan §3.M2 / §3.V1 — forward the run's snapshot id so the
         // prompt composer can splice in `## Active stage` blocks.
         // Default ON; set PIXO_BUNDLED_ATOM_PROMPTS=0 to opt out.
@@ -7489,8 +7497,10 @@ export async function startServer({
   };
 
 
-  registerRecipeRoutes(app, { db, http: httpDeps, paths: { ...pathDeps, BUNDLED_PLUGINS_DIR }, authorizeProjectRequest, authorizeProjectToolRequest, mediaTasks: mediaTaskStore, resources: { listAllSkills },
+  const recipeExecutor = registerRecipeRoutes(app, { db, http: httpDeps, paths: { ...pathDeps, BUNDLED_PLUGINS_DIR }, authorizeProjectRequest, authorizeProjectToolRequest, mediaTasks: mediaTaskStore, resources: { listAllSkills },
     artBudget: { ledger: artBudgetLedger, openpixoHosted: openPixoHosted, hasSession: () => openPixoAccount.hasSession() } });
+  registerImageLookRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectToolRequest, gateway: openPixoAgentGateway,
+    recipeCandidateFile: (projectId, file) => recipeExecutor.stagedFileAt(projectId, file) });
 
   registerRunRoutes(app, {
     db,

@@ -13,10 +13,10 @@ export const READ_ONLY_TURN_MESSAGE = 'OpenPixo keeps this project read-only unt
 
 export const READ_ONLY_TURN_CLAUDE_DISALLOWED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const;
 
-/** What an agent's tool token may do on a read-only turn: read, and make concept art. */
+/** What an agent's tool token may do on a read-only turn: read, look at images, and make concept art. */
 export const READ_ONLY_TURN_TOOL_OPERATIONS = [
   'approvals:request', 'project:next-steps:read', 'game:tuning:read', 'checkpoint:read',
-  'style:read', 'style:write', 'asset:read', 'media:generate', 'deliverable-syntax:check',
+  'style:read', 'style:write', 'asset:read', 'image:look', 'media:generate', 'deliverable-syntax:check',
 ] as const;
 
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);

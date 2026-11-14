@@ -81,8 +81,12 @@ async function encode(input: Buffer, edge: number, format: 'png' | 'jpeg' | 'web
   return dataUrl('image/png', await scaled.png({ compressionLevel: 9 }).toBuffer());
 }
 
-/** The picture as it is when it fits, otherwise the first smaller version that does. */
-async function fitImage(url: string, cache: FittedImageCache): Promise<string> {
+/**
+ * One picture as a data URL, as it is when it fits, otherwise the first smaller version that does
+ * (at most {@link MAX_IMAGE_EDGE} on its long edge and {@link MAX_ONE_IMAGE_BYTES} as base64, when it
+ * can be made so). The same picture always comes out as the same bytes. Also used by `pixo look`.
+ */
+export async function fitImageDataUrl(url: string, cache: FittedImageCache = new Map()): Promise<string> {
   const key = createHash('sha256').update(url).digest('hex');
   const known = cache.get(key);
   if (known !== undefined) { remember(cache, key, known); return known; }
@@ -126,7 +130,7 @@ export async function fitInlineImages(body: Buffer, cache: FittedImageCache = ne
   let changed = false;
   const fitted: string[] = [];
   for (const entry of parts) {
-    const url = await fitImage(entry.url, cache);
+    const url = await fitImageDataUrl(entry.url, cache);
     fitted.push(url);
     if (url !== entry.url) {
       (entry.part.image_url as Record<string, unknown>).url = url;
