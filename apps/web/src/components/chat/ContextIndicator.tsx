@@ -76,3 +76,9 @@ export function ContextCompactedNote({ tokensBefore }: { tokensBefore?: number |
     </p>
   );
 }
+
+/** The line under a `/compact` summary: later turns start from it. */
+export function ConversationSummaryNote(): ReactElement {
+  const t = useT();
+  return <p className={styles.note} data-testid="conversation-summary-note">{t('chat.compaction.summaryNote')}</p>;
+}

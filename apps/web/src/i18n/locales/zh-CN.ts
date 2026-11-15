@@ -2093,6 +2093,7 @@ export const zhCN: Dict = {
   "composer.slashNew": "在这个项目里开一个新对话",
   "composer.slashModel": "选择模型和推理强度",
   "composer.slashUndo": "撤销上一次回复的文件改动",
+  'composer.slashCompact': '把这段对话压缩成摘要，之后每轮发送的内容更少',
   "composer.slashRun": "在面板里启动游戏",
   "composer.slashVerify": "检查游戏能否启动并截图",
   "composer.slashPlaytest": "选择一种自动试玩来运行",
@@ -4211,6 +4212,7 @@ export const zhCN: Dict = {
   'chat.context.compactions': '本对话已压缩',
   'chat.context.compactionsValue': '{count} 次',
   'chat.context.compacted': '上下文已自动压缩：较早的内容整理成了摘要，腾出了空间。',
+  'chat.compaction.summaryNote': '对话已压缩：之后的回合从这份摘要继续，不再发送整段对话。',
   'chat.context.compactedFrom': '上下文在 {tokens} 时已自动压缩：较早的内容整理成了摘要，腾出了空间。',
   // composer
   'composer.approvals.label': '审批模式',

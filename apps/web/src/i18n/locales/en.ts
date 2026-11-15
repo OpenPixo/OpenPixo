@@ -2021,6 +2021,7 @@ export const en: Dict = {
   'composer.slashNew': "Start a new chat in this project",
   'composer.slashModel': "Choose the model and reasoning effort",
   'composer.slashUndo': "Undo the last reply’s file changes",
+  'composer.slashCompact': 'Summarize this conversation so later turns send less',
   'composer.slashRun': "Start the game in the panel",
   'composer.slashVerify': "Check that the game starts and take a screenshot",
   'composer.slashPlaytest': "Pick an automatic playtest to run",
@@ -4076,6 +4077,7 @@ export const en: Dict = {
   'chat.context.compactions': 'Compacted in this chat',
   'chat.context.compactionsValue': '{count}x',
   'chat.context.compacted': 'Context compacted automatically: older parts were summarized to free up room.',
+  'chat.compaction.summaryNote': 'Conversation compacted. Later turns start from this summary instead of the whole conversation.',
   'chat.context.compactedFrom': 'Context compacted automatically at {tokens}: older parts were summarized to free up room.',
   // composer
   'composer.approvals.label': 'Approval mode',

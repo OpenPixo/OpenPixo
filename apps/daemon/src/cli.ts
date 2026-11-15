@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // @ts-nocheck
 import { runGameTemplateProjectCli } from './game/templates-cli.js';
+import { compactConversation, CONVERSATION_COMPACT_USAGE } from './conversation-compaction-cli.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { runDaemonCliStartup, startDaemonRuntime } from './daemon-startup.js';
@@ -6871,6 +6872,11 @@ async function runConversation(args) {
                                            --keep-files). Send the edited message
                                            afterwards. Same action as "Edit" on a
                                            sent message.
+  ${PRODUCT_CLI_NAME} conversation compact <conversationId> --project <id> [--model <id>]
+                                           Summarize the conversation in one turn;
+                                           later turns start from the summary
+                                           instead of every message. Same action
+                                           as /compact in the chat.
 
 Common options:
   --daemon-url <url>         OpenPixo daemon HTTP base.
@@ -6976,6 +6982,33 @@ Common options:
         ? `files restored (${data.files.restoredFiles.length})`
         : `files kept (${data.files?.reason ?? 'unknown'})`;
       console.log(`[conversation] removed ${data.removedMessageIds?.length ?? 0} message(s); ${files}`);
+      return;
+    }
+    case 'compact': {
+      const [cid] = positionalArgs(rest, conversationStringFlags);
+      const projectId = typeof flags.project === 'string' ? flags.project : '';
+      if (!cid || !projectId) {
+        console.error(`Usage: ${CONVERSATION_COMPACT_USAGE}`);
+        process.exit(2);
+      }
+      let result;
+      try {
+        result = await compactConversation({ base, projectId, conversationId: cid,
+          ...(typeof flags.model === 'string' && flags.model ? { model: flags.model } : {}) });
+      } catch (error) {
+        const payload = { error: { code: 'compact-failed', message: error instanceof Error ? error.message : String(error) } };
+        if (flags.json) process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+        else console.error(payload.error.message);
+        process.exit(1);
+      }
+      if (flags.json) {
+        process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      } else if (result.compacted) {
+        console.log(`[conversation] compacted (run ${result.runId}); later turns start from this summary:\n\n${result.summary}`);
+      } else {
+        console.error(`[conversation] not compacted: the run ${result.status === 'succeeded' ? 'left no summary' : result.status} (run ${result.runId})`);
+      }
+      if (!result.compacted) process.exitCode = 1;
       return;
     }
     default:

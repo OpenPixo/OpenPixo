@@ -2296,6 +2296,7 @@ export interface Dict {
   'composer.slashNew': string;
   'composer.slashModel': string;
   'composer.slashUndo': string;
+  'composer.slashCompact': string;
   'composer.slashRun': string;
   'composer.slashVerify': string;
   'composer.slashPlaytest': string;
@@ -4300,6 +4301,7 @@ export interface Dict {
   'chat.context.compactions': string;
   'chat.context.compactionsValue': string;
   'chat.context.compacted': string;
+  'chat.compaction.summaryNote': string;
   'chat.context.compactedFrom': string;
   // composer
   'composer.approvals.label': string;

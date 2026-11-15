@@ -65,7 +65,7 @@ import {
 import { resolveRecoveryActionBlockReason } from '../runtime/chat/recovery-gating';
 import { listNamesConversation, routedConversationVerdict } from '../runtime/chat/routed-conversation';
 import { loadConversationTranscript } from '../state/load-conversation-transcript';
-import { nativeCodexProviderForConfig } from '@openpixo/contracts';
+import { CONVERSATION_COMPACT_COMMAND, nativeCodexProviderForConfig, type ChatRunPurpose } from '@openpixo/contracts';
 import type { ProjectCheckpoint, RewindConversationResponse } from '@openpixo/contracts';
 import { ConversationRewindError, rewindConversation, type EditUserMessageOutcome } from '../state/conversation-rewind';
 import {
@@ -239,6 +239,8 @@ import {
 } from '../media/aihubmix-image-models';
 
 type ProjectChatSendMeta = ChatSendMeta & {
+  /** `compact` for `/compact`: the reply becomes the conversation's summary. */
+  purpose?: ChatRunPurpose;
   /** Stable persisted row ids for a replayable handoff such as Home auto-send. */
   userMessageId?: string;
   assistantMessageId?: string;
@@ -6182,10 +6184,14 @@ export function ProjectView({
           let finalRunStatus: ChatMessage['runStatus'] = 'succeeded';
           updateAssistant((prev) => {
             finalRunStatus = resolveSucceededRunStatus(prev.runStatus);
+            // Mirrors the daemon's record (`conversation-compaction.ts`), so the
+            // next send starts from the summary without reloading the conversation.
+            const summary = meta?.purpose === 'compact' && finalRunStatus === 'succeeded' && prev.content.trim().length > 0;
             return {
               ...prev,
               endedAt,
               runStatus: finalRunStatus,
+              ...(summary ? { compaction: true as const } : {}),
             };
           });
           const finalizingRunId = currentRunId;
@@ -6679,6 +6685,7 @@ export function ProjectView({
 
           attachments: runAttachments.map((a) => a.path),
           sessionMode: runSessionMode,
+          ...(meta?.purpose ? { purpose: meta.purpose } : {}),
           appliedPluginSnapshotId:
             meta?.appliedPluginSnapshotId ?? meta?.appliedPluginSnapshot?.snapshotId ?? null,
           pluginId: meta?.appliedPluginSnapshot?.pluginId,
@@ -6842,6 +6849,7 @@ export function ProjectView({
 
           attachments: runAttachments.map((a) => a.path),
           sessionMode: runSessionMode,
+          ...(meta?.purpose ? { purpose: meta.purpose } : {}),
           appliedPluginSnapshotId:
             meta?.appliedPluginSnapshotId ?? meta?.appliedPluginSnapshot?.snapshotId ?? null,
           pluginId: meta?.appliedPluginSnapshot?.pluginId,
@@ -8778,13 +8786,17 @@ export function ProjectView({
     if (lastTurnCheckpoint && !streaming) {
       actions.push({ id: 'undo', label: '/undo', descKey: 'composer.slashUndo', icon: 'reload', run: () => setUndoCheckpoint(lastTurnCheckpoint) });
     }
+    if (!streaming && messages.some((message) => message.role === 'assistant' && message.content.trim().length > 0)) {
+      actions.push({ id: 'compact', label: CONVERSATION_COMPACT_COMMAND, descKey: 'composer.slashCompact', icon: 'minimize',
+        run: () => { void handleSend(CONVERSATION_COMPACT_COMMAND, [], { purpose: 'compact' }); } });
+    }
     actions.push(
       { id: 'run', label: '/run', descKey: 'composer.slashRun', icon: 'play', run: () => requestGameAction('run-game') },
       { id: 'verify', label: '/verify', descKey: 'composer.slashVerify', icon: 'check', run: () => requestGameAction('verify') },
       { id: 'playtest', label: '/playtest', descKey: 'composer.slashPlaytest', icon: 'eye', run: () => requestGameAction('playtest') },
     );
     return actions;
-  }, [projectReadsHeld, newConversationDisabled, handleNewConversation, lastTurnCheckpoint, streaming, requestGameAction]);
+  }, [projectReadsHeld, newConversationDisabled, handleNewConversation, lastTurnCheckpoint, streaming, requestGameAction, messages, handleSend]);
 
   // CLI / agent selector lives below the chat conversation (composer footer),
   // not in the top-right header.
