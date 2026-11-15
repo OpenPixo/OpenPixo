@@ -53,7 +53,7 @@ describe('retired prompt injection chip', () => {
       />,
     );
 
-    expect(screen.getByTestId('assistant-role')).toBeTruthy();
+    expect(screen.getByTestId('assistant-message')).toBeTruthy();
     expect(container.querySelector('.system-reminder-block')).toBeNull();
     expect(container.querySelector('.system-reminder-toggle')).toBeNull();
     expect(container.querySelector('.system-reminder-icon')).toBeNull();

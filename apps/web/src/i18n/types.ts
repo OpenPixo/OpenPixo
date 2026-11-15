@@ -3533,6 +3533,15 @@ export interface Dict {
   'chat.record.unfinished': string;
   'chat.record.failedTurn': string;
   'chat.record.plan': string;
+  'chat.record.steps.separator': string;
+  'chat.record.steps.read': string;
+  'chat.record.steps.readOne': string;
+  'chat.record.steps.changed': string;
+  'chat.record.steps.changedOne': string;
+  'chat.record.steps.searches': string;
+  'chat.record.steps.searchOne': string;
+  'chat.record.steps.commands': string;
+  'chat.record.steps.commandOne': string;
   /* Plan 卡收起态那枚药丸(设计稿第 71 格):N = 当前正在做第几步,M = 总步数 */
   'chat.record.planStep': string;
   'chat.record.imageBatch': string;
@@ -4261,8 +4270,6 @@ export interface Dict {
   'homeModel.ownKey': string;
   'homeModel.costHint': string;
   'homeModel.autoModel': string;
-  'homeModel.autoModelHint': string;
-  'homeModel.autoModelDetail': string;
   'homeModel.setUp': string;
   'homeModel.reasoning': string;
   'homeModel.reasoningHint': string;

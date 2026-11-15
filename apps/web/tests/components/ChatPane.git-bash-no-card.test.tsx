@@ -105,7 +105,7 @@ function renderPane(message: ChatMessage, error: string | null = null) {
 
 function expectFailedTurnStillVisible() {
   expect(screen.getByText('Create a landing page')).toBeTruthy();
-  expect(screen.getByTestId('assistant-role')).toBeTruthy();
+  expect(screen.getByTestId('assistant-message')).toBeTruthy();
   expect(screen.getByText('运行失败')).toBeTruthy();
   expect(screen.queryByText('已完成')).toBeNull();
 }

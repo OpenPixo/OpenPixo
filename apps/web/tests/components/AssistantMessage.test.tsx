@@ -260,7 +260,8 @@ describe('AssistantMessage feedback gate', () => {
     );
 
     expect(container.querySelector('[data-continuation="false"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="assistant-role"]')).toBeTruthy();
+    // No agent name above replies (owner, 2026-11-15); a new turn is marked by data-continuation alone.
+    expect(container.querySelector('[data-testid="assistant-role"]')).toBeNull();
   });
 
   it('copies the raw assistant markdown from the completion footer', async () => {

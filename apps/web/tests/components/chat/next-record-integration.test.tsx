@@ -90,7 +90,8 @@ describe('新执行记录接入', () => {
       const events = (Array.isArray(raw) ? raw : (raw as { events?: unknown[] }).events ?? []) as PersistedAgentEvent[];
       if (events.length === 0) continue;
       const { container, unmount } = render(show(msg(events)));
-      expect(container.textContent, `${f} 渲染成空`).not.toBe('');
+      // A recording may hold only status events, which draw nothing; it must still render the message.
+      expect(container.querySelector('[data-testid="assistant-message"]'), `${f} 没渲染出消息`).not.toBeNull();
       unmount();
     }
   });

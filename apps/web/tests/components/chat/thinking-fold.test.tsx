@@ -147,6 +147,10 @@ describe('N2 跑完的 thinking 收进折叠行', () => {
       think('当前仍在写的推理。'),
     ], { status: 'running', thinking: true })));
     openShell(container);
+  // Consecutive routine steps share one folded line (owner, 2026-11-15); open it to reach the rows.
+  for (const summary of [...container.querySelectorAll<HTMLElement>('summary')]) {
+    if (summary.querySelector('[data-testid="folded-steps"]')) fireEvent.click(summary);
+  }
 
     const thoughts = Array.from(
       container.querySelectorAll<HTMLDetailsElement>('details[class*="thoughts"]'),

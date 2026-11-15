@@ -168,8 +168,12 @@ const SHELL = {
     think('两张图是同一套栅格。'),
     readRow('顶层.png'),
     step('复刻商品列表页', [
+      /* Narration between the rows keeps each one its own row: consecutive finished
+         steps fold into one line (`fold-steps.ts`), and this ruler measures every row type. */
       readRow('首页.png'),
+      { kind: 'text', text: '先读首页。' } as unknown as ShellItem,
       createRow('product-list.html'),
+      { kind: 'text', text: '再新建列表页。' } as unknown as ShellItem,
       execRow('build'),
       imageRow('shots'),
       think('抽屉里的一段推理。'),

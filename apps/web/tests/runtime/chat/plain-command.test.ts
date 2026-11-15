@@ -70,3 +70,11 @@ describe('plainSearchToolWords', () => {
     expect(plainSearchToolWords('Grep').key).toBe('searchProject');
   });
 });
+
+describe('plainCommandWords · Windows folders', () => {
+  it('names a backslash folder by its last part', () => {
+    expect(plainCommandWords(String.raw`Get-ChildItem output\playwright\start-menu-redesign-d75bb6cb`)).toEqual({
+      key: 'listNamedFolder', vars: { folder: 'start-menu-redesign-d75bb6cb' },
+    });
+  });
+});

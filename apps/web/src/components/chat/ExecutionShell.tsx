@@ -23,6 +23,8 @@ import { isExpandable, isStruck } from '../../runtime/chat/contract';
 import { formatElapsed, formatShellElapsed, formatThinkingTokens } from '../../runtime/chat/format';
 import { CountingNumber } from './CountingNumber';
 import { groupThinking, isThinking, type GroupedShellItem } from '../../runtime/chat/group-thinking';
+import { segmentRecord, type FoldedStepCounts } from '../../runtime/chat/fold-steps';
+import { toolIcon } from './primitives/icons';
 import type { RecordFileScope } from '../../runtime/chat/record-file-open';
 import { Foldable } from './primitives/Foldable';
 import { ImageRow } from './primitives/ImageRow';
@@ -322,7 +324,7 @@ export function ExecutionShell({
       className={hasTodo ? styles.hasTodo : undefined}
     >
       {items.length
-        ? items.map((item, i) => renderItem(item, i, {
+        ? renderRecord(items, {
             t, onOpenFile, fileScope,
             onRetryImage: runTerminal ? onRetryImage : undefined,
             imageSrc, thinkingNow, running,
@@ -332,7 +334,7 @@ export function ExecutionShell({
             firstThoughtsStack,
             mutedThoughtsIndex: mutedThoughtsIndexOf(items, shell.items, firstThoughtsStack),
             pixoCardScope,
-          }))
+          })
         : null}
     </Foldable>
   );
@@ -437,6 +439,52 @@ interface RenderCtx {
   mutedThoughtsIndex: number;
   /** 壳内散文里的 `<pixo-card>` 要的两样 —— 说明在 `ExecutionShellProps` 上 */
   pixoCardScope?: string;
+}
+
+/**
+ * One record's items, with runs of routine steps folded into a single line
+ * (`fold-steps.ts`). Every item keeps its own index, which the live-text and
+ * muted-thoughts markers in `ctx` refer to.
+ */
+function renderRecord(items: GroupedShellItem[], ctx: RenderCtx): Array<ReactElement | null> {
+  return segmentRecord(items).map((segment) => segment.kind === 'item'
+    ? renderItem(items[segment.index]!, segment.index, ctx)
+    : (
+      <FoldedStepsRow key={`fold-${segment.indices[0]}`} counts={segment.counts} ctx={ctx}>
+        {segment.indices.map((index) => renderItem(items[index]!, index, ctx))}
+      </FoldedStepsRow>
+    ));
+}
+
+/** "查看了 12 个文件、改了 2 个文件、运行了 6 条命令": the folded steps, one line, open to see each. */
+function FoldedStepsRow({ counts, ctx, children }: {
+  counts: FoldedStepCounts;
+  ctx: RenderCtx;
+  children: Array<ReactElement | null>;
+}): ReactElement {
+  const { t } = ctx;
+  const part = (count: number, one: Parameters<typeof t>[0], many: Parameters<typeof t>[0]) =>
+    count ? t(count === 1 ? one : many, { count }) : null;
+  const parts = [
+    part(counts.read, 'chat.record.steps.readOne', 'chat.record.steps.read'),
+    part(counts.changed, 'chat.record.steps.changedOne', 'chat.record.steps.changed'),
+    part(counts.searches, 'chat.record.steps.searchOne', 'chat.record.steps.searches'),
+    part(counts.commands, 'chat.record.steps.commandOne', 'chat.record.steps.commands'),
+  ].filter((value): value is string => value !== null);
+  const joined = parts.join(t('chat.record.steps.separator'));
+  const label = joined.charAt(0).toUpperCase() + joined.slice(1);
+  /* Only finished steps fold (the running one stays its own row), so the mark is the pencil or the eye. */
+  const icon = <span className={styles.icon}>{toolIcon(counts.changed ? 'edit' : 'read')}</span>;
+  const elapsed = formatElapsed(counts.elapsedMs);
+  return (
+    <Foldable
+      summary={<>{icon}<span className={styles.name} data-testid="folded-steps">{label}</span></>}
+      elapsed={elapsed ?? undefined}
+      deferBody={ctx.deferCollapsedBodies}
+    >
+      {children}
+    </Foldable>
+  );
 }
 
 function renderItem(item: GroupedShellItem, index: number, ctx: RenderCtx): ReactElement | null {
@@ -885,7 +933,7 @@ function TodoRow({ segment, ctx }: { segment: TodoSegment; ctx: RenderCtx }): Re
       className={styles.stepRow}
     >
       {expandable
-        ? items.map((item, i) => renderItem(item, i, {
+        ? renderRecord(items, {
             ...ctx,
             // Todo content is its identity (D17). Local text indices repeat in
             // sibling todos, so each needs its own persisted card-decision scope.
@@ -896,7 +944,7 @@ function TodoRow({ segment, ctx }: { segment: TodoSegment; ctx: RenderCtx }): Re
             liveTextIndex: liveTextIndexOf(items, ctx.running && segment.status === 'in_progress'),
             /* 整轮头一格可能就落在这条抽屉里(有清单时推理进 in_progress 那条) */
             mutedThoughtsIndex: mutedThoughtsIndexOf(items, segment.items, ctx.firstThoughtsStack),
-          }))
+          })
         : null}
     </Foldable>
   );

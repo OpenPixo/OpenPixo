@@ -34,6 +34,10 @@ function expand(container: HTMLElement) {
   const summary = shell?.querySelector<HTMLElement>(':scope > summary');
   if (!shell || !summary) throw new Error('Execution record missing');
   fireEvent.click(summary);
+  // Consecutive routine steps share one folded line (owner, 2026-11-15); open it to reach the rows.
+  for (const summary of [...shell.querySelectorAll<HTMLElement>('summary')]) {
+    if (summary.querySelector('[data-testid="folded-steps"]')) fireEvent.click(summary);
+  }
 }
 
 function names(container: HTMLElement, label = 'example.html') {
