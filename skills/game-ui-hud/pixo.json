@@ -2,16 +2,16 @@
   "$schema": "urn:openpixo:plugin:v1",
   "specVersion": "1.0.0",
   "name": "openpixo/game-ui-hud",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "title": "Game HUD, menus and input focus",
   "title_i18n": {
     "en": "Game HUD, menus and input focus",
     "zh-CN": "游戏 HUD、菜单与输入焦点"
   },
-  "description": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6, Phaser 3, Three.js and plain web games.",
+  "description": "Build readable HUDs, title screens, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6, Phaser 3, Three.js and plain web games.",
   "description_i18n": {
-    "en": "Build readable HUDs, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6, Phaser 3, Three.js and plain web games.",
-    "zh-CN": "为 Godot 4、Unity 6、Phaser 3、Three.js 与普通网页游戏构建清晰、贴合游戏风格的 HUD、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
+    "en": "Build readable HUDs, title screens, pause and settings menus that fit the game's look, with keyboard/gamepad focus, camera independence and resolution scaling in Godot 4, Unity 6, Phaser 3, Three.js and plain web games.",
+    "zh-CN": "为 Godot 4、Unity 6、Phaser 3、Three.js 与普通网页游戏构建清晰、贴合游戏风格的 HUD、标题画面、暂停与设置菜单，处理键盘和手柄焦点、镜头独立及分辨率缩放。"
   },
   "license": "Apache-2.0",
   "author": { "name": "OpenPixo" },
@@ -37,6 +37,12 @@
       "title_i18n": { "zh-CN": "加入支持焦点导航的设置面板" },
       "prompt": "Add a Master volume slider to the pause menu, show its current value, and save the choice across restarts. Make controller and keyboard focus visible and return focus to Settings when the panel closes. Check two pause/resume cycles and verify the game.",
       "prompt_i18n": { "zh-CN": "在暂停菜单加入主音量滑块，显示当前数值并在重启后保留选择。让手柄和键盘焦点清晰可见，关闭面板时把焦点还给设置按钮。检查两次暂停和继续，再验证游戏。" }
+    },
+    {
+      "title": "Give the title screen a cover",
+      "title_i18n": { "zh-CN": "让标题画面像游戏封面" },
+      "prompt": "Redesign this game's title screen so it looks like a game's cover, not a web page: key art filling the frame, the logo as the largest element, and the menu as text with an animated selection. List any logo or key art it still needs, with the cost, before generating it. Verify the game and inspect a screenshot.",
+      "prompt_i18n": { "zh-CN": "重做这个游戏的标题画面，让它像游戏封面而不是网页：关键美术铺满画面，标志是最大的元素，菜单用文字并带动态选中效果。还缺的标志或关键美术先列出来并说明花费，再生成。验证游戏并检查截图。" }
     }
   ]
 }
