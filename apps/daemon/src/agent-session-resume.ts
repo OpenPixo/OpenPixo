@@ -14,6 +14,7 @@ import {
   type StableSectionHashes,
 } from './runtimes/stable-prompt-sections.js';
 import { scanRunEventsForUsageAnalytics } from './run-analytics-observability.js';
+import { isCompactionMessage } from './conversation-compaction.js';
 import { usesBundledOpenCode } from './runtimes/byok-opencode.js';
 
 type SqliteDb = Database.Database;
@@ -226,8 +227,12 @@ export function resolveAgentResumeContext(
 ): AgentResumeContext {
   const record = getAgentSessionRecord(db, input.conversationId, input.agentId);
   const storedSessionId = record?.sessionId ?? null;
+  // The session that wrote a `/compact` summary still holds everything the
+  // summary replaced; the next turn starts fresh from the summary instead.
   const invalidationReason =
-    storedSessionId != null
+    storedSessionId != null && isCompactionMessage(db, record?.lastMessageId)
+      ? 'conversation_compacted'
+      : storedSessionId != null
       ? evaluateResumeInvalidation({
           storedModel: record?.model ?? null,
           storedCwd: record?.cwd ?? null,

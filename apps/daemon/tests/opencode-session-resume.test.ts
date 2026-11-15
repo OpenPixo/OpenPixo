@@ -150,6 +150,67 @@ describe('opencode native session resume', () => {
     expect(fresh.argv).not.toContain('-s');
   });
 
+  it('/compact resumes the session to write the summary, then the next turn starts fresh', async () => {
+    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-opencode-compact-bin-'));
+    const { bin, logPath } = await writeCapturingOpencode(binDir, 'opencode-compact');
+
+    clearTelemetryEnv();
+    started = (await startServer({ port: 0, returnServer: true })) as StartedServer;
+    await putConfig(started.url, {
+      agentId: 'opencode',
+      agentCliEnv: { opencode: { OPENCODE_BIN: bin } },
+      telemetry: { metrics: true, },
+      privacyDecisionAt: Date.now(),
+    });
+    const conversationId = await createConversation(started.url);
+    const [projectId, cid] = conversationId.split('::') as [string, string];
+
+    expect((await sendRunAndWait(started.url, conversationId, 'first request')).status).toBe('succeeded');
+    const compact = await sendRunAndWait(started.url, conversationId, '/compact', { purpose: 'compact' });
+    expect(compact.status).toBe('succeeded');
+
+    // The daemon records the summary when the run ends.
+    let messages: Array<{ id: string; role: string; content: string; compaction?: boolean }> = [];
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 5_000) {
+      const response = await fetch(`${started.url}/api/projects/${projectId}/conversations/${cid}/messages`);
+      messages = ((await response.json()) as { messages: typeof messages }).messages;
+      if (messages.some((message) => message.compaction)) break;
+      await delay(50);
+    }
+    expect(messages.find((message) => message.id === compact.assistantMessageId)?.compaction).toBe(true);
+    expect(messages.filter((message) => message.compaction)).toHaveLength(1);
+    expect(messages.some((message) => message.role === 'user' && message.content === '/compact')).toBe(true);
+
+    expect((await sendRunAndWait(started.url, conversationId, 'third request')).status).toBe('succeeded');
+
+    const runs = await readChatTurnRuns(logPath, conversationId);
+    expect(runs).toHaveLength(3);
+    const [, summary, after] = runs as [RunInvocation, RunInvocation, RunInvocation];
+    // The summary turn continues the session, so the long history comes from the cache,
+    // and it is sent the daemon's request, not the bare `/compact`.
+    expect(summary.argv).toContain('-s');
+    expect(summary.stdin).toContain('## compaction request');
+    // The session that holds everything the summary replaced is not continued.
+    expect(after.argv).not.toContain('-s');
+    expect(after.stdin).toContain('third request');
+  });
+
+  it('refuses a run purpose it does not know', async () => {
+    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-opencode-compact-refuse-bin-'));
+    const { bin } = await writeCapturingOpencode(binDir, 'opencode-compact-refuse');
+    clearTelemetryEnv();
+    started = (await startServer({ port: 0, returnServer: true })) as StartedServer;
+    await putConfig(started.url, { agentId: 'opencode', agentCliEnv: { opencode: { OPENCODE_BIN: bin } }, privacyDecisionAt: Date.now() });
+    const conversationId = await createConversation(started.url);
+    const [projectId, cid] = conversationId.split('::') as [string, string];
+    const post = (body: Record<string, unknown>) => fetch(`${started!.url}/api/runs`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId, agentId: 'opencode', message: '/compact', ...body }),
+    });
+    expect((await post({ conversationId: cid, purpose: 'shrink' })).status).toBe(400);
+  });
+
   it('starts fresh on turn 2 when turn 1 succeeds without a captured session id', async () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-opencode-nohandle-bin-'));
     const { bin, logPath } = await writeNoHandleOpencode(binDir, 'opencode-nohandle');
@@ -345,7 +406,8 @@ async function sendRunAndWait(
   url: string,
   encoded: string,
   message: string,
-): Promise<RunStatus> {
+  extra: Record<string, unknown> = {},
+): Promise<RunStatus & { assistantMessageId: string }> {
   const [projectId, conversationId] = encoded.split('::');
   const assistantMessageId = `assistant_opencode_${randomUUID()}`;
   const runResponse = await fetch(`${url}/api/runs`, {
@@ -364,11 +426,12 @@ async function sendRunAndWait(
       agentId: 'opencode',
       message,
       currentPrompt: message,
+      ...extra,
     }),
   });
   expect(runResponse.status).toBe(202);
   const body = (await runResponse.json()) as { runId: string };
-  return await waitForRun(url, body.runId);
+  return { ...await waitForRun(url, body.runId), assistantMessageId };
 }
 
 async function waitForRun(url: string, runId: string): Promise<RunStatus> {

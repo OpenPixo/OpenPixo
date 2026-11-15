@@ -19,7 +19,9 @@ import {
   type InstalledPluginRecord,
   type ProjectMetadata as ContractProjectMetadata,
   type RunResultPackageResponse,
+  isChatRunPurpose,
 } from '@openpixo/contracts';
+import { compactionTurnPrompt, recordConversationCompaction } from '../conversation-compaction.js';
 import {
   buildRunCreatedV4Aliases,
   buildRunFinishedV4Aliases,
@@ -1037,6 +1039,18 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
 
       ...({}),
     };
+    // `/compact`: the agent is sent the daemon's summary request; the user's
+    // turn stays `/compact` (seeded from requestBody below).
+    if (requestBody.purpose !== undefined && !isChatRunPurpose(requestBody.purpose)) {
+      return sendApiError(res, 400, 'BAD_REQUEST', 'purpose must be "compact" when given');
+    }
+    const compactTurn = requestBody.purpose === 'compact';
+    if (compactTurn) {
+      if (typeof meta.conversationId !== 'string' || !meta.conversationId) {
+        return sendApiError(res, 400, 'BAD_REQUEST', 'Compacting needs a conversation (conversationId)');
+      }
+      Object.assign(meta, compactionTurnPrompt(requestBody.message));
+    }
     if (resolvedSnapshot?.ok) {
       meta.appliedPluginSnapshotId = resolvedSnapshot.snapshotId;
       if (!meta.pluginId) meta.pluginId = resolvedSnapshot.snapshot.pluginId;
@@ -1495,6 +1509,12 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
     if (stream) design.runs.stream(run, req, res);
     else res.status(202).json(body);
     reconcileAssistantMessageOnRunEnd(db, design.runs, run);
+    if (compactTurn && run.conversationId && run.assistantMessageId) {
+      const { conversationId, assistantMessageId } = run;
+      void design.runs.wait(run)
+        .then((finalStatus) => { recordConversationCompaction(db, { conversationId, assistantMessageId, status: finalStatus.status }); })
+        .catch((err: Error) => { console.warn('[runs] recording the conversation summary failed', err); });
+    }
     if (run.projectId && run.conversationId) {
       try {
         const project = toProjectRecord(getProject(db, run.projectId));

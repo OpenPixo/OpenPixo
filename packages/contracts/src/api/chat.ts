@@ -4,6 +4,7 @@ import type { ResearchOptions } from './research';
 import type { RunContextSelection } from './context.js';
 import type { MediaExecutionPolicy, RunMediaTaskFailure } from './media.js';
 import type { AppliedPluginSnapshot } from '../plugins/apply.js';
+import type { ChatRunPurpose } from '../prompts/conversation-compaction.js';
 import type { McpAuthMode, McpServerConfig, McpTransport } from './mcp';
 import type {
   AnalyticsAttributionQuality,
@@ -138,6 +139,13 @@ export interface ChatRequest {
    * directive (`pixo run continue`, external agents driving the daemon) do.
    */
   resumeContinuation?: boolean;
+  /**
+   * `compact`: this turn is `/compact`. The daemon sends the agent its own
+   * summary request in place of the user's words and, when the turn succeeds,
+   * records the reply as the conversation's summary (see
+   * `prompts/conversation-compaction.ts`).
+   */
+  purpose?: ChatRunPurpose;
   systemPrompt?: string;
   projectId?: string | null;
   conversationId?: string | null;
@@ -439,6 +447,7 @@ export type NativeSessionRecoveryReason =
   | 'cwd_changed'
   | 'conversation_advanced'
   | 'missing_cursor'
+  | 'conversation_compacted'
   | 'resume_failed'
   | 'unsupported'
   | 'none';
@@ -1230,6 +1239,11 @@ export interface ChatMessage {
    * 中间那行字是**承接过来的会话标题**。点完什么都不留的话,人只会以为按钮没反应。
    * 之前契约里没有这两样,所以那一格根本画不出来。
    */
+  /**
+   * This assistant reply is the summary a `/compact` turn wrote. Set by the
+   * daemon; transcripts sent after it start from this summary.
+   */
+  compaction?: true;
   forkedInto?: {
     /** 新会话的标题(认领的就是老会话的题目) */
     title: string;

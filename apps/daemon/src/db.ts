@@ -35,6 +35,7 @@ import { migrateOpenPixoCloudJobs } from './media/openpixo-hosted.js';
 import { migrateProjectAssets } from './assets/store.js';
 import { migrateArtBudget } from './game/art-budget.js';
 import { migrateOpenPixoAutoModel } from './openpixo-agent/auto-model.js';
+import { compactionMessageIds, migrateConversationCompactions } from './conversation-compaction.js';
 import { migratePlugins } from './plugins/persistence.js';
 import { migrateProjectScenarioBindings } from './plugins/scenario-binding.js';
 import { emittedRenderableQuestionForm } from './question-form-detect.js';
@@ -327,6 +328,7 @@ function migrate(db: SqliteDb): void {
   migrateProjectAssets(db);
   migrateArtBudget(db);
   migrateOpenPixoAutoModel(db);
+  migrateConversationCompactions(db);
   migratePlugins(db);
   migrateProjectScenarioBindings(db);
   migrateChatArtifacts(db);
@@ -1566,6 +1568,7 @@ function listMessagesUnobserved(db: SqliteDb, conversationId: string) {
   // One query for the whole conversation. A per-message lookup here would be a
   // straight N+1 on every transcript read.
   const artifactRefs = conversationChatArtifactRefs(db, conversationId);
+  const compactions = compactionMessageIds(db, conversationId);
   // Rows are normalized one at a time, so only one row's stored event log is
   // held at full size at once: rows written before the run-event payload
   // budget can be MBs each, and normalizing bounds them (see
@@ -1578,12 +1581,13 @@ function listMessagesUnobserved(db: SqliteDb, conversationId: string) {
     : (messages.all(conversationId) as DbRow[]);
   const normalized = [];
   for (const message of rows) {
-    normalized.push(normalizeMessage(
+    const entry = normalizeMessage(
       db,
       message,
       eventBatches.get(String(message.id)) ?? [],
       artifactRefs.get(String(message.id)) ?? [],
-    ));
+    );
+    normalized.push(compactions.has(String(message.id)) ? { ...entry, compaction: true as const } : entry);
   }
   return normalized;
 }

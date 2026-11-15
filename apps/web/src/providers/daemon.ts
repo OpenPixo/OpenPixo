@@ -11,7 +11,7 @@ import { PRODUCT_NAME } from '@openpixo/contracts';
  *                 non-zero (tail appended to the error message).
  */
 import type { AgentEvent, ChatMessage } from '../types';
-import { contextUsageParts, nativeCodexProviderForConfig } from '@openpixo/contracts';
+import { contextUsageParts, nativeCodexProviderForConfig, renderCompactedConversationSummary, splitAtCompaction, type ChatRunPurpose } from '@openpixo/contracts';
 
 
 import type { ApiErrorResponse, ChatAnalyticsHints, ChatRunCreateResponse, ChatRunListResponse, ChatRunStatus, ChatRunStatusResponse, ChatRequest, ChatSessionMode, ChatSseEvent, ChatSseStartPayload, DaemonAgentPayload, ByokChatProviderConfig, MediaExecutionPolicy, ResearchOptions, RunCancelOrigin, RunContextSelection, SseErrorPayload } from '@openpixo/contracts';
@@ -274,8 +274,11 @@ export function sanitizePriorAssistantTurnForTranscript(
  * only messages travel, never another agent's tool output.
  */
 export function buildDaemonTranscript(history: ChatMessage[], targetAgentId?: string): string {
-  const { earlier, current } = splitAtAgentSwitch(history, targetAgentId);
+  // After `/compact` the summary stands in for everything before it.
+  const { summary, after } = splitAtCompaction(history);
+  const { earlier, current } = splitAtAgentSwitch(after, targetAgentId);
   const sections: string[] = [];
+  if (summary !== null) sections.push(renderCompactedConversationSummary(summary));
   if (earlier.length > 0) sections.push(renderEarlierAgentTranscript(earlier), AGENT_SWITCH_NOTE);
   if (current.length > 0) sections.push(current.map(renderTranscriptMessage).join('\n\n'));
   const transcript = sections.join('\n\n');
@@ -502,6 +505,8 @@ function daemonAnsweredWithError(bodyText: string): boolean {
 export interface DaemonStreamOptions {
   agentId: string;
   history: ChatMessage[];
+  /** `compact` for a `/compact` turn; see `prompts/conversation-compaction.ts`. */
+  purpose?: ChatRunPurpose;
   /** Legacy field accepted by older tests/callers. Daemon-owned prompt composition ignores it. */
   systemPrompt?: string;
   /** Stops the current browser-side SSE subscription. The daemon run continues. */
@@ -941,6 +946,7 @@ export async function streamViaDaemon({
   mediaExecution,
   titleGeneration,
   locale,
+  purpose,
 
   initialLastEventId,
   onRunCreated,
@@ -996,6 +1002,7 @@ export async function streamViaDaemon({
     ...(mediaExecution ? { mediaExecution } : {}),
     ...(titleGeneration?.enabled ? { titleGeneration: { enabled: true } } : {}),
     ...(analyticsHints ? { analyticsHints } : {}),
+    ...(purpose ? { purpose } : {}),
   };
   const body = JSON.stringify(request);
 

@@ -99,6 +99,7 @@ export * from './prompts/canonical-xml.js';
 export * from './prompts/plugin-block.js';
 export * from './prompts/atom-block.js';
 export * from './prompts/todo-recall.js';
+export * from './prompts/conversation-compaction.js';
 export * from './plugins/index.js';
 export * from './agent-tools/index.js';
 export * from './analytics/events.js';

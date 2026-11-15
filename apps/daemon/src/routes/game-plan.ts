@@ -68,6 +68,7 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
         ORDER BY m.created_at DESC, m.position DESC LIMIT 1`).get(projectId) as { content?: unknown } | undefined;
       return typeof row?.content === 'string' ? row.content : null;
     },
+          AND m.id NOT IN (SELECT message_id FROM conversation_compactions)
   };
 
   app.get('/api/projects/:id/game-plan', http.requireLocalDaemonRequest, async (req, res) => {

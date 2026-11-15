@@ -3492,7 +3492,8 @@ export async function startServer({
             runId: run.id,
             projectId: typeof projectId === 'string' ? projectId : null,
             conversationId: typeof conversationId === 'string' ? conversationId : null,
-            planPending: gamePlanPending,
+            // A `/compact` summary is not one of the game's plan turns.
+            planPending: gamePlanPending && chatBody.purpose !== 'compact',
             planModelOffered: await openpixoAgentModelOffered(OPENPIXO_AGENT_AUTO_PLAN_MODEL),
           }).model
         : openpixoAgentModel(typeof model === 'string' ? model : null);

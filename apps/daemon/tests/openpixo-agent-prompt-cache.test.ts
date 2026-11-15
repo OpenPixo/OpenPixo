@@ -213,3 +213,61 @@ it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with 
   expect(system(bodies[2]!)).toContain('Notes v2');
   expect(system(bodies[2]!)).not.toContain('Notes v1');
 }, 240_000);
+
+it.skipIf(process.platform !== 'win32' || !OPENCODE)('/compact summarizes inside the cached session, and the next turn starts a new one', async () => {
+  sandbox = await mkdtemp(path.join(os.tmpdir(), 'openpixo-compact-'));
+  for (const [key, leaf] of [['XDG_DATA_HOME', 'data'], ['XDG_CONFIG_HOME', 'config'], ['XDG_STATE_HOME', 'state'], ['XDG_CACHE_HOME', 'cache'], ['OPENCODE_TEST_HOME', 'home']] as const) {
+    process.env[key] = path.join(sandbox, leaf);
+  }
+  process.env.OPENCODE_PURE = '1';
+  cloud = await fakeSupabase();
+  const bodies: Wire[] = [];
+  const script = [ANSWER('first answer'), ANSWER('## Goal\nSUMMARY_TEXT_42'), ANSWER('after compact')];
+  cloud.handlers.set('POST /functions/v1/agent-chat/chat/completions', (request) => {
+    bodies.push(request.body as unknown as Wire);
+    return { raw: script[bodies.length - 1] ?? ANSWER('extra'), headers: { 'Content-Type': 'text/event-stream' } };
+  });
+  process.env.PIXO_CLOUD_URL = cloud.url;
+  process.env.PIXO_CLOUD_ANON_KEY = ANON;
+  started = await startServer({ port: 0, returnServer: true }) as NonNullable<typeof started>;
+  const post = (route: string, body: unknown, method = 'POST') => fetch(`${started!.url}${route}`,
+    { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  expect((await post('/api/app-config', { agentId: 'openpixo-agent', agentCliEnv: { opencode: { OPENCODE_BIN: OPENCODE! } },
+    telemetry: { metrics: false }, privacyDecisionAt: Date.now() }, 'PUT')).status).toBe(200);
+  expect((await post('/api/openpixo/account/email/verify', { email: USER.email, code: '123456' })).status).toBe(200);
+  const projectId = `compact_${randomUUID()}`;
+  const created = await post('/api/projects', { id: projectId, name: 'Compact', metadata: { kind: 'prototype' }, skipDiscoveryBrief: true });
+  const { conversationId } = await created.json() as { conversationId: string };
+
+  async function turn(currentPrompt: string, message: string, extra: Record<string, unknown> = {}) {
+    const assistantMessageId = randomUUID();
+    const response = await post('/api/runs', { projectId, conversationId, agentId: 'openpixo-agent', model: 'openpixo-agent-gpt-6-luna',
+      message, currentPrompt, assistantMessageId, clientRequestId: randomUUID(), ...extra });
+    expect(response.status).toBe(202);
+    const { runId } = await response.json() as { runId: string };
+    await expect.poll(async () => (await (await fetch(`${started!.url}/api/runs/${runId}`)).json() as { status: string }).status,
+      { timeout: 60_000, interval: 200 }).toBe('succeeded');
+    return assistantMessageId;
+  }
+
+  await turn('Say hello.', '## user\nSay hello.');
+  const summaryId = await turn('/compact', '## user\nSay hello.\n\n## assistant\nfirst answer\n\n## user\n/compact', { purpose: 'compact' });
+  expect(bodies.length).toBe(2);
+  // Same session, so the request opens with everything turn 1 sent and the cache still matches.
+  expect(opening(bodies[0]!, bodies[1]!)).toBe(bodies[0]!.messages.length);
+  expect(JSON.stringify(bodies[1]!.messages.slice(bodies[0]!.messages.length))).toContain('## compaction request');
+  expect(JSON.stringify(bodies[1]!.tools)).toBe(JSON.stringify(bodies[0]!.tools));
+
+  await expect.poll(async () => {
+    const listed = await (await fetch(`${started!.url}/api/projects/${projectId}/conversations/${conversationId}/messages`)).json() as
+      { messages: Array<{ id: string; compaction?: boolean }> };
+    return listed.messages.find((message) => message.id === summaryId)?.compaction === true;
+  }, { timeout: 10_000, interval: 100 }).toBe(true);
+
+  await turn('Next.', '## conversation summary\n## Goal\nSUMMARY_TEXT_42\n\n## user\nNext.');
+  const fresh = bodies[2]!;
+  // A new session: the instructions and one user message, which carries the summary and not turn 1.
+  expect(fresh.messages.length).toBe(2);
+  expect(JSON.stringify(fresh.messages[1])).toContain('SUMMARY_TEXT_42');
+  expect(JSON.stringify(fresh.messages)).not.toContain('first answer');
+}, 240_000);

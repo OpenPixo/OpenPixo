@@ -88,7 +88,7 @@ import {
 import type { PluginFolderAgentAction } from "./files/pluginFolderActions";
 import { Icon } from "./Icon";
 import { HostedCreditsLabel, latestHostedUsage, type HostedCreditsUsage } from "./chat/HostedCreditsLabel";
-import { ContextCompactedNote } from "./chat/ContextIndicator";
+import { ContextCompactedNote, ConversationSummaryNote } from "./chat/ContextIndicator";
 import { NextStepActions, type NextStepActionsVariant } from "./NextStepActions";
 import { copyToClipboard } from "../lib/copy-to-clipboard";
 import { useT } from "../i18n";
@@ -1324,6 +1324,7 @@ function AssistantMessageImpl({
         {(message.events ?? []).map((event, i) => event.kind === "context_compacted"
           ? <ContextCompactedNote key={`compacted-${i}`} tokensBefore={event.tokensBefore} />
           : null)}
+        {message.compaction ? <ConversationSummaryNote /> : null}
 
         {/* #5517 shape: the collapsible tool-op summary lists only the ops the
             turn actually emitted, and the produced-files list stays its own
