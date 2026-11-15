@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   authorizeHostGameParent,
+  canRevealHostProjectFile,
+  revealHostProjectFile,
   OPENPIXO_HOST_GLOBAL,
   OPENPIXO_HOST_VERSION,
   clearHostBrowserData,
@@ -236,6 +238,25 @@ describe("openpixo host contract", () => {
     expect(clearData).toHaveBeenCalledWith({ cookies: true });
     expect(pickAndImport).toHaveBeenCalledWith({ skillId: "skill-1" });
     expect(print).toHaveBeenCalledWith("<html></html>", "nonce", { deck: true });
+  });
+
+  it("selects one project file through showItemInFolder, and says when an older host cannot", async () => {
+    const showItemInFolder = vi.fn(async () => ({ ok: true as const }));
+    const scope: Record<string, unknown> = {};
+    scope[OPENPIXO_HOST_GLOBAL] = createMockOpenPixoHost({
+      shell: { openExternal: vi.fn(), openPath: vi.fn(), showItemInFolder },
+    });
+    expect(canRevealHostProjectFile(scope)).toBe(true);
+    await expect(revealHostProjectFile("project-3", "art/hero.png", scope)).resolves.toEqual({ ok: true });
+    expect(showItemInFolder).toHaveBeenCalledWith("project-3", "art/hero.png");
+
+    const older: Record<string, unknown> = {};
+    const olderHost = createMockOpenPixoHost();
+    delete olderHost.shell.showItemInFolder;
+    older[OPENPIXO_HOST_GLOBAL] = olderHost;
+    expect(canRevealHostProjectFile(older)).toBe(false);
+    await expect(revealHostProjectFile("project-3", "art/hero.png", older)).resolves.toMatchObject({ ok: false });
+    expect(canRevealHostProjectFile({})).toBe(false);
   });
 
   it("routes updater status, actions, and subscriptions through package-owned helpers", async () => {

@@ -39,6 +39,35 @@ export function markConversationSeen(conversationId: string, at = Date.now()): v
 }
 
 /**
+ * Whether "Mark as unread" has anything to mark: the latest reply has
+ * finished and it is not already showing as new.
+ */
+export function canMarkConversationUnread(conversation: Conversation, seen: Readonly<Record<string, number>>): boolean {
+  const run = conversation.latestRun;
+  if (!run || run.status === 'running' || run.status === 'queued' || typeof run.endedAt !== 'number') return false;
+  return !conversationHasNewReply(conversation, seen);
+}
+
+/**
+ * Puts the "new reply" dot back on a conversation, the way a mail client's
+ * "Mark as unread" does: the record moves to just before the latest reply
+ * ended, so opening the conversation again clears it as usual.
+ */
+export function markConversationUnread(conversation: Conversation): boolean {
+  const ended = conversation.latestRun?.endedAt;
+  if (typeof ended !== 'number') return false;
+  const seen = read();
+  seen[conversation.id] = ended - 1;
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(seen));
+  } catch {
+    return false;
+  }
+  window.dispatchEvent(new CustomEvent(CONVERSATION_SEEN_EVENT, { detail: { conversationId: conversation.id } }));
+  return true;
+}
+
+/**
  * A reply finished after the user last had the conversation open. A
  * conversation never opened in this browser has no record and gets no dot:
  * otherwise every older conversation would light up at once.

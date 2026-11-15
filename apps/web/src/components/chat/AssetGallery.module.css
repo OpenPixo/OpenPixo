@@ -231,3 +231,8 @@
   align-items: center;
   gap: 6px;
 }
+
+/* A wrapper that only marks an item for the right-click menu; it adds no box. */
+.contextItem {
+  display: contents;
+}

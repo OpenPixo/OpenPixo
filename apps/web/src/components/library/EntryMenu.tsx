@@ -46,17 +46,21 @@ export interface EntryMenuActions {
   generateFrom?: () => void;
   /** One image: the image editor. */
   editImage?: () => void;
+  /** Images: put the picture itself on the clipboard. */
+  copyImage?: () => void;
   rename?: () => void;
   copyRelativePath: () => void;
   /** Absent when the daemon reported no local path for the file. */
   copyAbsolutePath?: () => void;
+  /** Desktop only: select the file in Explorer / Finder. */
+  reveal?: { label: string; run: () => void };
   delete?: () => void;
 }
 
 /** How many rows `actions` renders: positions the menu before it mounts. */
 export function entryMenuItemCount(actions: EntryMenuActions): number {
-  return [actions.addToChat, actions.open, actions.details, actions.generateFrom, actions.editImage, actions.rename,
-    actions.copyRelativePath, true, true, actions.delete].filter(Boolean).length;
+  return [actions.addToChat, actions.open, actions.details, actions.generateFrom, actions.editImage, actions.copyImage,
+    actions.rename, actions.copyRelativePath, true, true, actions.reveal, actions.delete].filter(Boolean).length;
 }
 
 function menuItems(menu: HTMLElement | null): HTMLButtonElement[] {
@@ -171,6 +175,11 @@ export function EntryMenu({
           {t('imageEditor.title')}
         </button>
       ) : null}
+      {actions.copyImage ? (
+        <button type="button" role="menuitem" data-testid="design-file-menu-copy-image" onClick={run(actions.copyImage)}>
+          {t('contextMenu.copyImage')}
+        </button>
+      ) : null}
       {actions.rename ? (
         <button
           type="button"
@@ -198,6 +207,11 @@ export function EntryMenu({
       <button type="button" role="menuitem" onClick={run(() => saveProjectFile(projectId, name))}>
         {t('filesPanel.download')}
       </button>
+      {actions.reveal ? (
+        <button type="button" role="menuitem" data-testid="design-file-menu-reveal" onClick={run(actions.reveal.run)}>
+          {actions.reveal.label}
+        </button>
+      ) : null}
       {actions.delete ? (
         <button type="button" role="menuitem" className="danger" data-testid={`design-file-delete-${name}`} onClick={run(actions.delete)}>
           {t('filesPanel.delete')}

@@ -1358,6 +1358,11 @@ function AssistantMessageImpl({
             rows={turnChanges}
             onOpenRow={onRequestOpenFile ? openChangeRow : undefined}
             onViewAll={isLast && onRequestOpenFile ? () => onRequestOpenFile(PANEL_CHANGES_ROOT) : undefined}
+            fileMenu={projectId ? {
+              projectId,
+              fileUrl: (path) => projectFileUrl(projectId, path),
+              onOpenFile: onRequestOpenFile,
+            } : undefined}
           />
         ) : null}
         {projectId && turnAssets.length > 0 ? (

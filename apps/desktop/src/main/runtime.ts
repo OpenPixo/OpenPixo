@@ -4,6 +4,7 @@ import type { GameWebCaptureResult } from "@openpixo/contracts";
 import { GameParentAuthorization } from "./game-parent-authorization.js";
 import { captureGamePage, type GameCaptureInput } from "./game-capture.js";
 import { reportDesktopObservabilityEvent } from "./observability.js";
+import { resolveProjectFileForReveal } from "./reveal-file.js";
 import { execFile } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { appendFile, mkdir, realpath, stat, writeFile } from "node:fs/promises";
@@ -2003,6 +2004,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   ipcMain.removeHandler("dialog:authorize-game-parent");
   ipcMain.removeHandler("shell:open-external");
   ipcMain.removeHandler("shell:open-path");
+  ipcMain.removeHandler("shell:show-item-in-folder");
   ipcMain.removeHandler("browser:clear-data");
   for (const channel of UPDATER_IPC_CHANNELS) {
     ipcMain.removeHandler(channel);
@@ -2208,6 +2210,30 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
         },
         openPath: (p) => shell.openPath(p),
       });
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  });
+
+  // "Show in Explorer" for one file. Same trust boundary as shell:open-path:
+  // the daemon names the project's directory, and the file must resolve
+  // inside it. showItemInFolder only selects the item; it never runs it.
+  ipcMain.handle("shell:show-item-in-folder", async (_event, projectId: string, relPath: unknown) => {
+    const apiBaseUrl =
+      (options.discoverDaemonUrl ? await options.discoverDaemonUrl() : null) ??
+      (await options.discoverUrl());
+    if (!apiBaseUrl) {
+      return "show-item: daemon API URL not available";
+    }
+    const resolved = await fetchResolvedProjectDir(apiBaseUrl, projectId);
+    if (!resolved.ok) return `show-item: ${resolved.reason}`;
+    const allowed = isOpenPathAllowedForProject(resolved.context);
+    if (!allowed.ok) return `show-item: ${allowed.reason}`;
+    const file = await resolveProjectFileForReveal(resolved.context.resolvedDir, relPath);
+    if (!file.ok) return `show-item: ${file.reason}`;
+    try {
+      shell.showItemInFolder(file.resolved);
+      return "";
     } catch (err) {
       return err instanceof Error ? err.message : String(err);
     }
