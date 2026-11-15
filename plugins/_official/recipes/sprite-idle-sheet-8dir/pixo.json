@@ -1,0 +1,121 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-idle-sheet-8dir",
+  "title": "8-direction idle sheet",
+  "title_i18n": {
+    "en": "8-direction idle sheet",
+    "zh-CN": "8 方向待机姿势图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-15T12:00:00+09:00",
+  "description": "Step 1 of an idle animation: one character drawn standing at rest in all eight directions on a green screen, ready to animate with the 8-direction idle.",
+  "description_i18n": {
+    "en": "Step 1 of an idle animation: one character drawn standing at rest in all eight directions on a green screen, ready to animate with the 8-direction idle.",
+    "zh-CN": "待机动画第 1 步：把角色在绿幕上画成 8 个方向的站立姿势，再用「8 方向待机动画」让它动起来。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "First step of an 8-direction idle: draw the character's idle sheet, check it, then animate it with sprite-idle-8dir.",
+      "dimension": [
+        "2d"
+      ],
+      "inputs": [
+        {
+          "name": "character",
+          "label": "Character",
+          "label_i18n": {
+            "zh-CN": "角色"
+          },
+          "type": "character-ref",
+          "required": true
+        },
+        {
+          "name": "style",
+          "label": "Art style",
+          "label_i18n": {
+            "zh-CN": "美术风格"
+          },
+          "type": "select",
+          "options": [
+            "clean cartoon with bold outlines",
+            "hand-painted 2D",
+            "chibi 2D with bold outlines",
+            "pixel-art look with chunky pixels"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "clean cartoon with bold outlines": "粗描边的简洁卡通",
+              "hand-painted 2D": "2D 手绘",
+              "chibi 2D with bold outlines": "粗描边的 Q 版 2D",
+              "pixel-art look with chunky pixels": "粗像素的像素风"
+            }
+          },
+          "default": "clean cartoon with bold outlines"
+        }
+      ],
+      "prompt": "Game character pose sheet for an idle animation: {{character.name}}, {{character.description}}. Eight copies of the same character in a strict grid of 4 columns by 2 rows of equal cells on a 16:9 canvas, with no visible grid lines. Every copy stands at rest in a relaxed idle pose: both feet planted about hip-width apart, weight even, knees straight but not locked, arms hanging relaxed at the sides, hands loose. Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left. Every copy keeps its body facing its own direction. Identical design, colours, proportions and size in every copy; where reference images are provided, follow them exactly, and keep one-sided details such as a weapon, a bag, a scarf end or a hair parting on the same side of the body in every view. Three-quarter top-down game camera, identical in every cell. Each copy is centred in its cell with its whole body visible, about 70 percent of the cell height, feet on the same baseline within a row, with clear empty space around it; nothing crosses into another cell. Style: {{style}}, crisp clean outlines, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
+      "negative": "text, letters, numbers, labels, captions, watermark, logo, border, frame, grid lines, gradient background, floor, cast shadow, scenery, vignette, walking, mid-stride, running, action pose, crossed legs, motion blur, speed lines, extra characters, cropped, cut off at the edge, overlapping cells, inconsistent character between cells, changing size, bright green clothing, weapons or props not in the reference",
+      "models": {
+        "requires": [
+          "t2i",
+          "i2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "16:9"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": 1344,
+            "height": 768
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "dimensions",
+          "params": {
+            "width": 1344,
+            "height": 768
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/{{character.slug}}",
+        "name": "{{character.slug}}_idle_sheet"
+      }
+    }
+  }
+}

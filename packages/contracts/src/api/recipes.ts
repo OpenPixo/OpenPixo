@@ -75,6 +75,12 @@ export const RecipeRunRequestSchema = z.object({
   agentId: z.string().optional(),
   /** A price the user confirmed (`POST …/recipe-runs/quote`); the run must ask for exactly what was priced. */
   quoteId: z.string().uuid().optional(),
+  /**
+   * For an action recipe: the staged result it acts on, by run and candidate, instead of a file
+   * already in the game. The daemon fills the recipe's `source` input with that result's picture,
+   * so the action can run before the result is saved.
+   */
+  sourceCandidate: z.object({ runId: z.string().uuid(), candidateId: z.string().min(1) }).strict().optional(),
 }).strict();
 export type RecipeRunRequest = z.infer<typeof RecipeRunRequestSchema>;
 

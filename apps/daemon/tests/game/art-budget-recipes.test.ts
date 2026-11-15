@@ -202,7 +202,9 @@ describe('recipes that spend credits', () => {
     expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'audio' } as never, false)).toContain('openpixo-sfx');
     expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'model3d' } as never, false)).toEqual([]);
     expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'model3d' } as never, true)[0]).toBe('openpixo-model3d');
-    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'video' } as never, true)).toEqual([]);
+    // Hosted video is the walk clip, which animates a picture: none without one.
+    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'video' } as never, false)).toEqual([]);
+    expect(hostedRecipeModelIds({ ...RECIPE.pixo.recipe, surface: 'video' } as never, true)).toEqual(['openpixo-walk-video']);
   });
 
   it('pays one candidate by default, stages the file, and records the charge', async () => {

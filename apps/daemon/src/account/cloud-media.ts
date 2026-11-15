@@ -3,7 +3,7 @@ import type {
   OpenPixoGenerationQuote, OpenPixoGenerationReferenceResponse, OpenPixoGenerationResolution, OpenPixoGenerationService, OpenPixoGenerationServicesResponse,
   OpenPixoModel3dQuality,
 } from '@openpixo/contracts';
-import { isOpenPixoModel3dService, OPENPIXO_GENERATION_ASPECTS, OPENPIXO_GENERATION_RESOLUTIONS, OPENPIXO_MODEL3D_QUALITIES, parseOpenPixoResolution } from '@openpixo/contracts';
+import { isOpenPixoModel3dService, isOpenPixoVideoService, OPENPIXO_GENERATION_ASPECTS, OPENPIXO_GENERATION_RESOLUTIONS, OPENPIXO_MODEL3D_QUALITIES, parseOpenPixoResolution } from '@openpixo/contracts';
 import { AccountError, cloudServiceError } from './errors.js';
 import { record } from './supabase.js';
 
@@ -12,9 +12,9 @@ const RESOLUTIONS: readonly unknown[] = OPENPIXO_GENERATION_RESOLUTIONS;
 const SHA256 = /^[0-9a-f]{64}$/u;
 export const MAX_HOSTED_REFERENCES = 4;
 const STATES: readonly OpenPixoGenerationJobState[] = ['queued', 'running', 'checking', 'succeeded', 'failed'];
-const MIMES = ['image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'model/gltf-binary'] as const;
+const MIMES = ['image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'model/gltf-binary', 'video/mp4'] as const;
 const AUDIO_KINDS: readonly OpenPixoGenerationAudioKind[] = ['sfx', 'speech', 'music'];
-const SERVICE_SURFACES: readonly unknown[] = ['image', 'audio', 'model3d'];
+const SERVICE_SURFACES: readonly unknown[] = ['image', 'audio', 'model3d', 'video'];
 const MODEL3D_QUALITIES: readonly unknown[] = OPENPIXO_MODEL3D_QUALITIES;
 const MAX_DURATION_SECONDS = 3600;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -53,11 +53,12 @@ export function generationServices(value: unknown): OpenPixoGenerationServicesRe
   const known = item.services.filter((entry) => {
     const row = record(entry);
     if (typeof row.surface === 'string' && !SERVICE_SURFACES.includes(row.surface)) return false;
+    if (row.surface === 'video') return isOpenPixoVideoService(row.id);
     return row.surface !== 'model3d' || isOpenPixoModel3dService(row.id);
   });
   const services = known.map((entry): OpenPixoGenerationService => {
     const row = record(entry);
-    if ((row.surface !== 'image' && row.surface !== 'audio' && row.surface !== 'model3d') || !Array.isArray(row.aspects) || !Array.isArray(row.styles)) invalid();
+    if ((row.surface !== 'image' && row.surface !== 'audio' && row.surface !== 'model3d' && row.surface !== 'video') || !Array.isArray(row.aspects) || !Array.isArray(row.styles)) invalid();
     const references = record(row.references);
     const pricing = record(row.pricing);
     const length = row.durationSeconds === undefined || row.durationSeconds === null ? null : record(row.durationSeconds);

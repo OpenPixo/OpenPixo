@@ -149,19 +149,32 @@ state the character might one day have.
 
 In a top-down game where a character moves freely, its walk needs eight
 directions; with four it faces the wrong way on every diagonal. Make the walk
-with the \`sprite-walk-8dir\` recipe after the design (step 1): it draws all eight
-directions in one image, cuts the frames and exports an engine atlas with a
-\`walk-<direction>\` clip for each. Give it the design as a character card first,
-\`"$PIXO_NODE_BIN" "$PIXO_BIN" character create <slug> --name <name> --description <text> --reference <design>\`,
-then run \`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-walk-8dir --input character=<slug> --input frames=<4|6|8> --json --wait\`
-(\`recipe show sprite-walk-8dir --json\` lists the style options). It makes two
-candidates, two images. Look at every row before adopting: top to bottom down,
-down-left, left, up-left, up, up-right, right, down-right. A model can turn one
-row the wrong way or invent a detail the design does not show, such as the back
-of a costume. Adopt with \`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe adopt <runId> --candidate <id>\`,
-then check each direction's frames with \`asset frames check\` as in step 3;
-when \`asset frames align\` changes them, export them again as in step 4. Make
-the other states with the steps below.
+after the design (step 1) in two recipe runs. Give it the design as a character
+card first,
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" character create <slug> --name <name> --description <text> --reference <design>\`.
+First draw the walk sheet:
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-walk-sheet-8dir --input character=<slug> --json --wait\`
+(\`recipe show sprite-walk-sheet-8dir --json\` lists the style options). It makes
+two candidates, one picture each: the character eight times on green, every copy
+mid-stride. Look at every copy before going on: top row facing down, down-right,
+right, up-right; bottom row up, up-left, left, down-left; each one facing its
+own way, one foot forward along that direction, and one-sided details (a sword,
+a bag) on the same side of the body. A model can turn one copy the wrong way or
+invent a detail the design does not show, such as the back of a costume; draw it
+again rather than animate a wrong sheet. Then animate the best candidate:
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-walk-8dir --source-run <runId> --candidate <id> --json --wait\`
+(\`--input frames=7\` for a pixel game; 21 is the default). It makes one short
+looping clip and exports an engine atlas with a \`walk-<direction>\` clip for each
+of the eight directions. Look at the sheet's rows before adopting with
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe adopt <runId> --candidate <id>\`; a
+direction that steps sideways instead of along its facing is the clip's
+mistake, so run step two again. Its idle works the same way in eight
+directions:
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-idle-sheet-8dir --input character=<slug> --json --wait\`
+draws it standing (check every copy the same way), then
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-idle-8dir --source-run <runId> --candidate <id> --json --wait\`
+makes a slow breathing loop with an \`idle-<direction>\` clip for each direction.
+Make the other states with the steps below.
 
 1. Design: one full-body image of the character in its idle pose (facing right
    in a side view), made as the table above says, or the project's own when it

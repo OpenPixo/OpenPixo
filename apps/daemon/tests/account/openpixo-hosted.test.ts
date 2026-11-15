@@ -192,13 +192,13 @@ describe('hosted audio', () => {
     expect(() => generationParams({ prompt: 'a chest', resolution: '2K' })).toThrow();
   });
 
-  it('asks the cloud for every surface, every 3D tier and every image size', async () => {
+  it('asks the cloud for every surface, every 3D tier, every image size and the walk video', async () => {
     const h = await accountHarness();
     cleanup.push(h.close);
     let query = '';
     h.cloud.handlers.set('GET /functions/v1/generation-services', (request) => { query = request.url.search; return { body: { generationPaused: false, services: [] } }; });
     await h.account.generationServices();
-    expect(query).toBe('?v=4');
+    expect(query).toBe('?v=5');
   });
 });
 

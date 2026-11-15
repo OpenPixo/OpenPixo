@@ -492,6 +492,7 @@ export const IMAGE_MODELS: MediaModel[] = [
  * Seedance Lite), kling.ts and friends.
  */
 export const VIDEO_MODELS: MediaModel[] = [
+  { id: 'openpixo-walk-video', label: 'OpenPixo walk animation', hint: 'OpenPixo cloud · credits · a looping walk from a sheet of poses', provider: 'openpixo', caps: ['i2v-loop'] },
   // Volcengine — Seedance 2.0 (integrated).
   {
     id: 'doubao-seedance-2-0-260128',
@@ -560,6 +561,7 @@ export const VIDEO_MODELS: MediaModel[] = [
   { id: 'wan-2.1-i2v', label: 'wan-2.1-i2v', hint: 'Wan 2.1 image-to-video', provider: 'media-gateway', caps: ['i2v'] },
   { id: 'seedance-1-pro-gateway', label: 'Seedance 1 Pro', hint: 'Seedance 1 Pro', provider: 'media-gateway', caps: ['t2v', 'i2v'] },
   { id: 'kling-2.1-t2v-gateway', label: 'Kling 2.1', hint: 'Kling 2.1 Pro text-to-video', provider: 'media-gateway', caps: ['t2v'] },
+  { id: 'h3-max-turbo-gateway', label: 'H3 Max Turbo', hint: 'Fast image-to-video with start and end frames', provider: 'media-gateway', caps: ['i2v', 'i2v-loop'] },
   { id: 'sora-2', label: 'sora-2', hint: 'OpenAI Sora 2', provider: 'media-gateway', caps: ['t2v'] },
   { id: 'sora-2-pro', label: 'sora-2-pro', hint: 'OpenAI Sora 2 Pro', provider: 'media-gateway', caps: ['t2v'] },
 

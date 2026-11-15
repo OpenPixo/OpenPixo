@@ -10,8 +10,9 @@ const bundled = path.resolve(import.meta.dirname, '../../../plugins/_official');
 
 it('keeps every selectable grid divisible with the square cells promised by its prompt', () => {
   const recipes = discoverRecipes(bundled).filter(detail => detail.manifest.pixo!.recipe!.postprocess?.some(step => step.op === 'slice'));
-  expect(recipes.map(recipe => recipe.id).sort()).toEqual(['item-icon-set', 'sprite-walk-8dir', 'vfx-sequence']);
-  for (const detail of recipes) {
+  expect(recipes.map(recipe => recipe.id).sort()).toEqual(['item-icon-set', 'sprite-idle-8dir', 'sprite-walk-8dir', 'vfx-sequence']);
+  // A video recipe's cells come from its clip, not a square grid it asks a picture model for.
+  for (const detail of recipes.filter(detail => detail.manifest.pixo!.recipe!.surface !== 'video')) {
     const recipe = detail.manifest.pixo!.recipe!;
     let variants: Record<string, unknown>[] = [{}];
     for (const input of recipe.inputs) {
@@ -61,18 +62,68 @@ it('derives verified from an explicit passing evaluation status, defaulting to f
   }
 });
 
+it('cuts the walk clip into the 4x2 grid its sheet is drawn on, one animation per cell', () => {
+  const recipes = discoverRecipes(bundled);
+  const sheet = recipes.find(recipe => recipe.id === 'sprite-walk-sheet-8dir')!.manifest.pixo!.recipe!;
+  const walk = recipes.find(recipe => recipe.id === 'sprite-walk-8dir')!.manifest.pixo!.recipe!;
+  expect(sheet.generation?.aspect).toBe('16:9');
+  expect(sheet.postprocess?.[0]).toMatchObject({ op: 'resize', params: { width: 1344, height: 768 } });
+  expect(sheet.prompt).toMatch(/4 columns by 2 rows/);
+  expect(walk.acts).toEqual({ on: ['image'], recipes: ['openpixo/sprite-walk-sheet-8dir'] });
+  expect(walk.generation?.video).toEqual({ duration: 0.92, resolution: '768p', loop: true });
+  expect(walk.models?.requires).toEqual(['i2v-loop']);
+  const steps = walk.postprocess!;
+  expect(steps.map(step => step.op)).toEqual(['video-frames', 'resize', 'remove-bg', 'slice', 'export-spritesheet']);
+  // Intermediate frames feed the next step; only the engine sheet is staged and saved.
+  expect(steps.slice(0, -1).every(step => step.keep === false)).toBe(true);
+  const resize = steps[1]!.params!, grid = String(steps[3]!.params!.grid).split('x').map(Number) as [number, number];
+  expect(Number(resize.width) % grid[0]).toBe(0);
+  expect(Number(resize.height) % grid[1]).toBe(0);
+  const exported = steps[4]!.params!;
+  expect(exported.order).toBe('by-cell');
+  expect((exported.animations as string[]).length).toBe(grid[0] * grid[1]);
+  // The sheet's reading order, top row then bottom row, is the animation order.
+  expect(exported.animations).toEqual(['down', 'down-right', 'right', 'up-right', 'up', 'up-left', 'left', 'down-left']);
+  expect(sheet.prompt).toMatch(/Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind\. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left\./);
+});
+
+it('animates the idle sheet the way the walk does, at half speed', () => {
+  const recipes = discoverRecipes(bundled);
+  const recipe = (id: string) => recipes.find(entry => entry.id === id)!.manifest.pixo!.recipe!;
+  const walkSheet = recipe('sprite-walk-sheet-8dir'), walk = recipe('sprite-walk-8dir');
+  const sheet = recipe('sprite-idle-sheet-8dir'), idle = recipe('sprite-idle-8dir');
+  // Same canvas, grid and order as the walk sheet, so a character's states line up.
+  expect(sheet.generation?.aspect).toBe(walkSheet.generation?.aspect);
+  expect(sheet.postprocess).toEqual(walkSheet.postprocess);
+  expect(sheet.prompt).toMatch(/Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind\. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left\./);
+  expect(sheet.prompt).not.toMatch(/mid-stride/);
+  expect(idle.acts).toEqual({ on: ['image'], recipes: ['openpixo/sprite-idle-sheet-8dir'] });
+  // One hosted clip for both: same length, size and loop.
+  expect(idle.generation?.video).toEqual(walk.generation?.video);
+  expect(idle.models?.requires).toEqual(walk.models?.requires);
+  const steps = idle.postprocess!, walkSteps = walk.postprocess!;
+  expect(steps.slice(0, -1)).toEqual(walkSteps.slice(0, -1));
+  const exported = steps.at(-1)!.params!;
+  expect(exported).toMatchObject({ name: 'idle', order: 'by-cell', animations: walkSteps.at(-1)!.params!.animations });
+  // A breath at the clip's own speed looks rushed; 21 frames play at 12 fps.
+  expect(exported.loopSeconds).toBe(2 * Number(walkSteps.at(-1)!.params!.loopSeconds));
+});
+
 // Accepted only after real-provider runs recorded in the recipe's evals/README.md.
-const ACCEPTED_RECIPES = ['sprite-walk-8dir'];
+// Each names the real provider and model it was accepted on.
+const ACCEPTED_RECIPES: Record<string, RegExp> = {
+  'sprite-walk-sheet-8dir': /`codex-image`/,
+  'sprite-walk-8dir': /`h3-max-turbo-gateway`/,
+};
 
 it('publishes honest acceptance status for the bundled catalogue and meaningful code categories', async () => {
   const recipes = discoverRecipes(bundled);
-  expect(recipes).toHaveLength(33);
+  expect(recipes).toHaveLength(36);
   for (const recipe of recipes) {
     const evaluation = await readFile(path.join(bundled, 'recipes', recipe.id, 'evals/README.md'), 'utf8');
-    if (ACCEPTED_RECIPES.includes(recipe.id)) {
+    if (ACCEPTED_RECIPES[recipe.id]) {
       expect(evaluation).toMatch(/^Status: passed/m);
-      // The record names the real provider and model it was accepted on.
-      expect(evaluation).toMatch(/`codex-cli` \/ `codex-image`/);
+      expect(evaluation).toMatch(ACCEPTED_RECIPES[recipe.id]!);
       expect(recipe.verified).toBe(true);
     } else {
       expect(evaluation).toMatch(/Status: pending/);

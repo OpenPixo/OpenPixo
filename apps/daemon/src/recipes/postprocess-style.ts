@@ -4,6 +4,8 @@ export interface RecipePostprocessStep {
   op: AssetOpRequest['op'];
   params: Record<string, unknown>;
   optional?: boolean | undefined;
+  /** False hands the step's files to the next step without staging them. */
+  keep?: boolean | undefined;
 }
 
 const pixelTag = (value: string) => /(?:^|[\s,_-])pixel(?:s|[\s_-]?art)?(?:$|[\s,_-])|像素/i.test(value);

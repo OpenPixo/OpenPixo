@@ -603,6 +603,11 @@ export interface Dict {
   'gameAssets.op.remove-bg': string;
   'gameAssets.op.frames-check': string;
   'gameAssets.op.frames-align': string;
+  'gameAssets.op.video-frames': string;
+  'gameAssets.param.frameCount': string;
+  'gameAssets.param.dropRepeatedEnd': string;
+  'gameAssets.param.softness': string;
+  'gameAssets.param.despill': string;
   'gameAssets.param.canvas': string;
   'gameAssets.param.matchHeight': string;
   'gameAssets.frames.hint': string;
@@ -2497,6 +2502,10 @@ export interface Dict {
   'generate.unknownGame': string;
   'generate.game': string;
   'generate.saveInto': string;
+  'generate.spritePreview': string;
+  'generate.nextStep': string;
+  'generate.actionConfirm': string;
+  'generate.actionShort': string;
   'generate.saveAnother': string;
   'generate.noGamesYet': string;
   'generate.pickGameToSave': string;

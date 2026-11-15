@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { skillFitsEngine } from '../game/default-skills.js';
 import type { Express, NextFunction, Request, Response } from 'express';
-import { PRODUCT_CLI_NAME, RecipeAdoptRequestSchema, RecipeQuoteRequestSchema, RecipeRunRequestSchema, resolveLocalizedText, type CharacterUpdateRequest, type EngineProfile, type RecipeCodeRunResponse, type RecipeDetail, type RecipeQuoteRequest, type RecipeRun, type RecipeRunListResponse, type RecipeRunQuote, type RecipeRunRequest } from '@openpixo/contracts';
+import { PRODUCT_CLI_NAME, recipeActsOnResultOf, RecipeAdoptRequestSchema, RecipeQuoteRequestSchema, RecipeRunRequestSchema, resolveLocalizedText, type CharacterUpdateRequest, type EngineProfile, type RecipeCodeRunResponse, type RecipeDetail, type RecipeQuoteRequest, type RecipeRun, type RecipeRunListResponse, type RecipeRunQuote, type RecipeRunRequest } from '@openpixo/contracts';
 import { getProject } from '../db.js';
 import { ensureProject, resolveProjectDir } from '../projects.js';
 import { readMaskedConfig } from '../media/config.js';
@@ -27,7 +28,8 @@ import { createCharacter, deleteCharacter, getCharacter, listCharacters, updateC
 import { renderRecipeTemplate } from './template.js';
 import { resolveArtStyleForGeneration } from '../styles/service.js';
 import { registerGenerateRoutes } from './generate-routes.js';
-import { GENERATE_AREA_DIR, assertNoGameRequest } from './generate-area.js';
+import { GENERATE_AREA_DIR, assertNoGameRequest, pictureType, saveGenerateReference } from './generate-area.js';
+import { recipePath } from './paths.js';
 
 export interface RecipeRoutesDeps {
   db: RecipeExecutorDeps['db'];
@@ -149,6 +151,36 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
   }
   const project = (req: Request, res: Response, write: boolean) => game(req, res, write, String(req.params.id));
   const engineOf = (target: RunTarget): EngineProfile | null | undefined => target.value?.metadata?.engineProfile;
+  /**
+   * An action recipe run on a result that is not saved yet (`sourceCandidate`): the result's
+   * final picture becomes the recipe's `source` input. A game keeps it under `.openpixo/sources/`
+   * (beside its character cards), named by content, so a quote and its run name the same file;
+   * with no game it is an uploaded 生成 reference. An agent reaches only its own game's results.
+   */
+  async function withSource<T extends RecipeQuoteRequest>(target: RunTarget, request: T): Promise<T> {
+    const source = request.sourceCandidate;
+    if (!source) return request;
+    const recipe = findRecipe(catalog(), request.recipeId).manifest.pixo!.recipe!;
+    if (!recipe.acts || !recipe.inputs.some(input => input.name === 'source' && input.type === 'image-ref')) throw new Error('Only an action recipe that takes a picture can act on a result');
+    const scope: RunScope = target.grant ? target.id : ALL_GAMES;
+    const made = await executor.get(scope, source.runId);
+    if (!recipeActsOnResultOf(recipe.acts, made.recipeId)) throw new Error(`This action works only on results of ${(recipe.acts.recipes ?? []).join(', ')}`);
+    const candidate = made.candidates.find(item => item.id === source.candidateId);
+    const index = candidate && !candidate.error ? candidate.stagedFiles.map(file => file.mime.startsWith('image/')).lastIndexOf(true) : -1;
+    if (index < 0) throw Object.assign(new Error('That result has no picture to act on'), { code: 'ENOENT' });
+    const bytes = await readFile((await executor.stagedFile(scope, source.runId, source.candidateId, index)).file);
+    let ref: string;
+    if (target.id === null) ref = (await saveGenerateReference(target.root, bytes)).ref;
+    else {
+      const type = pictureType(bytes);
+      if (!type) throw new Error('That result is not a PNG, JPEG or WebP picture');
+      ref = `.openpixo/sources/${createHash('sha256').update(bytes).digest('hex')}.${type.ext}`;
+      const file = await recipePath(target.root, ref);
+      await mkdir(path.dirname(file), { recursive: true });
+      if (!await stat(file).then(() => true, () => false)) await writeFile(file, bytes);
+    }
+    return { ...request, inputs: { ...request.inputs, source: ref } };
+  }
   /** The recipe a request names, refused where it cannot run: the wrong engine, or no game for code or a character. */
   function recipeFor(target: RunTarget, request: RecipeQuoteRequest): RecipeDetail {
     const detail = findRecipe(catalog(), request.recipeId);
@@ -166,7 +198,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
    */
   async function hostedFallback(detail: RecipeDetail, target: RunTarget, request: RecipeRunRequest, engine: EngineProfile | null | undefined): Promise<string[]> {
     const recipe = detail.manifest.pixo!.recipe!;
-    if (!ctx.artBudget || recipe.surface === 'code' || recipe.surface === 'video') return [];
+    if (!ctx.artBudget || recipe.surface === 'code') return [];
     if (target.grant) {
       const budget = ctx.artBudget.ledger.read(target.id!);
       if (!budget || budget.limitCredits === 0 || budget.remainingCredits <= 0) return [];
@@ -203,6 +235,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
   // local UI or the user's own CLI may ask: an agent's recipes are paid from the art budget.
   async function quote(target: RunTarget, request: RecipeQuoteRequest, res: Response): Promise<void> {
     if (target.grant) { sendApiError(res, 403, 'GENERATION_CONFIRMATION_REQUIRED', 'An agent\'s recipes are paid from the art budget; only the user confirms a price.'); return; }
+    request = await withSource(target, request);
     const detail = recipeFor(target, request);
     const recipe = detail.manifest.pixo!.recipe!;
     if (recipe.surface === 'code') throw new Error('A code recipe starts an agent run and has no price here');
@@ -241,6 +274,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
   }
 
   async function run(target: RunTarget, request: RecipeRunRequest, req: Request, res: Response, next: NextFunction): Promise<void> {
+    request = await withSource(target, request);
     const detail = recipeFor(target, request);
     const recipe = detail.manifest.pixo!.recipe!;
     const engine = engineOf(target);

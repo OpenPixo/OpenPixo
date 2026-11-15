@@ -11,6 +11,7 @@ ${PRODUCT_CLI_NAME} recipe show <id> [--json]
 ${PRODUCT_CLI_NAME} recipe quote <id> [--project <id> | --no-game] [same inputs and options as run] [--json]
 ${PRODUCT_CLI_NAME} recipe run <id> [--project <id> | --no-game] [--input k=v]... [--inputs-file <path|->] [--prompt-file <path|->]
                      [--model <id>] [--style <id|none>] [--count N] [--quote <quoteId>] [--wait] [--timeout <seconds>] [--json]
+                     [--source-run <runId> --candidate <id>]
 ${PRODUCT_CLI_NAME} recipe runs [--project <id> | --no-game] [--surface image|audio|video|model3d] [--origin user|agent] [--limit N] [--json]
 ${PRODUCT_CLI_NAME} recipe status <runId> [--json]
 ${PRODUCT_CLI_NAME} recipe adopt <runId> --candidate <id>... --project <id> [--json]
@@ -22,6 +23,8 @@ Generate (生成) page: its references are pictures uploaded with \`reference\`,
 \`runs\` with no game option lists every run on this machine.
 A run that spends credits needs a price you confirmed: \`quote\` prices it, then \`run … --quote <quoteId>\`
 with the same inputs and options spends exactly that. An agent's runs are paid from the art budget instead.
+An action recipe (\`show\` lists what it \`acts\` on) takes a staged result with --source-run and --candidate,
+before that result is adopted: e.g. \`run sprite-walk-8dir --source-run <runId> --candidate <id>\` animates a walk sheet.
 --wait exits 0 when ready, 2 while running after timeout (default 300s), 5 on failure/cancellation.`;
 
 export function recipeWaitExitCode(status: RecipeRun['status']): 0 | 2 | 5 {
@@ -42,6 +45,7 @@ export async function runRecipeCli(args: string[]): Promise<void> {
       input: { type: 'string', multiple: true }, 'inputs-file': { type: 'string' }, 'prompt-file': { type: 'string' },
       model: { type: 'string' }, style: { type: 'string' }, count: { type: 'string' }, candidate: { type: 'string', multiple: true },
       wait: { type: 'boolean' }, timeout: { type: 'string' }, quote: { type: 'string' }, origin: { type: 'string' }, limit: { type: 'string' },
+      'source-run': { type: 'string' },
     } });
     json = values.json === true;
     if (positionals.length !== (command === 'list' || command === 'runs' ? 0 : 1)) throw new Error(USAGE);
@@ -70,7 +74,9 @@ Use it as a reference input of a run with no game, e.g. --input reference=${refe
         const inputs = parseRecipeInputs(values['inputs-file'] ? await recipeCliText(values['inputs-file']) : '{}', values.input);
         const count = values.count === undefined ? undefined : Number(values.count);
         if (count !== undefined && (!Number.isInteger(count) || count < 1 || count > 32)) throw new Error('--count must be an integer from 1 to 32');
+        if (values['source-run'] && values.candidate?.length !== 1) throw new Error('--source-run needs exactly one --candidate');
         return { recipeId: positionals[0], projectId: project, inputs,
+          ...(values['source-run'] ? { sourceCandidate: { runId: values['source-run'], candidateId: values.candidate![0]! } } : {}),
           ...(count !== undefined ? { count } : {}), ...(values.model ? { model: values.model } : {}),
           ...(values.style !== undefined ? { styleId: values.style === 'none' ? null : values.style } : {}),
           ...(values['prompt-file'] ? { prompt: await recipeCliText(values['prompt-file']) } : {}) };

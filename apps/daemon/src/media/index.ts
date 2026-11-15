@@ -83,8 +83,10 @@ import {
   type MediaModel,
   type MediaProvider,
   type MediaSurface,
+  LOOP_VIDEO_LENGTH_SEC,
   VIDEO_LENGTHS_SEC,
   findMediaModel,
+  takesExactVideoLength,
   findProvider,
   hostedAudioKind,
   hostedAudioParams,
@@ -337,6 +339,15 @@ function clampNumber(value: unknown, allowed: number[]): number | undefined {
   return best;
 }
 
+/** A key-frame model's length goes out as asked, within what such a model takes. */
+function exactVideoLength(value: unknown): { value: number | undefined; warning: null } {
+  if (value === undefined || value === null) return { value: undefined, warning: null };
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < LOOP_VIDEO_LENGTH_SEC.min || value > LOOP_VIDEO_LENGTH_SEC.max) {
+    throw new Error(`--length must be from ${LOOP_VIDEO_LENGTH_SEC.min} to ${LOOP_VIDEO_LENGTH_SEC.max} seconds for this model`);
+  }
+  return { value, warning: null };
+}
+
 function clampWithWarning(value: unknown, allowed: number[], flagName: string): { value: number | undefined; warning: string | null } {
   const clamped = clampNumber(value, allowed);
   if (
@@ -556,7 +567,7 @@ async function generateMediaFile(args: {
   // when stubs are swapped for paid integrations.
   const lengthClamp =
     surface === 'video'
-      ? clampWithWarning(length, VIDEO_LENGTHS_SEC, 'length')
+      ? takesExactVideoLength(def) ? exactVideoLength(length) : clampWithWarning(length, VIDEO_LENGTHS_SEC, 'length')
       : { value: undefined, warning: null };
   // A hosted duration goes out exactly as it was quoted; the cloud holds the limits.
   const usesProviderSpecificAudioDuration =
@@ -616,9 +627,20 @@ async function generateMediaFile(args: {
     // Paid hosted path: no stub fallback, no art-style rewrite. The prompt and
     // options must be exactly what was quoted, to the user or to the daemon.
     if (!args.openpixoHosted || !args.hosted) throw new AccountError('GENERATION_CONFIRMATION_REQUIRED');
-    if (surface !== 'image' && surface !== 'audio' && surface !== 'model3d') throw new AccountError('GENERATION_PARAMS_INVALID');
+    if (surface !== 'image' && surface !== 'audio' && surface !== 'model3d' && surface !== 'video') throw new AccountError('GENERATION_PARAMS_INVALID');
     const staged = args.hosted.projectId !== undefined && args.hosted.projectId !== projectId;
     const jobProject = staged ? { projectId: args.hosted.projectId!, writeRoot: dir } : { projectId };
+    if (surface === 'video') {
+      // The hosted walk clip takes a prompt and its one picture; the service fixes its length,
+      // size and loop, so nothing else is sent or priced.
+      if (imageRefs.length !== 1) throw new AccountError('GENERATION_PARAMS_INVALID');
+      const generated = await args.openpixoHosted.generate({ taskId: args.hosted.taskId, ...jobProject, metadata: args.metadata, service: def.id,
+        params: { prompt: args.hosted.prompt ?? prompt ?? '' },
+        references: imageRefs.map(ref => ({ bytes: Buffer.from(ref.dataUrl.slice(ref.dataUrl.indexOf(',') + 1), 'base64'), mime: ref.mime })),
+        quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut,
+        onProgress: args.onProgress, onBytesWritten: args.onBytesWritten });
+      return { ...generated, warnings: [...generated.warnings, ...(args.hosted.warnings ?? [])] };
+    }
     if (surface === 'audio') {
       // Audio has no shape to send or to resize, so never an aspect. What the daemon
       // priced for an agent is sent as priced; its body's own values never get here.
@@ -3821,7 +3843,16 @@ const FAL_ENDPOINTS: Record<string, string> = {
   'wan-2.1-i2v':            'fal-ai/wan-i2v',
   'seedance-1-pro-gateway': 'fal-ai/bytedance/seedance-1-pro',
   'kling-2.1-t2v-gateway':  'fal-ai/kling-video/v2.1/master/text-to-video',
+  'h3-max-turbo-gateway':   'minimax/h3-max-turbo/image-to-video',
 };
+
+// Video models driven by key frames: a start image, an optional end image, an exact length
+// in seconds (fractions allowed) and a fixed size, with the vendor's prompt rewriting off so
+// the clip does what the prompt says. No aspect: the clip takes the start image's shape.
+const FAL_VIDEO_KEYFRAME = new Set([
+  'minimax/h3-max-turbo/image-to-video',
+]);
+const FAL_KEYFRAME_RESOLUTIONS: Record<string, string> = { '480p': '480P', '768p': '768P', '1080p': '1080P' };
 
 // Image models that expect `aspect_ratio` (e.g. "16:9") instead of the
 // named `image_size` enum ("landscape_16_9") used by FLUX Dev/Schnell/SD.
@@ -4032,6 +4063,24 @@ async function renderFalVideo(ctx: MediaContext, credentials: ProviderConfig, on
   const endpoint = FAL_ENDPOINTS[ctx.model] ?? ctx.model;
   const aspectRatio = ctx.aspect ?? '16:9';
   const durationSec = ctx.length ?? 5;
+
+  if (FAL_VIDEO_KEYFRAME.has(endpoint)) {
+    const start = ctx.imageRefs[0]?.dataUrl;
+    if (!start) throw new Error('this model animates a picture: pass --image');
+    const end = ctx.loop ? start : ctx.imageRefs[1]?.dataUrl;
+    const resolution = FAL_KEYFRAME_RESOLUTIONS[(ctx.resolution ?? '768p').toLowerCase()];
+    if (!resolution) throw new Error('resolution must be 480p, 768p or 1080p');
+    const keyframed = await falQueueRun(endpoint, queueBase, credentials.apiKey, {
+      prompt: ctx.prompt || 'The picture comes to life.', image_url: start, ...(end ? { end_image_url: end } : {}),
+      duration: durationSec, resolution, prompt_expansion_mode: 'disabled',
+    }, falMaxPollMs(10 * 60 * 1000), onProgress, ctx.model);
+    const url: string | null = keyframed?.video?.url ?? null;
+    if (!url) throw new Error(`fal video missing video.url: ${truncate(JSON.stringify(keyframed), 200)}`);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`fal video download ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    return { bytes, providerNote: `fal/${endpoint} · ${resolution} · ${durationSec}s${ctx.loop ? ' · loop' : ''} · ${bytes.length} bytes`, suggestedExt: '.mp4' };
+  }
 
   const input: Record<string, unknown> = {
     prompt: ctx.prompt || 'A short cinematic clip.',

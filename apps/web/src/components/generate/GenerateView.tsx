@@ -14,7 +14,7 @@ import { initialGenerateForm, presetServiceId, withKind, withPreset, withStyle, 
 import { generatePresets, PresetCards, type PresetSample } from './PresetCards';
 import { PresetDrawer } from './PresetDrawer';
 import type { UploadedReference } from './ReferenceUpload';
-import { ResultDetail, type GenerateGame } from './ResultDetail';
+import { ResultDetail, resultActions, type GenerateGame } from './ResultDetail';
 import { StyleCards, StyleWall } from './Showcase';
 import { useRunHistory } from './useRunHistory';
 import styles from './GenerateView.module.css';
@@ -190,7 +190,9 @@ export function GenerateView({
         onBack={closeDetail} onSaved={savedInto} onOpenFile={onOpenFile}
         onAgain={next => { setForm(next); setDetail(null); onSection('create'); setAgain(value => value + 1); }}
         onEdit={next => { setForm(next); setDetail(null); toCreate(); }}
-        onPickCandidate={candidateId => setDetail({ runId: run.id, candidateId })} />}
+        onPickCandidate={candidateId => setDetail({ runId: run.id, candidateId })}
+        actions={resultActions(recipes ?? [], run, candidate)}
+        onActionStarted={next => { remember(next); setDetail(null); onSection('library'); }} />}
     </Dialog>
     <Dialog open={preset !== null} onClose={closePreset} onAfterClose={() => setShownPreset(null)} size="lg" ariaLabelledBy="generate-preset-title" {...STUDIO_DIALOG}>
       {visiblePreset && <PresetDrawer recipeId={visiblePreset} projectId={projectId} files={files} uploads={uploads} onUploaded={addUpload} viewerOnly={viewerOnly}

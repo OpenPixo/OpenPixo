@@ -21,7 +21,8 @@ export function recipeExampleUrl(recipeId: string, index: number, which: 'before
  * only recipes for any engine that need no character; with a game, those its engine can use.
  */
 export function generatePresets(recipes: readonly RecipeSummary[], game: { engine?: GameEngineId | null | undefined } | null): RecipeSummary[] {
-  return recipes.filter(recipe => recipe.surface !== 'code' && recipe.surface !== 'video' && !PLAIN_RECIPES.has(plainId(recipe.id))
+  // An action recipe acts on a result, so it is offered on that result (ResultDetail), not as a preset.
+  return recipes.filter(recipe => recipe.surface !== 'code' && recipe.surface !== 'video' && !recipe.acts && !PLAIN_RECIPES.has(plainId(recipe.id))
     && (game ? recipeMatchesEngine(recipe, game.engine) : recipe.engines.includes('any') && !recipe.needsGame));
 }
 

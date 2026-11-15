@@ -160,7 +160,7 @@ export type HostedRequestPlanInput = Pick<AgentHostedRequestInput, 'service' | '
 };
 
 /**
- * Shapes one hosted image, audio or 3D request the way the cloud will be sent it:
+ * Shapes one hosted image, audio, 3D or walk-video request the way the cloud will be sent it:
  * the image's size and cutout wording, the nearest aspect the service offers, the
  * voice and length the service takes. It spends and reserves nothing, so the user's
  * own quote and the art budget price the very same request.
@@ -170,6 +170,7 @@ export async function planHostedRequest(input: HostedRequestPlanInput):
   const { hosted, service, body } = input;
   const audio = input.surface === 'audio';
   const model3d = input.surface === 'model3d';
+  const video = input.surface === 'video';
   if (!model3d && (typeof input.prompt !== 'string' || !input.prompt.trim())) return refuse(400, 'GENERATION_PARAMS_INVALID', 'A prompt is required.');
   let references: HostedReferenceImage[] = [];
   let aspect: string | undefined;
@@ -189,6 +190,16 @@ export async function planHostedRequest(input: HostedRequestPlanInput):
       style = plan.style;
       duration = plan.duration;
       warnings.push(...plan.warnings);
+    } else if (video) {
+      // A walk clip animates one picture with the prompt as written; its length, size and loop
+      // belong to the service, so nothing else is sent or priced.
+      const refs = await resolveProjectImageRefs(body.image, body.images, input.projectDir);
+      if (refs.length !== 1) return refuse(400, 'GENERATION_PARAMS_INVALID', 'A walk animation takes exactly one picture to animate.');
+      references = refs.map(ref => ({ bytes: Buffer.from(ref.dataUrl.slice(ref.dataUrl.indexOf(',') + 1), 'base64'), mime: ref.mime }));
+      prompt = input.prompt as string;
+      const entry = (await hosted.services()).services.find(candidate => candidate.id === service);
+      const length = [...prompt.trim()].length;
+      if (entry && length > entry.maxPromptChars) return refuse(400, 'GENERATION_PARAMS_INVALID', `This prompt is ${length} characters and ${service} takes at most ${entry.maxPromptChars}.`);
     } else {
       // The same validation the quote route uses, so a reference stays inside the project.
       const refs = await resolveProjectImageRefs(body.image, body.images, input.projectDir);
@@ -234,10 +245,11 @@ export async function prepareAgentHostedRequest(input: AgentHostedRequestInput):
   const confirm = new AccountError('GENERATION_CONFIRMATION_REQUIRED');
   const audio = input.surface === 'audio';
   const model3d = input.surface === 'model3d';
-  const asset = audio ? 'audio' : model3d ? '3D model' : 'image';
+  const video = input.surface === 'video';
+  const asset = audio ? 'audio' : model3d ? '3D model' : video ? 'animation' : 'image';
   // While planning, a budget the user set pays only for style samples; the plan gate
   // ahead of this route also caps how many.
-  if (gamePlanIsPending(input.metadata) && (audio || model3d)) {
+  if (gamePlanIsPending(input.metadata) && (audio || model3d || video)) {
     return refuse(confirm.status, confirm.code, `This ${asset} would spend credits, which waits until the user approves the plan.`);
   }
   const budget = ledger.read(projectId);

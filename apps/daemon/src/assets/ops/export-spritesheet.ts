@@ -8,16 +8,39 @@ export type SpriteExportFormat = 'godot' | 'phaser' | 'aseprite';
 export const spriteExportFormat = (engine?: string): SpriteExportFormat => engine === 'godot' ? 'godot' : engine === 'phaser' ? 'phaser' : 'aseprite';
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
-/** Row-major frames, equal cells, no rotations or interpolation. Each row is one named animation. */
+/**
+ * Row-major frames, equal cells, no rotations or interpolation. Each row is one named animation.
+ *
+ * `order: 'by-cell'` takes frames the way a sliced animation of a whole grid arrives: every
+ * cell of the first picture, then every cell of the next, one cell per animation. Cell `c` of
+ * picture `f` becomes frame `f` of animation `c`. `loopSeconds` sets the frame rate so one row
+ * plays in that time, for frames taken from a clip of known length.
+ *
+ * Besides the engine files it writes `<name>.sheet.json`, the layout in plain numbers (cell
+ * size, columns, animation names, fps), which any engine or the app's own preview can read.
+ */
 export function planSpritesheet(inputs: PackInput[], params: Record<string, unknown>, out: string, engine?: string): OpPlan {
   const aliases = new Map([['godot-spriteframes', 'godot'], ['phaser-atlas', 'phaser'], ['aseprite-json', 'aseprite']]);
   params = { ...params, format: aliases.get(String(params.format)) ?? params.format };
   const format = params.format === undefined || params.format === 'auto' ? spriteExportFormat(engine)
     : choiceParam(params, 'format', ['godot', 'phaser', 'aseprite'] as const);
+  const order = choiceParam(params, 'order', ['by-animation', 'by-cell'] as const, 'by-animation');
+  if (order === 'by-cell') {
+    const cells = Array.isArray(params.animations) ? params.animations.length : typeof params.animations === 'string' ? params.animations.split(',').length : 0;
+    if (!cells) throw new Error('order by-cell needs animations, one per grid cell');
+    if (!inputs.length || inputs.length % cells) throw new Error('Frame count must be divisible by the number of animations');
+    const pictures = inputs.length / cells;
+    if (params.columns !== undefined && params.columns !== pictures) throw new Error('With order by-cell, columns is the number of pictures');
+    const frameMajor = inputs;
+    inputs = Array.from({ length: frameMajor.length }, (_, index) => frameMajor[(index % pictures) * cells + Math.floor(index / pictures)]!);
+    params = { ...params, columns: pictures };
+  }
   const columns = integerParam(params, 'columns', inputs.length, 1, 512);
   if (!inputs.length || inputs.length % columns) throw new Error('Frame count must be divisible by columns');
   const rows = inputs.length / columns;
-  const fps = numberParam(params, 'fps', 8, 0.01, 240);
+  if (params.fps !== undefined && params.loopSeconds !== undefined) throw new Error('Use fps or loopSeconds, not both');
+  const fps = params.loopSeconds === undefined ? numberParam(params, 'fps', 8, 0.01, 240)
+    : Math.min(240, Math.max(0.01, Math.round(columns / numberParam(params, 'loopSeconds', undefined, 0.05, 600) * 100) / 100));
   const loop = params.loop ?? true;
   if (typeof loop !== 'boolean') throw new Error('loop must be boolean');
   const name = params.name ?? 'spritesheet';
@@ -45,8 +68,11 @@ export function planSpritesheet(inputs: PackInput[], params: Record<string, unkn
     + `[ext_resource type="Texture2D" path=${JSON.stringify(`res://${atlas}`)} id="1_atlas"]\n\n`
     + ordered.map(frame => `[sub_resource type="AtlasTexture" id="AtlasTexture_${frame.index}"]\natlas = ExtResource("1_atlas")\nregion = Rect2(${frame.x}, ${frame.y}, ${cell.width}, ${cell.height})\n`).join('\n')
     + `\n[resource]\nanimations = [${names.map((animation, row) => `{\n"frames": [${ordered.slice(row * columns, (row + 1) * columns).map(frame => `{ "duration": 1.0, "texture": SubResource("AtlasTexture_${frame.index}") }`).join(', ')}],\n"loop": ${loop},\n"name": &${JSON.stringify(animation)},\n"speed": ${Number.isInteger(fps) ? fps.toFixed(1) : fps}\n}`).join(', ')}]\n`;
-  const outputs = [atlas, descriptor, ...(format === 'phaser' ? [animationFile] : [])];
+  const layoutFile = path.posix.join(out, `${name}.sheet.json`);
+  const outputs = [atlas, descriptor, ...(format === 'phaser' ? [animationFile] : []), layoutFile];
   return { outputs, detail: { width, height, columns, rows, fps, format, animations: names, frameCount: inputs.length }, produce: async targets => {
+    await writeNew(targets.at(-1)!, json({ image: path.posix.basename(atlas), cell: { width: cell.width, height: cell.height }, columns, rows,
+      fps, loop, animations: names }));
     const overlays = [];
     for (const frame of ordered) overlays.push({ input: await image(frame.file).png().toBuffer(), left: frame.x, top: frame.y });
     await writeNew(targets[0]!, await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(overlays).png().toBuffer());

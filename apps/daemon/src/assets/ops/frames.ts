@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { imagePath } from './images.js';
 
 /**
  * Deterministic geometry for sprite frames and sheet pieces: what is drawn where,
@@ -34,7 +35,7 @@ const ALPHA_DRAWN = 8;
 const FEET_SHARE = 0.15;
 
 export async function readRgba(input: Buffer | string): Promise<Rgba> {
-  const { data, info } = await sharp(input, { limitInputPixels: 64 * 1024 * 1024 }).toColourspace('srgb').ensureAlpha().raw()
+  const { data, info } = await sharp(imagePath(input), { limitInputPixels: 64 * 1024 * 1024 }).toColourspace('srgb').ensureAlpha().raw()
     .toBuffer({ resolveWithObject: true });
   return { data, width: info.width, height: info.height };
 }

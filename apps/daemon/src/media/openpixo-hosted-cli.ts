@@ -11,10 +11,11 @@ export const OPENPIXO_CLI_HELP = `
 OpenPixo hosted models spend credits: openpixo-image (text to image), openpixo-image-edit (1–4 --image references),
 openpixo-sfx (sound effect, --duration up to 10 s), openpixo-voice (voice line, --voice <name>), openpixo-music (instrumental, length can't be set)
 and 3D models (one --image, no prompt, makes a GLB) in three qualities: openpixo-model3d-draft (cheapest),
-openpixo-model3d (medium, the default) and openpixo-model3d-high (detailed, costs the most):
+openpixo-model3d (medium, the default) and openpixo-model3d-high (detailed, costs the most), and openpixo-walk-video
+(one --image walk sheet becomes a looping clip under a second; the sprite-walk-8dir recipe uses it):
   ${PRODUCT_CLI_NAME} media quote --model <id> --project <id> (--prompt <text> | --prompt-file <path|->) [--aspect 1:1|2:3|3:2] [--image <path>]… [--duration <seconds>] [--voice <name>] [--json]
       Get a server price for exactly this request. Nothing is spent; --image files are uploaded privately to your account.
-  ${PRODUCT_CLI_NAME} media generate --surface image|audio|model3d --model <id> --project <id> (--prompt … | --prompt-file …) [--image <path>]… [--duration <seconds>] [--voice <name>] [--quote <id>] [--request-id <id>]
+  ${PRODUCT_CLI_NAME} media generate --surface image|audio|model3d|video --model <id> --project <id> (--prompt … | --prompt-file …) [--image <path>]… [--duration <seconds>] [--voice <name>] [--quote <id>] [--request-id <id>]
       Without --quote, asks you to confirm the price in this terminal. --quote <id> confirms a quote you
       already reviewed. --request-id reuses a confirmed request after a failure without paying twice.
       Under an agent's tool token neither applies and both are ignored: the daemon prices the request and

@@ -309,13 +309,18 @@ describe('game media contract (daemon vs contracts)', () => {
     const rule = block.slice(block.indexOf(GAME_ANIMATED_CHARACTER_HEADING), block.indexOf('### Wire it in'));
     expect(rule).toContain('top-down');
     expect(rule).toMatch(/eight\s+directions/);
-    expect(rule).toContain('`sprite-walk-8dir`');
+    expect(rule).toContain('sprite-walk-sheet-8dir');
     expect(rule).toMatch(/character create <slug> --name <name> --description <text> --reference <design>/);
-    expect(rule).toMatch(/recipe run sprite-walk-8dir --input character=<slug> --input frames=<4\|6\|8> --json --wait/);
+    expect(rule).toMatch(/recipe run sprite-walk-sheet-8dir --input character=<slug> --json --wait/);
+    expect(rule).toMatch(/recipe run sprite-walk-8dir --source-run <runId> --candidate <id> --json --wait/);
     expect(rule).toMatch(/recipe adopt <runId> --candidate <id>/);
-    expect(rule).toContain('Look at every row before adopting');
-    // The walk's frames still go through the host's check and alignment.
-    expect(rule).toMatch(/each direction[^.]*asset frames check/);
+    // The sheet is checked before anything is spent on animating it.
+    expect(rule).toContain('Look at every copy before going on');
+    expect(rule).toMatch(/top row facing down, down-right,\s+right, up-right; bottom row up, up-left, left, down-left/);
+    // Its idle uses the same two steps.
+    expect(rule).toMatch(/recipe run sprite-idle-sheet-8dir --input character=<slug> --json --wait/);
+    expect(rule).toMatch(/recipe run sprite-idle-8dir --source-run <runId> --candidate <id> --json --wait/);
+    expect(rule).toContain('`idle-<direction>`');
   });
 
   // A 64 px icon is billed as the full render, so a set of small art is one sheet, cut by the host.

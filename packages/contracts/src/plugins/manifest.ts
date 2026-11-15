@@ -85,6 +85,9 @@ export const RecipeDimensionSchema = z.enum(['2d', '3d']);
 export type RecipeDimension = z.infer<typeof RecipeDimensionSchema>;
 /** The kinds of result an action recipe takes as its `source`. */
 export const RecipeActsOnSchema = z.enum(['image', 'audio', 'model3d']);
+/** The clip sizes a video recipe can ask for, by frame height. */
+export const RecipeVideoResolutionSchema = z.enum(['480p', '768p', '1080p']);
+export type RecipeVideoResolution = z.infer<typeof RecipeVideoResolutionSchema>;
 
 export const RecipeSchema = z.object({
   surface: RecipeSurfaceSchema,
@@ -94,8 +97,12 @@ export const RecipeSchema = z.object({
   whenToUse: z.string().min(1).max(240).optional(),
   /** Absent means the art suits either kind of game. */
   dimension: z.array(RecipeDimensionSchema).min(1).optional(),
-  /** Set on an action recipe: it makes something from one result of these kinds, passed as its `source` input. */
-  acts: z.object({ on: z.array(RecipeActsOnSchema).min(1) }).optional(),
+  /**
+   * Set on an action recipe: it makes something from one result of these kinds, passed as its
+   * `source` input. `recipes` narrows it to results those recipes made, for an action that only
+   * makes sense on one kind of picture (a walk only animates a walk sheet).
+   */
+  acts: z.object({ on: z.array(RecipeActsOnSchema).min(1), recipes: z.array(z.string().min(1)).min(1).optional() }).optional(),
   inputs: z.array(InputFieldSchema).default([]),
   prompt: z.string().min(1).optional(),
   negative: z.string().optional(),
@@ -114,8 +121,21 @@ export const RecipeSchema = z.object({
      * and the host keys it out with a soft edge, so no remove-bg step is needed.
      */
     background: z.enum(['transparent']).optional(),
+    /**
+     * A video recipe's clip, fixed by the recipe: its length in seconds, its size, and whether
+     * the reference image is also the last frame so the clip loops back to where it started.
+     */
+    video: z.object({
+      duration: z.number().positive().max(30),
+      resolution: RecipeVideoResolutionSchema.optional(),
+      loop: z.boolean().optional(),
+    }).optional(),
   }).optional(),
-  postprocess: z.array(z.object({ op: z.enum(ASSET_OP_NAMES), params: z.record(z.unknown()).optional(), optional: z.boolean().optional() })).optional(),
+  /**
+   * `keep: false` passes a step's files on to the next step without staging them, so a
+   * result does not carry every intermediate frame into the game when it is saved.
+   */
+  postprocess: z.array(z.object({ op: z.enum(ASSET_OP_NAMES), params: z.record(z.unknown()).optional(), optional: z.boolean().optional(), keep: z.boolean().optional() })).optional(),
   checks: z.array(RecipeCheckSchema).optional(),
   output: z.object({
     dir: z.string().refine(isRecipeRelativePath, 'output.dir must be relative and contain no ..'),
@@ -130,6 +150,9 @@ export const RecipeSchema = z.object({
   if (recipe.acts && !recipe.inputs.some(input => input.name === 'source' && input.required && (input.type === 'asset-ref' || input.type === 'image-ref'))) {
     ctx.addIssue({ code: 'custom', message: 'An action recipe takes its result as a required `source` asset-ref or image-ref input' });
   }
+  if (recipe.generation?.video && recipe.surface !== 'video') {
+    ctx.addIssue({ code: 'custom', message: 'Only a video recipe sets generation.video' });
+  }
   const names = recipe.inputs.map(input => input.name);
   if (new Set(names).size !== names.length || names.some(name => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name))) {
     ctx.addIssue({ code: 'custom', message: 'Recipe input names must be unique bare names' });
@@ -138,6 +161,17 @@ export const RecipeSchema = z.object({
   validateRecipeTemplateVariables(recipe, recipe, message => ctx.addIssue({ code: 'custom', message }));
 });
 export type Recipe = z.infer<typeof RecipeSchema>;
+
+/**
+ * Whether an action recipe's `acts.recipes` lets it act on a result of this recipe. Results carry
+ * the recipe's folder id (`sprite-walk-sheet-8dir`); manifests name it in full
+ * (`openpixo/sprite-walk-sheet-8dir`); either form matches the other. No list allows any result.
+ */
+export function recipeActsOnResultOf(acts: Recipe['acts'], recipeId: string): boolean {
+  if (!acts?.recipes) return true;
+  const plain = (id: string) => id.slice(id.lastIndexOf('/') + 1);
+  return acts.recipes.some(id => plain(id) === plain(recipeId));
+}
 
 /** Substitution only: no property traversal beyond the documented host variables. */
 export function validateRecipeTemplateVariables(
