@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
-import type { ApiErrorCode, OpenPixoAgentReasoningEffort, OpenPixoAgentRunUsage, OpenPixoAgentUsageEvent, OpenPixoAccountErrorCode } from '@openpixo/contracts';
+import type { ApiErrorCode, OpenPixoAgentReasoningEffort, OpenPixoAgentRequestUsage, OpenPixoAgentRunUsage, OpenPixoAgentUsageEvent, OpenPixoAccountErrorCode } from '@openpixo/contracts';
 import { agentRequestUsage } from '../account/agent-gateway.js';
 import { AccountError } from '../account/errors.js';
 import { record } from '../account/supabase.js';
@@ -42,6 +42,11 @@ export interface AgentCloud {
 }
 
 export interface RunTerminalError { code: ApiErrorCode; message: string }
+
+/** What one side request of a run (a `pixo look`) got back from the cloud. */
+export type GatewaySideRequestResult =
+  | { ok: true; body: unknown; usage: OpenPixoAgentRequestUsage | null }
+  | { ok: false; status: number; code: string; message: string };
 
 interface RunState {
   token: Buffer;
@@ -169,9 +174,9 @@ export class OpenPixoAgentGateway {
     return null;
   }
 
-  private record(state: RunState, value: unknown): void {
+  private record(state: RunState, value: unknown): OpenPixoAgentRequestUsage | null {
     let usage;
-    try { usage = agentRequestUsage(value); } catch { return; }
+    try { usage = agentRequestUsage(value); } catch { return null; }
     const total = state.usage;
     total.requests += 1;
     total.inputTokens += usage.inputTokens;
@@ -185,17 +190,72 @@ export class OpenPixoAgentGateway {
         cachedInputTokens: total.cachedInputTokens, outputTokens: total.outputTokens,
         costMicrocredits: total.costMicrocredits, creditsCharged: total.creditsCharged });
     } catch { /* a closed run sink must not break the relay */ }
+    return usage;
+  }
+
+  /** A cloud refusal as the agent sees it; one no retry can fix also becomes the run's failure. */
+  private refusal(state: RunState, code: string, message: string, fallbackStatus: number): { status: number; message: string; terminal: ApiErrorCode | null } {
+    const terminal = TERMINAL[code as OpenPixoAccountErrorCode];
+    if (!terminal) return { status: fallbackStatus, message, terminal: null };
+    const text = terminal.message ?? message;
+    state.terminalError ??= { code: terminal.code, message: text };
+    return { status: terminal.status, message: text, terminal: terminal.code };
   }
 
   private refuse(state: RunState, res: Response, code: string, message: string, fallbackStatus: number): void {
-    const terminal = TERMINAL[code as OpenPixoAccountErrorCode];
-    if (terminal) {
-      const text = terminal.message ?? message;
-      state.terminalError ??= { code: terminal.code, message: text };
-      sendError(res, terminal.status, code, text);
-      return;
+    const refused = this.refusal(state, code, message, fallbackStatus);
+    sendError(res, refused.status, code, refused.message);
+  }
+
+  /** The cloud's own error code and words, or the generic reason. */
+  private static async upstreamError(upstream: globalThis.Response): Promise<{ code: string; message: string }> {
+    let code = 'CLOUD_UNAVAILABLE';
+    let message = 'OpenPixo cloud is temporarily unavailable. Please try again.';
+    try {
+      const error = record(record(await upstream.json()).error);
+      if (typeof error.code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/u.test(error.code)) code = error.code;
+      if (typeof error.message === 'string' && error.message) message = error.message.slice(0, 500);
+    } catch { /* keep the generic reason */ }
+    return { code, message };
+  }
+
+  /** Whether this run is a hosted run whose gateway access is open. */
+  hasRun(runId: string): boolean {
+    return this.runs.has(runId);
+  }
+
+  /**
+   * A non-streaming request the daemon itself makes for a running hosted run (`pixo look`), on
+   * that run's cloud key and credits. Its usage joins the run's totals like the agent's own
+   * requests, and a refusal no retry can fix fails the run the same way. The body is never logged.
+   */
+  async sideRequest(runId: string, body: Uint8Array, signal: AbortSignal): Promise<GatewaySideRequestResult> {
+    const state = this.runs.get(runId);
+    if (!state) return { ok: false, status: 409, code: 'CONFLICT', message: 'This run has no OpenPixo-credits agent.' };
+    if (state.terminalError) return { ok: false, status: 409, code: state.terminalError.code, message: state.terminalError.message };
+    const fail = (code: string, message: string, fallbackStatus: number): GatewaySideRequestResult => {
+      const refused = this.refusal(state, code, message, fallbackStatus);
+      return { ok: false, status: refused.status, code: refused.terminal ?? code, message: refused.message };
+    };
+    let upstream: globalThis.Response;
+    try {
+      upstream = await this.cloud.agentCompletion(runId, body, signal);
+    } catch (error) {
+      const failure = error instanceof AccountError ? error : new AccountError('CLOUD_UNAVAILABLE');
+      return fail(failure.code, failure.message, failure.status);
     }
-    sendError(res, fallbackStatus, code, message);
+    if (!upstream.ok) {
+      const { code, message } = await OpenPixoAgentGateway.upstreamError(upstream);
+      return fail(code, message, upstream.status);
+    }
+    const usageHeader = upstream.headers.get('x-openpixo-usage');
+    let usage: OpenPixoAgentRequestUsage | null = null;
+    if (usageHeader) { try { usage = this.record(state, JSON.parse(usageHeader)); } catch { /* not metered locally */ } }
+    const text = await upstream.text().catch(() => null);
+    let parsed: unknown = null;
+    try { parsed = text === null ? null : JSON.parse(text); } catch { parsed = null; }
+    if (parsed === null) return { ok: false, status: 502, code: 'AGENT_UPSTREAM_FAILED', message: 'The OpenPixo model stopped answering.' };
+    return { ok: true, body: parsed, usage };
   }
 
   /** Whether a request comes from a running agent: loopback with its run's token. Reads headers only. */
@@ -227,13 +287,7 @@ export class OpenPixoAgentGateway {
       return this.refuse(state, res, failure.code, failure.message, failure.status);
     }
     if (!upstream.ok) {
-      let code = 'CLOUD_UNAVAILABLE';
-      let message = 'OpenPixo cloud is temporarily unavailable. Please try again.';
-      try {
-        const error = record(record(await upstream.json()).error);
-        if (typeof error.code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/u.test(error.code)) code = error.code;
-        if (typeof error.message === 'string' && error.message) message = error.message.slice(0, 500);
-      } catch { /* keep the generic reason */ }
+      const { code, message } = await OpenPixoAgentGateway.upstreamError(upstream);
       return this.refuse(state, res, code, message, upstream.status);
     }
 

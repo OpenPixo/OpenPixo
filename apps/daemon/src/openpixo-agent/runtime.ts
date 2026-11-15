@@ -1,6 +1,6 @@
 import {
   isOpenPixoAgentAutoModel, isRetiredOpenPixoAgentModel, OPENPIXO_AGENT_AUTO_MODEL, OPENPIXO_AGENT_AUTO_PLAN_MODEL,
-  OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME, OPENPIXO_AGENT_DEFAULT_MODEL, OPENPIXO_AGENT_ID, type OpenPixoAgentAutoInfo,
+  OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME, OPENPIXO_AGENT_DEFAULT_MODEL, OPENPIXO_AGENT_ID, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, type OpenPixoAgentAutoInfo,
   type OpenPixoAgentModel, type OpenPixoAgentPrices, type OpenPixoAgentReasoningEffort,
 } from '@openpixo/contracts';
 import { AGENT_RESPONSE_TIMEOUT_MS, OPENPIXO_AGENT_MODEL_ID } from '../account/agent-gateway.js';
@@ -84,6 +84,20 @@ export async function openpixoAgentModelOffered(id: string): Promise<boolean> {
   return offeredModels.has(id);
 }
 
+/**
+ * Whether a hosted run on this model sees images through `pixo look` instead of in its conversation:
+ * the cloud offers the image viewer and lists it as reading pictures, and the run is not on the
+ * viewer itself. A picture in the conversation is sent again with every request, and keeping only
+ * the newest ones breaks the prompt cache each time an old one is dropped; a look adds only text.
+ * Reads what the catalogue said when last asked; before it has been asked, false, which is how
+ * runs behaved before looks existed.
+ */
+export function openpixoAgentUsesImageViewer(model: string | null | undefined): boolean {
+  return offeredModels.has(OPENPIXO_AGENT_IMAGE_VIEWER_MODEL)
+    && modelsReadingImages.has(OPENPIXO_AGENT_IMAGE_VIEWER_MODEL)
+    && openpixoAgentModel(model) !== OPENPIXO_AGENT_IMAGE_VIEWER_MODEL;
+}
+
 /** Auto as the catalogue route and `pixo credits agent-models` describe it. */
 export function openpixoAgentAutoInfo(models: ReadonlyArray<Pick<OpenPixoAgentModel, 'id'>>): OpenPixoAgentAutoInfo {
   return {
@@ -141,8 +155,11 @@ export function openpixoAgentContextLimits(model: string | null | undefined): { 
  * Run-scoped OpenCode provider pointing at the daemon's local gateway. The token is
  * only referenced (`{env:…}`); its value travels in the child's environment.
  */
-export function buildOpenPixoAgentOpenCodeConfig(daemonUrl: string, model: string | null | undefined): Record<string, unknown> {
+export function buildOpenPixoAgentOpenCodeConfig(daemonUrl: string, model: string | null | undefined,
+  options: { imageLook?: boolean } = {}): Record<string, unknown> {
   const id = openpixoAgentModel(model);
+  // A run that looks through `pixo look` is told it reads text only, so no picture enters its conversation.
+  const readsImages = !options.imageLook && modelsReadingImages.has(id);
   const window = modelWindow(id);
   return {
     // OpenCode names each session with an extra call on the chosen model. OpenPixo never shows
@@ -168,8 +185,8 @@ export function buildOpenPixoAgentOpenCodeConfig(daemonUrl: string, model: strin
             // this one field name and translates it for whichever vendor serves the model.
             interleaved: { field: 'reasoning_content' },
             // OpenCode believes this. Declared text only, it drops every picture the agent reads and
-            // tells the model it cannot read images, so the agent could not look at its own game.
-            modalities: { input: modelsReadingImages.has(id) ? ['text', 'image'] : ['text'], output: ['text'] },
+            // tells the model it cannot read images: without `pixo look` the agent could not look at its own game.
+            modalities: { input: readsImages ? ['text', 'image'] : ['text'], output: ['text'] },
             limit: window,
           },
         },

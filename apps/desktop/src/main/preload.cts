@@ -230,6 +230,18 @@ const shell = {
       return actionFailure(reasonFromError(error));
     }
   },
+  // Selects one file of a project in the OS file manager. Same trust
+  // boundary as openPath: the renderer names the project and a path inside
+  // it; the main process resolves both and refuses paths that leave it.
+  showItemInFolder: async (projectId: string, relPath: string): Promise<OpenPixoHostActionResult> => {
+    try {
+      const result = await ipcRenderer.invoke('shell:show-item-in-folder', projectId, relPath);
+      if (typeof result === 'string' && result.length > 0) return actionFailure(result);
+      return { ok: true };
+    } catch (error) {
+      return actionFailure(reasonFromError(error));
+    }
+  },
 };
 
 const browser = {

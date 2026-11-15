@@ -54,6 +54,7 @@ function defaultHost(): OpenPixoHostBridge {
     shell: {
       openExternal: async () => ({ ok: true }),
       openPath: async () => ({ ok: true }),
+      showItemInFolder: async () => ({ ok: true }),
     },
     project: {
       pickAndImport: async () => ({

@@ -16,7 +16,7 @@
  * 卡面读这一轮的**快照**(有就用,`artifactRefs` 的 ready 快照),打开永远去工作区最新那份 ——
  * 和产物卡同一条裁决(`runtime/chat/artifact-refs.ts`)。
  */
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactElement } from 'react';
 import { Button, Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitle } from '@openpixo/components';
 import type { AssetFrame, ProjectAsset } from '@openpixo/contracts';
 import { useT } from '../../i18n';
@@ -28,6 +28,8 @@ import { AudioArtifact } from './AudioArtifact';
 import { chatSeam } from './ChatRoot';
 import { VideoArtifact } from './VideoArtifact';
 import { Model3dViewer } from '../Model3dViewer';
+import { useContextMenu } from '../context-menu/ContextMenu';
+import { projectFileMenuEntries } from '../context-menu/file-actions';
 import styles from './AssetGallery.module.css';
 
 export interface AssetGalleryProps {
@@ -48,6 +50,7 @@ const MAX_MODELS = 4;
 export function AssetGallery({ assets, projectId, imageSrc, onOpenFile }: AssetGalleryProps): ReactElement | null {
   const t = useT();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const contextMenu = useContextMenu();
   if (assets.length === 0) return null;
   const images = assets.filter((asset) => asset.kind === 'image').slice(0, MAX_IMAGES);
   const videos = assets.filter((asset) => asset.kind === 'video').slice(0, MAX_VIDEOS);
@@ -56,8 +59,24 @@ export function AssetGallery({ assets, projectId, imageSrc, onOpenFile }: AssetG
   const hidden = assets.length - images.length - videos.length - audios.length - models.length;
   const single = images.length === 1;
   const download = (path: string) => downloadFile(imageSrc(path), baseName(path));
+  // One handler for every item: each one marks itself with its path and kind.
+  const onContextMenu = (event: ReactMouseEvent) => {
+    const item = (event.target as Element | null)?.closest<HTMLElement>('[data-context-path]');
+    const path = item?.dataset.contextPath;
+    if (!path) return;
+    contextMenu.openAt(event, baseName(path), projectFileMenuEntries({
+      projectId,
+      path,
+      url: imageSrc(path),
+      image: item.dataset.contextKind === 'image',
+      onOpen: onOpenFile ? () => onOpenFile(path) : undefined,
+      t,
+      notify: contextMenu.notify,
+    }));
+  };
   return (
-    <section className={styles.gallery} data-testid="chat-asset-gallery" aria-label={t('chat.assets.title', { count: assets.length })}>
+    <section className={styles.gallery} data-testid="chat-asset-gallery" aria-label={t('chat.assets.title', { count: assets.length })}
+      onContextMenu={onContextMenu}>
       <div className={styles.head}>{t('chat.assets.title', { count: assets.length })}</div>
       {images.length > 0 ? (
         <div className={single ? styles.single : styles.grid}>
@@ -74,26 +93,30 @@ export function AssetGallery({ assets, projectId, imageSrc, onOpenFile }: AssetG
         </div>
       ) : null}
       {videos.map((asset) => (
+        <div key={asset.path} className={styles.contextItem} data-context-path={asset.path} data-context-kind="video">
         <VideoArtifact
-          key={asset.path}
           src={imageSrc(asset.path)}
           name={asset.path}
           onOpenFile={onOpenFile ? () => onOpenFile(asset.path) : undefined}
           onDownload={() => download(asset.path)}
         />
+        </div>
       ))}
       {audios.map((asset) => (
+        <div key={asset.path} className={styles.contextItem} data-context-path={asset.path} data-context-kind="audio">
         <AudioArtifact
-          key={asset.path}
           src={imageSrc(asset.path)}
           name={asset.path}
           onOpenFile={onOpenFile ? () => onOpenFile(asset.path) : undefined}
           onDownload={() => download(asset.path)}
         />
+        </div>
       ))}
       {models.map((asset) => (
-        <Model3dViewer key={asset.path} src={imageSrc(asset.path)} name={asset.path} height={280}
-          onOpen={onOpenFile ? () => onOpenFile(asset.path) : undefined} />
+        <div key={asset.path} className={styles.contextItem} data-context-path={asset.path} data-context-kind="model3d">
+          <Model3dViewer src={imageSrc(asset.path)} name={asset.path} height={280}
+            onOpen={onOpenFile ? () => onOpenFile(asset.path) : undefined} />
+        </div>
       ))}
       {hidden > 0 ? <div className={styles.head}>{t('chat.assets.more', { count: hidden })}</div> : null}
       {openIndex != null && images[openIndex] ? (
@@ -107,6 +130,7 @@ export function AssetGallery({ assets, projectId, imageSrc, onOpenFile }: AssetG
           onOpenFile={onOpenFile}
         />
       ) : null}
+      {contextMenu.menu}
     </section>
   );
 }
@@ -149,6 +173,8 @@ function AssetTile({ asset, projectId, src, large, onOpen }: {
       type="button"
       className={`${styles.tile} ${large ? styles.large : ''}`}
       data-testid={`chat-asset-${asset.path}`}
+      data-context-path={asset.path}
+      data-context-kind="image"
       data-sprite={frames ? 'true' : undefined}
       data-failed={broken ? 'true' : undefined}
       aria-label={broken ? t('chat.assets.missing', { name }) : t('chat.assets.open', { name })}

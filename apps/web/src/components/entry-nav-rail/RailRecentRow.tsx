@@ -10,10 +10,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from '@openpixo/components';
+import { isOpenPixoHostAvailable, openHostProjectPath } from '@openpixo/host';
 import type { ProjectDisplayStatus } from '@openpixo/contracts';
 
 import { useT } from '../../i18n';
 import { Icon } from '../Icon';
+import { revealLabelKey } from '../context-menu/file-actions';
 import {
   hasCompletionNotice,
   hasRunStatusGlyph,
@@ -304,7 +306,9 @@ export function RailRecentRow({
     onRename?.(project.id, next);
   }
 
-  const hasMenu = Boolean(onRename || onDuplicate || onDelete || (false));
+  // Desktop only, and only for a project the desktop may open (see shell:open-path).
+  const canShowFolder = isOpenPixoHostAvailable();
+  const hasMenu = Boolean(onRename || onDuplicate || onDelete || canShowFolder);
   const foreignTitle = ownedBySelf ? undefined : t('recentProjects.ownOnlyMutation');
 
   return (
@@ -329,6 +333,13 @@ export function RailRecentRow({
       onPointerLeave={() => {
         setAnchor(null);
         releasePopup(project.id, 'preview');
+      }}
+      /* Right-click opens the same menu the ⋮ does, in the same place. */
+      onContextMenu={(event) => {
+        if (!hasMenu || renaming) return;
+        event.preventDefault();
+        setAnchor(null);
+        claimPopup({ rowId: project.id, kind: 'menu' });
       }}
     >
       {renaming ? (
@@ -506,6 +517,22 @@ export function RailRecentRow({
               themselves instead. */}
           {null}
           {null}
+          {canShowFolder ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className={styles.menuItem}
+              role="menuitem"
+              data-testid="entry-nav-recent-show-folder"
+              onClick={() => {
+                releasePopup(project.id, 'menu');
+                void openHostProjectPath(project.id);
+              }}
+            >
+              <Icon name="folder" size={14} />
+              <span>{t(revealLabelKey())}</span>
+            </Button>
+          ) : null}
           {onDelete ? (
             <Button
               type="button"

@@ -147,7 +147,7 @@ import { markHistoryReplayLanded } from './chat/useCharReveal';
 
 
 
-import { createConversation, deleteConversation as deleteConversationApi, duplicatePluginAsProject, fetchAppliedPluginSnapshot, installGeneratedPluginFolder, listConversations, listMessages, loadTabs, patchConversation, patchProject, ProjectConversationsHttpError, saveMessage, startGeneratedPluginShareTask, cacheTabsLocally, persistTabsToDaemonNow, listPlugins, type SaveMessageOptions, waitGeneratedPluginShareTask } from '../state/projects';
+import { CONVERSATIONS_CHANGED_EVENT, createConversation, deleteConversation as deleteConversationApi, duplicatePluginAsProject, fetchAppliedPluginSnapshot, installGeneratedPluginFolder, listConversations, listMessages, loadTabs, patchConversation, patchProject, ProjectConversationsHttpError, saveMessage, startGeneratedPluginShareTask, cacheTabsLocally, persistTabsToDaemonNow, listPlugins, type SaveMessageOptions, waitGeneratedPluginShareTask } from '../state/projects';
 import type {
   AppliedPluginSnapshot,
   ChatAnalyticsEntryFrom,
@@ -212,6 +212,7 @@ import { useCreationHandoffMessages } from './useCreationHandoffMessages';
 import { FALLBACK_MAX_CHAT_PANEL_WIDTH, MIN_CHAT_PANEL_WIDTH, MIN_WORKSPACE_PANEL_WIDTH, clampChatPanelWidth, clampPreferredChatPanelWidth, projectSplitClassName, projectSplitStyle, readSavedChatPanelWidth, readStoredPanelHidden, resolveProjectSplitLayout, saveChatPanelWidth, workspacePanelTrackForMinWidth, writeProjectSplitLayout, writeStoredPanelHidden } from './project-split-layout';
 import type { SettingsSection } from './SettingsDialog';
 import { Toast } from './Toast';
+import { mergeConversationList } from '../runtime/chat/conversation-list-sync';
 import { useDesignMdState } from '../hooks/useDesignMdState';
 import {
   useProjectDetail,
@@ -7799,6 +7800,22 @@ export function ProjectView({
     },
     [project.id, null, false],
   );
+
+  // The sidebar's right-click menu renames, forks and deletes conversations
+  // without going through this view. Fold the result into this project's list
+  // so its history and titles do not go stale (`mergeConversationList`).
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const projectId = (event as CustomEvent<{ projectId?: string }>).detail?.projectId;
+      if (projectId !== project.id || conversationsLoadedProjectIdRef.current !== project.id) return;
+      void listConversations(project.id).then((server) => {
+        if (projectIdRef.current !== projectId || server.length === 0) return;
+        setConversations((local) => (local.length === 0 ? local : mergeConversationList(local, server)));
+      });
+    };
+    window.addEventListener(CONVERSATIONS_CHANGED_EVENT, changed);
+    return () => window.removeEventListener(CONVERSATIONS_CHANGED_EVENT, changed);
+  }, [project.id]);
 
   const handleConversationSessionModeChange = useCallback(
     async (id: string, sessionMode: ChatSessionMode) => {

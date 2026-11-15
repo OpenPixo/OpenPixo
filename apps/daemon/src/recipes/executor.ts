@@ -206,6 +206,22 @@ export class RecipeExecutor {
     const candidateRoot = await recipePath(this.root, `${id}/${candidate.id}`);
     return { file: await recipePath(candidateRoot, path.relative(candidateRoot, staged.ref)), mime: staged.mime };
   }
+  /**
+   * The staged candidate file a run in scope reported at this absolute path, re-resolved inside its
+   * candidate's staging dir; null when no run in scope has one there. For `pixo look`.
+   */
+  async stagedFileAt(scope: RunScope, file: string): Promise<string | null> {
+    await this.initialized;
+    const wanted = path.resolve(file);
+    for (const { run } of this.records.values()) {
+      if (!inScope(run, scope)) continue;
+      for (const candidate of run.candidates) {
+        const index = candidate.stagedFiles.findIndex(staged => path.relative(staged.ref, wanted) === '');
+        if (index >= 0) return (await this.stagedFile(scope, run.id, candidate.id, index)).file;
+      }
+    }
+    return null;
+  }
   /** One game's runs, the no-game ones, or all, on this machine, newest first. Nothing about them is kept anywhere else. */
   async list(scope: RunScope, filter: { surface?: string | undefined; origin?: string | undefined; limit?: number | undefined } = {}): Promise<RecipeRun[]> {
     await this.initialized;

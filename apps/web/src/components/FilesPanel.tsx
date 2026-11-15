@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type MouseEvent } from 'react';
 import { Button } from '@openpixo/components';
+import { canRevealHostProjectFile, revealHostProjectFile } from '@openpixo/host';
 import type { ProjectAsset } from '@openpixo/contracts';
 import type { TrackingProjectKind } from '@openpixo/contracts/analytics';
 import { trackFileManagerClick } from '../analytics/events';
 import { useAnalytics } from '../analytics/provider';
 import { useT } from '../i18n';
 import { copyToClipboard } from '../lib/copy-to-clipboard';
+import { projectFileUrl } from '../providers/registry';
 import { dragSelection } from '../runtime/chat/project-file-reference';
 import type { RunProgressStep } from '../runtime/run-progress';
 import type { ProjectFile, ProjectFileKind, ProjectFolder } from '../types';
@@ -17,6 +19,7 @@ import { FileListBuildingState } from './files/FileListBuildingState';
 import { FileListSkeleton } from './files/FileListSkeleton';
 import type { PluginFolderAgentAction } from './files/pluginFolderActions';
 import { absoluteProjectFilePath } from './files/project-file-path';
+import { copyImageFromUrl, revealLabelKey } from './context-menu/file-actions';
 import { Icon } from './Icon';
 import { EntryMenu, entryMenuItemCount, menuPositionAtPointer, menuPositionForAnchor, type EntryMenuActions, type EntryMenuPosition } from './library/EntryMenu';
 import type { EntryContext, RenameState } from './library/entry-controls';
@@ -350,6 +353,16 @@ export function FilesPanel({
     if (outcome.kind === 'added' && names.length > 1) setSelected(new Set());
   }
 
+  async function copyImage(name: string) {
+    const copied = await copyImageFromUrl(projectFileUrl(projectId, name));
+    setNotice({ message: t(copied ? 'contextMenu.imageCopied' : 'contextMenu.imageCopyFailed'), tone: copied ? 'success' : 'error' });
+  }
+
+  async function revealFile(name: string) {
+    const result = await revealHostProjectFile(projectId, name);
+    if (!result.ok) setNotice({ message: t('contextMenu.revealFailed'), tone: 'error' });
+  }
+
   async function copyFilePath(name: string, absolute: boolean) {
     const file = filesByName.get(name);
     const path = file && absolute ? absoluteProjectFilePath(file, resolvedDir) : file?.name;
@@ -428,6 +441,10 @@ export function FilesPanel({
       details: media ? () => assets.showDetails(name) : undefined,
       generateFrom: kind === 'image' && onGenerateFrom && !viewerOnly ? () => onGenerateFrom([name]) : undefined,
       editImage: kind === 'image' && !viewerOnly ? () => assets.editImage(name) : undefined,
+      copyImage: kind === 'image' ? () => void copyImage(name) : undefined,
+      reveal: file && canRevealHostProjectFile()
+        ? { label: t(revealLabelKey()), run: () => void revealFile(name) }
+        : undefined,
       rename: viewerOnly ? undefined : () => startRename(name),
       copyRelativePath: () => void copyFilePath(name, false),
       copyAbsolutePath: file && absoluteProjectFilePath(file, resolvedDir) ? () => void copyFilePath(name, true) : undefined,

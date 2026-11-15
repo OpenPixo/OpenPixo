@@ -26,6 +26,7 @@ import { resolveSheetRequest } from './media/sheet-request.js';
 import { confirmOpenPixoHosted, describeQuote, isOpenPixoHostedModel, OPENPIXO_CLI_HELP, OPENPIXO_CLI_STRING_FLAGS, requestOpenPixoQuote } from './media/openpixo-hosted-cli.js';
 import { runCharacterCli } from './recipes/character-cli.js';
 import { runAssetCli } from './assets/asset-cli.js';
+import { runLookCli } from './openpixo-agent/look-cli.js';
 import { runDoctorCli } from './cli-doctor.js';
 import { runProjectNextStepsCli } from './projects/next-steps-cli.js';
 import { GAME_SETUP_CLI_FLAGS, runProjectGameSetupCli } from './game/setup-cli.js';
@@ -331,6 +332,7 @@ const SUBCOMMAND_MAP = {
   recipe: runRecipeCli,
   character: runCharacterCli,
   asset: runAssetCli,
+  look: runLookCli,
   game: (args) => runGameTuningDispatch(args, runGameCli),
   extensions: runProjectExtensionsCli,
   agent: (args) => {
@@ -744,6 +746,9 @@ function printRootHelp() {
 
   ${PRODUCT_CLI_NAME} character list|show|create|update|delete [opts]
       Manage project character cards and their reference images.
+
+  ${PRODUCT_CLI_NAME} look <image> --question <text> [--prompt-file <path|->] [--json]
+      Ask one question about one image; the OpenPixo-credits agent sees images this way.
 
   ${PRODUCT_CLI_NAME} publish [status|remove] [--project <id>] [--title <text>] [--accept-terms] [--no-build] [--json]
       Put a web game on a public link anyone can play, update it, or take it down. Only when the creator asks.

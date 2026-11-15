@@ -68,6 +68,28 @@ export async function openHostProjectPath(projectId: string, scope: OpenPixoHost
   }
 }
 
+/** Whether the host can select a single project file in the OS file manager. */
+export function canRevealHostProjectFile(scope: OpenPixoHostGlobalScope = globalThis): boolean {
+  return typeof getOpenPixoHost(scope)?.shell.showItemInFolder === "function";
+}
+
+/** Select one project file in the OS file manager (Explorer, Finder). */
+export async function revealHostProjectFile(
+  projectId: string,
+  relPath: string,
+  scope: OpenPixoHostGlobalScope = globalThis,
+): Promise<OpenPixoHostActionResult> {
+  const host = getOpenPixoHost(scope);
+  if (host == null || typeof host.shell.showItemInFolder !== "function") {
+    return unavailable("OpenPixo host cannot show files");
+  }
+  try {
+    return await host.shell.showItemInFolder(projectId, relPath);
+  } catch (error) {
+    return unavailable(error instanceof Error ? error.message : String(error));
+  }
+}
+
 /** Clear host browser data (cookies and/or storage). */
 export async function clearHostBrowserData(
   options?: OpenPixoHostBrowserClearDataOptions,

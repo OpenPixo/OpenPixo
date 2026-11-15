@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Button } from '@openpixo/components';
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { Button, ConfirmDialog } from '@openpixo/components';
 
 import type { Conversation, Project } from '../../types';
 import { useT } from '../../i18n';
 import { navigate } from '../../router';
 
-import { CONVERSATIONS_CHANGED_EVENT, createConversation, listConversations } from '../../state/projects';
+import { CONVERSATIONS_CHANGED_EVENT, createConversation, deleteConversation, listConversations, patchConversation } from '../../state/projects';
 import { acknowledgeProjectCompletion } from '../../hooks/useProjectRunStatuses';
 import { RUNS_CHANGED_EVENT } from '../../providers/daemon';
-import { CONVERSATION_SEEN_EVENT, conversationHasNewReply, conversationSeenTimes } from '../../state/conversation-seen';
+import { CONVERSATION_SEEN_EVENT, canMarkConversationUnread, conversationHasNewReply, conversationSeenTimes, markConversationUnread } from '../../state/conversation-seen';
+import { copyToClipboard } from '../../lib/copy-to-clipboard';
+import { useContextMenu, type ContextMenuEntry } from '../context-menu/ContextMenu';
 import { Icon } from '../Icon';
 import styles from './ProjectConversationGroup.module.css';
 
@@ -137,6 +139,92 @@ export function ProjectConversationGroup({ project,  activeProjectId,
     };
   }, []);
 
+  const contextMenu = useContextMenu();
+  const [renaming, setRenaming] = useState<{ id: string; draft: string } | null>(null);
+  const [deleting, setDeleting] = useState<{ conversation: Conversation; pending: boolean } | null>(null);
+  const forking = useRef(false);
+
+  function conversationTitle(conversation: Conversation): string {
+    return conversation.title || t('chat.untitledConversation');
+  }
+
+  async function commitRename(conversation: Conversation, draft: string) {
+    setRenaming(null);
+    const title = draft.trim();
+    if (!title || title === (conversation.title ?? '')) return;
+    // Shown at once; the list read after the write confirms or reverts it.
+    setSnapshot((shown) => ({ ...shown,
+      items: shown.items.map((item) => (item.id === conversation.id ? { ...item, title } : item)) }));
+    const updated = await patchConversation(project.id, conversation.id, { title });
+    if (!updated) {
+      contextMenu.notify(t('contextMenu.session.renameFailed'), 'error');
+      void refresh();
+    }
+  }
+
+  async function forkConversation(conversation: Conversation) {
+    if (forking.current) return;
+    forking.current = true;
+    try {
+      const fork = await createConversation(project.id, undefined, { seedFromConversationId: conversation.id, throwOnError: true });
+      if (!fork) throw new Error('fork failed');
+      openConversation(fork.id);
+    } catch {
+      contextMenu.notify(t('contextMenu.session.forkFailed'), 'error');
+    } finally {
+      forking.current = false;
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleting || deleting.pending) return;
+    const { conversation } = deleting;
+    setDeleting({ conversation, pending: true });
+    const onScreen = active && activeConversationId === conversation.id;
+    const ok = await deleteConversation(project.id, conversation.id);
+    setDeleting(null);
+    if (!ok) {
+      contextMenu.notify(t('contextMenu.session.deleteFailed'), 'error');
+      return;
+    }
+    const remaining = snapshot.items.filter((item) => item.id !== conversation.id);
+    setSnapshot((shown) => ({ ...shown, items: shown.items.filter((item) => item.id !== conversation.id) }));
+    // The conversation on screen is gone: move to the next one, or to the
+    // project, which opens (or starts) one of its own.
+    if (onScreen) {
+      navigate({ kind: 'project', projectId: project.id, conversationId: remaining[0]?.id ?? null, fileName: activeFileName });
+    }
+  }
+
+  function conversationMenu(event: ReactMouseEvent, conversation: Conversation) {
+    const entries: ContextMenuEntry[] = [
+      { id: 'rename', label: t('contextMenu.session.rename'), icon: 'pencil', shortcut: 'R',
+        onSelect: () => setRenaming({ id: conversation.id, draft: conversation.title ?? '' }) },
+      { id: 'fork', label: t('contextMenu.session.fork'), icon: 'fork', shortcut: 'F',
+        onSelect: () => void forkConversation(conversation) },
+    ];
+    const onScreen = active && activeConversationId === conversation.id;
+    if (!onScreen && canMarkConversationUnread(conversation, seen)) {
+      entries.push({ id: 'mark-unread', label: t('contextMenu.session.markUnread'), icon: 'mail', shortcut: 'U',
+        onSelect: () => { markConversationUnread(conversation); } });
+    }
+    const copy = (text: string) => () => {
+      void copyToClipboard(text).then((copied) =>
+        contextMenu.notify(t(copied ? 'contextMenu.copied' : 'contextMenu.copyFailed'), copied ? 'success' : 'error'));
+    };
+    entries.push(
+      { kind: 'separator', id: 'sep-copy' },
+      { kind: 'submenu', id: 'copy', label: t('contextMenu.copy'), icon: 'copy', items: [
+        { id: 'copy-title', label: t('contextMenu.session.copyTitle'), onSelect: copy(conversationTitle(conversation)) },
+        { id: 'copy-id', label: t('contextMenu.session.copyId'), onSelect: copy(conversation.id) },
+      ] },
+      { kind: 'separator', id: 'sep-delete' },
+      { id: 'delete', label: t('contextMenu.session.delete'), icon: 'trash', shortcut: 'D', danger: true,
+        onSelect: () => setDeleting({ conversation, pending: false }) },
+    );
+    contextMenu.openAt(event, conversationTitle(conversation), entries);
+  }
+
   function openConversation(id: string) {
     acknowledgeProjectCompletion(project.id);
     navigate({ kind: 'project', projectId: project.id, conversationId: id,
@@ -195,9 +283,38 @@ export function ProjectConversationGroup({ project,  activeProjectId,
             : <ul className={styles.list} aria-label={`${project.name} · ${t('chat.conversationsHeading')}`}>
               {current.items.map((conversation) => (
                 <li key={conversation.id}>
+                  {renaming?.id === conversation.id ? (
+                    <input
+                      autoFocus
+                      className={styles.rename}
+                      aria-label={t('contextMenu.session.rename')}
+                      value={renaming.draft}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) => setRenaming({ id: conversation.id, draft: event.target.value })}
+                      onBlur={(event) => {
+                        if (event.currentTarget.dataset.skipCommit === '1') return;
+                        void commitRename(conversation, event.currentTarget.value);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          event.currentTarget.dataset.skipCommit = '1';
+                          void commitRename(conversation, event.currentTarget.value);
+                        } else if (event.key === 'Escape') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          event.currentTarget.dataset.skipCommit = '1';
+                          setRenaming(null);
+                        }
+                      }}
+                    />
+                  ) : (
                   <Button variant="ghost" className={styles.conversation}
                     aria-current={active && activeConversationId === conversation.id ? 'page' : undefined}
+                    data-testid="rail-conversation"
+                    data-conversation-id={conversation.id}
                     onClick={() => openConversation(conversation.id)}
+                    onContextMenu={(event: ReactMouseEvent) => conversationMenu(event, conversation)}
                     title={conversation.title || t('chat.untitledConversation')}>
                     <Icon name="comment" size={13} />
                     <span>{conversation.title || t('chat.untitledConversation')}</span>
@@ -205,11 +322,25 @@ export function ProjectConversationGroup({ project,  activeProjectId,
                       status={conversationDotStatus(conversation, seen, active && activeConversationId === conversation.id)}
                       t={t} />
                   </Button>
+                  )}
                 </li>
               ))}
             </ul>}
         </div>
       ) : null}
+      {contextMenu.menu}
+      <ConfirmDialog
+        open={deleting !== null}
+        title={t('contextMenu.session.deleteTitle')}
+        destructive
+        busy={deleting?.pending ?? false}
+        confirmLabel={t('contextMenu.session.delete')}
+        cancelLabel={t('designs.renameCancel')}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => void confirmDelete()}
+      >
+        <p>{t('contextMenu.session.deleteBody', { title: deleting ? conversationTitle(deleting.conversation) : '' })}</p>
+      </ConfirmDialog>
     </div>
   );
 }

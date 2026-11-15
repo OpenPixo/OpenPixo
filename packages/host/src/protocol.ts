@@ -408,6 +408,12 @@ export type OpenPixoHostBridge = {
   shell: {
     openExternal(url: string): Promise<OpenPixoHostActionResult>;
     openPath(projectId: string): Promise<OpenPixoHostActionResult>;
+    /**
+     * Select one file of a project in the OS file manager. The main process
+     * resolves `relPath` inside the project's directory and refuses anything
+     * that leaves it. Optional: older desktop builds lack it.
+     */
+    showItemInFolder?(projectId: string, relPath: string): Promise<OpenPixoHostActionResult>;
   };
   // Desktop only. Absent in Web and old clients; callers must fail closed.
   updater: {

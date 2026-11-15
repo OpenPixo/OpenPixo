@@ -1,0 +1,116 @@
+/* The shared right-click menu (ContextMenu.tsx). Portalled to <body>, so it
+   sits above the rail, the chat and the workspace alike. */
+
+.menu {
+  position: fixed;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 188px;
+  max-width: 300px;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 1px var(--line), var(--sh-2);
+  transform-origin: top left;
+  animation: menu-enter 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes menu-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 13.5px/1.35 var(--sans);
+  text-align: left;
+  cursor: default;
+}
+
+.item:hover:not(:disabled),
+.item:focus-visible,
+.itemOpen {
+  outline: none;
+  background: var(--sidebar-hover);
+  color: var(--ink);
+}
+
+.item:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--violet);
+}
+
+.item:disabled {
+  opacity: 0.45;
+}
+
+.icon {
+  flex: none;
+  color: var(--muted);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut {
+  flex: none;
+  margin-left: 12px;
+  color: var(--muted);
+  font: 500 12px/1 var(--sans);
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.chevron {
+  flex: none;
+  margin-left: 12px;
+  color: var(--muted);
+}
+
+.danger {
+  color: var(--red);
+}
+
+.danger .icon {
+  color: var(--red);
+}
+
+.danger:hover:not(:disabled),
+.danger:focus-visible {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: var(--red);
+}
+
+.separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}

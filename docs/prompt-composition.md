@@ -311,6 +311,25 @@ media contract gives the agent one sentence per reason to tell the user. Writes 
 text-to-image model of this version; reads keep a saved id a later version dropped, so runs report it instead of
 breaking.
 
+## Looking at images (hosted agent)
+
+Owner decision (2026-11-15): the OpenPixo-credits agent does not receive pictures in its
+conversation. A picture there is sent again with every request, and keeping only the newest
+ones (`openpixo-agent/inline-images.ts`) broke the prompt cache each time an old one was
+dropped. When `openpixoAgentUsesImageViewer` (`openpixo-agent/runtime.ts`) holds (the cloud
+offers `OPENPIXO_AGENT_IMAGE_VIEWER_MODEL` and lists it as reading images, and the run is not on
+that model) and the run has a tool token, the daemon declares the model text only to OpenCode
+and passes `GameProjectPromptInput.imageLook`. The composer then adds `## Looking at images`
+after the game shape: the agent asks `pixo look <path> --question "…"` one question about one
+image, and the "if you can view images" wording elsewhere counts a look as viewing. It is a stable
+input attributed to the `runtime` section. Without it the prompt is unchanged, so a cloud that
+still lists the viewer as text only keeps sending pictures to a model that reads them.
+
+`POST /api/tools/look` (`routes/image-look.ts`, `openpixo-agent/look.ts`) takes only a hosted run's
+tool token, reads a project file, a verification image or a staged recipe candidate of that game,
+fits it like the agent's own pictures and sends it with the question through the run's gateway
+state, so its usage joins the run's hosted totals and out of credits fails the run as usual.
+
 ## Game shape
 
 The `A game is a game` block is always present. A browser-engine game is one

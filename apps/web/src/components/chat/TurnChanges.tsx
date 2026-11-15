@@ -5,11 +5,14 @@
  * 只在一轮结束后出现 —— 跑着的时候执行记录是摊开的,文件行就在那里,两边一起长只会让
  * 消息一路往下推。数据与事实来源见 `runtime/chat/turn-changes.ts`。
  */
-import { useState, type ReactElement } from 'react';
+import { useState, type MouseEvent as ReactMouseEvent, type ReactElement } from 'react';
 import { Button } from '@openpixo/components';
 import { useT } from '../../i18n';
 import { turnChangeTotals, type TurnChangeRow } from '../../runtime/chat/turn-changes';
 import { Icon } from '../Icon';
+import { useContextMenu } from '../context-menu/ContextMenu';
+import { fileBaseName, projectFileMenuEntries } from '../context-menu/file-actions';
+import { looksLikeImageName } from '../../runtime/chat/staged-attachment';
 import styles from './TurnChanges.module.css';
 
 /** 一轮改得多时,先给够认出这轮干了什么的那几行 */
@@ -23,8 +26,15 @@ const STATUS_KEYS = {
 
 const STATUS_LETTERS = { added: 'A', modified: 'M', deleted: 'D' } as const;
 
-export function TurnChanges({ rows, onOpenRow, onViewAll }: {
+export function TurnChanges({ rows, onOpenRow, onViewAll, fileMenu }: {
   rows: readonly TurnChangeRow[];
+  /** 右键菜单:复制、保存、加入对话、在资源管理器中显示。不给就没有右键菜单 */
+  fileMenu?: {
+    projectId: string;
+    /** 这个文件现在的内容在哪里 */
+    fileUrl: (path: string) => string;
+    onOpenFile?: ((path: string) => void) | undefined;
+  } | undefined;
   /** 打开一行;打不开的行(已删除且没有快照)不传就不可点 */
   onOpenRow?: ((row: TurnChangeRow) => void) | undefined;
   /** 整个改动视图。只有最新一轮给:改动视图的「本轮」说的就是它 */
@@ -32,7 +42,20 @@ export function TurnChanges({ rows, onOpenRow, onViewAll }: {
 }): ReactElement | null {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
+  const contextMenu = useContextMenu();
   if (rows.length === 0) return null;
+  const onRowContextMenu = fileMenu ? (event: ReactMouseEvent, row: TurnChangeRow) => {
+    contextMenu.openAt(event, fileBaseName(row.path), projectFileMenuEntries({
+      projectId: fileMenu.projectId,
+      path: row.path,
+      url: fileMenu.fileUrl(row.path),
+      image: looksLikeImageName(row.path),
+      deleted: row.status === 'deleted',
+      onOpen: fileMenu.onOpenFile ? () => fileMenu.onOpenFile!(row.path) : undefined,
+      t,
+      notify: contextMenu.notify,
+    }));
+  } : undefined;
   const totals = turnChangeTotals(rows);
   const shown = expanded ? rows : rows.slice(0, COLLAPSED_ROWS);
   const hidden = rows.length - shown.length;
@@ -50,13 +73,14 @@ export function TurnChanges({ rows, onOpenRow, onViewAll }: {
         ) : null}
       </div>
       <ul className={styles.rows}>
-        {shown.map((row) => <Row key={row.path} row={row} onOpen={onOpenRow} />)}
+        {shown.map((row) => <Row key={row.path} row={row} onOpen={onOpenRow} onContextMenu={onRowContextMenu} />)}
       </ul>
       {hidden > 0 ? (
         <button type="button" className={styles.more} onClick={() => setExpanded(true)}>
           {t('chat.changes.showMore', { count: hidden })}
         </button>
       ) : null}
+      {contextMenu.menu}
     </section>
   );
 }
@@ -70,7 +94,12 @@ function Counts({ added, removed }: { added: number; removed: number }): ReactEl
   );
 }
 
-function Row({ row, onOpen }: { row: TurnChangeRow; onOpen: ((row: TurnChangeRow) => void) | undefined }): ReactElement {
+function Row({ row, onOpen, onContextMenu }: {
+  row: TurnChangeRow;
+  onOpen: ((row: TurnChangeRow) => void) | undefined;
+  onContextMenu: ((event: ReactMouseEvent, row: TurnChangeRow) => void) | undefined;
+}): ReactElement {
+  const contextMenu = onContextMenu ? (event: ReactMouseEvent) => onContextMenu(event, row) : undefined;
   const t = useT();
   const slash = row.path.lastIndexOf('/');
   const dir = slash >= 0 ? row.path.slice(0, slash + 1) : '';
@@ -99,11 +128,13 @@ function Row({ row, onOpen }: { row: TurnChangeRow; onOpen: ((row: TurnChangeRow
           title={row.path}
           data-testid={`chat-turn-change-${row.path}`}
           onClick={() => onOpen?.(row)}
+          onContextMenu={contextMenu}
         >
           {body}
         </button>
       ) : (
-        <div className={styles.row} data-status={row.status} title={row.path} data-testid={`chat-turn-change-${row.path}`}>{body}</div>
+        <div className={styles.row} data-status={row.status} title={row.path} data-testid={`chat-turn-change-${row.path}`}
+          onContextMenu={contextMenu}>{body}</div>
       )}
     </li>
   );

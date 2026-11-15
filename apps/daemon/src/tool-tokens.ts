@@ -21,6 +21,8 @@ export const PROJECT_EXPORT_TOOL_ENDPOINT = '/api/projects/:id/export/:format';
 export const PROJECT_NEXT_STEPS_TOOL_ENDPOINT = '/api/projects/:id/next-steps';
 export const DELIVERABLE_SYNTAX_CHECK_TOOL_ENDPOINT = '/api/tools/deliverable-syntax/check';
 export const APPROVAL_REQUEST_TOOL_ENDPOINT = '/api/tools/approvals/request';
+/** `pixo look`; the route also requires the run to be a hosted OpenPixo-credits run. */
+export const IMAGE_LOOK_TOOL_ENDPOINT = '/api/tools/look';
 
 export const CHAT_TOOL_ENDPOINTS = [
   APPROVAL_REQUEST_TOOL_ENDPOINT,
@@ -68,6 +70,7 @@ export const CHAT_TOOL_ENDPOINTS = [
   DELIVERABLE_SYNTAX_CHECK_TOOL_ENDPOINT,
   MEDIA_TASK_WAIT_TOOL_ENDPOINT,
   PROJECT_EXPORT_TOOL_ENDPOINT,
+  IMAGE_LOOK_TOOL_ENDPOINT,
 ] as const;
 
 export const CHAT_TOOL_OPERATIONS = [
@@ -96,6 +99,7 @@ export const CHAT_TOOL_OPERATIONS = [
   'media:scaffold',
   'deliverable-syntax:check',
   'project:export',
+  'image:look',
 ] as const;
 
 export type ToolEndpoint = (typeof CHAT_TOOL_ENDPOINTS)[number] | (string & {});
