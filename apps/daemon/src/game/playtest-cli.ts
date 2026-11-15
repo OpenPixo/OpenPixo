@@ -4,6 +4,7 @@ import { PRODUCT_CLI_NAME, GAME_PLAYTEST_LIMITS, GAME_PLAYTEST_PRESET_IDS, GAME_
   gamePlaytestPresetInfo, isGamePlaytestPresetId, isGamePlaytestSeed, parseGamePlaytestRequest, randomGamePlaytestSeed,
   type GamePlaytestReport, type GameVerifyContext, type GamePlaytestResult, type GameWebCaptureResult } from '@openpixo/contracts';
 import { resolveDaemonUrl } from '../daemon-url.js';
+import { decodeAgentTextBytes } from '../text-file-decoding.js';
 import { gameToolResolver } from './verify.js';
 import { playtestGame } from './playtest.js';
 
@@ -37,14 +38,18 @@ function gamePlaytestReplayHint(report: GamePlaytestReport): string | null {
   return 'Preset: ' + report.preset + (report.seed !== undefined ? ' (seed ' + report.seed + ')\nReplay: ' + PRODUCT_CLI_NAME
     + ' game playtest --preset ' + report.preset + ' --seed ' + report.seed : '');
 }
+/** A script written from PowerShell carries a byte order mark; see `decodeAgentTextBytes`. */
 export async function readGamePlaytestScript(file: string): Promise<unknown> {
   if (file === '-') {
-    let input = '';
+    const chunks: Buffer[] = [];
+    let size = 0;
     for await (const chunk of process.stdin) {
-      input += chunk.toString('utf8');
-      if (Buffer.byteLength(input) > GAME_PLAYTEST_LIMITS.scriptBytes) throw new Error('Playtest script exceeds 32 KiB');
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8');
+      size += bytes.length;
+      if (size > GAME_PLAYTEST_LIMITS.scriptBytes) throw new Error('Playtest script exceeds 32 KiB');
+      chunks.push(bytes);
     }
-    return JSON.parse(input);
+    return JSON.parse(decodeAgentTextBytes(Buffer.concat(chunks)));
   }
   const handle = await open(file, 'r');
   try {
@@ -53,7 +58,7 @@ export async function readGamePlaytestScript(file: string): Promise<unknown> {
     const bytes = Buffer.alloc(GAME_PLAYTEST_LIMITS.scriptBytes + 1);
     const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0);
     if (bytesRead > GAME_PLAYTEST_LIMITS.scriptBytes) throw new Error('Playtest script exceeds 32 KiB');
-    return JSON.parse(bytes.subarray(0, bytesRead).toString('utf8'));
+    return JSON.parse(decodeAgentTextBytes(bytes.subarray(0, bytesRead)));
   } finally { await handle.close(); }
 }
 export async function runGamePlaytestCli(args: string[]): Promise<void> {
