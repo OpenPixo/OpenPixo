@@ -452,9 +452,9 @@ describe('ChatComposer /search command', () => {
     expect(composerText()).toContain('keep this draft');
   });
 
-  // Owner decision 2026-11-10: the file open on the right is not attached on
-  // its own, imported-folder projects included. The user chooses it.
-  it('does not attach the open imported-folder file unless the user clicks the offer', async () => {
+  // Owner decision 2026-11-15: the file open on the right is never attached or
+  // offered, imported-folder projects included.
+  it('does not attach or offer the open imported-folder file', async () => {
     const onSend = vi.fn();
     const fileContext = {
       id: 'file:site/index.html',
@@ -489,18 +489,12 @@ describe('ChatComposer /search command', () => {
 
     // The placeholder no longer claims the file is attached.
     expect(screen.queryAllByText(/Ask OpenPixo to change/)).toHaveLength(0);
-    expect(screen.getByTestId('composer-attach-current').textContent).toBe('Attach current file: index.html');
+    expect(screen.queryByText(/Attach current/)).toBeNull();
 
     await typeAndSettle('Make the hero clearer');
     fireEvent.click(screen.getByTestId('chat-send'));
     await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
     expect(onSend).toHaveBeenCalledWith('Make the hero clearer', [], undefined);
-
-    fireEvent.click(screen.getByTestId('composer-attach-current'));
-    await typeAndSettle('Now the footer');
-    fireEvent.click(screen.getByTestId('chat-send'));
-    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(2));
-    expect(onSend.mock.calls[1]?.[2]?.context?.workspaceItems).toEqual([fileContext]);
   });
 
   it('asks for the answer to a waiting question in the placeholder', () => {

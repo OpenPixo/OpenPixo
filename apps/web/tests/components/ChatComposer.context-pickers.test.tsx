@@ -312,9 +312,9 @@ afterEach(() => {
 });
 
 describe('ChatComposer context pickers', () => {
-  // Owner decision 2026-11-10: nothing from the open tab is attached unless the
-  // user chooses it. Viewing a file or an image only changes the offer.
-  it('does not attach the open file or image; switching tabs only changes the offer', async () => {
+  // Owner decision 2026-11-15: opening a file or an image never touches the
+  // composer — nothing is staged and no "attach current file" offer appears.
+  it('does not attach or offer the open file or image', async () => {
     const onSend = vi.fn();
     const fileContext = {
       id: 'file:index.html',
@@ -340,15 +340,14 @@ describe('ChatComposer context pickers', () => {
     await flushMounts();
 
     expect(screen.queryByTestId('staged-contexts')).toBeNull();
-    expect(screen.getByTestId('composer-attach-current').textContent).toBe('Attach current file: index.html');
+    expect(screen.queryByText(/Attach current/)).toBeNull();
 
     view.rerender(composerElement({ activeWorkspaceContext: imageContext, onSend }));
     expect(screen.queryByTestId('staged-contexts')).toBeNull();
-    expect(screen.getByTestId('composer-attach-current').textContent).toBe('Attach current file: hero.png');
+    expect(screen.queryByText(/Attach current/)).toBeNull();
 
-    // A terminal tab is not something to attach, so nothing is offered.
     view.rerender(composerElement({ activeWorkspaceContext: terminalContext, onSend }));
-    expect(screen.queryByTestId('composer-attach-current')).toBeNull();
+    expect(screen.queryByTestId('staged-contexts')).toBeNull();
 
     view.rerender(composerElement({ activeWorkspaceContext: imageContext, onSend }));
     await typeAndSettle('Make it brighter.');
@@ -357,48 +356,6 @@ describe('ChatComposer context pickers', () => {
     await waitFor(() => expect(onSend).toHaveBeenCalled());
     expect(onSend.mock.calls[0]?.[1]).toEqual([]);
     expect(onSend.mock.calls[0]?.[2]?.context?.workspaceItems).toBeUndefined();
-  });
-
-  it('attaches the open file only after the user clicks the offer, and it can be removed', async () => {
-    const onSend = vi.fn();
-    const fileContext = {
-      id: 'file:index.html',
-      kind: 'file' as const,
-      label: 'index.html',
-      path: 'index.html',
-      tabId: 'index.html',
-    };
-    const otherContext = {
-      id: 'file:style.css',
-      kind: 'file' as const,
-      label: 'style.css',
-      path: 'style.css',
-      tabId: 'style.css',
-    };
-    const view = renderComposer({ activeWorkspaceContext: fileContext, onSend });
-    await flushMounts();
-
-    fireEvent.click(screen.getByTestId('composer-attach-current'));
-    expect(screen.getByTestId('staged-contexts').textContent).toContain('index.html');
-    expect(screen.queryByTestId('composer-attach-current')).toBeNull();
-
-    // Removing it puts the offer back.
-    fireEvent.click(screen.getByLabelText('Remove index.html'));
-    await waitFor(() => expect(screen.queryByTestId('staged-contexts')).toBeNull());
-    fireEvent.click(screen.getByTestId('composer-attach-current'));
-
-    // Switching tabs keeps the chosen file and offers the new one; typing does not drop it.
-    view.rerender(composerElement({ activeWorkspaceContext: otherContext, onSend }));
-    expect(screen.getByTestId('composer-attach-current').textContent).toBe('Attach current file: style.css');
-    await typeAndSettle('Make the hero clearer.');
-    expect(screen.getByTestId('staged-contexts').textContent).toContain('index.html');
-    expect(screen.getByTestId('staged-contexts').textContent).not.toContain('style.css');
-    fireEvent.click(screen.getByTestId('chat-send'));
-
-    await waitFor(() => expect(onSend).toHaveBeenCalled());
-    expect(onSend.mock.calls[0]?.[2]?.context?.workspaceItems).toEqual([fileContext]);
-    // Sent: nothing stays attached to the next message.
-    await waitFor(() => expect(screen.queryByTestId('staged-contexts')).toBeNull());
   });
 
   it('opens the @ panel even when every source is empty', async () => {
@@ -583,8 +540,6 @@ describe('ChatComposer context pickers', () => {
 
     render(<ControlledComposer />);
     await flushMounts();
-    // The open file is attached only by choice; attach it so it is in play.
-    fireEvent.click(screen.getByTestId('composer-attach-current'));
 
     fireEvent.click(screen.getByTestId('chat-plus-trigger'));
     fireEvent.click(await screen.findByText('Link local code'));

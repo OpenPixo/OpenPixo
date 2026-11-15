@@ -2311,9 +2311,6 @@ export interface Dict {
   'chat.editFailed': string;
   'chat.copyDone': string;
   'chat.composerPlaceholder': string;
-  'chat.attachCurrentFile': string;
-  'chat.attachCurrentFolder': string;
-  'chat.attachCurrentHint': string;
   'chat.questionPendingPlaceholder': string;
   'chat.filesShowMore': string;
   'chat.mode.chat.label': string;
