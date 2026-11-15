@@ -31,11 +31,19 @@ export function openCodeRunExtraConfig(
   agentId: string,
   providerConfig: Record<string, unknown> | null | undefined,
   readOnlyTurn: boolean,
+  /** The project notes staged for this run (`stageOpenCodeProjectNotes`). */
+  projectInstructions: readonly string[] = [],
 ): Record<string, unknown> | null {
-  const config = usesBundledOpenCode(agentId)
+  let config = usesBundledOpenCode(agentId)
     ? withOpenCodeSkillsDenied(providerConfig ?? {})
     : providerConfig ?? null;
+  if (projectInstructions.length > 0) config = withOpenCodeInstructions(config ?? {}, projectInstructions);
   return readOnlyTurn ? readOnlyTurnOpenCodeConfig(config ?? {}) : config;
+}
+
+function withOpenCodeInstructions(config: Record<string, unknown>, files: readonly string[]): Record<string, unknown> {
+  const existing = Array.isArray(config.instructions) ? config.instructions : [];
+  return { ...config, instructions: [...new Set([...existing, ...files])] };
 }
 
 function withOpenCodeSkillsDenied(config: Record<string, unknown>): Record<string, unknown> {

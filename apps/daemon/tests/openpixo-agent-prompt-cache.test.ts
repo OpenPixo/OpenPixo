@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -161,4 +161,55 @@ it.skipIf(process.platform !== 'win32' || !OPENCODE)('opens turn 2 with exactly 
   expect(reseeded.messages.length).toBe(2);
   expect(JSON.stringify(reseeded.messages[1])).toContain('OpenPixo game development workbench');
   expect(JSON.stringify(reseeded.messages[1])).toContain('## assistant');
+}, 240_000);
+
+it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with every request, as they were when the turn started', async () => {
+  sandbox = await mkdtemp(path.join(os.tmpdir(), 'openpixo-project-notes-'));
+  for (const [key, leaf] of [['XDG_DATA_HOME', 'data'], ['XDG_CONFIG_HOME', 'config'], ['XDG_STATE_HOME', 'state'], ['XDG_CACHE_HOME', 'cache'], ['OPENCODE_TEST_HOME', 'home']] as const) {
+    process.env[key] = path.join(sandbox, leaf);
+  }
+  process.env.OPENCODE_PURE = '1';
+  cloud = await fakeSupabase();
+  let projectDir = '';
+  const bodies: Wire[] = [];
+  const script = [TOOL_TURN, ANSWER('first answer'), ANSWER('second answer')];
+  cloud.handlers.set('POST /functions/v1/agent-chat/chat/completions', (request) => {
+    bodies.push(request.body as unknown as Wire);
+    // The agent rewrites its notes in the middle of turn 1.
+    if (bodies.length === 1) writeFileSync(path.join(projectDir, 'AGENTS.md'), 'Notes v2: the player is src/hero.ts\n');
+    return { raw: script[bodies.length - 1] ?? ANSWER('extra'), headers: { 'Content-Type': 'text/event-stream' } };
+  });
+  process.env.PIXO_CLOUD_URL = cloud.url;
+  process.env.PIXO_CLOUD_ANON_KEY = ANON;
+  started = await startServer({ port: 0, returnServer: true }) as NonNullable<typeof started>;
+  const post = (route: string, body: unknown, method = 'POST') => fetch(`${started!.url}${route}`,
+    { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  expect((await post('/api/app-config', { agentId: 'openpixo-agent', agentCliEnv: { opencode: { OPENCODE_BIN: OPENCODE! } },
+    telemetry: { metrics: false }, privacyDecisionAt: Date.now() }, 'PUT')).status).toBe(200);
+  expect((await post('/api/openpixo/account/email/verify', { email: USER.email, code: '123456' })).status).toBe(200);
+  const projectId = `notes_${randomUUID()}`;
+  const created = await post('/api/projects', { id: projectId, name: 'Project notes', metadata: { kind: 'prototype' }, skipDiscoveryBrief: true });
+  const { conversationId } = await created.json() as { conversationId: string };
+  projectDir = path.join(process.env.PIXO_DATA_DIR!, 'projects', projectId);
+  mkdirSync(projectDir, { recursive: true });
+  writeFileSync(path.join(projectDir, 'AGENTS.md'), 'Notes v1: the player is src/player.ts\n');
+
+  async function turn(words: string, transcript: string) {
+    const response = await post('/api/runs', { projectId, conversationId, agentId: 'openpixo-agent', model: 'openpixo-agent-gpt-6-luna',
+      message: transcript, currentPrompt: words, assistantMessageId: randomUUID(), clientRequestId: randomUUID() });
+    expect(response.status).toBe(202);
+    const { runId } = await response.json() as { runId: string };
+    await expect.poll(async () => (await (await fetch(`${started!.url}/api/runs/${runId}`)).json() as { status: string }).status,
+      { timeout: 60_000, interval: 200 }).toBe('succeeded');
+  }
+  const system = (body: Wire) => JSON.stringify(body.messages.filter((message) => message.role === 'system'));
+
+  await turn('Say hello.', '## user\nSay hello.');
+  expect(bodies.length).toBe(2);
+  expect(system(bodies[0]!)).toContain('Notes v1');
+  // Same notes for the rest of the turn, so the provider's cache still matches.
+  expect(system(bodies[1]!)).toBe(system(bodies[0]!));
+  await turn('Again.', '## user\nSay hello.\n\n## assistant\nfirst answer\n\n## user\nAgain.');
+  expect(system(bodies[2]!)).toContain('Notes v2');
+  expect(system(bodies[2]!)).not.toContain('Notes v1');
 }, 240_000);

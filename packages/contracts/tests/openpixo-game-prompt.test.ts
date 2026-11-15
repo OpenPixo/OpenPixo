@@ -119,6 +119,16 @@ describe('OpenPixo imported game project prompt', () => {
     expect(prompt).toContain('no filesystem or tool execution');
   });
 
+  it('points every tool run at the project notes and writes them only at the end of a turn that can edit', () => {
+    const build = composeOpenPixoGamePrompt({ baseDir: '/g' });
+    expect(build).toContain('Project notes: `AGENTS.md`');
+    expect(build).toContain('as the last step of the turn, never in the middle');
+    const plan = composeOpenPixoGamePrompt({ baseDir: '/g', sessionMode: 'plan' });
+    expect(plan).toContain('Project notes: `AGENTS.md`');
+    expect(plan).not.toContain('update the notes');
+    expect(composeOpenPixoGamePrompt({ baseDir: '/g', streamFormat: 'plain' })).not.toContain('Project notes');
+  });
+
   it('limits the UI fallback to English and Simplified Chinese without restricting conversation language', () => {
     const userInstructions = '日本語で回答してください。';
     for (const [locale, fallback] of [

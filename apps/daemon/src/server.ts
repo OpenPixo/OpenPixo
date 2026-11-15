@@ -499,6 +499,7 @@ import { registerGamePlanRoutes } from './routes/game-plan.js';
 import { gameEngineOptions, gamePlanPromptInput } from './game/plan.js';
 import { gameToolResolver } from './game/verify.js';
 import { openCodeRunExtraConfig } from './runtimes/opencode-permissions.js';
+import { stageOpenCodeProjectNotes } from './runtimes/opencode-project-notes.js';
 import { READ_ONLY_TURN_TOOL_OPERATIONS } from './runtimes/read-only-turn.js';
 
 import { TranscriptExportLockedError } from './transcript-export.js';
@@ -3628,7 +3629,10 @@ export async function startServer({
       && openpixoAgentUsesImageViewer(openpixoAgentRunModel);
     const providerOpenCodeConfig = byokOpenCodeProvider?.config
       ?? (openpixoAgentRunModel ? buildOpenPixoAgentOpenCodeConfig(daemonUrl, openpixoAgentRunModel, { imageLook: openpixoAgentImageLook }) : null);
-    const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn);
+    const openCodeProjectNotes = (def.id === 'opencode' || usesBundledOpenCode(def.id)) && typeof projectId === 'string'
+      ? await stageOpenCodeProjectNotes({ dataDir: RUNTIME_DATA_DIR, projectId, projectDir: cwd })
+      : [];
+    const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn, openCodeProjectNotes);
     let toolTokenRevoked = false;
     let cleanupExtensionFiles = () => {};
     const revokeToolToken = (reason) => {
