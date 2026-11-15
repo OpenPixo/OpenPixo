@@ -2,17 +2,23 @@
 name: game-ui-hud
 en_name: Game HUD, menus and input focus
 zh_name: 游戏 HUD、菜单与输入焦点
-description: "Implement in-game HUD, pause and settings menus with keyboard and controller focus in Godot 4, Unity 6, Phaser 3, Three.js or a plain web game, styled to fit the game. Use for playable game UI, its look and scaling; not a website dashboard or image-only UI mockup."
-zh_description: "在 Godot 4、Unity 6、Phaser 3、Three.js 或普通网页游戏中实现游戏 HUD、暂停和设置菜单及键盘和手柄焦点，并让界面风格贴合游戏；处理可玩界面的外观与缩放，不用于网站仪表盘或纯图片 UI 效果图。"
+description: "Implement in-game HUD, title and start screens, pause and settings menus with keyboard and controller focus in Godot 4, Unity 6, Phaser 3, Three.js or a plain web game, styled to fit the game. Use for playable game UI, its look and scaling; not a website dashboard or image-only UI mockup."
+zh_description: "在 Godot 4、Unity 6、Phaser 3、Three.js 或普通网页游戏中实现游戏 HUD、标题与开始界面、暂停和设置菜单及键盘和手柄焦点，并让界面风格贴合游戏；处理可玩界面的外观与缩放，不用于网站仪表盘或纯图片 UI 效果图。"
 triggers:
   - game HUD
   - pause menu
   - controller menu navigation
   - game settings menu
   - Unity pause menu
+  - title screen
+  - start screen
+  - main menu
   - 游戏 HUD
   - 暂停菜单
   - 手柄菜单导航
+  - 标题画面
+  - 开始界面
+  - 主菜单
 license: Apache-2.0
 pixo:
   mode: utility
@@ -71,6 +77,18 @@ Working UI can still fail to read as a game. A plain one looks like a debug over
 - **Truthful labels.** A timer, countdown or wave label says what the game actually does.
 - **Motion that stays still.** Bars drain with a trailing chunk and changed numbers pop briefly. The HUD never shakes or scrolls with the camera.
 - **Judge it against the genre.** Overflow, focus and resolution checks do not show whether it looks like a game. Compare a screenshot of the busiest moment with the layout you wrote down. If a player of that genre would take it for a web page or a debug panel, it is not done.
+
+## Title and start screens
+
+The title screen is the game's cover, and the rules above for a HUD over gameplay do not make one. A title built from code-drawn rectangles, bordered buttons and system-font text reads as a website's landing page, however tidy it is. Unless the user specified a look:
+
+- **Art leads.** Key art (the characters, the world or a striking scene) fills the frame, the logo is the largest element, and the menu is short. Leave out stat bars, footers and repeated taglines; the currency or version can sit small in a corner if it matters.
+- **The logo is art, not a label.** Use a logo image, or set the title in a display font the project loads (a bitmap font, or a web font loaded before the scene draws) with outline, shadow or a gradient fill. A title in the default system font looks unfinished.
+- **Menu items as text, not boxes.** Three to five items, shown as text. Mark the selection with a cursor, glow, scale or colour change, a short sound and a little motion. No bordered rectangle per item, no web-style arrows or chevrons. Panels belong to sub-screens such as settings and upgrades.
+- **Something moves.** Parallax layers, an idle animation on the key art, drifting particles, a slow camera pan or a logo intro. A static screen with static buttons reads as a page.
+- **Start from the genre.** Before drawing, write down how title screens of this genre are usually composed. Use the shared conventions, never a copy of one game. For example: an action or anime-style game puts characters at a dynamic angle with a large stylized logo; a cozy game puts a soft illustrated scene with a rounded logo; a pixel roguelike puts a pixel logo over an animated scene with a hard-edged menu.
+- **When the art is missing, offer it, do not fake it.** If the project has no logo or key art that can carry the screen, list the pieces it needs (logo, title background or key art, perhaps a menu frame) with what each costs and which tool would make it, and ask the user before generating them. Until the user decides, build the best version from existing art and a display font, and say plainly that the logo is a placeholder. Never present code-drawn boxes and system text as the finished look.
+- **Judge it as a cover.** Look at a full-size screenshot next to the composition you wrote down. If it could pass for a website's hero section, it is not done.
 
 ## By kind of game
 
@@ -242,6 +260,7 @@ There is no engine UI. Build the HUD and menus as HTML and CSS in one container 
 ## Done when
 
 - [ ] Relevant HUD values initialize correctly and update once; camera movement and resize preserve readability.
+- [ ] A title or start screen is led by key art and a logo that is art or a display font, with menu items as text and a visible, animated selection; it would not pass for a website's hero section.
 - [ ] The HUD follows the genre's usual layout, with values on screen as icon and number rather than in labelled cards, and uses the game's palette. In a screenshot of the busiest moment at the smallest target size, the essential values read at a glance and nothing important is covered.
 - [ ] Keyboard-only and controller-only navigation and pointer-to-controller switching retain visible focus.
 - [ ] Two cycles of pausing and resuming, Back from settings and scene restart neither leak input nor duplicate listeners.
