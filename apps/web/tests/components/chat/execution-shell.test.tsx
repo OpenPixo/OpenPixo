@@ -176,8 +176,10 @@ describe('没有清单:平铺', () => {
       ...call('t2', 'Bash', { command: 'grep -n gap a.css' }, { content: 'a.css:1: gap' }),
     ], 'succeeded');
     render(shellView(shell as ShellData));
-    // 壳里唯一的折叠块是那条搜索行自己的(原命令收在里面,D58),没有分段那一层。
-    expect(document.querySelectorAll('details details')).toHaveLength(1);
+    // 没有分段那一层。两条步骤收成一行(owner, 2026-11-15),
+    // 里面那条搜索行仍有自己的折叠块(原命令收在里面,D58)。
+    expect(screen.getByTestId('folded-steps').textContent).toBe('查看了 1 个文件、搜索了 1 次');
+    expect(document.querySelectorAll('details details')).toHaveLength(2);
     expect(screen.getByText('读取')).toBeTruthy();
     expect(screen.getByText('在项目里搜索了 gap')).toBeTruthy();
   });

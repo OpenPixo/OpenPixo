@@ -317,7 +317,7 @@ describe.skipIf(!canRun)('轮次边界 · 真 Chrome 几何', () => {
     // 接上一条、不再报名字的续写块 —— 同一个人在说话,不是新的一轮
     const cont = markupOf(<AssistantMessage message={msg('m3', TURN)} streaming={false} showRole={false} />);
 
-    expect(turnA, '真实组件没吐出头像行').toContain('data-testid="assistant-role"');
+    expect(turnA, '新一轮没标成 data-continuation=false').toContain('data-continuation="false"');
     expect(cont, '续写块没打上 assistant-continuation').toContain('assistant-continuation');
     expect(turnA, '真实组件没吐出 assistant-flow').toContain('data-testid="assistant-flow"');
 

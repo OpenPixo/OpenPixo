@@ -617,16 +617,14 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     );
     const [promotedWorkspaceContextDir, setPromotedWorkspaceContextDir] = useState<string | null>(null);
     /*
-     * Workspace items the user attached with the "Attach current file" button.
+     * Workspace items the user chose without an `@token` in the text.
      *
-     * Owner decision (2026-11-10): nothing from the open tab rides along with a
-     * message unless the user chooses it. Viewing a file or an image only
-     * changes which item the button offers; it never stages anything. A chosen
-     * item lives in `stagedWorkspaceContexts` like an @-mentioned one, but it has
-     * no `@token` in the text, so it is listed here to keep the text-driven
-     * prune in `handleEditorChange` from dropping it. Items the host hands in
-     * (picked on Home) and restored draft items with no token in the restored
-     * text were chosen the same way, so they are seeded here.
+     * Owner decision (2026-11-15): opening a file or an image never touches the
+     * composer — no staged chip and no "Attach current file" offer. Items the
+     * host hands in (picked on Home) and restored draft items with no token in
+     * the restored text live in `stagedWorkspaceContexts` like an @-mentioned
+     * one, so they are listed here to keep the text-driven prune in
+     * `handleEditorChange` from dropping them.
      */
     const [chosenWorkspaceContextIds, setChosenWorkspaceContextIds] = useState<ReadonlySet<string>>(
       () => new Set([
@@ -772,14 +770,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       () => dedupeWorkspaceContextItems(stagedWorkspaceContexts),
       [stagedWorkspaceContexts],
     );
-    // The open tab the "Attach current …" button offers, when it is something
-    // that can be attached and is not attached already.
-    const offeredWorkspaceContext =
-      activeWorkspaceContext
-        && attachableCurrentWorkspaceContext(activeWorkspaceContext)
-        && !selectedWorkspaceContexts.some((item) => item.id === activeWorkspaceContext.id)
-        ? activeWorkspaceContext
-        : null;
     const selectedWorkspaceContextDirs = useMemo<string[]>(
       () => workspaceContextLinkedDirs(selectedWorkspaceContexts),
       [selectedWorkspaceContexts],
@@ -922,7 +912,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         context: {
           skillIds: stagedSkills.map((item) => item.id),
           mcpServerIds: stagedMcpServers.map((item) => item.id),
-          // 只存**用户自己挂上去的**那几条(@ 提到的,或点「附带当前文件」选的)。
+          // 只存**用户自己挂上去的**那几条(@ 提到的,或在首页选的)。
           // 打开着的那个标签页本身从来不算。
           workspaceItems: stagedWorkspaceContexts,
         },
@@ -2150,17 +2140,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       );
     }
 
-    /** "Attach current file": the user's explicit choice to send the open tab. */
-    function attachOfferedWorkspaceContext() {
-      const item = offeredWorkspaceContext;
-      if (!item) return;
-      trackComposerBar({ element: 'plus_pick', resource_kind: 'workspace', resource_id: 'current-tab' });
-      setChosenWorkspaceContextIds((current) => new Set(current).add(item.id));
-      setStagedWorkspaceContexts((current) =>
-        current.some((candidate) => candidate.id === item.id) ? current : [...current, item],
-      );
-    }
-
     // Lexical reports the active @/slash trigger derived from the caret. The
     // mention popover state collapses to `{ q }`; the slash state replicates
     // the old detection effect (reset the keyboard index on open). IME
@@ -2739,28 +2718,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
               t={t}
             />
           ) : null}
-          {offeredWorkspaceContext && !inputDisabled ? (
-            <div className={styles.attachCurrentRow}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={styles.attachCurrent}
-                data-testid="composer-attach-current"
-                title={t('chat.attachCurrentHint', { name: offeredWorkspaceContext.label })}
-                onClick={attachOfferedWorkspaceContext}
-              >
-                <Icon name="plus" size={12} />
-                <span className={styles.attachCurrentLabel}>
-                  {t(
-                    offeredWorkspaceContext.kind === 'file'
-                      ? 'chat.attachCurrentFile'
-                      : 'chat.attachCurrentFolder',
-                    { name: offeredWorkspaceContext.label },
-                  )}
-                </span>
-              </Button>
-            </div>
-          ) : null}
 
           {/* The inline BYOK media-model pickers (image / video / speech +
               voice) were removed pending a unified model-selection surface.
@@ -3321,15 +3278,6 @@ function workspaceContextKindLabel(kind: WorkspaceContextItem['kind'], t: Transl
     default:
       return t('chat.context.file');
   }
-}
-
-/**
- * Whether the open workspace tab can be offered as "Attach current …".
- * Files and folders are content the agent can read; a terminal or a side chat
- * tab is not something a beginner means by "this", so it is not offered.
- */
-function attachableCurrentWorkspaceContext(item: WorkspaceContextItem): boolean {
-  return item.kind === 'file' || item.kind === 'folder' || item.kind === 'design-files';
 }
 
 function StagedRunContexts({

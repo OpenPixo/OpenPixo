@@ -877,7 +877,6 @@ function AssistantMessageImpl({
   const usage = events.find((e) => e.kind === "usage") as
     | Extract<AgentEvent, { kind: "usage" }>
     | undefined;
-  const roleName = assistantRoleName(message, t);
   const hasEmptyResponse = events.some(
     (e) => e.kind === "status" && e.label === "empty_response"
   );
@@ -1271,11 +1270,11 @@ function AssistantMessageImpl({
       data-continuation={showRole ? 'false' : 'true'}
       data-assistant-message-id={message.id}
     >
-      {showRole ? (
-        <div className="role" data-testid="assistant-role">
-          <span className="role-name">{roleName}</span>
-        </div>
-      ) : null}
+      {/*
+        No agent name above the reply (owner, 2026-11-15): the chat has one speaker, and the
+        name was a line of noise on every turn. `showRole` still marks where a new turn starts,
+        which the spacing between turns keys off (`assistant-continuation`).
+      */}
       <div className="assistant-flow" data-testid="assistant-flow">
         <TurnSkills skillIds={skillsUsed} />
         {/*

@@ -350,3 +350,15 @@ describe('fileOf · 各家入参字段名不统一', () => {
     expect(fileOf({ command: 'ls' })).toBeNull();
   });
 });
+
+describe('Windows paths in commands keep their separators', () => {
+  it('reads the file a PowerShell command names', () => {
+    expect(commandFile(String.raw`Get-Content public\assets\jjk\manifest.json`)).toEqual({
+      path: String.raw`public\assets\jjk\manifest.json`, label: 'manifest.json',
+    });
+  });
+
+  it('still treats a backslash before a shell character as an escape', () => {
+    expect(commandFile(String.raw`cat my\ file.txt`)).toEqual({ path: 'my file.txt', label: 'my file.txt' });
+  });
+});

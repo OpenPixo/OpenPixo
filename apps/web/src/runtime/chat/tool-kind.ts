@@ -101,6 +101,14 @@ interface CommandAnalysis {
 }
 
 /**
+ * A backslash escapes only a shell character after it. Agents on Windows pass paths
+ * such as `public\assets\jjk\manifest.json` (PowerShell escapes with a backtick),
+ * and POSIX rules turned that into `publicassetsjjkmanifest.json` on the record row.
+ */
+const SHELL_ESCAPABLE = /[\s'"`\\$;&|()<>]/;
+const escapesNext = (input: string, i: number): boolean => SHELL_ESCAPABLE.test(input[i + 1] ?? '');
+
+/**
  * 只在 shell 顶层切连接符。本地会话里有 78 条命令的引号内容含 `>` / `|` / `;`,
  * 用正则直接 split 会把搜索模式和 HTML 片段当成 shell 语法。
  */
@@ -118,7 +126,7 @@ function splitTopLevel(input: string, mode: 'groups' | 'pipes'): string[] {
   for (let i = 0; i < input.length; i += 1) {
     const ch = input[i] ?? '';
     if (escaped) { escaped = false; continue; }
-    if (ch === '\\' && quote !== "'") { escaped = true; continue; }
+    if (ch === '\\' && quote !== "'" && escapesNext(input, i)) { escaped = true; continue; }
     if (quote) {
       if (ch === quote) quote = '';
       continue;
@@ -167,7 +175,7 @@ function shellWords(input: string): string[] {
   for (let i = 0; i < input.length; i += 1) {
     const ch = input[i] ?? '';
     if (escaped) { word += ch; started = true; escaped = false; continue; }
-    if (ch === '\\' && quote !== "'") { escaped = true; started = true; continue; }
+    if (ch === '\\' && quote !== "'" && escapesNext(input, i)) { escaped = true; started = true; continue; }
     if (quote) {
       if (ch === quote) quote = '';
       else word += ch;
@@ -230,7 +238,7 @@ function outputRedirectionTargets(segment: string): string[] {
   for (let i = 0; i < segment.length; i += 1) {
     const ch = segment[i] ?? '';
     if (escaped) { escaped = false; continue; }
-    if (ch === '\\' && quote !== "'") { escaped = true; continue; }
+    if (ch === '\\' && quote !== "'" && escapesNext(segment, i)) { escaped = true; continue; }
     if (quote) { if (ch === quote) quote = ''; continue; }
     if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
     if (ch !== '>') continue;

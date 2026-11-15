@@ -46,7 +46,7 @@ describe('OPEND-2807 fixed actions override the old recovery ladder',()=>{
   const message=failedTurn('claude',errorEvent({failureDetail:'git_bash_missing',retryable:false,detail:'Claude Code on Windows requires git-bash.'}));
   const before=structuredClone(message);renderPane(message);
   expect(screen.queryByTestId('chat-run-error-card')).toBeNull();
-  expect(screen.getByTestId('assistant-role')).toBeTruthy();expect(screen.getByText('运行失败')).toBeTruthy();
+  expect(screen.getByTestId('assistant-message')).toBeTruthy();expect(screen.getByText('运行失败')).toBeTruthy();
   expect(message).toEqual(before);
  });
 });

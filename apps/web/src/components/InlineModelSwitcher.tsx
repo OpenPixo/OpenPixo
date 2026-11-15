@@ -12,7 +12,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Button, Input } from '@openpixo/components';
 import {
-  formatCostMultiplier, hostedModelCostMultipliers, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME, OPENPIXO_AGENT_ID,
+  formatCostMultiplier, hostedModelCostMultipliers, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_ID,
 } from '@openpixo/contracts';
 import { agentIdToTracking, byokProtocolToTracking, modelIdForTracking } from '@openpixo/contracts/analytics';
 import { useAnalytics } from '../analytics/provider';
@@ -355,19 +355,15 @@ export function InlineModelSwitcher({
           hostedAgent?.available && daemonLive ? (
             (hostedAgent.models ?? []).filter((model) => model.id && model.id !== 'default').map((model) => {
               const selected = config.mode === 'daemon' && currentAgent?.id === hostedAgent.id && currentModelId === model.id;
+              // Auto is just "Auto": which models it uses for which turns is the product's business, not the user's.
               const auto = isOpenPixoAgentAutoModel(model.id);
-              const autoDetail = t('homeModel.autoModelDetail', { n: OPENPIXO_AGENT_AUTO_PLAN_TURNS_PER_GAME });
+              const label = auto ? t('homeModel.autoModel') : model.label ?? model.id;
               return (
                 <Button key={model.id} variant="ghost" className={styles.row} role="menuitemradio"
-                  aria-checked={selected} tabIndex={open ? 0 : -1} title={auto ? autoDetail : model.label}
+                  aria-checked={selected} tabIndex={open ? 0 : -1} title={label}
                   data-testid={'inline-model-switcher-model-' + hostedAgent.id + '-' + model.id}
                   onClick={() => selectLocal(hostedAgent, model.id)}>
-                  <span className={styles.label}>{auto ? t('homeModel.autoModel') : model.label ?? model.id}</span>
-                  {auto ? (
-                    <span className={styles.hint} title={autoDetail} data-testid="inline-model-switcher-auto-hint">
-                      {t('homeModel.autoModelHint')}
-                    </span>
-                  ) : null}
+                  <span className={styles.label}>{label}</span>
                   {hostedCost.has(model.id) ? (
                     <span className={styles.hint} title={t('homeModel.costHint')}
                       data-testid={'inline-model-switcher-cost-' + model.id}>
