@@ -8,7 +8,7 @@
   "metadata": {
     "description": "Curated OpenPixo game catalog with free local resources and paid Workshop asset packs. MCP presets require manually installed external servers.",
     "version": "0.1.0",
-    "bundledPreinstallCount": 62
+    "bundledPreinstallCount": 65
   },
   "plugins": [
     {
@@ -1185,13 +1185,32 @@
       ]
     },
     {
-      "name": "openpixo/sprite-walk-8dir",
-      "title": "8-direction walk sprite sheet",
+      "name": "openpixo/sprite-walk-sheet-8dir",
+      "title": "8-direction walk sheet",
       "title_i18n": {
-        "en": "8-direction walk sprite sheet",
-        "zh-CN": "8 方向行走精灵图"
+        "en": "8-direction walk sheet",
+        "zh-CN": "8 方向行走姿势图"
       },
-      "version": "0.2.0",
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/sprite-walk-sheet-8dir",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Step 1 of a walk animation: one character drawn mid-stride in all eight directions on a green screen, ready to animate with the 8-direction walk."
+    },
+    {
+      "name": "openpixo/sprite-walk-8dir",
+      "title": "8-direction walk animation",
+      "title_i18n": {
+        "en": "8-direction walk animation",
+        "zh-CN": "8 方向行走动画"
+      },
+      "version": "0.3.0",
       "kind": "recipe",
       "source": "./plugins/_official/recipes/sprite-walk-8dir",
       "engines": [
@@ -1201,7 +1220,45 @@
       "pricing": {
         "type": "free"
       },
-      "description": "An 8-direction walk cycle on a strict grid, generated on a transparent background and sliced into per-frame PNGs."
+      "description": "Step 2 of a walk animation: animates an 8-direction walk sheet into one smooth looping walk per direction, as transparent frames and an engine sprite sheet."
+    },
+    {
+      "name": "openpixo/sprite-idle-sheet-8dir",
+      "title": "8-direction idle sheet",
+      "title_i18n": {
+        "en": "8-direction idle sheet",
+        "zh-CN": "8 方向待机姿势图"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/sprite-idle-sheet-8dir",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Step 1 of an idle animation: one character drawn standing at rest in all eight directions on a green screen, ready to animate with the 8-direction idle."
+    },
+    {
+      "name": "openpixo/sprite-idle-8dir",
+      "title": "8-direction idle animation",
+      "title_i18n": {
+        "en": "8-direction idle animation",
+        "zh-CN": "8 方向待机动画"
+      },
+      "version": "0.1.0",
+      "kind": "recipe",
+      "source": "./plugins/_official/recipes/sprite-idle-8dir",
+      "engines": [
+        "any"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "Step 2 of an idle animation: animates an 8-direction idle sheet into one calm breathing loop per direction, as transparent frames and an engine sprite sheet."
     },
     {
       "name": "openpixo/character-turnaround",

@@ -1,35 +1,40 @@
-# 8-direction walk sprite sheet
+# 8-direction walk animation
 
-An 8-direction walk cycle on a strict grid, generated on a transparent background and sliced into per-frame PNGs.
+Step 2 of a walk animation. It animates a walk sheet from `sprite-walk-sheet-8dir` into one looping walk per direction, then exports transparent frames as an engine sprite sheet.
 
-The full sheet plus one PNG per frame, and an engine atlas with one walk animation per direction. The sheet is resized to 1024x1024, so each cell is 128x128.
+## How it works
+
+1. **The clip.** The sheet (8 copies of the character, mid-stride, 4x2 on green) goes to an image-to-video model as both the first and the last frame. The clip is 0.92 s at 768p, prompt rewriting is off, and the prompt states each copy's stride axis. Because the clip starts and ends on the sheet, it loops. Because the sheet is mid-stride, the loop never passes through a standing pose.
+2. `video-frames`: one PNG per frame. The last frame repeats the first and is dropped, leaving 21 frames (or 7, evenly spaced).
+3. `resize` to 1344x768, so the 4x2 grid divides exactly.
+4. `remove-bg`: a soft green-screen key with despill, so outlines do not glow green.
+5. `slice` 4x2: 8 cells per frame.
+6. `export-spritesheet` with `order: by-cell`: cell N of every frame becomes animation N. The animations are `down`, `down-right`, `right`, `up-right`, `up`, `up-left`, `left`, `down-left`. With `loopSeconds: 0.875`, 21 frames play at 24 fps and 7 at 8 fps.
+
+The intermediate frames are not staged (`keep: false`). A result holds the clip, the sheet, the engine descriptor and `walk.sheet.json` (cell size, columns, animations, fps).
 
 ## Inputs
 
-- `character` (character-ref, required): Character
-- `style` (select, default `pixel art, 32px character`): Art style
-- `frames` (select, default `6`): Frames per direction
+- `source` (image-ref, required): the walk sheet. On 生成 the action "8-direction walk animation" appears on a walk sheet result. From the CLI, `--source-run <runId> --candidate <id>` passes a staged sheet without adopting it first.
+- `frames` (`21` or `7`, default `21`): frames per direction.
 
-## Pipeline
+## Models
 
-- Surface: `image`; model capability: `t2i`, `i2i`.
-- Background: requested transparent from the model. A model that cannot return alpha paints a key colour chosen away from the prompt's colours, and the host keys it out with a soft edge. (0.1.0 painted magenta and keyed it with a hard cutoff, which left a purple edge on every outline.)
-- Postprocess: `resize` → `slice` → `export-spritesheet`.
-- Checks: `has-alpha`, `grid-divisible`.
-- Output: `{{engine.spriteRoot}}/{{character.slug}}/{{character.slug}}_walk` (written only when you adopt a candidate).
+`models.requires: ["i2v-loop"]`. Only a model that takes an end frame and a sub-second length can make this clip:
 
-## Notes
-
-- Row order is down, down-left, left, up-left, up, up-right, right, down-right. Frame order is left to right.
-- Models do not always keep eight directions consistent. Inspect every row before adopting; a candidate with a wrong row fails in-game even when `grid-divisible` passes.
-- Pack the frames into an engine atlas with `pixo asset pack --format godot-tres` or `--format texturepacker-json` (Phaser `load.atlas`).
-- For crisp pixel art, run `pixo asset pixelate` on the adopted frames at the target sprite size.
+- your own media gateway key: `h3-max-turbo-gateway`
+- otherwise, with credits: `openpixo-walk-video`
 
 ## CLI
 
 ```bash
-pixo recipe run openpixo/sprite-walk-8dir --input character=fox-hero --input frames=6 --json --wait
-pixo recipe adopt <runId> --candidate <candidateId>
+pixo recipe run sprite-walk-sheet-8dir --input character=<slug> --json --wait
+pixo recipe run sprite-walk-8dir --source-run <runId> --candidate <id> --json --wait
+pixo recipe adopt <runId> --candidate <candidateId> --project <id>
 ```
 
-Inspect the candidates before adopting; checks flag obvious failures but do not judge whether the asset looks right.
+## Notes
+
+- Check the sheet before animating it: a wrong direction on the sheet stays wrong in the walk.
+- The diagonals can twist slightly toward a side view at the passing pose. If one looks wrong, run step 2 again: each run is cheap, and every clip starts and ends on the same sheet.
+- 0.2.0 drew all 64 frames in one picture, and models did not keep the eight directions consistent. 0.3.0 replaces that with this two-step method.

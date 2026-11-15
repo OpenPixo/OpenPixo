@@ -46,6 +46,8 @@ const fields: Record<AssetOpName, Field[]> = {
   'remove-bg': [
     { name: 'color', label: 'gameAssets.param.color', value: '#00ff00', required: true },
     { name: 'tolerance', label: 'gameAssets.param.tolerance', min: 0, max: 255, value: '0' },
+    { name: 'softness', label: 'gameAssets.param.softness', min: 0, max: 255 },
+    { name: 'despill', label: 'gameAssets.param.despill', boolean: true },
   ],
   'frames-check': [],
   'frames-align': [
@@ -53,6 +55,10 @@ const fields: Record<AssetOpName, Field[]> = {
     { name: 'padding', label: 'gameAssets.param.padding', value: '0', min: 0 },
     { name: 'matchHeight', label: 'gameAssets.param.matchHeight', boolean: true },
     { name: 'filter', label: 'gameAssets.param.filter', options: ['lanczos', 'nearest'] },
+  ],
+  'video-frames': [
+    { name: 'count', label: 'gameAssets.param.frameCount', min: 1, max: 600 },
+    { name: 'dropRepeatedEnd', label: 'gameAssets.param.dropRepeatedEnd', boolean: true },
   ],
   'audio-normalize': [{ name: 'lufs', label: 'gameAssets.param.lufs', required: true, min: -70, max: -5, step: 0.1 }],
   'audio-trim': [{ name: 'silenceThreshold', label: 'gameAssets.param.silenceThreshold', required: true, min: -100, max: 0, step: 0.1 }],

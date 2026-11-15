@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Select } from '@openpixo/components';
-import type { RecipeCandidate, RecipeRun } from '@openpixo/contracts';
+import { recipeActsOnResultOf, type RecipeCandidate, type RecipeRun, type RecipeRunQuote, type RecipeRunRequest, type RecipeSummary } from '@openpixo/contracts';
 import { useI18n } from '../../i18n';
-import { adoptStudioCandidates } from '../../providers/studio';
+import { refreshOpenPixoCredits } from '../../hooks/useOpenPixoAccount';
+import { adoptStudioCandidates, quoteStudioRun, startStudioRun } from '../../providers/studio';
+import { formatCredits } from '../account/account-format';
+import { localizedRecipeCopy } from '../studio/localization';
 import { Icon } from '../Icon';
 import { CandidateMedia, stagedFileUrl } from '../studio/CandidateGrid';
 import { RecipeFailure } from '../studio/RecipeFailure';
 import { formFromRun, runSummary, type GenerateForm } from './generate-request';
+import { SpriteSheetPreview, spriteSheetFiles } from './SpriteSheetPreview';
 import styles from './GenerateView.module.css';
 
 /**
@@ -20,6 +24,16 @@ export function downloadName(run: Pick<RecipeRun, 'inputs'>, candidate: RecipeCa
   return `${name}${/\.[^.]+$/u.exec(file)?.[0] ?? ''}`;
 }
 
+/**
+ * The action recipes that can act on this result: those whose `acts.on` takes its kind and whose
+ * `acts.recipes`, when set, names the recipe that made it (a walk animates only a walk sheet).
+ */
+export function resultActions(recipes: readonly RecipeSummary[], run: Pick<RecipeRun, 'recipeId'>, candidate: Pick<RecipeCandidate, 'stagedFiles'>): RecipeSummary[] {
+  const kinds = new Set(candidate.stagedFiles.map(file => file.mime.split('/')[0]));
+  return recipes.filter(recipe => recipe.acts && recipe.acts.on.some(kind => kinds.has(kind === 'model3d' ? 'model' : kind))
+    && recipeActsOnResultOf(recipe.acts, run.recipeId));
+}
+
 /** A game a result can be saved into. */
 export interface GenerateGame { id: string; name: string }
 
@@ -30,7 +44,8 @@ export interface GenerateGame { id: string; name: string }
  * picked here. 下载 saves a copy wherever the user picks; 再来一次 and 改一下 put the
  * same request back in the box (plain recipes only).
  */
-export function ResultDetail({ run, candidate, title, readOnly, games, defaultGameId, onBack, onSaved, onOpenFile, onAgain, onEdit, onPickCandidate }: {
+export function ResultDetail({ run, candidate, title, readOnly, games, defaultGameId, onBack, onSaved, onOpenFile, onAgain, onEdit, onPickCandidate,
+  actions = [], onActionStarted }: {
   run: RecipeRun;
   candidate: RecipeCandidate;
   title: string;
@@ -46,6 +61,10 @@ export function ResultDetail({ run, candidate, title, readOnly, games, defaultGa
   onEdit: (form: GenerateForm) => void;
   /** Shows another result of the same run. */
   onPickCandidate?: ((candidateId: string) => void) | undefined;
+  /** Action recipes that act on this result (`resultActions`), e.g. animating a walk sheet. */
+  actions?: readonly RecipeSummary[] | undefined;
+  /** An action started a new run, for the same game as this result. */
+  onActionStarted?: ((run: RecipeRun) => void) | undefined;
 }) {
   const { t, locale } = useI18n();
   const [pending, setPending] = useState(false);
@@ -63,6 +82,33 @@ export function ResultDetail({ run, candidate, title, readOnly, games, defaultGa
   const label = title;
   const model = run.model.provider === 'openpixo' ? t('generate.paidWithCredits') : run.model.id;
 
+  // An action runs on this result before it is saved; a price is confirmed here first, like the box's.
+  const [action, setAction] = useState<{ kind: 'idle' } | { kind: 'working'; id: string }
+    | { kind: 'confirm'; id: string; quote: Extract<RecipeRunQuote, { paid: true }>; request: RecipeRunRequest }>({ kind: 'idle' });
+  useEffect(() => { setAction({ kind: 'idle' }); }, [candidate.id]);
+  async function startAction(request: RecipeRunRequest) {
+    setAction({ kind: 'working', id: request.recipeId }); setError('');
+    try {
+      const started = await startStudioRun(run.projectId, request);
+      if (!('candidates' in started)) throw new Error(t('generate.failed'));
+      if (request.quoteId) void refreshOpenPixoCredits();
+      setAction({ kind: 'idle' });
+      onActionStarted?.(started);
+    } catch (cause) { setAction({ kind: 'idle' }); setError(cause instanceof Error && cause.message ? cause.message : t('generate.failed')); }
+  }
+  async function act(recipe: RecipeSummary) {
+    if (readOnly || action.kind === 'working' || !usable) return;
+    const request: RecipeRunRequest = { recipeId: recipe.id, inputs: {}, sourceCandidate: { runId: run.id, candidateId: candidate.id } };
+    setAction({ kind: 'working', id: recipe.id }); setError('');
+    try {
+      const quote = await quoteStudioRun(run.projectId, request);
+      if (!quote.paid) { await startAction(request); return; }
+      void refreshOpenPixoCredits();
+      if (quote.available < quote.credits) { setAction({ kind: 'idle' }); setError(t('generate.actionShort', { count: formatCredits(quote.credits, locale) })); return; }
+      setAction({ kind: 'confirm', id: recipe.id, quote, request: { ...request, quoteId: quote.quoteId } });
+    } catch (cause) { setAction({ kind: 'idle' }); setError(cause instanceof Error && cause.message ? cause.message : t('generate.failed')); }
+  }
+
   async function save() {
     if (readOnly || pending || !usable || saved.length || !target) return;
     setPending(true); setError('');
@@ -77,7 +123,9 @@ export function ResultDetail({ run, candidate, title, readOnly, games, defaultGa
   return <section className={styles.detail} aria-labelledby="generate-detail-title" data-testid="generate-detail">
     <div className={styles.stage}>
       <div className={styles.preview}>
-        {candidate.stagedFiles[0] ? <CandidateMedia file={candidate.stagedFiles[0]} url={stagedFileUrl(run, candidate, 0)} label={label} />
+        {/* A result with an engine sprite sheet plays it; its clip is still among the files. */}
+        {usable && spriteSheetFiles(candidate) ? <SpriteSheetPreview run={run} candidate={candidate} />
+          : candidate.stagedFiles[0] ? <CandidateMedia file={candidate.stagedFiles[0]} url={stagedFileUrl(run, candidate, 0)} label={label} />
           : candidate.error ? null : <p className={styles.muted} role="status">{t('studio.cloud.generating')}</p>}
       </div>
       {run.candidates.length > 1 && onPickCandidate && <div className={styles.siblings} role="group" aria-label={t('generate.otherResults')}>
@@ -141,6 +189,18 @@ export function ResultDetail({ run, candidate, title, readOnly, games, defaultGa
           data-testid="generate-save"><Icon name={saved.length ? 'check' : 'folder-2'} size={15} />
           {saved.length ? t('generate.saved') : savedGame && run.projectId === null ? t('generate.saveAnother') : t('generate.save')}</Button>
       </div>
+      {usable && !readOnly && actions.length > 0 && <div className={styles.detailActions} role="group" aria-label={t('generate.nextStep')}>
+        {actions.map(recipe => {
+          const name = localizedRecipeCopy(recipe, locale).title;
+          const confirming = action.kind === 'confirm' && action.id === recipe.id ? action : null;
+          return confirming
+            ? <Button key={recipe.id} className={styles.saveButton} onClick={() => void startAction(confirming.request)} data-testid="generate-action-confirm">
+              {t('generate.actionConfirm', { name, count: formatCredits(confirming.quote.credits, locale) })}</Button>
+            : <Button key={recipe.id} className={styles.saveButton} onClick={() => void act(recipe)} disabled={action.kind === 'working'}
+              aria-busy={action.kind === 'working' && action.id === recipe.id} data-testid="generate-action" data-recipe-id={recipe.id}>
+              <Icon name="play" size={15} />{name}</Button>;
+        })}
+      </div>}
       <div className={styles.detailActions}>
         {usable && <a className={styles.secondaryAction} href={stagedFileUrl(run, candidate, 0)} download={downloadName(run, candidate, 0)}
           data-testid="generate-download">{t('generate.download')}</a>}

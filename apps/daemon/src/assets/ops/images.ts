@@ -10,7 +10,13 @@ export interface OpPlan {
   produce: (temporaryPaths: string[]) => Promise<void>;
 }
 
-export const image = (input: string | Buffer) => sharp(input, { limitInputPixels: 64 * 1024 * 1024 }).toColourspace('srgb');
+/**
+ * The path to hand the image library. It opens files itself and, on Windows, cannot reach a path
+ * past 260 characters, which a recipe's chained postprocess steps can produce; Node's namespaced
+ * form (`\\?\C:\...`) reaches any length. Every picture path an op opens goes through this.
+ */
+export const imagePath = (input: string | Buffer) => typeof input === 'string' ? path.toNamespacedPath(path.resolve(input)) : input;
+export const image = (input: string | Buffer) => sharp(imagePath(input), { limitInputPixels: 64 * 1024 * 1024 }).toColourspace('srgb');
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 export const outputStem = (out: string, source: string) => path.posix.join(out, source.slice(0, source.length - path.posix.extname(source).length));
 
@@ -76,6 +82,30 @@ async function readPalette(root: string, value: unknown): Promise<RGB[] | undefi
   }
   if (colors.length < 1 || colors.length > 256) throw new Error('Palette must contain 1–256 colors');
   return colors;
+}
+
+/**
+ * A green- or blue-screen key with a soft edge, for footage where the screen colour drifts
+ * (compressed video, painted backgrounds). A pixel's distance from the screen is how much less
+ * its screen channel stands out over the other two than the key colour's does: within
+ * `tolerance` it is fully clear, beyond `tolerance + softness` fully kept, and blended between.
+ * `despill` takes the screen's tint off the blended edge, so outlines do not glow green.
+ */
+export function screenKey(key: RGB, tolerance: number, softness: number, despill: boolean): (rgba: Buffer) => void {
+  const channel = key.indexOf(Math.max(...key));
+  const others = [0, 1, 2].filter(c => c !== channel) as [number, number];
+  const strength = key[channel]! - Math.max(key[others[0]]!, key[others[1]]!);
+  if (strength < 128) throw new Error('A soft key needs a screen colour with one strong channel, such as 00ff00 or 0000ff');
+  return rgba => {
+    for (let i = 0; i < rgba.length; i += 4) {
+      const rest = Math.max(rgba[i + others[0]]!, rgba[i + others[1]]!);
+      const distance = strength - (rgba[i + channel]! - rest);
+      const keep = distance <= tolerance ? 0 : softness === 0 || distance >= tolerance + softness ? 1 : (distance - tolerance) / softness;
+      if (keep < 1 && despill && rgba[i + channel]! > rest) rgba[i + channel] = rest;
+      rgba[i + 3] = Math.round(rgba[i + 3]! * keep);
+      if (keep === 0) { rgba[i] = 0; rgba[i + 1] = 0; rgba[i + 2] = 0; }
+    }
+  };
 }
 
 function pair(value: unknown, key: string): [number, number] {
@@ -235,6 +265,15 @@ export async function planImageOp(root: string, source: string, file: string, op
       choiceParam(params, 'mode', ['chroma', 'model'] as const, 'chroma');
       if (typeof params.color !== 'string') throw new Error('chroma requires color');
       const color = rgb(params.color), tolerance = numberParam(params, 'tolerance', 0, 0, 255);
+      if (params.despill !== undefined && typeof params.despill !== 'boolean') throw new Error('despill must be boolean');
+      if (params.softness !== undefined || params.despill === true) {
+        const key = screenKey(color, tolerance, numberParam(params, 'softness', 0, 0, 255), params.despill === true);
+        return { outputs: [primary], produce: async ([target]) => {
+          const data = await image(file).ensureAlpha().raw().toBuffer();
+          key(data);
+          await writeNew(target!, await sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer());
+        } };
+      }
       return { outputs: [primary], produce: async ([target]) => {
         const data = await image(file).ensureAlpha().raw().toBuffer();
         for (let i = 0; i < data.length; i += 4) if (color.every((channel, c) => Math.abs(data[i + c]! - channel) <= tolerance)) data[i + 3] = 0;

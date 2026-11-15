@@ -19,7 +19,7 @@ One image with the character shown from several angles at the same scale, keyed 
 
 ## Notes
 
-- Run this first for a new character, adopt the best candidate, then add the adopted file to the character card's `references` so `sprite-walk-8dir` and other character recipes stay on-model.
+- Run this first for a new character, adopt the best candidate, then add the adopted file to the character card's `references` so `sprite-walk-sheet-8dir` (and through it the 8-direction walk) and other character recipes stay on-model.
 - The views are not sliced. Crop individual views with `pixo asset slice --grid 3x1` (or `4x1`) if you need them separately.
 - Chroma keying removes #FF00FF. If the character really needs magenta, edit the card description to use another color or remove the background manually.
 

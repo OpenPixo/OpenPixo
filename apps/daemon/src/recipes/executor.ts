@@ -17,7 +17,7 @@ import { checkRecipeFile } from './checks.js';
 import { recipeFileName, recipePath } from './paths.js';
 import { recipeVariables, renderRecipeParams, renderRecipeTemplate, validateRecipeInputs } from './template.js';
 import { mergeImageArtStyle } from '../media/art-style.js';
-import { applyRecipePostprocessStyle } from './postprocess-style.js';
+import { applyRecipePostprocessStyle, type RecipePostprocessStep } from './postprocess-style.js';
 import { spriteExportFormat } from '../assets/ops/export-spritesheet.js';
 import { detectEngineProfile } from '../game/engine-detect.js';
 
@@ -33,6 +33,8 @@ function recipeFailure(error: unknown): { error: string; errorCode?: string; err
 const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 interface StoredRun {
   run: RecipeRun; prompt: string; resolution?: string | undefined; background?: 'transparent' | undefined; output: { dir: string; name: string }; referenceHashes: string[];
+  /** A video recipe's clip: its exact length, size and whether it loops back to its picture. */
+  video?: RecipeVideo | undefined;
   /**
    * The recipe's output templates, kept so a run made with no game is saved at the paths of
    * the game it goes into. Absent on runs recorded before no-game runs, and on runs whose
@@ -58,6 +60,8 @@ export interface RecipeExecutorDeps {
   generate?: typeof generateMedia;
   postprocess?: typeof runAssetOp;
 }
+/** What a video recipe fixes about its clip (`generation.video`). */
+export interface RecipeVideo { duration: number; resolution?: string | undefined; loop?: boolean | undefined }
 export interface PreparedRecipe { inputs: Record<string, unknown>; variables: Record<string, unknown>; references: string[] }
 
 /** What one hosted candidate is priced on, the same for the art budget and for the user's own quote. */
@@ -99,8 +103,9 @@ export interface RecipePlan {
   background?: 'transparent' | undefined;
   output: { dir: string; name: string };
   count: number;
-  steps: Array<{ op: AssetOpRequest['op']; params: Record<string, unknown>; optional?: boolean | undefined }>;
+  steps: RecipePostprocessStep[];
   aspect?: string | undefined;
+  video?: RecipeVideo | undefined;
   /** What each hosted candidate is priced on. */
   pricing: RecipePricingInput;
 }
@@ -270,8 +275,9 @@ export class RecipeExecutor {
     const pricing: RecipePricingInput = { prompt, references: prepared.references, ...(aspect ? { aspect } : {}), ...(picked ? { resolution: picked } : {}), ...(background ? { background } : {}),
       ...(recipe.surface === 'audio' && typeof voice === 'string' && voice ? { voice } : {}),
       ...(recipe.surface === 'audio' && Number.isFinite(duration) ? { duration } : {}) };
+    const video = recipe.surface === 'video' ? recipe.generation?.video : undefined;
     return { recipe, prepared, prompt, ...(resolution ? { resolution } : {}), ...(background ? { background } : {}),
-      output, count, steps, ...(aspect ? { aspect } : {}), pricing };
+      output, count, steps, ...(aspect ? { aspect } : {}), pricing, ...(video ? { video } : {}) };
   }
   /**
    * `projectId` null is a run the user made on the 生成 page with no game: `projectRoot` is
@@ -283,7 +289,7 @@ export class RecipeExecutor {
     if (recipe.surface === 'code') throw new Error(`No media backend for surface: ${recipe.surface}`);
     if (model.provider === 'stub' && process.env.NODE_ENV !== 'test') throw new Error('Stub provider is only allowed in tests');
     const paid = model.provider === 'openpixo';
-    if (paid && (!hosted || recipe.surface === 'video')) throw new RecipeSpendRefused(403, 'GENERATION_CONFIRMATION_REQUIRED', 'This recipe would spend credits: the user confirms a price first, or an agent pays from the art budget.');
+    if (paid && !hosted) throw new RecipeSpendRefused(403, 'GENERATION_CONFIRMATION_REQUIRED', 'This recipe would spend credits: the user confirms a price first, or an agent pays from the art budget.');
     const plan = await this.plan(detail, projectRoot, request, model, engine, artStyle);
     const { prepared, prompt, output, steps, aspect } = plan;
     let count = plan.count;
@@ -310,7 +316,7 @@ export class RecipeExecutor {
     const record: StoredRun = { run: { id, projectId, recipeId: detail.id, recipeVersion: detail.version, surface, origin, inputs: prepared.inputs, ...(recipe.surface === 'image' ? { styleId: artStyle?.id ?? null } : {}),
       model: { provider: model.provider, id: model.id }, status: 'queued', candidates: Array.from({ length: count }, (_, index) => ({ id: randomUUID(), index, stagedFiles: [], checks: [] })), createdAt: Date.now(), updatedAt: Date.now() },
       prompt, ...(plan.resolution ? { resolution: plan.resolution } : {}),
-      ...(plan.background ? { background: plan.background } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)),
+      ...(plan.background ? { background: plan.background } : {}), ...(plan.video ? { video: plan.video } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)),
       ...(namesCharacter ? {} : { outputTemplate: { dir: recipe.output!.dir, name: recipe.output!.name } }) };
     this.records.set(id, record);
     try { await this.save(record); }
@@ -326,7 +332,7 @@ export class RecipeExecutor {
     return structuredClone(record.run);
   }
   private async execute(record: StoredRun, surface: 'image' | 'audio' | 'video' | 'model3d', model: MediaModel,
-    refs: Array<{ bytes: Buffer; ext: string }>, steps: Array<{ op: AssetOpRequest['op']; params: Record<string, unknown>; optional?: boolean | undefined }>,
+    refs: Array<{ bytes: Buffer; ext: string }>, steps: RecipePostprocessStep[],
     checks: NonNullable<Recipe['checks']>,
     variables: Record<string, unknown>, signal: AbortSignal, aspect?: string,
     paidFor?: { media: OpenPixoHostedMedia; requests: readonly AgentHostedRequest[] }): Promise<void> {
@@ -360,6 +366,8 @@ export class RecipeExecutor {
           images, ...(record.resolution ? { resolution: record.resolution } : {}), ...(aspect ? { aspect } : {}), ...(surface === 'audio' ? { audioKind } : {}),
           ...(surface === 'image' && record.background ? { background: record.background } : {}),
           ...(Number.isFinite(Number(variables.duration ?? variables.lengthSec)) ? { duration: Number(variables.duration ?? variables.lengthSec) } : {}),
+          // A video recipe's clip is fixed by the recipe: exact length, size, and the picture as last frame too.
+          ...(record.video ? { length: record.video.duration, ...(record.video.resolution ? { resolution: record.video.resolution } : {}), ...(record.video.loop ? { loop: true } : {}) } : {}),
           ...(typeof variables.voice === 'string' ? { voice: variables.voice } : {}),
           ...(typeof variables.language === 'string' ? { language: variables.language } : {}),
           onProgress: line => { if (gameId !== null) this.deps.mediaTasks.appendTaskProgress(task as LiveTask, line); },
@@ -382,7 +390,8 @@ export class RecipeExecutor {
             const report = await (this.deps.postprocess ?? runAssetOp)({ projectRoot: candidateRoot }, { op: step.op, inputs: current, params: step.params, out: `derived/${index}-${step.op}` });
             if (report.counts.failed) throw new Error(report.results.find(result => result.error)?.error ?? `${step.op} failed`);
             const outputs = [...new Set(report.results.flatMap(result => [result.output, ...result.extraOutputs ?? []]))].filter((file): file is string => Boolean(file));
-            for (const file of outputs) {
+            // An intermediate step (`keep: false`) feeds the next one without being staged.
+            if (step.keep !== false) for (const file of outputs) {
               const ref = await recipePath(candidateRoot, file);
               candidate.stagedFiles.push({ role: 'derived', ref, mime: String(mimeFor(file)) });
             }

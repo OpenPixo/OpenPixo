@@ -9,6 +9,7 @@ import { ffmpegVersion, planAudioOp } from './audio.js';
 import { image, planImageOp, type OpPlan } from './images.js';
 import { planPack, type PackInput } from './pack.js';
 import { planSpritesheet } from './export-spritesheet.js';
+import { planVideoFrames } from './video.js';
 import { alignFrames, encodePng, measureFrame, readRgba, summarizeFrames, type FrameMeasure } from './frames.js';
 import { outputStem } from './images.js';
 import { detectEngineProfile } from '../../game/engine-detect.js';
@@ -31,7 +32,9 @@ export async function runAssetOp(ctx: AssetOpContext, request: AssetOpRequest): 
   await assetPath(root, reportPath);
   const params = request.params ?? {};
   const audio = request.op.startsWith('audio-');
-  const report: AssetOpReport = { op: request.op, params, tool: audio ? 'ffmpeg (not run)' : `sharp ${sharp.versions.sharp}`, dryRun: request.dryRun === true,
+  // Ops that run FFmpeg: audio, and decoding a video into frames.
+  const usesFfmpeg = audio || request.op === 'video-frames';
+  const report: AssetOpReport = { op: request.op, params, tool: usesFfmpeg ? 'ffmpeg (not run)' : `sharp ${sharp.versions.sharp}`, dryRun: request.dryRun === true,
     results: [], originalsPreserved: true, counts: { succeeded: 0, failed: 0, skipped: 0 } };
   const sources: { result: AssetOpItemResult; source: string; file: string }[] = [];
   // Hash every readable original before any operation, including skipped inputs.
@@ -47,7 +50,7 @@ export async function runAssetOp(ctx: AssetOpContext, request: AssetOpRequest): 
     } catch (error) { result.error = message(error); }
   }
   let toolError: unknown;
-  if (audio && !report.dryRun) {
+  if (usesFfmpeg && !report.dryRun) {
     try { report.tool = await ffmpegVersion(); }
     catch (error) { toolError = error; report.tool = 'ffmpeg (unavailable)'; }
   }
@@ -68,7 +71,7 @@ export async function runAssetOp(ctx: AssetOpContext, request: AssetOpRequest): 
         for (const result of results) {
           result.outputHashes = hashes;
           result.outputSha256 = hashes[plan.outputs[0]!]!;
-          if (audio) result.exitCode = 0;
+          if (usesFfmpeg) result.exitCode = 0;
         }
       }
       for (const result of results) result.status = 'succeeded';
@@ -110,7 +113,8 @@ export async function runAssetOp(ctx: AssetOpContext, request: AssetOpRequest): 
   } else {
     for (const { result, source, file } of sources) {
       try {
-        const plan = audio ? planAudioOp(source, file, request.op, params, out) : await planImageOp(root, source, file, request.op, params, out);
+        const plan = request.op === 'video-frames' ? await planVideoFrames(source, file, params, out)
+          : audio ? planAudioOp(source, file, request.op, params, out) : await planImageOp(root, source, file, request.op, params, out);
         await execute(plan, [result], [result.sourceSha256!]);
       } catch (error) { result.error = message(error); }
     }

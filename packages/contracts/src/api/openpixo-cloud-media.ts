@@ -31,6 +31,18 @@ export function isOpenPixoModel3dService(id: unknown): boolean {
   return typeof id === 'string' && Object.values(OPENPIXO_MODEL3D_SERVICES).includes(id);
 }
 
+/**
+ * The hosted walk-animation service: one reference image (a sheet of character poses) becomes a
+ * short looping clip that starts and ends on that image. Length and size are fixed by the service.
+ * Listed only to apps that ask for `generation-services?v=5`.
+ */
+export const OPENPIXO_WALK_VIDEO_SERVICE = 'openpixo-walk-video';
+
+/** Whether a hosted service id makes video. */
+export function isOpenPixoVideoService(id: unknown): boolean {
+  return id === OPENPIXO_WALK_VIDEO_SERVICE;
+}
+
 /** What is quoted and sent as a 3D service's prompt, whatever a caller typed, so a quote never drifts. */
 export const OPENPIXO_MODEL3D_PROMPT = 'A textured 3D model of the object in the reference image.';
 
@@ -84,7 +96,7 @@ export type OpenPixoGenerationAudioKind = 'sfx' | 'speech' | 'music';
 export interface OpenPixoGenerationService {
   /** Also the daemon media model id, e.g. `openpixo-image`. */
   id: string;
-  surface: 'image' | 'audio' | 'model3d';
+  surface: 'image' | 'audio' | 'model3d' | 'video';
   /** Which kind of sound an audio service makes. */
   audioKind?: OpenPixoGenerationAudioKind;
   /** Which quality tier a 3D service is. */
@@ -185,7 +197,7 @@ export interface OpenPixoGenerationReferenceResponse {
 export type OpenPixoGenerationJobState = 'queued' | 'running' | 'checking' | 'succeeded' | 'failed';
 
 export interface OpenPixoGenerationArtifact {
-  mime: 'image/png' | 'image/jpeg' | 'image/webp' | 'audio/mpeg' | 'model/gltf-binary';
+  mime: 'image/png' | 'image/jpeg' | 'image/webp' | 'audio/mpeg' | 'model/gltf-binary' | 'video/mp4';
   bytes: number;
   /** Null on direct delivery, where the cloud never reads the whole file. */
   sha256: string | null;

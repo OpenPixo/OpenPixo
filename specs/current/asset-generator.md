@@ -33,7 +33,7 @@ Made with the owner, 2026-11-14:
 1. The generator is the front of 生成素材. Recipes become **presets** inside it,
    not a separate list.
 2. It covers **图片 · 音频 (音效 / 语音 / 音乐) · 3D** from the first release.
-   Video comes later.
+   Video comes later, except the 8-direction walk and idle (2026-11-15, decision 9).
 3. Results are **staged**. Nothing enters the project until the user presses
    保存到游戏 (or the agent adopts). Staged results stay in history.
 4. History shows the **user's and the agent's** generations together.
@@ -46,6 +46,13 @@ Made with the owner, 2026-11-14:
    later. The game's panel has no 生成 view.
 8. Results are downloaded to the user's machine and never saved or managed on
    our end (§5.1). History is what is on that machine.
+9. **The 8-direction walk is two visible steps** (2026-11-15): `sprite-walk-sheet-8dir` draws the
+   character mid-stride in all eight directions on green; the user checks it; the action
+   `sprite-walk-8dir` (on that result only, `acts.recipes`) animates it with one looping
+   image-to-video clip, cuts it into frames and exports one animation per direction. Credits
+   users get it through the hosted walk clip; it replaces the single-image 64-frame grid.
+   The 8-direction idle uses the same two steps (`sprite-idle-sheet-8dir`, `sprite-idle-8dir`) and
+   the same hosted clip, played at half speed so one breath takes 1.75 s.
 
 Still open (§12): the prices of the new hosted services, and default counts.
 
@@ -380,7 +387,8 @@ the agent prompt, not through 生成.
 | Sound effects, voice, music | existing services | configured audio models |
 | 3D from image | existing three tiers | configured 3D model |
 | Rig, retexture, fewer triangles, text to 3D | later; check what our 3D providers expose before promising | — |
-| Video, video to frames | later | — |
+| Walk and idle clip, video to frames | **new** hosted `openpixo-walk-video` (cloud repo, `?v=5`) | media gateway `h3-max-turbo-gateway`; `video-frames` op is local |
+| Other video | later | — |
 
 New hosted services are added in `openpixo-cloud` `generation-services.ts` with
 neutral ids (`openpixo-remove-bg`, `openpixo-upscale`), listed only to app
@@ -472,6 +480,6 @@ change**; 3 can follow in parallel with 2; 4–6 after 2.
 
 ## 14. Not in this spec
 
-Video generation and video to sprite frames, inpainting with a mask brush,
+General video generation (the walk clip is in scope, §2 decision 9), inpainting with a mask brush,
 style training on the user's own art, an infinite canvas, a community feed or
 sharing of generations, rigging and retexturing 3D.

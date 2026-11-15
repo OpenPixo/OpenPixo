@@ -528,10 +528,11 @@ export class OpenPixoAccountService {
   /** Public catalogue; works signed out so the UI can show prices first. */
   async generationServices() {
     this.assertConfigured();
-    // `v=4` asks for every surface, every 3D tier, every image shape and resolution. Without a version
-    // the cloud lists only what app 1.0.0 can read; `v=2` is what 1.0.1 asks for, which has the medium
-    // 3D tier alone, and `v=3` (apps 1.0.2–1.0.4) gets no 21:9 and no resolutions.
-    return generationServices(await this.cloud().edge('generation-services', 'GET', undefined, undefined, '?v=4'));
+    // `v=5` asks for every surface, every 3D tier, every image shape and resolution, and the walk
+    // video. Without a version the cloud lists only what app 1.0.0 can read; `v=2` is what 1.0.1
+    // asks for, which has the medium 3D tier alone, `v=3` (apps 1.0.2–1.0.4) gets no 21:9 and no
+    // resolutions, and `v=4` everything but video.
+    return generationServices(await this.cloud().edge('generation-services', 'GET', undefined, undefined, '?v=5'));
   }
 
   async generationQuote(service: unknown, params: unknown) {

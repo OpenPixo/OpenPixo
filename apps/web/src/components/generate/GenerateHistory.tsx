@@ -27,11 +27,14 @@ function coverOf(run: Pick<RecipeRun, 'recipeId'>, mime: string): string {
 function Tile({ run, candidate, label, onOpen }: { run: RecipeRun; candidate: RecipeCandidate; label: string; onOpen: () => void }) {
   const { t } = useI18n();
   const file = candidate.stagedFiles[0];
+  // A clip cut into a sprite sheet shows the sheet: the picture the game will use.
+  const picture = file && !file.mime.startsWith('image/') && file.mime.startsWith('video/')
+    ? candidate.stagedFiles.findIndex(entry => entry.mime.startsWith('image/')) : file?.mime.startsWith('image/') ? 0 : -1;
   const saved = Boolean(candidate.adoptedPaths?.length);
   let body;
   if (candidate.error) body = <span className={styles.tileProblem}>{t('generate.candidateFailed')}</span>;
   else if (!file) body = <span className={styles.tilePending} aria-hidden="true" />;
-  else if (file.mime.startsWith('image/')) body = <FadeImage src={stagedFileUrl(run, candidate, 0)} className={styles.tileImage} loading="lazy" />;
+  else if (picture >= 0) body = <FadeImage src={stagedFileUrl(run, candidate, picture)} className={styles.tileImage} loading="lazy" />;
   else body = <FadeImage src={`/generate-art/${coverOf(run, file.mime)}.webp`} className={styles.tileCover} loading="lazy" />;
   return <button type="button" className={`${styles.tile} ${loadingFrame}`} onClick={onOpen} aria-label={label} data-saved={saved || undefined}
     data-testid="generate-tile">

@@ -10,6 +10,7 @@ import { migrateMediaTasks } from '../src/media/tasks.js';
 import { generateMedia } from '../src/media/index.js';
 import { IMAGE_MODELS, type MediaModel } from '../src/media/models.js';
 import { runAssetOp } from '../src/assets/ops/index.js';
+import { runFfmpeg } from '../src/assets/ops/audio.js';
 import { listAssetProvenance } from '../src/assets/provenance-store.js';
 import { recipeDetail } from './fixtures/recipes.js';
 import type { ArtStyle, RecipeRun } from '@openpixo/contracts';
@@ -206,14 +207,53 @@ it('asks the image provider for a transparent background when the recipe declare
   expect(generate.mock.calls[1]![0]).not.toHaveProperty('background');
 });
 
-it('makes the bundled walk recipe request transparency instead of keying a painted magenta', () => {
+it('animates a walk sheet: one looping clip, intermediate frames kept out, one animation per direction', async () => {
   const walk = discoverRecipes(path.resolve(import.meta.dirname, '../../../plugins/_official')).find(recipe => recipe.id === 'sprite-walk-8dir')!;
-  const recipe = walk.manifest.pixo!.recipe!;
-  expect(recipe.generation?.background).toBe('transparent');
-  expect(`${recipe.prompt}\n${recipe.negative ?? ''}`).not.toMatch(/magenta|#FF00FF/i);
-  expect(recipe.postprocess?.map(step => step.op)).not.toContain('remove-bg');
-  // A character drawn to the cell border is clipped when the sheet is sliced.
-  expect(recipe.prompt).toContain('clear empty space between the cell edges and every part of the character');
+  await sharp({ create: { width: 1344, height: 768, channels: 3, background: { r: 0, g: 255, b: 0 } } }).png().toFile(path.join(project, 'sheet.png'));
+  // A 22-frame clip of the 4x2 grid: one coloured block per cell, bobbing, the last frame the first again.
+  const colors = [[255, 0, 0], [0, 0, 255], [255, 255, 255], [0, 0, 0], [255, 128, 0], [128, 0, 255], [0, 128, 255], [255, 0, 128]] as const;
+  const frames = path.join(root, 'clip-frames'); await mkdir(frames);
+  for (let frame = 0; frame < 22; frame++) {
+    const step = frame === 21 ? 0 : frame % 6;
+    const blocks = await Promise.all(colors.map(async ([r, g, b], cell) => ({
+      input: await sharp({ create: { width: 120, height: 200, channels: 3, background: { r, g, b } } }).png().toBuffer(),
+      left: (cell % 4) * 336 + 108, top: Math.floor(cell / 4) * 384 + 90 + step * 4 })));
+    await sharp({ create: { width: 1344, height: 768, channels: 3, background: { r: 0, g: 255, b: 0 } } }).composite(blocks).png().toFile(path.join(frames, `${String(frame).padStart(2, '0')}.png`));
+  }
+  const calls: Array<Parameters<typeof generateMedia>[0]> = [];
+  const generate: typeof generateMedia = async args => {
+    calls.push(args);
+    const target = path.join(args.projectsRoot, args.projectId, args.output!);
+    await runFfmpeg(['-hide_banner', '-loglevel', 'error', '-framerate', '24', '-i', path.join(frames, '%02d.png'), '-c:v', 'libx264', '-qp', '0', '-pix_fmt', 'yuv444p', target]);
+    return { name: args.output!, mime: 'video/mp4', providerId: 'media-gateway', providerError: null, warnings: [] } as unknown as Awaited<ReturnType<typeof generateMedia>>;
+  };
+  const video: MediaModel = { id: 'h3-max-turbo-gateway', provider: 'media-gateway', caps: ['i2v', 'i2v-loop'], label: 'H3 Max Turbo', hint: '' };
+  const executor = new RecipeExecutor({ runtimeDataDir: data, projectRoot: root, db, mediaTasks: createMediaTaskStore(db), generate });
+  const started = await executor.start(walk, 'p', project, { recipeId: walk.id, inputs: { source: 'sheet.png' } }, video);
+  const ready = await executor.wait('p', started.id);
+  expect(ready.status, JSON.stringify(ready)).toBe('ready');
+  // The clip is the recipe's: under a second, 768p, and the sheet is also its last frame.
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({ surface: 'video', length: 0.92, resolution: '768p', loop: true, images: ['references/0.png'] });
+  const candidate = ready.candidates[0]!;
+  // Staged: the clip and the engine sheet; never the 21 frames, the keyed frames or the 168 cells.
+  expect(candidate.stagedFiles.map(file => path.basename(file.ref))).toEqual(['primary.mp4', 'walk.png', 'walk.aseprite.json', 'walk.sheet.json']);
+  expect(candidate.checks).toContainEqual(expect.objectContaining({ check: 'has-alpha', ok: true }));
+  const layout = JSON.parse(await readFile(candidate.stagedFiles[3]!.ref, 'utf8'));
+  expect(layout).toEqual({ image: 'walk.png', cell: { width: 336, height: 384 }, columns: 21, rows: 8, fps: 24, loop: true,
+    animations: ['down', 'down-right', 'right', 'up-right', 'up', 'up-left', 'left', 'down-left'] });
+  const { data: pixels, info } = await sharp(candidate.stagedFiles[1]!.ref).raw().toBuffer({ resolveWithObject: true });
+  for (let row = 0; row < 8; row++) {
+    const offset = ((row * 384 + 200) * info.width + 10 * 336 + 168) * info.channels;
+    const [r, g, b] = colors[row]!;
+    expect(Math.abs(pixels[offset]! - r) + Math.abs(pixels[offset + 1]! - g) + Math.abs(pixels[offset + 2]! - b), `row ${row}`).toBeLessThan(40);
+    expect(pixels[offset + 3], `row ${row}`).toBe(255);
+    expect(pixels[((row * 384 + 4) * info.width + 4) * info.channels + 3], `row ${row} corner`).toBe(0);
+  }
+  // Asking for 7 frames keeps every third, at the same loop length.
+  const seven = await executor.start(walk, 'p', project, { recipeId: walk.id, inputs: { source: 'sheet.png', frames: '7' } }, video);
+  const sevenReady = await executor.wait('p', seven.id);
+  expect(JSON.parse(await readFile(sevenReady.candidates[0]!.stagedFiles[3]!.ref, 'utf8'))).toMatchObject({ columns: 7, rows: 8, fps: 8 });
 });
 
 it('adopts the bundled VFX recipe as one continuous non-looping engine animation', async () => {

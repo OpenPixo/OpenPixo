@@ -13,6 +13,7 @@ export const ASSET_OP_NAMES = [
   'remove-bg',
   'frames-check',
   'frames-align',
+  'video-frames',
   'audio-normalize',
   'audio-trim',
   'audio-loop',

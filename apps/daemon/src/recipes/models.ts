@@ -22,6 +22,8 @@ export function hostedRecipeModelIds(recipe: Recipe, hasReferences: boolean): st
   if (recipe.surface === 'image') return hasReferences ? ['openpixo-image-edit'] : ['openpixo-image', 'openpixo-image-edit'];
   if (recipe.surface === 'audio') return ['openpixo-sfx', 'openpixo-voice', 'openpixo-music'];
   if (recipe.surface === 'model3d') return hasReferences ? ['openpixo-model3d', 'openpixo-model3d-draft', 'openpixo-model3d-high'] : [];
+  // Hosted video is the walk clip alone: it animates one picture, so a recipe without one has none.
+  if (recipe.surface === 'video') return hasReferences ? ['openpixo-walk-video'] : [];
   return [];
 }
 

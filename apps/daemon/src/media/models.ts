@@ -175,6 +175,8 @@ export const IMAGE_MODELS: MediaModel[] = [
 ];
 
 export const VIDEO_MODELS: MediaModel[] = [
+  // Hosted, paid with credits: only the looping walk clip, so it carries no general i2v cap.
+  { id: 'openpixo-walk-video', label: 'OpenPixo sprite animation', hint: 'OpenPixo cloud · credits · a looping walk or idle from a sheet of poses', provider: 'openpixo', caps: ['i2v-loop'] },
   { id: 'doubao-seedance-2-0-260128', label: 'seedance-2.0', hint: 'ByteDance · t2v + i2v + audio', provider: 'volcengine', caps: ['t2v', 'i2v', 'audio'], default: true },
   { id: 'doubao-seedance-2-0-fast-260128', label: 'seedance-2.0-fast', hint: 'ByteDance · faster, cheaper', provider: 'volcengine', caps: ['t2v', 'i2v', 'audio'] },
 
@@ -201,6 +203,8 @@ export const VIDEO_MODELS: MediaModel[] = [
   { id: 'wan-2.1-i2v', label: 'wan-2.1-i2v', hint: 'Media gateway · Wan 2.1 image-to-video', provider: 'media-gateway', caps: ['i2v'] },
   { id: 'seedance-1-pro-gateway', label: 'Seedance 1 Pro', hint: 'Media gateway · Seedance 1 Pro', provider: 'media-gateway', caps: ['t2v', 'i2v'] },
   { id: 'kling-2.1-t2v-gateway', label: 'Kling 2.1', hint: 'Media gateway · Kling 2.1 Pro text-to-video', provider: 'media-gateway', caps: ['t2v'] },
+  // `i2v-loop`: takes a start and an end frame and a length under a second, which a looping sprite walk needs.
+  { id: 'h3-max-turbo-gateway', label: 'H3 Max Turbo', hint: 'Media gateway · fast image-to-video with start and end frames', provider: 'media-gateway', caps: ['i2v', 'i2v-loop'] },
   { id: 'sora-2', label: 'sora-2', hint: 'Media gateway · OpenAI Sora 2', provider: 'media-gateway', caps: ['t2v'] },
   { id: 'sora-2-pro', label: 'sora-2-pro', hint: 'Media gateway · OpenAI Sora 2 Pro', provider: 'media-gateway', caps: ['t2v'] },
 
@@ -269,13 +273,22 @@ export function hostedAudioParams(kind: AudioKind, input: { style?: unknown; voi
 }
 
 /** The one surface an OpenPixo hosted model makes, so a mismatch is refused before anything is priced. */
-export function hostedModelSurface(id: unknown): 'image' | 'audio' | 'model3d' {
+export function hostedModelSurface(id: unknown): 'image' | 'audio' | 'model3d' | 'video' {
   if (hostedAudioKind(id)) return 'audio';
+  if (VIDEO_MODELS.some((model) => model.id === id && model.provider === 'openpixo')) return 'video';
   return MODEL3D_MODELS.some((model) => model.id === id && model.provider === 'openpixo') ? 'model3d' : 'image';
 }
 
 export const MEDIA_ASPECTS = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 export const VIDEO_LENGTHS_SEC = [3, 5, 8, 10, 15, 30];
+/**
+ * A model that loops between key frames takes its length exactly, down to under a second,
+ * instead of snapping to `VIDEO_LENGTHS_SEC`: a walk cycle lasts about one second.
+ */
+export const LOOP_VIDEO_LENGTH_SEC = { min: 0.92, max: 15 } as const;
+export function takesExactVideoLength(model: Pick<MediaModel, 'caps'>): boolean {
+  return model.caps.includes('i2v-loop');
+}
 export const AUDIO_DURATIONS_SEC = [5, 10, 15, 30, 60, 120];
 
 

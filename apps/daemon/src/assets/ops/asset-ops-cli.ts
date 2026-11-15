@@ -4,18 +4,22 @@ import { ASSET_OP_NAMES, type AssetOpName, type AssetOpReport, type AssetOpReque
 import { resolveDaemonUrl } from '../../daemon-url.js';
 
 /** First argv tokens of `pixo asset ...` this module handles (e.g. `resize`, `slice`, `audio`). */
-export const ASSET_OP_COMMANDS: ReadonlySet<string> = new Set(['resize', 'trim', 'slice', 'pack', 'export-spritesheet', 'pixelate', 'palette', 'seamless-check', 'remove-bg', 'frames', 'audio']);
+export const ASSET_OP_COMMANDS: ReadonlySet<string> = new Set(['resize', 'trim', 'slice', 'pack', 'export-spritesheet', 'pixelate', 'palette', 'seamless-check', 'remove-bg', 'frames', 'video-frames', 'audio']);
 
 const USAGE = `${PRODUCT_CLI_NAME} asset <op> <inputs...> [--project <id>] [--out <rel-dir>] [--json] [--dry-run]
   resize          --width/--height <px> | --scale <factor> [--filter nearest|lanczos]
   trim            [--padding <px>]
   slice           --grid CxR | --cell WxH [--margin <px>] [--spacing <px>] [--frame-columns N]
   pack            [--max-size <px>] [--padding <px>] [--format texturepacker-json|godot-tres]
-  export-spritesheet [--format auto|godot|phaser|aseprite] [--columns N] [--animations down,left,...] [--fps N] [--name <stem>] [--no-loop]
+  export-spritesheet [--format auto|godot|phaser|aseprite] [--columns N] [--animations down,left,...] [--fps N | --loop-seconds S] [--name <stem>] [--no-loop]
+                  [--order by-cell]: inputs are whole-grid pictures sliced in turn (every cell of picture 1, then picture 2...);
+                  cell N of every picture becomes animation N. Also writes <stem>.sheet.json (cell size, columns, animations, fps).
   pixelate        --size <longest-side-px> | --pixel-size <grid-unit-px> [--palette gameboy|pico8|grayscale|<file.gpl|file.hex>] [--dither none|ordered]
   palette         --colors <1-256> [--apply] [--palette gameboy|pico8|grayscale|<file>]
   seamless-check
   remove-bg       --mode chroma --color <RRGGBB> [--tolerance <0-255>] (model deferred)
+                  [--softness <0-255>] [--despill]: soft green/blue-screen key for video frames; the edge fades
+                  over --softness and --despill takes the screen tint off it.
   frames check    <frame files in order...>   Measures each frame (drawn box, feet line and centre, empty,
                   touching the edge) and reports the set in "summary": feet moving, sliding, size drift,
                   empty frames, plus one plain sentence per problem in summary.issues. Writes no images.
@@ -23,6 +27,9 @@ const USAGE = `${PRODUCT_CLI_NAME} asset <op> <inputs...> [--project <id>] [--ou
                   Writes every frame on one canvas with one scale, feet on one line at the bottom centre.
                   --canvas scales them all by the same factor to fit; --match-height first evens out
                   drawings a model made taller or shorter (not for a crouch or jump).
+  video-frames    <video.mp4> [--count N] [--fps N] [--drop-repeated-end]
+                  One PNG per frame in time order. --count keeps N spread evenly; --drop-repeated-end drops a last
+                  frame that repeats the first (a clip that loops back to its start image).
   audio normalize --lufs <target>
   audio trim      --silence-threshold <dB>
   audio loop      --crossfade-ms <ms>
@@ -30,8 +37,8 @@ const USAGE = `${PRODUCT_CLI_NAME} asset <op> <inputs...> [--project <id>] [--ou
 Outputs default to derived/<op>/<original-relative-path> (PNG/WAV unless specified).
 Dry runs plan outputs without writing. Existing outputs are skipped.`;
 
-const NUMERIC_FLAGS = new Set(['width', 'height', 'scale', 'padding', 'margin', 'spacing', 'max-size', 'size', 'pixel-size', 'frame-columns', 'colors', 'tolerance', 'lufs', 'crossfade-ms', 'sample-rate', 'columns', 'fps']);
-const STRING_FLAGS = ['filter', 'grid', 'cell', 'format', 'palette', 'dither', 'mode', 'color', 'model', 'silence-threshold', 'name', 'animations', 'canvas'];
+const NUMERIC_FLAGS = new Set(['width', 'height', 'scale', 'padding', 'margin', 'spacing', 'max-size', 'size', 'pixel-size', 'frame-columns', 'colors', 'tolerance', 'lufs', 'crossfade-ms', 'sample-rate', 'columns', 'fps', 'count', 'softness', 'loop-seconds']);
+const STRING_FLAGS = ['filter', 'grid', 'cell', 'format', 'palette', 'dither', 'mode', 'color', 'model', 'silence-threshold', 'name', 'animations', 'canvas', 'order'];
 
 export async function runAssetOpCli(args: string[]): Promise<void> {
   let json = args.includes('--json');
@@ -51,6 +58,7 @@ export async function runAssetOpCli(args: string[]): Promise<void> {
     const { values, positionals } = parseArgs({ args: normalized, allowPositionals: true, options: {
       ...Object.fromEntries([...NUMERIC_FLAGS, ...STRING_FLAGS].map(flag => [flag, { type: 'string' as const }])),
       project: { type: 'string' }, out: { type: 'string' }, json: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, apply: { type: 'boolean' }, 'no-loop': { type: 'boolean' }, 'match-height': { type: 'boolean' },
+      despill: { type: 'boolean' }, 'drop-repeated-end': { type: 'boolean' },
       'daemon-url': { type: 'string' }, workspace: { type: 'string' }, 'workspace-member': { type: 'string' },
     } });
     json = values.json === true;
@@ -61,6 +69,8 @@ export async function runAssetOpCli(args: string[]): Promise<void> {
     if (values.apply) params.apply = true;
     if (values['no-loop']) params.loop = false;
     if (values['match-height']) params.matchHeight = true;
+    if (values.despill) params.despill = true;
+    if (values['drop-repeated-end']) params.dropRepeatedEnd = true;
     for (const flag of [...NUMERIC_FLAGS, ...STRING_FLAGS]) {
       const value = (values as Record<string, string | boolean | undefined>)[flag];
       if (value === undefined) continue;

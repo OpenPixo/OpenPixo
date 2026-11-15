@@ -2,17 +2,17 @@
   "$schema": "urn:openpixo:plugin:v1",
   "specVersion": "1.0.0",
   "name": "openpixo/sprite-walk-8dir",
-  "title": "8-direction walk sprite sheet",
+  "title": "8-direction walk animation",
   "title_i18n": {
-    "en": "8-direction walk sprite sheet",
-    "zh-CN": "8 方向行走精灵图"
+    "en": "8-direction walk animation",
+    "zh-CN": "8 方向行走动画"
   },
-  "version": "0.2.0",
-  "publishedAt": "2026-10-27T18:47:39+09:00",
-  "description": "An 8-direction walk cycle on square cells, sliced into transparent PNG frames and exported with engine animation metadata.",
+  "version": "0.3.0",
+  "publishedAt": "2026-11-15T12:00:00+09:00",
+  "description": "Step 2 of a walk animation: animates an 8-direction walk sheet into one smooth looping walk per direction, as transparent frames and an engine sprite sheet.",
   "description_i18n": {
-    "en": "An 8-direction walk cycle on square cells, sliced into transparent PNG frames and exported with engine animation metadata.",
-    "zh-CN": "方形格子排布的 8 方向行走循环，切成透明 PNG 逐帧，并导出引擎动画元数据。"
+    "en": "Step 2 of a walk animation: animates an 8-direction walk sheet into one smooth looping walk per direction, as transparent frames and an engine sprite sheet.",
+    "zh-CN": "行走动画第 2 步：把 8 方向行走姿势图做成每个方向一段流畅循环的行走，导出透明帧和引擎精灵图。"
   },
   "license": "Apache-2.0",
   "author": {
@@ -22,49 +22,38 @@
     "recipe",
     "first-party",
     "openpixo",
-    "image",
+    "video",
     "character"
   ],
   "pixo": {
     "kind": "recipe",
     "recipe": {
-      "surface": "image",
+      "surface": "video",
       "category": "character",
       "engines": [
         "any"
       ],
+      "whenToUse": "Second step of an 8-direction walk: animate a walk sheet from sprite-walk-sheet-8dir into a looping walk for every direction.",
+      "dimension": [
+        "2d"
+      ],
+      "acts": {
+        "on": [
+          "image"
+        ],
+        "recipes": [
+          "openpixo/sprite-walk-sheet-8dir"
+        ]
+      },
       "inputs": [
         {
-          "name": "character",
-          "label": "Character",
+          "name": "source",
+          "label": "Walk sheet",
           "label_i18n": {
-            "zh-CN": "角色"
+            "zh-CN": "行走姿势图"
           },
-          "type": "character-ref",
+          "type": "image-ref",
           "required": true
-        },
-        {
-          "name": "style",
-          "label": "Art style",
-          "label_i18n": {
-            "zh-CN": "美术风格"
-          },
-          "type": "select",
-          "options": [
-            "pixel art, 32px character",
-            "pixel art, 16px character",
-            "hand-painted 2D",
-            "clean cartoon with bold outlines"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "pixel art, 32px character": "像素风，32 像素角色",
-              "pixel art, 16px character": "像素风，16 像素角色",
-              "hand-painted 2D": "2D 手绘",
-              "clean cartoon with bold outlines": "粗描边的简洁卡通"
-            }
-          },
-          "default": "pixel art, 32px character"
         },
         {
           "name": "frames",
@@ -74,104 +63,119 @@
           },
           "type": "select",
           "options": [
-            "4",
-            "6",
-            "8"
+            "21",
+            "7"
           ],
-          "default": "6"
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "21": "21 帧（流畅）",
+              "7": "7 帧（像素游戏常用）"
+            }
+          },
+          "default": "21"
         }
       ],
-      "prompt": "Game sprite sheet: walk cycle of {{character.name}}, {{character.description}}. A strict grid of 8 columns by 8 rows of equal square cells, with no gaps and no visible grid lines. Each row is one facing direction, top to bottom: down (facing the viewer), down-left, left, up-left, up (back to the viewer), up-right, right, down-right. Only the first {{frames}} cells of each row contain a looping {{frames}}-frame walk cycle read left to right; every remaining cell is empty background. The walk cycle has alternating legs and a slight body bob. Top-down three-quarter view with the same camera angle in every cell. The character is centered in each cell at the same size, about three quarters of the cell height, with clear empty space between the cell edges and every part of the character, hair, clothing and feet included; feet on the same baseline; nothing crosses into a neighboring cell. Identical design, colors and proportions in every frame; where reference images are provided, follow them exactly. Style: {{style}}, crisp clean edges, flat even lighting. Background: fully transparent, with nothing behind the character: no floor, cast shadow, scenery or vignette.",
-      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, inconsistent character between frames, changing size, overlapping cells, uneven grid, missing frames, motion blur, speed lines, weapons or props not in the reference",
+      "prompt": "A 2D game sprite sheet on a flat green screen: eight copies of the same cartoon character in two rows of four. Each copy does a walk cycle in place, as if on a treadmill that runs in the direction that copy is facing. Each copy keeps its head, chest and hips pointing in its own starting direction for the whole clip: no copy turns, twists, leans or rotates, and none moves out of its spot.\n\nHow each copy steps:\nTop row, first (facing the camera): walks straight toward the camera. Its legs move forward and back toward the viewer, so on screen each foot moves up and down: the stepping foot lands a little lower in the frame and the back foot lifts behind. Knees stay under the hips and never spread sideways; the feet stay hip-width apart.\nTop row, second (facing down-right): walks diagonally toward the bottom-right of the screen. The stepping foot reaches toward the bottom-right corner; the stride runs along that diagonal, not across the screen.\nTop row, third (facing right, side profile): a classic side-view walk; legs swing forward and back, which is left-right on screen.\nTop row, fourth (facing up-right, seen from behind): walks away diagonally toward the top-right. The stepping foot reaches toward the top-right corner; the stride runs along that diagonal.\nBottom row, first (back to the camera): walks straight away from the camera. Each foot moves up and down on screen: the stepping foot lands a little higher in the frame, the back foot lifts and shows its sole. Knees stay under the hips and never spread sideways.\nBottom row, second (facing up-left, seen from behind): walks away diagonally toward the top-left; the stride runs along that diagonal.\nBottom row, third (facing left, side profile): a classic side-view walk; legs swing left-right on screen.\nBottom row, fourth (facing down-left): walks diagonally toward the bottom-left; the stride runs along that diagonal.\n\nAll copies: arms swing opposite to the legs, the body bobs slightly up on each passing step, loose cloth sways a little. All eight step in sync. The clip starts mid-stride with every copy's left foot forward, passes through the right foot forward halfway, and ends back in the exact starting pose: exactly one full stride. No copy ever stands still or brings its feet together.\n\nLocked static camera, no zoom, no pan. Flat solid chroma-green background the whole time. Same design, colours and size in every frame. No new objects, no text, no shadows.",
       "models": {
         "requires": [
-          "t2i",
-          "i2i"
+          "i2v-loop"
         ],
         "recommended": [
-          "gpt-image-2",
-          "gemini-3-pro-image-preview"
+          "h3-max-turbo-gateway"
         ],
-        "fallback": [
-          "gpt-image-1.5",
-          "custom-image"
-        ]
+        "fallback": []
       },
       "generation": {
         "count": {
-          "default": 2,
-          "max": 4
+          "default": 1,
+          "max": 3
         },
-        "aspect": "1:1",
-        "background": "transparent"
+        "video": {
+          "duration": 0.92,
+          "resolution": "768p",
+          "loop": true
+        }
       },
       "postprocess": [
         {
+          "op": "video-frames",
+          "params": {
+            "count": "{{frames}}",
+            "dropRepeatedEnd": true
+          },
+          "keep": false
+        },
+        {
           "op": "resize",
           "params": {
-            "width": 1024,
-            "height": 1024
-          }
+            "width": 1344,
+            "height": 768
+          },
+          "keep": false
+        },
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "00ff00",
+            "tolerance": 100,
+            "softness": 80,
+            "despill": true
+          },
+          "keep": false
         },
         {
           "op": "slice",
           "params": {
-            "grid": "8x8",
-            "frameColumns": "{{frames}}"
-          }
+            "grid": "4x2"
+          },
+          "keep": false
         },
         {
           "op": "export-spritesheet",
           "params": {
             "name": "walk",
-            "columns": "{{frames}}",
             "animations": [
               "down",
-              "down-left",
-              "left",
-              "up-left",
-              "up",
-              "up-right",
+              "down-right",
               "right",
-              "down-right"
+              "up-right",
+              "up",
+              "up-left",
+              "left",
+              "down-left"
             ],
-            "fps": 8
+            "order": "by-cell",
+            "loopSeconds": 0.875
           }
         }
       ],
       "checks": [
         {
           "check": "has-alpha"
-        },
-        {
-          "check": "grid-divisible",
-          "params": {
-            "grid": "8x8"
-          }
         }
       ],
       "output": {
-        "dir": "{{engine.spriteRoot}}/{{character.slug}}",
-        "name": "{{character.slug}}_walk"
+        "dir": "{{engine.spriteRoot}}/walk",
+        "name": "walk"
       }
     }
   },
   "examples": [
     {
-      "title": "Knight walking, 8 directions",
+      "title": "Adventurer walk",
       "title_i18n": {
-        "zh-CN": "骑士 8 方向行走"
+        "zh-CN": "冒险者行走动画"
       },
-      "prompt": "pixel art, 32px character",
+      "prompt": "the adventurer's walk sheet, animated in eight directions",
       "prompt_i18n": {
-        "zh-CN": "像素风，32 像素角色"
+        "zh-CN": "冒险者的行走姿势图，做成 8 个方向的行走动画"
       },
       "inputs": {
-        "style": "pixel art, 32px character",
-        "frames": "6"
+        "frames": "21"
       },
-      "before": "examples/knight-before.webp",
-      "after": "examples/knight-after.webp"
+      "before": "examples/adventurer-before.webp",
+      "after": "examples/adventurer-after.webp"
     }
   ]
 }

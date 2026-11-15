@@ -95,7 +95,7 @@ export interface HostedGenerateArgs {
 const MAX_ARTIFACT_BYTES = 200 * 1024 * 1024;
 const MAX_REFERENCE_BYTES = 10 * 1024 * 1024;
 const MAX_REFERENCES = 4;
-const EXTENSIONS = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'audio/mpeg': '.mp3', 'model/gltf-binary': '.glb' } as const;
+const EXTENSIONS = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'audio/mpeg': '.mp3', 'model/gltf-binary': '.glb', 'video/mp4': '.mp4' } as const;
 const PENDING = ['submitting', 'pending'] as const;
 
 /** Every hosted 3D tier works from its reference alone, so its prompt is fixed and a quote cannot drift. */
@@ -240,6 +240,8 @@ function sniff(bytes: Buffer): keyof typeof EXTENSIONS | null {
   if (bytes.subarray(0, 4).toString('latin1') === 'RIFF' && bytes.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
   if (bytes.subarray(0, 3).toString('latin1') === 'ID3' || isMp3Frame(bytes)) return 'audio/mpeg';
   if (bytes.subarray(0, 4).toString('latin1') === 'glTF' && bytes.readUInt32LE(4) === 2) return 'model/gltf-binary';
+  // ISO base media: an `ftyp` box first, with an MP4 brand.
+  if (bytes.subarray(4, 8).toString('latin1') === 'ftyp' && /^(isom|iso[2-9]|mp4[12]|avc1|M4V |dash)$/u.test(bytes.subarray(8, 12).toString('latin1'))) return 'video/mp4';
   return null;
 }
 
@@ -462,7 +464,8 @@ export class OpenPixoHostedMedia {
     await writeFile(destination, bytes);
     const info = await stat(destination);
     const charged = job.creditsCharged ?? job.creditsReserved;
-    const surface = artifact.mime === 'audio/mpeg' ? 'audio' as const : artifact.mime === 'model/gltf-binary' ? 'model3d' as const : 'image' as const;
+    const surface = artifact.mime === 'audio/mpeg' ? 'audio' as const : artifact.mime === 'model/gltf-binary' ? 'model3d' as const
+      : artifact.mime === 'video/mp4' ? 'video' as const : 'image' as const;
     const file = {
       name, size: info.size, mtime: info.mtimeMs, kind: kindFor(name), mime: mimeFor(name), model: link.service, surface,
       providerId: 'openpixo', providerNote: `OpenPixo cloud · ${charged} credits`, providerError: null,
