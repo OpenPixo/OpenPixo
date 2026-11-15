@@ -161,8 +161,23 @@ function renderGameBaseRules(input: GameProjectPromptInput): string[] {
   ];
   if (input.streamFormat === 'plain') {
     parts.push('This provider is text-only in this run: it has no filesystem or tool execution. Explain that limit when asked to modify the project, and provide reviewable code or instructions without claiming files were written.');
+  } else {
+    parts.push(renderProjectNotesRule(!planning && input.sessionMode !== 'plan'));
   }
   return parts;
+}
+
+/**
+ * Project notes: `AGENTS.md` in the game folder, so a new conversation does not
+ * rediscover the project. Most runtimes load it into the instructions (OpenCode
+ * through `opencode-project-notes.ts`, Codex natively); it is written only at the
+ * end of a turn, because the hosted runtime reads it again on every request and a
+ * mid-turn edit would make the rest of the turn miss the prompt cache.
+ */
+export function renderProjectNotesRule(canWrite: boolean): string {
+  const read = 'Project notes: `AGENTS.md` in the project folder holds short notes for whoever works on this game next. When it exists, its text is usually already in your instructions; if it is not, read the file before exploring. Trust it, check only what the task touches, and do not list or search the whole project to rediscover what it says.';
+  if (!canWrite) return read;
+  return `${read} When a turn taught you something lasting about the project, update the notes as the last step of the turn, never in the middle: which files hold the main scenes, the player, animations and asset manifests; how assets are made and loaded; how to check, run and playtest the game, including playtest inputs that get past menus into play; and traps you hit. Keep the file under about 60 lines, replace what is out of date instead of appending a log of this turn, keep anything the user wrote there, and leave it unchanged when nothing lasting changed.`;
 }
 
 function renderEngineCommand(command: EngineCommand): string {

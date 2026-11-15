@@ -136,7 +136,9 @@ export function spawnEnvForAgent(
     // or a project nested inside it), the install replaces the pnpm `.pnpm` store
     // with a bun `node_modules/.bun` + `bun.lock` and breaks the workspace.
     // Disable project-config discovery (and its install) so OpenCode only honors
-    // the config the daemon injects via OPENCODE_CONFIG_CONTENT.
+    // the config the daemon injects via OPENCODE_CONFIG_CONTENT. The flag also
+    // skips OpenCode's AGENTS.md lookup; `opencode-project-notes.ts` hands the
+    // project's notes back through that config.
     if (!env.OPENCODE_DISABLE_PROJECT_CONFIG?.trim()) {
       env.OPENCODE_DISABLE_PROJECT_CONFIG = 'true';
     }
