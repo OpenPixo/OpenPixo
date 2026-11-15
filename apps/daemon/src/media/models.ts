@@ -176,7 +176,7 @@ export const IMAGE_MODELS: MediaModel[] = [
 
 export const VIDEO_MODELS: MediaModel[] = [
   // Hosted, paid with credits: only the looping walk clip, so it carries no general i2v cap.
-  { id: 'openpixo-walk-video', label: 'OpenPixo walk animation', hint: 'OpenPixo cloud · credits · a looping walk from a sheet of poses', provider: 'openpixo', caps: ['i2v-loop'] },
+  { id: 'openpixo-walk-video', label: 'OpenPixo sprite animation', hint: 'OpenPixo cloud · credits · a looping walk or idle from a sheet of poses', provider: 'openpixo', caps: ['i2v-loop'] },
   { id: 'doubao-seedance-2-0-260128', label: 'seedance-2.0', hint: 'ByteDance · t2v + i2v + audio', provider: 'volcengine', caps: ['t2v', 'i2v', 'audio'], default: true },
   { id: 'doubao-seedance-2-0-fast-260128', label: 'seedance-2.0-fast', hint: 'ByteDance · faster, cheaper', provider: 'volcengine', caps: ['t2v', 'i2v', 'audio'] },
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## OpenPixo 1.0.6
+
+- 8-direction walk and idle animations: in **Generate**, draw a character's walk sheet (or idle sheet) in all eight directions, check it, then press **8-direction walk animation** (or **8-direction idle animation**) on the result. One short clip animates all eight directions at once, and you get transparent frames and a sprite sheet for your engine, with a looping preview of every direction. Characters with a sword on one side or a bag on the other come out right in every direction. With credits, one animation costs 10 credits.
+- Right-click menus: on images, sounds and files the AI made (open, copy, save, attach, show in Explorer), on conversations (rename, fork, mark as unread, delete) and on projects.
+- Switching AI mid-conversation, for example from OpenPixo credits to Codex, keeps the plan, gameplay and style you agreed on.
+- Long conversations open faster: they show the latest 10 turns, and **Show earlier** brings back more.
+- With credits, the AI looks at screenshots and art through a cheaper image reader, so long runs with many screenshots cost less.
+- The AI picks the project skills it needs as it works, instead of loading them from words in your message.
+- Codex speed is a Regular / Fast switch beside the reasoning setting, and the image model menu matches the other menus.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- 8 方向行走和待机动画：在「生成」里先画角色的行走姿势图（或待机姿势图），8 个方向都画出来，检查一下，再在结果上点「8 方向行走动画」（或「8 方向待机动画」）。一段短片同时让 8 个方向动起来，得到透明帧和给引擎用的精灵图，每个方向都能循环预览。一边挂剑、另一边背包的角色，每个方向也都画得对。用积分时，一次动画 10 积分。
+- 右键菜单：AI 做的图片、声音和文件（打开、复制、保存、作为上下文、在资源管理器中显示），对话（重命名、复制一份、标为未读、删除），以及项目。
+- 对话中途换 AI（比如从 OpenPixo 积分换成 Codex）时，之前定好的计划、玩法和画风都会带过去。
+- 长对话打开更快：只显示最近 10 轮，点「显示更早」再加载。
+- 用积分时，AI 通过更便宜的看图模型看截图和美术，截图多的长任务花得更少。
+- AI 在工作中按需选用项目技能，不再根据你消息里的字词自动加载。
+- Codex 速度改成推理设置旁边的「常规 / 快速」开关；图片模型菜单和其他菜单样式一致。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.5
 
 - A new game is made with you, one step at a time: gameplay, art style, engine, plan, then one stage at a time. Each step waits for your OK. You pick the look from 2–3 sample images, and after each stage the AI tells you how to try it before going on.

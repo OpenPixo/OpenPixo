@@ -492,7 +492,7 @@ export const IMAGE_MODELS: MediaModel[] = [
  * Seedance Lite), kling.ts and friends.
  */
 export const VIDEO_MODELS: MediaModel[] = [
-  { id: 'openpixo-walk-video', label: 'OpenPixo walk animation', hint: 'OpenPixo cloud · credits · a looping walk from a sheet of poses', provider: 'openpixo', caps: ['i2v-loop'] },
+  { id: 'openpixo-walk-video', label: 'OpenPixo sprite animation', hint: 'OpenPixo cloud · credits · a looping walk or idle from a sheet of poses', provider: 'openpixo', caps: ['i2v-loop'] },
   // Volcengine — Seedance 2.0 (integrated).
   {
     id: 'doubao-seedance-2-0-260128',
