@@ -1,4 +1,5 @@
 import { mkdir } from 'node:fs/promises';
+import type Database from 'better-sqlite3';
 import type { Express, NextFunction, Request, Response } from 'express';
 import {
   GAME_PLAN_CONCEPT_IMAGE_LIMIT,
@@ -24,6 +25,20 @@ import { setArtBudgetForUser, type ArtBudgetDeps } from './art-budget.js';
 
 export const GAME_PLAN_NOT_APPROVED = 'GAME_PLAN_NOT_APPROVED';
 
+/**
+ * The plan the user approves: the newest non-empty agent message in any of the
+ * project's conversations that is not a `/compact` summary. A summary restates
+ * the conversation, so approving right after `/compact` must still record the
+ * agent's last real reply.
+ */
+export function latestPlanMessage(db: Database.Database, projectId: string): string | null {
+  const row = db.prepare(`SELECT m.content FROM messages m JOIN conversations c ON c.id = m.conversation_id
+    WHERE c.project_id = ? AND m.role = 'assistant' AND TRIM(m.content) != ''
+      AND m.id NOT IN (SELECT message_id FROM conversation_compactions)
+    ORDER BY m.created_at DESC, m.position DESC LIMIT 1`).get(projectId) as { content?: unknown } | undefined;
+  return typeof row?.content === 'string' ? row.content : null;
+}
+
 interface ProjectStore {
   get(id: string): Project | null | undefined;
   update(id: string, patch: { metadata: NonNullable<Project['metadata']> }): Project | null | undefined;
@@ -33,7 +48,7 @@ interface ProjectStore {
    * the read-only one from planning.
    */
   forgetAgentSessions(projectId: string): void;
-  /** The newest non-empty agent message in any of the project's conversations: the plan being approved. */
+  /** The plan being approved; see `latestPlanMessage`. */
   latestAgentMessage(projectId: string): string | null;
 }
 
@@ -62,13 +77,7 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
     forgetAgentSessions: (projectId) => {
       ctx.db.prepare(`DELETE FROM agent_sessions WHERE conversation_id IN (SELECT id FROM conversations WHERE project_id = ?)`).run(projectId);
     },
-    latestAgentMessage: (projectId) => {
-      const row = ctx.db.prepare(`SELECT m.content FROM messages m JOIN conversations c ON c.id = m.conversation_id
-        WHERE c.project_id = ? AND m.role = 'assistant' AND TRIM(m.content) != ''
-          AND m.id NOT IN (SELECT message_id FROM conversation_compactions)
-        ORDER BY m.created_at DESC, m.position DESC LIMIT 1`).get(projectId) as { content?: unknown } | undefined;
-      return typeof row?.content === 'string' ? row.content : null;
-    },
+    latestAgentMessage: (projectId) => latestPlanMessage(ctx.db, projectId),
   };
 
   app.get('/api/projects/:id/game-plan', http.requireLocalDaemonRequest, async (req, res) => {
