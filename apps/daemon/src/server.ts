@@ -2883,7 +2883,8 @@ export async function startServer({
     folderImporter,
     artStyleExists: styleId => Boolean(getArtStyle(db, styleId)),
     templatesRoot: gameTemplatesRoot,
-    engineOptions: async () => gameEngineOptions(gameTemplatesRoot, gameToolResolver((await readMaskedConfig(PROJECT_ROOT, { refreshCredentials: false, cachedAgentDetection: true })).gameEnginePaths ?? {})),
+    // Engine paths are app config (Settings -> Game engines) in the daemon data root, as for verify and run.
+    engineOptions: async () => gameEngineOptions(gameTemplatesRoot, gameToolResolver((await readAppConfig(RUNTIME_DATA_DIR)).gameEnginePaths ?? {})),
   });
   const artBudgetDeps = { ledger: artBudgetLedger, account: openPixoAccount, isProjectBusy: checkpointProjectBusyReader(design.runs) };
   registerArtBudgetRoutes(app, {

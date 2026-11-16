@@ -41,7 +41,32 @@ export interface CodexImageOptions {
   resolveRuntime?: ((dataRoot: string, options?: { generating?: boolean }) => Promise<CodexImageRuntime>) | undefined;
 }
 
+/** Width over height of `WxH` or `W:H`, or null for anything else (`1k`, `720p`). */
+function shapeRatio(value: string | undefined): number | null {
+  const match = value?.trim().match(/^(\d+(?:\.\d+)?)\s*[x:×]\s*(\d+(?:\.\d+)?)$/iu);
+  if (!match) return null;
+  const width = Number(match[1]), height = Number(match[2]);
+  return width > 0 && height > 0 ? width / height : null;
+}
+
+/**
+ * The resolution hint image_gen may be given, or undefined. A hint whose shape
+ * differs from the requested aspect or final size contradicted them: a style's
+ * recommended 1024x1024 went out as "Aspect ratio: 16:9. Size hint: 1024x1024.
+ * Final asset size: 1536x864". The aspect and final size are what the host
+ * produces, so a hint that does not match their shape is left out.
+ */
+export function codexSizeHint(options: Pick<CodexImageOptions, 'aspect' | 'resolution' | 'finalSize'>): string | undefined {
+  const resolution = options.resolution?.trim();
+  if (!resolution) return undefined;
+  const target = options.finalSize ? options.finalSize.width / options.finalSize.height : shapeRatio(options.aspect);
+  if (target === null) return options.aspect ? undefined : resolution;
+  const hinted = shapeRatio(resolution);
+  return hinted !== null && Math.abs(hinted / target - 1) <= 0.02 ? resolution : undefined;
+}
+
 export function codexImageInstruction(options: CodexImageOptions): string {
+  const sizeHint = codexSizeHint(options);
   return [
     `Use your built-in image_gen tool to generate exactly ${options.count ?? 1} image(s).`,
     'Make one image_gen call per image. Do not use API/CLI fallbacks, write code, or run shell commands.',
@@ -49,7 +74,7 @@ export function codexImageInstruction(options: CodexImageOptions): string {
     ...(options.background === 'transparent' ? ['Use a genuinely transparent background and preserve the alpha channel.',
       ...(options.keyColor ? [`If you cannot return alpha: ${keyedBackgroundInstruction(options.keyColor)}`] : [])] : []),
     ...(options.aspect ? [`Aspect ratio: ${options.aspect}.`] : []),
-    ...(options.resolution ? [`Size hint: ${options.resolution}.`] : []),
+    ...(sizeHint ? [`Size hint: ${sizeHint}.`] : []),
     ...(options.finalSize ? [finalSizeInstruction(options.finalSize)] : []),
     '', 'Image request:', options.prompt,
     ...(options.negativePrompt ? ['', 'Avoid:', options.negativePrompt] : []),
