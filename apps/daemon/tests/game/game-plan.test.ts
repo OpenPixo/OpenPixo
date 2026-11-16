@@ -11,6 +11,7 @@ import {
   type ImportFolderResponse,
   type EngineProfileResponse,
   type ProjectResponse,
+  type StartNextStageConversationResponse,
 } from '@openpixo/contracts';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
@@ -168,6 +169,39 @@ describe('the plan state at the daemon HTTP boundary', () => {
       expect((await project(id)).metadata?.gamePlan?.approvedPlan).toBe(plan);
     });
 
+    it('opens the next stage in a new conversation that names it, for the user only', async () => {
+      const id = `plan_${randomUUID()}`;
+      const created = await post('/api/projects', { id, name: 'Wanjian', metadata: { kind: 'other' } });
+      const { conversationId } = await created.json() as { conversationId: string };
+      const put = (mid: string, body: Record<string, unknown>) => fetch(`${base}/api/projects/${id}/conversations/${conversationId}/messages/${mid}`, {
+        method: 'PUT', headers: { ...json, Origin: base }, body: JSON.stringify({ id: mid, ...body }),
+      });
+      const next = () => post(`/api/projects/${id}/game-plan/next-stage-conversation`, { fromConversationId: conversationId, locale: 'zh-CN' });
+      // Planning is not built in stages yet.
+      expect((await next()).status).toBe(409);
+      await post(`/api/projects/${id}/game-plan/approve`);
+      // Approved, nothing built: stage 1, in the UI's language.
+      const first = await (await next()).json() as StartNextStageConversationResponse;
+      expect(first).toMatchObject({ stage: 1, total: null, firstMessage: '在这个新对话里继续：计划已经批准。请按已批准的计划制作阶段 1。' });
+      expect(first.conversation.projectId).toBe(id);
+      expect(first.conversation.id).not.toBe(conversationId);
+
+      expect((await put('ns1', { role: 'assistant', content: '**阶段 2 / 共 4：敌人与升级**\n\n做好了。' })).status).toBe(200);
+      expect((await put('ns2', { role: 'user', content: '把剑光改亮一点' })).status).toBe(200);
+      expect((await put('ns3', { role: 'assistant', content: '剑光改亮了，试试看。' })).status).toBe(200);
+      const third = await (await next()).json() as StartNextStageConversationResponse;
+      expect(third).toMatchObject({ stage: 3, total: 4, firstMessage: '在这个新对话里继续：阶段 1–2 已经做完并确认。请按已批准的计划制作阶段 3 / 共 4。' });
+      expect(third.conversation.title).toBe('阶段 3 / 共 4');
+
+      const grant = toolTokenRegistry.mint({ runId: `run_${randomUUID()}`, projectId: id });
+      expect((await post(`/api/projects/${id}/game-plan/next-stage-conversation`, { fromConversationId: conversationId }, { Authorization: `Bearer ${grant.token}` })).status).toBe(403);
+      expect((await post(`/api/projects/${id}/game-plan/next-stage-conversation`, { fromConversationId: 'elsewhere' })).status).toBe(404);
+      expect((await put('ns4', { role: 'assistant', content: 'Stage 4 of 4: the boss\n\nDone.' })).status).toBe(200);
+      const last = await next();
+      expect(last.status).toBe(409);
+      expect((await last.json() as ApiErrorResponse).error.code).toBe('LAST_STAGE_DONE');
+    });
+
     it('records nothing when the agent has said nothing yet', async () => {
       const id = await create();
       const body = await (await post(`/api/projects/${id}/game-plan/approve`)).json() as ApproveGamePlanResponse;
@@ -249,6 +283,18 @@ describe('the plan state at the daemon HTTP boundary', () => {
       expect((await cli(['scaffold', '--project', id, '--template', 'threejs-vite'])).exitCode).toBe(1);
       expect((await cli(['plan', 'approve', '--project', id])).body.plan.status).toBe('approved');
       expect((await cli(['scaffold', '--project', id, '--template', 'threejs-vite'])).body.engine).toBe('threejs');
+    });
+
+    it('opens the next stage from the CLI, as the user only', async () => {
+      const id = await create();
+      await cli(['plan', 'approve', '--project', id]);
+      const conversations = await (await fetch(`${base}/api/projects/${id}/conversations`)).json() as { conversations: Array<{ id: string }> };
+      const from = conversations.conversations[0]!.id;
+      const started = await cli(['plan', 'next-stage', '--project', id, '--from', from, '--locale', 'en']);
+      expect(started.body).toMatchObject({ stage: 1, firstMessage: 'Continuing in this new conversation: The plan is approved. Build stage 1 of the approved plan.' });
+      const refused = await cli(['plan', 'next-stage', '--project', id, '--from', from], { PIXO_TOOL_TOKEN: 'pixott_x' });
+      expect(refused.exitCode).toBe(1);
+      expect(refused.body.error.code).toBe('FORBIDDEN');
     });
 
     it('will not approve from inside an agent run', async () => {
@@ -357,6 +403,8 @@ describe('approval during a run', () => {
         update: (id, patch) => { store.set(id, { id, metadata: patch.metadata }); return store.get(id) as never; },
         forgetAgentSessions: () => {},
         latestAgentMessage: () => null,
+        conversationAgentMessages: () => null,
+        createConversation: () => { throw new Error('not used here'); },
       },
     });
     store.set('p1', { id: 'p1', metadata: { kind: 'other', gamePlan: { status: 'planning', startedAt: 1 } } });

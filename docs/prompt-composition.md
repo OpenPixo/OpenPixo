@@ -261,6 +261,17 @@ what it will make (and the credits, when budget-paid) and waits for the user's O
 follow while no engine exists. The status and the recorded plan are stable inputs attributed to
 the `project` section, so approval resends the instructions to a resumed session.
 
+A build conversation grows to 160-230k tokens by the later stages and every request re-sends it, so
+the user can carry on in a fresh conversation of the same project (2026-11-16): the approve bar's
+"approve and start in a new conversation" button, or the line under a build reply whose stage label
+is not the last (`components/chat/NextStageLine.tsx`, `runtime/chat/next-stage.ts`). Both call
+`POST /api/projects/:id/game-plan/next-stage-conversation` (`pixo game plan next-stage --from <id>`),
+which refuses an agent's token and an active run, reads the newest stage label of the conversation
+the user came from (`parseGameStageLabel` in `api/game-stage.ts`) and creates the conversation. Its
+first message, from `renderNextStageKickoff`, names the stage and says the earlier ones are built and
+confirmed; the approved-plan block tells the agent to take the stage from that message. The plan and
+the project notes reach the new conversation as they reach every run, and no stage state is stored.
+
 `renderGamePlanTurnNote` restates the step or stage label and the user's language in the
 per-turn slice beside the art budget note. It is static per status, but a resumed session is not
 sent the stable prompt again, and these are the rules the user notices when they slip.

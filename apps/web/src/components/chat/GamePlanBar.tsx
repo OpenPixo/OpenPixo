@@ -32,6 +32,7 @@ export function GamePlanBar({
   streaming,
   viewerOnly,
   onApproved,
+  onApprovedInNewConversation,
 }: {
   projectId: string | null | undefined;
   plan: GamePlanState | null | undefined;
@@ -40,6 +41,8 @@ export function GamePlanBar({
   streaming: boolean;
   viewerOnly?: boolean | undefined;
   onApproved: (project: Project) => void;
+  /** Approve and build stage 1 in a fresh conversation, leaving planning's long transcript behind. */
+  onApprovedInNewConversation?: ((project: Project) => void | Promise<void>) | undefined;
 }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
@@ -74,12 +77,14 @@ export function GamePlanBar({
     }
   }
 
-  async function approve() {
+  async function approve(inNewConversation = false) {
     if (!projectId || busy) return;
     setBusy(true);
     setFailed(false);
     try {
-      onApproved(await approveGamePlan(projectId, offersBudget ? credits : undefined));
+      const project = await approveGamePlan(projectId, offersBudget ? credits : undefined);
+      if (inNewConversation && onApprovedInNewConversation) await onApprovedInNewConversation(project);
+      else onApproved(project);
     } catch (error) {
       console.warn('Failed to approve the game plan', error);
       setFailed(true);
@@ -146,6 +151,19 @@ export function GamePlanBar({
           >
             {t('chat.gamePlan.approve')}
           </Button>
+          {onApprovedInNewConversation ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              tabIndex={open ? 0 : -1}
+              title={t('chat.nextStage.approveHint')}
+              data-testid="game-plan-approve-new-conversation"
+              onClick={() => { void approve(true); }}
+            >
+              {t('chat.nextStage.approve')}
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>

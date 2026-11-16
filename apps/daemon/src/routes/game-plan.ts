@@ -3,7 +3,14 @@ import type { Express, NextFunction, Request, Response } from 'express';
 import {
   GAME_PLAN_CONCEPT_IMAGE_LIMIT,
   gamePlanIsPending,
+  nextGameStage,
+  nextStageConversationTitle,
   parseArtBudgetCredits,
+  parseGameStageLabel,
+  renderNextStageKickoff,
+  type Conversation,
+  type StartNextStageConversationRequest,
+  type StartNextStageConversationResponse,
   type ApproveGamePlanRequest,
   type ApproveGamePlanResponse,
   type GamePlanResponse,
@@ -12,7 +19,8 @@ import {
   type Project,
 } from '@openpixo/contracts';
 import { readAppConfig } from '../app-config.js';
-import { getProject, updateProject } from '../db.js';
+import { randomUUID } from 'node:crypto';
+import { getConversation, getProject, insertConversation, listMessages, updateProject } from '../db.js';
 import { detectEngineProfile } from '../game/engine-detect.js';
 import { approvedPlanText, folderHoldsExistingWork } from '../game/plan.js';
 import { copyGameTemplateInto, GameTemplateError, gameTemplateErrorCode } from '../game/templates.js';
@@ -35,6 +43,9 @@ interface ProjectStore {
   forgetAgentSessions(projectId: string): void;
   /** The newest non-empty agent message in any of the project's conversations: the plan being approved. */
   latestAgentMessage(projectId: string): string | null;
+  /** The agent messages of one of the project's conversations, oldest first; null when it is not this project's. */
+  conversationAgentMessages(projectId: string, conversationId: string): string[] | null;
+  createConversation(projectId: string, title: string): Conversation;
 }
 
 export interface RegisterGamePlanRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest' | 'authorizeProjectToolRequest'> {
@@ -68,6 +79,17 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
           AND m.id NOT IN (SELECT message_id FROM conversation_compactions)
         ORDER BY m.created_at DESC, m.position DESC LIMIT 1`).get(projectId) as { content?: unknown } | undefined;
       return typeof row?.content === 'string' ? row.content : null;
+    },
+    conversationAgentMessages: (projectId, conversationId) => {
+      const conversation = getConversation(ctx.db, conversationId) as { projectId?: string } | null;
+      if (!conversation || conversation.projectId !== projectId) return null;
+      return (listMessages(ctx.db, conversationId) as Array<{ role?: string; content?: unknown }>)
+        .filter(message => message.role === 'assistant' && typeof message.content === 'string')
+        .map(message => message.content as string);
+    },
+    createConversation: (projectId, title) => {
+      const now = Date.now();
+      return insertConversation(ctx.db, { id: randomUUID(), projectId, title, sessionMode: 'design', createdAt: now, updatedAt: now }) as Conversation;
     },
   };
 
@@ -113,6 +135,33 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
     if (!updated) return http.sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'project not found');
     store.forgetAgentSessions(id);
     const body: ApproveGamePlanResponse = { plan: approved, project: updated };
+    return res.json(body);
+  });
+
+  // A new game's next build stage in a fresh conversation of the same project. The
+  // plan and the notes reach it on their own; the first message names the stage, read
+  // from the newest stage label of the conversation the user came from.
+  app.post('/api/projects/:id/game-plan/next-stage-conversation', http.requireLocalDaemonRequest, async (req, res) => {
+    const id = String(req.params.id);
+    const project = store.get(id);
+    if (!project) return http.sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'project not found');
+    if (isAgentToken(req)) return http.sendApiError(res, 403, 'FORBIDDEN', 'Only the user can start a new conversation for the next stage');
+    if (!http.isLocalSameOrigin(req, http.resolvedPortRef.current)) return http.sendApiError(res, 403, 'FORBIDDEN', 'local origin required');
+    if (!await ctx.authorizeProjectRequest(req, res, id, { mode: 'write', capability: 'writeFiles' })) return;
+    if (project.metadata?.gamePlan?.status !== 'approved') {
+      return http.sendApiError(res, 409, GAME_PLAN_NOT_APPROVED, 'The plan must be approved before building in stages');
+    }
+    const { fromConversationId, locale } = (req.body ?? {}) as Partial<StartNextStageConversationRequest>;
+    if (typeof fromConversationId !== 'string' || !fromConversationId) return http.sendApiError(res, 400, 'BAD_REQUEST', 'fromConversationId required');
+    const replies = store.conversationAgentMessages(id, fromConversationId);
+    if (!replies) return http.sendApiError(res, 404, 'NOT_FOUND', 'conversation not found in this project');
+    if (ctx.isProjectBusy(id)) return http.sendApiError(res, 409, 'RUN_ACTIVE', 'A new conversation can start when the current run has ended');
+    let latest = null;
+    for (let index = replies.length - 1; index >= 0 && !latest; index -= 1) latest = parseGameStageLabel(replies[index]);
+    const next = nextGameStage(latest, typeof locale === 'string' ? locale : null);
+    if (!next) return http.sendApiError(res, 409, 'LAST_STAGE_DONE', 'The last stage of the plan is already built');
+    const conversation = store.createConversation(id, nextStageConversationTitle(next));
+    const body: StartNextStageConversationResponse = { conversation, firstMessage: renderNextStageKickoff(next), stage: next.stage, total: next.total };
     return res.json(body);
   });
 

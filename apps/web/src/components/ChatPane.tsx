@@ -101,6 +101,7 @@ import { ContextIndicator } from './chat/ContextIndicator';
 import { SkillNamesProvider } from './chat/SkillNames';
 import { latestContextUsage } from '../runtime/chat/context-usage';
 import { GamePlanBar } from './chat/GamePlanBar';
+import { NextStageLine } from './chat/NextStageLine';
 import { ArtBudgetLine } from './chat/ArtBudgetLine';
 import { conversationAwaitsAnswer, deriveRunStatusLine } from '../runtime/chat/run-status';
 import { RunApprovals } from './chat/CodexApprovals';
@@ -326,6 +327,8 @@ interface Props {
   forkingMessageId?: string | null;
   // Header "+" button — kicks off ProjectView's create-conversation flow.
   onNewConversation?: () => void;
+  /** A new game's next build stage in a fresh conversation (`NextStageLine`); true once it is open. */
+  onStartNextStageConversation?: () => Promise<boolean>;
   newConversationDisabled?: boolean;
   // Conversation list that used to live in the topbar. The chat tab now
   // owns the list so users can browse + switch conversations without
@@ -637,6 +640,7 @@ export function ChatPane({
   onForkFromMessage,
   forkingMessageId = null,
   onNewConversation,
+  onStartNextStageConversation,
   newConversationDisabled = false,
   conversations,
   activeConversationId,
@@ -3120,6 +3124,15 @@ export function ChatPane({
     };
   }, [composerPortalRect, composerPortalTarget, tab]);
 
+  // The newest reply's text, for the stage handoff offer (`NextStageLine`).
+  const latestAssistantText = useMemo(() => {
+    for (let index = displayMessages.length - 1; index >= 0; index -= 1) {
+      const message = displayMessages[index]!;
+      if (message.role === 'assistant') return typeof message.content === 'string' ? message.content : '';
+    }
+    return '';
+  }, [displayMessages]);
+
   const composerNode = (
     <>
       {/* 插件 / 设计百宝箱 live inside the composer's "+" menu (below 工作目录,
@@ -3140,6 +3153,20 @@ export function ChatPane({
         onProjectMetadataChange?.(project);
         void onSend(t('chat.gamePlan.startMessage'), []);
       }}
+      {...(onStartNextStageConversation ? {
+        onApprovedInNewConversation: async (project: Project) => {
+          onProjectMetadataChange?.(project);
+          // Planning stays behind; stage 1 starts with only the plan and the notes.
+          if (!await onStartNextStageConversation()) void onSend(t('chat.gamePlan.startMessage'), []);
+        },
+      } : {})}
+    />
+    <NextStageLine
+      plan={projectMetadata?.gamePlan}
+      latestReply={latestAssistantText}
+      streaming={streaming}
+      viewerOnly={viewerOnly}
+      onStart={onStartNextStageConversation}
     />
     <ArtBudgetLine
       projectId={projectId}

@@ -63,6 +63,20 @@ describe('the plan approval bar', () => {
     expect(init!.method).toBe('POST');
   });
 
+  it('can approve and start stage 1 in a new conversation instead', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ plan: approved.metadata!.gamePlan, project: approved }), { status: 200 })));
+    const onApprovedInNewConversation = vi.fn();
+    const { onApproved } = renderBar({ onApprovedInNewConversation });
+    fireEvent.click(screen.getByTestId('game-plan-approve-new-conversation'));
+    await waitFor(() => expect(onApprovedInNewConversation).toHaveBeenCalledWith(approved));
+    expect(onApproved).not.toHaveBeenCalled();
+  });
+
+  it('offers no new-conversation start where the host cannot open one', () => {
+    renderBar();
+    expect(screen.queryByTestId('game-plan-approve-new-conversation')).toBeNull();
+  });
+
   it('says so and stays in planning when approval fails', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 'RUN_ACTIVE', message: 'busy' } }), { status: 409 })));
     const { onApproved } = renderBar();
