@@ -29,16 +29,103 @@ export function execAgentFile(
   // Windows CreateProcess blocks inside even asynchronous execFile (measured
   // at seconds per scan). Keep process creation off the HTTP event loop too.
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), {
-      workerData: { agentProbe: true, invocation, options },
+    const host = acquireProbeWorker();
+    const id = nextProbeId++;
+    host.pending.set(id, {
+      resolve: (result) => {
+        if ('error' in result) reject(Object.assign(new Error(result.error.message), result.error));
+        else resolve(result);
+      },
+      reject,
     });
-    worker.once('message', (result: ProbeResult) => {
-      if ('error' in result) reject(Object.assign(new Error(result.error.message), result.error));
-      else resolve(result);
-    });
-    worker.once('error', reject);
-    worker.once('exit', (code) => reject(new Error(`Agent probe worker exited before returning a result (code ${code})`)));
+    holdProbeWorker(host);
+    // A long-lived worker's process.env is a copy from when it started; send
+    // the environment as it is now, as a per-probe Worker would have seen it.
+    const probeOptions = options.env ? options : { ...options, env: { ...process.env } };
+    try {
+      host.worker.postMessage({ id, invocation, options: probeOptions } satisfies ProbeRequest);
+    } catch (error) {
+      host.pending.delete(id);
+      releaseProbeWorker(host);
+      reject(error);
+    }
   });
+}
+
+// Probes share a few long-lived workers; a probe never starts its own isolate.
+// One Worker per probe meant thousands of isolates created and torn down beside
+// the main thread during an image batch (each codex-image generation re-runs
+// the version, models, help and sign-in probes), and on Node 24.22.1 that load
+// is where the daemon died natively (see probe-worker-reuse.test.ts). A few
+// workers let slow spawns overlap; an idle one is unref'd so it never keeps the
+// process alive, and retires after a while.
+const PROBE_WORKER_LIMIT = 4;
+const PROBE_WORKER_IDLE_MS = 10 * 60_000;
+
+type ProbeRequest = { id: number; invocation: CommandInvocation; options: RuntimeExecOptions };
+type ProbeResponse = { id: number; result: ProbeResult };
+type ProbeWorker = {
+  worker: Worker;
+  pending: Map<number, { resolve: (result: ProbeResult) => void; reject: (error: unknown) => void }>;
+  idleTimer: NodeJS.Timeout | null;
+};
+
+const probeWorkers: ProbeWorker[] = [];
+let nextProbeId = 0;
+
+function acquireProbeWorker(): ProbeWorker {
+  const idle = probeWorkers.find(host => host.pending.size === 0);
+  if (idle) return idle;
+  if (probeWorkers.length < PROBE_WORKER_LIMIT) return startProbeWorker();
+  return probeWorkers.reduce((least, host) => (host.pending.size < least.pending.size ? host : least));
+}
+
+function startProbeWorker(): ProbeWorker {
+  const worker = new Worker(new URL(import.meta.url), { workerData: { agentProbeHost: true } });
+  const host: ProbeWorker = { worker, pending: new Map(), idleTimer: null };
+  probeWorkers.push(host);
+  worker.on('message', ({ id, result }: ProbeResponse) => {
+    const waiter = host.pending.get(id);
+    if (!waiter) return;
+    host.pending.delete(id);
+    releaseProbeWorker(host);
+    waiter.resolve(result);
+  });
+  const fail = (error: unknown) => {
+    retireProbeWorker(host);
+    const waiters = [...host.pending.values()];
+    host.pending.clear();
+    for (const waiter of waiters) waiter.reject(error);
+  };
+  worker.once('error', fail);
+  worker.once('exit', (code) => fail(new Error(`Agent probe worker exited before returning a result (code ${code})`)));
+  worker.unref();
+  return host;
+}
+
+function holdProbeWorker(host: ProbeWorker): void {
+  if (host.idleTimer) clearTimeout(host.idleTimer);
+  host.idleTimer = null;
+  // A pending probe keeps the process alive, as a per-probe Worker did.
+  if (host.pending.size === 1) host.worker.ref();
+}
+
+function releaseProbeWorker(host: ProbeWorker): void {
+  if (host.pending.size > 0 || !probeWorkers.includes(host)) return;
+  host.worker.unref();
+  host.idleTimer = setTimeout(() => {
+    if (host.pending.size > 0) return;
+    retireProbeWorker(host);
+    void host.worker.terminate();
+  }, PROBE_WORKER_IDLE_MS);
+  host.idleTimer.unref();
+}
+
+function retireProbeWorker(host: ProbeWorker): void {
+  if (host.idleTimer) clearTimeout(host.idleTimer);
+  host.idleTimer = null;
+  const index = probeWorkers.indexOf(host);
+  if (index >= 0) probeWorkers.splice(index, 1);
 }
 
 type ProbeResult = { stdout: string; stderr: string } | {
@@ -65,18 +152,23 @@ async function execAgentFileInWorker(invocation: CommandInvocation, options: Run
   });
 }
 
-if (!isMainThread && workerData?.agentProbe) {
-  const { invocation, options } = workerData;
+async function runProbe({ invocation, options }: ProbeRequest): Promise<ProbeResult> {
   try {
     const { stdout, stderr } = await execAgentFileInWorker(invocation, options);
-    parentPort!.postMessage({ stdout, stderr } satisfies ProbeResult);
+    return { stdout, stderr };
   } catch (error) {
     const failure = error as Error & { code?: string | number; killed?: boolean;
       signal?: string; stdout?: string; stderr?: string; path?: string; syscall?: string };
-    parentPort!.postMessage({ error: {
+    return { error: {
       message: failure.message, code: failure.code, killed: failure.killed,
       signal: failure.signal, stdout: failure.stdout, stderr: failure.stderr,
       path: failure.path, syscall: failure.syscall,
-    } } satisfies ProbeResult);
+    } };
   }
+}
+
+if (!isMainThread && workerData?.agentProbeHost) {
+  parentPort!.on('message', (request: ProbeRequest) => {
+    void runProbe(request).then(result => parentPort!.postMessage({ id: request.id, result } satisfies ProbeResponse));
+  });
 }
