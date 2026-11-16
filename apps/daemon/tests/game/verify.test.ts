@@ -37,9 +37,15 @@ beforeEach(async () => {
       const file = process.argv[movie + 1];
       fs.writeFileSync(file.replace('.png', '00000001.png'), Buffer.from('${png}', 'base64'));
       fs.writeFileSync(file.replace('.png', '00000030.png'), Buffer.from('${png}', 'base64'));
+    } else if (mode === 'godotnet') {
+      // Captured from Godot 4.7.1 .NET on a machine without the .NET SDK (owner run, 2026-11-16).
+      console.log('Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org');
+      console.error("ERROR: .NET Sdk not found. The required version is '9.0.7'.");
+      console.error('   at: void GodotTools.GodotSharpEditor._EnablePlugin() (/root/godot/modules/mono/editor/GodotTools/GodotTools/GodotSharpEditor.cs:484)');
+      if (process.env.PIXO_VERIFY_TEST_GAME_ERROR) console.error('SCRIPT ERROR: Parse Error: Identifier "speed" not declared in the current scope.');
     } else { process.stdout.write('x'.repeat(${VERIFY_LOG_LIMIT + 1024})); }
   `);
-  for (const mode of ['ok', 'fail', 'timeout', 'server', 'godot']) {
+  for (const mode of ['ok', 'fail', 'timeout', 'server', 'godot', 'godotnet']) {
     const file = path.join(bin, `${mode}${process.platform === 'win32' ? '.cmd' : ''}`);
     await writeFile(file, process.platform === 'win32'
       ? `@echo off\r\n"${process.execPath}" "${script}" ${mode} %*\r\n`
@@ -65,6 +71,21 @@ it('executes check then build by default, bounds logs, and skips absent requeste
   expect(skipped.status).toBe('passed'); expect(skipped.steps[0]?.status).toBe('skipped');
   expect((await run(profile({}), { steps: ['check'] })).status).toBe('unavailable');
   expect(await readdir(projectDir)).toEqual([]);
+});
+
+it("does not fail a GDScript project on the .NET build's missing-SDK message", async () => {
+  await writeFile(path.join(projectDir, 'project.godot'), 'config_version=5\n[application]\nconfig/features=PackedStringArray("4.7", "Forward Plus")\n');
+  const passed = await run(profile({ check: command('godotnet') }, 'godot'), { steps: ['check'] });
+  expect(passed).toMatchObject({ status: 'passed', steps: [{ name: 'check', exitCode: 0, status: 'passed' }] });
+  // A real error in the same log still fails the check.
+  vi.stubEnv('PIXO_VERIFY_TEST_GAME_ERROR', '1');
+  const broken = await run(profile({ check: command('godotnet') }, 'godot'), { steps: ['check'] });
+  expect(broken).toMatchObject({ status: 'failed', steps: [{ status: 'failed', message: 'Godot reported errors; inspect the step log' }] });
+  vi.stubEnv('PIXO_VERIFY_TEST_GAME_ERROR', '');
+  // A C# project needs the SDK, so there the message is the game's error.
+  await writeFile(path.join(projectDir, 'Game.csproj'), '<Project Sdk="Godot.NET.Sdk/4.7.1" />');
+  const csharp = await run(profile({ check: command('godotnet') }, 'godot'), { steps: ['check'] });
+  expect(csharp).toMatchObject({ status: 'failed', steps: [{ status: 'failed' }] });
 });
 
 it('stops at exit 1 and preflights all missing tools without executing anything', async () => {

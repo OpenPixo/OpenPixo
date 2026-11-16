@@ -228,6 +228,8 @@ export function renderEngineProfileBlock(profile?: EngineProfile | null | undefi
   lines.push(commands.length > 0
     ? `- Commands \`${PRODUCT_CLI_NAME} game verify\` runs (the first word is a tool id the host resolves):\n${commands.join('\n')}`
     : '- Commands: none known for this engine. Verification will be limited; use the project\'s own scripts where they exist.');
+  const playtest = ENGINE_PLAYTEST_FACTS[profile.engine];
+  if (playtest) lines.push(`- Playtest: ${playtest}`);
   const missing = missingEngineTools(profile).map((id) => `\`${id}\``);
   if (missing.length > 0) {
     lines.push(`- Not found on this machine: ${missing.join(', ')}. Steps that need them come back \`unavailable\` until the user installs them or sets the path in Settings.`);
@@ -235,6 +237,19 @@ export function renderEngineProfileBlock(profile?: EngineProfile | null | undefi
   }
   return `${GAME_ENGINE_BLOCK_HEADING}\n\n${lines.join('\n')}`;
 }
+
+/**
+ * What `pixo game playtest` can do for an engine, stated with its profile so the
+ * agent does not learn it by trying. A Godot build agent found out only from
+ * `SCRIPT_UNSUPPORTED` and then spent about 18 requests on a real window, system
+ * key presses and screen capture (2026-11-16). The host side is `game/playtest.ts`.
+ */
+const ENGINE_PLAYTEST_FACTS: Partial<Record<GameEngineId, string>> = {
+  godot: `\`${PRODUCT_CLI_NAME} game playtest\` cannot send input to Godot: it records the game in Godot's movie mode for \`--duration\` seconds, and \`--script\` or \`--preset\` come back \`SCRIPT_UNSUPPORTED\`. Do not try them, and do not work around it with a real window, system key presses or screen capture. To check the core loop, add a small autotest autoload that does nothing unless \`OS.has_feature("movie")\` is true (only during this capture): on a timer it presses the game's input actions from code (\`Input.action_press\` / \`Input.action_release\`) so the player moves, reaches the goal and loses, and calls \`push_error("AUTOTEST: <what did not happen>")\` when the game does not answer, which fails the playtest with that line in \`playtest.pageErrors\`. Then run \`${PRODUCT_CLI_NAME} game playtest --duration <seconds> --json\` and read the frames. Report it as an autotest driven from code, and tell the user what to try by hand.`,
+  unity: `\`${PRODUCT_CLI_NAME} game playtest\` is not available for Unity (\`UNSUPPORTED_ENGINE\`); do not try it or work around it with screen capture. Use \`game verify\` and tell the user what to try in the editor.`,
+  unreal: `\`${PRODUCT_CLI_NAME} game playtest\` is not available for Unreal Engine (\`UNSUPPORTED_ENGINE\`); do not try it or work around it with screen capture. Use \`game verify\` and tell the user what to try in the editor.`,
+  bevy: `\`${PRODUCT_CLI_NAME} game playtest\` is not available for Bevy (\`UNSUPPORTED_ENGINE\`); do not try it or work around it with screen capture. Use \`game verify\` and the project's own tests, and tell the user what to try.`,
+};
 
 /** The engine tools this machine lacks, as the daemon resolved them for this run. */
 function missingEngineTools(profile: EngineProfile | null | undefined): string[] {

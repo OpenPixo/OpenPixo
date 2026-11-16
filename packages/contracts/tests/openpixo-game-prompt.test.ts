@@ -181,6 +181,19 @@ describe('OpenPixo imported game project prompt', () => {
     expect(prompt).toContain('media models --json');
   });
 
+  it('says with the Godot profile that playtests cannot send input, and what to do instead', () => {
+    const godot = composeOpenPixoGamePrompt({ baseDir: '/g', engineProfile: { ...PHASER_PROFILE, engine: 'godot', importMetadata: 'godot-import' } });
+    const engineBlock = godot.slice(godot.indexOf(GAME_ENGINE_BLOCK_HEADING), godot.indexOf('\n## ', godot.indexOf(GAME_ENGINE_BLOCK_HEADING) + 1));
+    expect(engineBlock).toContain('game playtest` cannot send input to Godot');
+    expect(engineBlock).toContain('SCRIPT_UNSUPPORTED');
+    expect(engineBlock).toContain('do not work around it with a real window, system key presses or screen capture');
+    expect(engineBlock).toContain('OS.has_feature("movie")');
+    expect(engineBlock).toContain('push_error("AUTOTEST:');
+    // Web engines can send input, so their profile carries no such line.
+    const phaser = composeOpenPixoGamePrompt({ baseDir: '/g', engineProfile: PHASER_PROFILE });
+    expect(phaser).not.toContain('- Playtest:');
+  });
+
   it('states import sidecar rules per engine', () => {
     const unity = composeOpenPixoGamePrompt({ baseDir: '/u', engineProfile: { ...PHASER_PROFILE, engine: 'unity', importMetadata: 'unity-meta', assetRoots: ['Assets'] } });
     expect(unity).toContain('together with its `.meta`');

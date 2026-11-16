@@ -9,7 +9,7 @@ import { missingGameToolGuidance } from './verify-tools.js';
 import { executeGameProcess, GameCommandTimeout, VERIFY_LOG_LIMIT } from './verify-process.js';
 import { saveGameFrame } from './frame-store.js';
 import { godotMovieArgs } from './playtest-godot.js';
-import { createGodotErrorCollector } from './playtest-diagnostics.js';
+import { createGodotErrorCollector, godotProjectUsesCSharp } from './playtest-diagnostics.js';
 export { gameLocalUrl, VERIFY_LOG_LIMIT } from './verify-process.js';
 export type GameWebCapture = (input: GameWebCaptureRequest) => Promise<GameWebCaptureResult>;
 
@@ -47,12 +47,13 @@ export async function verifyGame(options: {
   if (result.missingTools.length) { result.missingToolGuidance = missingGameToolGuidance(result.missingTools); return result; }
   await mkdir(artifactDir, { recursive: true });
   let executed = false, unavailable = false;
+  const projectUsesCSharp = profile.engine === 'godot' ? await godotProjectUsesCSharp(options.projectDir) : true;
   for (const name of names) {
     const command = profile.commands[name], logRef = randomUUID(), started = Date.now();
     const step: GameVerifyStep = { name, argv: [...(command?.argv ?? [])], exitCode: null, durationMs: 0, logRef, timedOut: false, status: 'skipped' };
     result.steps.push(step);
     let log = Buffer.alloc(0), movieDir: string | undefined;
-    const godotErrors = createGodotErrorCollector();
+    const godotErrors = createGodotErrorCollector({ projectUsesCSharp });
     const append = (chunk: Buffer | string) => {
       godotErrors.append(chunk);
       if (log.length < VERIFY_LOG_LIMIT) log = Buffer.concat([log, Buffer.from(chunk).subarray(0, VERIFY_LOG_LIMIT - log.length)]);
