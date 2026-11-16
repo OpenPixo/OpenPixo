@@ -75,6 +75,7 @@ import {
   registerDesktopDiagnosticsIpc,
 } from "./diagnostics.js";
 import { notifyDesktopExternalShow } from "./external-show.js";
+import { registerDesktopAuthPatiently } from "./desktop-auth-handshake.js";
 
 // Re-export pure URL-policy helpers so the packaged workspace's
 // vitest can pin their behaviour without spinning up a full Electron
@@ -214,7 +215,8 @@ export type DesktopMainOptions = {
    * Node fetch can hit.
    */
   discoverDaemonUrl: () => Promise<string | null>;
-  registerDesktopAuth: (secret: Buffer) => Promise<boolean>;
+  /** One attempt; `timeoutMs` defaults to the quick startup timeout. */
+  registerDesktopAuth: (secret: Buffer, timeoutMs?: number) => Promise<boolean>;
   /** Stable installed launcher used for Windows pixo:// registration. */
   
   preloadPath?: string;
@@ -917,7 +919,8 @@ async function runDesktopMainWithTiming(
     // (after a daemon restart, or after a missed startup window). The
     // runtime then mints a FRESH token (new nonce + new exp — replay
     // protection still works) and POSTs once more.
-    registerDesktopAuthWithDaemon: () => options.registerDesktopAuth(desktopAuthSecret),
+    // User-started picks and imports wait out a busy daemon (`registerDesktopAuthPatiently`).
+    registerDesktopAuthWithDaemon: () => registerDesktopAuthPatiently(timeoutMs => options.registerDesktopAuth(desktopAuthSecret, timeoutMs)),
     rendererLogPath,
     // Mark "reached running" only when the window is ACTUALLY revealed (web app
     // mounted + shown), not when createDesktopRuntime returns — it starts async
@@ -1095,16 +1098,17 @@ if (isDirectEntry()) {
               return null;
             }
           },
-          registerDesktopAuth: async (secret) => {
+          registerDesktopAuth: async (secret, timeoutMs = REGISTER_DESKTOP_AUTH_TIMEOUT_MS) => {
             try {
               const result = await client.invoke<RegisterDesktopAuthResult>(
                 APP_KEYS.DAEMON,
                 SIDECAR_MESSAGES.REGISTER_DESKTOP_AUTH,
                 { secret: secret.toString("base64") },
-                { timeoutMs: REGISTER_DESKTOP_AUTH_TIMEOUT_MS },
+                { timeoutMs },
               );
               return result.accepted === true;
-            } catch {
+            } catch (error) {
+              console.warn(`[openpixo desktop] desktop auth registration failed after ${timeoutMs} ms: ${error instanceof Error ? error.message : String(error)}`);
               return false;
             }
           },

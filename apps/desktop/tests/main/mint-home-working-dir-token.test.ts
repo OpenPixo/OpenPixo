@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { PICK_DESKTOP_AUTH_TIMEOUTS_MS, registerDesktopAuthPatiently } from "../../src/main/desktop-auth-handshake.js";
 import { mintHomeWorkingDirToken } from "../../src/main/runtime.js";
 
 const SECRET = Buffer.from("test-desktop-auth-secret");
@@ -47,6 +48,23 @@ describe("mintHomeWorkingDirToken", () => {
     // A guaranteed-unknown token is worse than a clear up-front failure, so we
     // must not mint when the handshake did not succeed.
     expect(mintToken).not.toHaveBeenCalled();
+  });
+
+  it("waits out a busy daemon instead of failing the pick on one slow answer", async () => {
+    // A daemon in the middle of an agent run answered in 782 ms; a single 800 ms try failed every pick.
+    const answerMs = 2_000;
+    const timeouts: number[] = [];
+    const attempt = vi.fn(async (timeoutMs: number) => { timeouts.push(timeoutMs); return timeoutMs > answerMs; });
+    const result = await mintHomeWorkingDirToken({
+      baseDir: "C:/Games/wanjian",
+      desktopAuthSecret: SECRET,
+      registerDesktopAuth: () => registerDesktopAuthPatiently(attempt),
+      mintToken: (_secret, baseDir) => `token:${baseDir}`,
+    });
+    expect(result).toEqual({ baseDir: "C:/Games/wanjian", ok: true, token: "token:C:/Games/wanjian" });
+    expect(timeouts).toEqual(PICK_DESKTOP_AUTH_TIMEOUTS_MS.slice(0, 2));
+    // Gives up only after every attempt, so a daemon that is really gone still fails clearly.
+    expect(await registerDesktopAuthPatiently(async () => false)).toBe(false);
   });
 
   it("rejects an empty picked path", async () => {

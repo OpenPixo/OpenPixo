@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, stat, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { GameParentAuthorization } from '../../src/main/game-parent-authorization.js';
+import { defaultGamesRoot, GameParentAuthorization } from '../../src/main/game-parent-authorization.js';
 let root: string, documents: string, games: string, authorization: GameParentAuthorization;
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'pixo-t9-parent-'));
@@ -10,6 +10,12 @@ beforeEach(async () => {
   games = path.join(documents, 'OpenPixo Games'); authorization = new GameParentAuthorization(games);
 });
 afterEach(async () => { await rm(root, { recursive: true, force: true }); });
+it("falls back to the home folder's Documents when Electron cannot resolve Documents", () => {
+  expect(defaultGamesRoot(() => documents, root)).toBe(games);
+  // What Electron throws on a Windows profile without a Documents folder.
+  expect(defaultGamesRoot(() => { throw new Error("Failed to get 'documents' path"); }, root)).toBe(games);
+  expect(defaultGamesRoot(() => '', root)).toBe(games);
+});
 it('authorizes exactly the default games root after explicit creation intent without writing it', async () => {
   await expect(authorization.authorizeCreate({ baseDir: games, createParent: false })).rejects.toThrow();
   expect(await authorization.authorizeCreate({ baseDir: games, createParent: true })).toBe(games);
