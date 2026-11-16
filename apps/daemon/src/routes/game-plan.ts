@@ -65,10 +65,10 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
     latestAgentMessage: (projectId) => {
       const row = ctx.db.prepare(`SELECT m.content FROM messages m JOIN conversations c ON c.id = m.conversation_id
         WHERE c.project_id = ? AND m.role = 'assistant' AND TRIM(m.content) != ''
+          AND m.id NOT IN (SELECT message_id FROM conversation_compactions)
         ORDER BY m.created_at DESC, m.position DESC LIMIT 1`).get(projectId) as { content?: unknown } | undefined;
       return typeof row?.content === 'string' ? row.content : null;
     },
-          AND m.id NOT IN (SELECT message_id FROM conversation_compactions)
   };
 
   app.get('/api/projects/:id/game-plan', http.requireLocalDaemonRequest, async (req, res) => {
