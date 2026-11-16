@@ -27,7 +27,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 
-import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote } from '@openpixo/contracts';
+import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote, renderProjectNotesTurnNote } from '@openpixo/contracts';
 
 
 import { composeGameSystemPrompt, gamePromptProjectInputs, promptEngineProfile } from './game/prompt.js';
@@ -3630,10 +3630,6 @@ export async function startServer({
       && openpixoAgentUsesImageViewer(openpixoAgentRunModel);
     const providerOpenCodeConfig = byokOpenCodeProvider?.config
       ?? (openpixoAgentRunModel ? buildOpenPixoAgentOpenCodeConfig(daemonUrl, openpixoAgentRunModel, { imageLook: openpixoAgentImageLook }) : null);
-    const openCodeProjectNotes = (def.id === 'opencode' || usesBundledOpenCode(def.id)) && typeof projectId === 'string'
-      ? await stageOpenCodeProjectNotes({ dataDir: RUNTIME_DATA_DIR, projectId, projectDir: cwd })
-      : [];
-    const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn, openCodeProjectNotes);
     let toolTokenRevoked = false;
     let cleanupExtensionFiles = () => {};
     const revokeToolToken = (reason) => {
@@ -4513,6 +4509,18 @@ export async function startServer({
         })()
       : [];
     const agentResumePromptPolicy = resolveAgentResumePromptPolicy(agentResumeCtx);
+    // Project notes are a snapshot per agent session, so the agent editing them at
+    // the end of a turn does not change the next turn's cached system prompt.
+    const openCodeProjectNotes = (def.id === 'opencode' || usesBundledOpenCode(def.id)) && typeof projectId === 'string'
+      ? await stageOpenCodeProjectNotes({
+          dataDir: RUNTIME_DATA_DIR,
+          projectId,
+          projectDir: cwd,
+          conversationId: run.conversationId ?? null,
+          resumingSession: agentResumeCtx.isResuming === true,
+        })
+      : { files: [], changedSinceSnapshot: null };
+    const bundledOpenCodeExtraConfig = openCodeRunExtraConfig(def.id, providerOpenCodeConfig, readOnlyTurn, openCodeProjectNotes.files);
     // A continuation directive whose stored session the daemon just refused has
     // to be told which request it is continuing; see
     // `resolveResumeContinuationSeed`. Callers that ship their own transcript
@@ -4720,6 +4728,7 @@ export async function startServer({
         artBudgetFacts.turnNote,
         // Static per plan status, but resumed sessions skip the stable prompt: see `renderGamePlanTurnNote`.
         renderGamePlanTurnNote(projectRecord?.metadata?.gamePlan?.status, typeof locale === 'string' ? locale : undefined),
+        renderProjectNotesTurnNote(openCodeProjectNotes.changedSinceSnapshot),
         includeStableForPayload ? systemPrompt : '',
       ]
         .map((part) => (typeof part === 'string' ? part.trim() : ''))

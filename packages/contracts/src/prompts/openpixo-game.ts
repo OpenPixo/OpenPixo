@@ -170,14 +170,26 @@ function renderGameBaseRules(input: GameProjectPromptInput): string[] {
 /**
  * Project notes: `AGENTS.md` in the game folder, so a new conversation does not
  * rediscover the project. Most runtimes load it into the instructions (OpenCode
- * through `opencode-project-notes.ts`, Codex natively); it is written only at the
- * end of a turn, because the hosted runtime reads it again on every request and a
- * mid-turn edit would make the rest of the turn miss the prompt cache.
+ * through `opencode-project-notes.ts`, Codex natively). It is written only at the
+ * end of a turn so the turn works from one version; the daemon keeps the copy in
+ * OpenCode's instructions fixed for the whole conversation, so the edit does not
+ * change the cached prompt either (see `renderProjectNotesTurnNote`).
  */
 export function renderProjectNotesRule(canWrite: boolean): string {
   const read = 'Project notes: `AGENTS.md` in the project folder holds short notes for whoever works on this game next. When it exists, its text is usually already in your instructions; if it is not, read the file before exploring. Trust it, check only what the task touches, and do not list or search the whole project to rediscover what it says.';
   if (!canWrite) return read;
   return `${read} When a turn taught you something lasting about the project, update the notes as the last step of the turn, never in the middle: which files hold the main scenes, the player, animations and asset manifests; how assets are made and loaded; how to check, run and playtest the game, including playtest inputs that get past menus into play; and traps you hit. Keep the file under about 60 lines, replace what is out of date instead of appending a log of this turn, keep anything the user wrote there, and leave it unchanged when nothing lasting changed.`;
+}
+
+/**
+ * Per-turn note for a resumed conversation whose project notes changed since it
+ * started. The instructions keep the version the conversation began with, so
+ * editing the notes never changes the cached prompt prefix; this line, sent after
+ * that prefix, says the file is newer. Empty when nothing changed.
+ */
+export function renderProjectNotesTurnNote(changedFile: string | null | undefined): string {
+  if (!changedFile) return '';
+  return `Project notes: \`${changedFile}\` in the project folder changed since this conversation started. Your instructions still show the version from the start of the conversation; the file is current, so read it when you need what changed.`;
 }
 
 function renderEngineCommand(command: EngineCommand): string {
