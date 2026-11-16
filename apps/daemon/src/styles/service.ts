@@ -1,7 +1,7 @@
 import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type Database from 'better-sqlite3';
-import type { ApiErrorCode, ArtStyle, InstalledPluginRecord, PluginExample, PluginManifest, ProjectArtStyleResponse } from '@openpixo/contracts';
+import { projectHasUserArtDirection, type ApiErrorCode, type ArtStyle, type InstalledPluginRecord, type PluginExample, type PluginManifest, type ProjectArtStyleResponse } from '@openpixo/contracts';
 import { getProject, updateProject } from '../db.js';
 import { listInstalledPlugins } from '../plugins/registry.js';
 import { projectStyleReference } from './reference.js';
@@ -108,7 +108,13 @@ export function setProjectArtStyle(db: Database.Database, projectRoot: string, p
   return getProjectArtStyle(db, projectRoot, projectId, locale);
 }
 
-/** Omission inherits the project default; explicit null disables it for this request. */
+/**
+ * The style an image request is merged with. Omission inherits the project
+ * default, until the user has set the look themselves (`projectHasUserArtDirection`):
+ * from then on the project's style is a starting point the prompt mentions, and
+ * nothing is added to the request. An explicit id always applies; explicit null
+ * disables it for this request.
+ */
 export async function resolveArtStyleForGeneration(db: Database.Database, projectRoot: string, projectId?: string, styleId?: string | null): Promise<ArtStyle | null> {
   if (styleId === null) return null;
   if (styleId !== undefined) {
@@ -117,7 +123,24 @@ export async function resolveArtStyleForGeneration(db: Database.Database, projec
     if (!style) throw new ArtStyleError('Art style is not installed', 400, 'STYLE_NOT_FOUND');
     return style;
   }
-  return projectId ? getProjectArtStyle(db, projectRoot, projectId).style : null;
+  if (!projectId) return null;
+  if (projectHasUserArtDirection(getProject(db, projectId)?.metadata)) return null;
+  return getProjectArtStyle(db, projectRoot, projectId).style;
+}
+
+/**
+ * Whether a project's images are pixel art, for resampling with nearest-neighbour:
+ * a pixel grid in Game setup or in the project's style. Unlike the prompt merge
+ * this does not stop when the user sets the look, because scaling a pixel-art
+ * sample smoothly blurs it whatever words made it.
+ */
+export function projectUsesPixelGrid(db: Database.Database, projectId: string | undefined): boolean {
+  if (!projectId) return false;
+  const project = getProject(db, projectId);
+  const setupPixel = (project?.metadata as { gameSetup?: { art?: { pixelSize?: unknown } } } | undefined)?.gameSetup?.art?.pixelSize;
+  if (typeof setupPixel === 'number') return true;
+  const styleId = typeof project?.metadata?.artStyleId === 'string' ? project.metadata.artStyleId : null;
+  return styleId ? getArtStyle(db, styleId)?.constraints?.pixelSize !== undefined : false;
 }
 
 /** Only manifest-listed raster images inside the real plugin folder can be served. */

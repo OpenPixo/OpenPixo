@@ -31,7 +31,7 @@ import { resolveProjectDir } from '../../src/projects.js';
 import { toolTokenRegistry } from '../../src/tool-tokens.js';
 
 const styleForTest = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
-vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: async () => styleForTest.current }));
+vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: async () => styleForTest.current, projectUsesPixelGrid: () => false }));
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(120, 7)]);
 const PNG_SHA = createHash('sha256').update(PNG).digest('hex');

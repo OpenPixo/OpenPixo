@@ -49,6 +49,17 @@ describe('wizardStyleList', () => {
     expect(offered).not.toContain('horde-topdown');
   });
 
+  it('offers the style made for the chosen genre first, even a hidden one', () => {
+    const offered = ids(wizardStyleList(installed, '2d', '', 'survivors'));
+    expect(offered[0]).toBe('horde-topdown');
+    expect(offered.slice(1)).toEqual([...WIZARD_STYLE_ORDER_2D, 'community-ink']);
+    // Only for that genre, and only when it fits the view.
+    expect(ids(wizardStyleList(installed, '2d', '', 'platformer'))).not.toContain('horde-topdown');
+    expect(ids(wizardStyleList(installed, '3d', '', 'survivors'))).not.toContain('horde-topdown');
+    // Picked already: listed once.
+    expect(ids(wizardStyleList(installed, '2d', 'horde-topdown', 'survivors')).filter(id => id === 'horde-topdown')).toHaveLength(1);
+  });
+
   it('offers everything rather than nothing when no style fits the view', () => {
     const flat = [style('pixel-16-bit', ['2d']), style('ink-woodcut', ['2d'])];
     expect(ids(wizardStyleList(flat, '3d'))).toEqual(['pixel-16-bit']);

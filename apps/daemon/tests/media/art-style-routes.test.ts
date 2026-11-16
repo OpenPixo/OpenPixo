@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMediaRoutes } from '../../src/routes/media.js';
 import { resolveArtStyleForGeneration } from '../../src/styles/service.js';
 
-vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: vi.fn() }));
+vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: vi.fn(), projectUsesPixelGrid: vi.fn(() => false) }));
 const resolveStyle = vi.mocked(resolveArtStyleForGeneration);
 const style: ArtStyle = { id: 'ink-test', title: 'Ink test', description: 'Ink game art', dimension: ['2d'], medium: ['ink'],
   prompt: 'Carved ink shapes', negativePrompt: 'photography', constraints: { recommendedResolution: '1024x1024' }, previews: [], license: 'Apache-2.0' };

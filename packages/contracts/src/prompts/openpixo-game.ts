@@ -350,6 +350,7 @@ export function renderGameArtStyleBlock(
   canRunTools = true,
 ): string {
   if (!artStyle) return '';
+  if (artStyle.advisory) return renderAdvisoryArtStyleBlock(artStyle, canRunTools);
 
   const lines = [
     GAME_ART_STYLE_BLOCK_HEADING,
@@ -363,10 +364,29 @@ export function renderGameArtStyleBlock(
   if (constraints?.outline) lines.push(`Outline: ${constraints.outline}.`);
   if (constraints?.background) lines.push(`Default background: ${constraints.background}.`);
   if (constraints?.recommendedResolution) lines.push(`Recommended resolution: ${constraints.recommendedResolution}.`);
-  lines.push('Keep newly generated assets consistent with this project art style. Art styles apply to image assets; code-only recipes ignore them. Explicit background and resolution choices override the style defaults.');
+  lines.push('This style is a starting point the user picked in setup: make the style samples with it. Once the user picks a sample or describes the look, their direction and the chosen reference decide the look, not this style. Art styles apply to image assets; code-only recipes ignore them. Explicit background and resolution choices override the style defaults.');
   if (canRunTools) {
-    lines.push(`For image generation, use \`${PRODUCT_CLI_NAME} media generate --style ${artStyle.id}\` and pass the same style to image recipe runs.`);
+    lines.push(`Until then the host adds this style to every image request and image recipe run on its own; do not pass \`--style\`.`);
   }
+  return lines.join('\n');
+}
+
+/**
+ * The style once the user set the look (`projectHasUserArtDirection`): named as
+ * where the game started, with its notes offered, never imposed. The host no
+ * longer adds it to image requests, so the agent writes the look into each prompt.
+ */
+function renderAdvisoryArtStyleBlock(artStyle: ProjectArtStylePromptInput, canRunTools: boolean): string {
+  const lines = [
+    GAME_ART_STYLE_BLOCK_HEADING,
+    `Starting style: ${artStyle.title} (${artStyle.id}). It seeded the first style samples. The look is now the user's: their direction in this conversation and Game setup and the chosen style reference win over it wherever they differ.`,
+    `Style notes, to use only where they fit the user's direction: ${artStyle.prompt}`,
+    `The style avoids, unless the user asked for it: ${artStyle.negativePrompt}`,
+  ];
+  if (artStyle.palette?.length) lines.push(`Style palette, a suggestion and never a requirement (only a palette the user set is one): ${artStyle.palette.join(', ')}.`);
+  lines.push(canRunTools
+    ? `The host no longer adds this style to image requests. Write the look the user chose into each image prompt and pass the style reference image; pass \`--style ${artStyle.id}\` only when the user asks for this style's look.`
+    : 'Describe the look the user chose in every image request.');
   return lines.join('\n');
 }
 

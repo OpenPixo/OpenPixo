@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMediaRoutes } from '../../src/routes/media.js';
 import { resolveArtStyleForGeneration } from '../../src/styles/service.js';
 
-vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: vi.fn() }));
+vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: vi.fn(), projectUsesPixelGrid: vi.fn(() => false) }));
 const resolveStyle = vi.mocked(resolveArtStyleForGeneration);
 
 afterEach(() => vi.resetAllMocks());

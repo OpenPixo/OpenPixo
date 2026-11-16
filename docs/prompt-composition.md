@@ -137,11 +137,18 @@ composer performs no catalogue lookup, filesystem access or data-path inference.
 An absent or null style omits the block.
 
 The `Project art style` block follows the engine profile and precedes the game
-media contract. It keeps new image assets consistent with the style's positive
-and negative descriptions, palette, pixel size, outline, background and resolution.
-Tool-capable runs are told to pass `--style <id>` to `pixo media generate` and use
-the same style for image recipe runs. Text-only runs receive the visual facts
-without tool-command instructions. Code-only recipes ignore art styles.
+media contract. Owner decision (2026-11-16): a style is a starting point, never a
+limit on the look. Until the user sets the look, the block states the style's
+positive and negative descriptions, palette, pixel size, outline, background and
+resolution, says the style samples are made with it, and tells tool-capable runs
+that the host adds it to image requests on its own (no `--style`). Once
+`projectHasUserArtDirection` (`api/styles.ts`) holds, meaning a picked style reference
+(`metadata.styleReference`) or written direction or reference images in Game setup,
+the daemon passes the style with `advisory: true` and the block names it as the
+starting style: its notes are offered where they fit the user's direction, the user's
+direction and the chosen reference win, and `--style <id>` is only for when the user
+asks for that look. Text-only runs receive the visual facts without tool-command
+instructions. Code-only recipes ignore art styles.
 
 Style selection and style content are stable prompt inputs. Changing either
 changes the composed stable prefix and its fingerprint. Completion, follow-up
@@ -342,8 +349,13 @@ the same shape.
 ## Image generation style merge
 
 Image generation and image recipe runs accept an optional `styleId`. Omitting it
-uses the project's default art style; an explicit null requests no style. Other
-media types and code-only recipes do not apply image styles.
+uses the project's default art style until the user has set the look
+(`projectHasUserArtDirection`); from then on omitting it adds no style, so a preset's
+brushwork, palette, outline and resolution never override what the agent asked for
+(`resolveArtStyleForGeneration` in `styles/service.ts`). A pixel game keeps
+nearest-neighbour scaling either way (`projectUsesPixelGrid`). An explicit id always
+applies; an explicit null requests no style. Other media types and code-only recipes
+do not apply image styles.
 
 With a style selected, the effective image prompt is composed in this deterministic order:
 

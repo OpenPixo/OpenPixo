@@ -27,7 +27,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 
-import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote, renderProjectNotesTurnNote } from '@openpixo/contracts';
+import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAutoModel, OPENPIXO_AGENT_AUTO_PLAN_MODEL, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, PLUGIN_SHARE_ACTION_PLUGIN_IDS, renderChatTurnHostProtocolInstructions, renderGamePlanTurnNote, projectHasUserArtDirection, renderProjectNotesTurnNote } from '@openpixo/contracts';
 
 
 import { composeGameSystemPrompt, gamePromptProjectInputs, promptEngineProfile } from './game/prompt.js';
@@ -3943,7 +3943,11 @@ export async function startServer({
       engineProfile: planEngineProfile,
       ...(metadata?.gamePlan ? { gamePlan } : {}),
       gameExperience: appConfigForPrompt?.gameExperience ?? null,
-      artStyle: projectId ? getProjectArtStyle(db, PROJECT_ROOT, projectId, typeof locale === 'string' ? locale : undefined).style : null,
+      artStyle: (() => {
+        const style = projectId ? getProjectArtStyle(db, PROJECT_ROOT, projectId, typeof locale === 'string' ? locale : undefined).style : null;
+        // Once the user set the look, the style is a starting point (`projectHasUserArtDirection`).
+        return style ? { ...style, advisory: projectHasUserArtDirection(metadata) } : null;
+      })(),
       agentId, skillBody, skillName,
       recipes: gameRecipePromptEntries(BUNDLED_PLUGINS_DIR, metadata?.engineProfile?.engine, typeof locale === 'string' ? locale : undefined),
       locale: typeof locale === 'string' ? locale : undefined,
