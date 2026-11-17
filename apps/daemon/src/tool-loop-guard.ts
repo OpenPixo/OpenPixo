@@ -287,13 +287,38 @@ export function isProgressSuccess(name: string, signature: string): boolean {
   return true;
 }
 
+// Input keys that select which part of a file a read returns: a line window
+// (Claude Code `Read` and OpenCode `read` both take `offset`/`limit`) or a PDF
+// page range (Claude Code `pages`). These one-word keys are spelled the same in
+// snake_case and camelCase, unlike the path (`file_path` / `filePath`). Codex
+// reads through shell commands, whose text already carries the window
+// (`sed -n 1,200p …`).
+const READ_WINDOW_KEYS = ['offset', 'limit', 'pages'] as const;
+
+/**
+ * The window a read asks for, as `offset=401 limit=200`, or '' for a whole-file
+ * read. Two pages of one file are different calls: each returns new lines, so
+ * a paged read of a long file must never look like a repeated call.
+ */
+function readWindow(record: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const key of READ_WINDOW_KEYS) {
+    const value = record[key];
+    if (value === undefined || value === null || value === '') continue;
+    parts.push(`${key}=${typeof value === 'object' ? JSON.stringify(value) : String(value)}`);
+  }
+  return parts.join(' ');
+}
+
 /**
  * Build a stable signature for a tool call from its name + input. Prefers the
  * one field that identifies the ACTION an agent would keep retrying:
  *   - Bash            → the command
  *   - Edit/Write/Read → the file path (plus the search string for Edit, since
  *                       re-running Edit on the same file with a different
- *                       old_string is legitimate progress, not a loop)
+ *                       old_string is legitimate progress, not a loop; plus
+ *                       the read window for Read, since paging through one
+ *                       long file returns new lines every call)
  *   - anything else   → a stable stringify of the whole input
  * Falls back to the tool name alone when there is no usable input. The result
  * is whitespace-collapsed but NOT length-capped: it is the dedup key, so it
@@ -312,7 +337,11 @@ export function computeToolSignature(name: string, input: unknown): string {
     if (typeof command === 'string') {
       detail = command;
     } else if (typeof filePath === 'string') {
-      detail = typeof oldString === 'string' ? `${filePath} :: ${oldString}` : filePath;
+      if (typeof oldString === 'string') detail = `${filePath} :: ${oldString}`;
+      else {
+        const window = readWindow(record);
+        detail = window ? `${filePath} @ ${window}` : filePath;
+      }
     } else {
       try {
         const serialized = JSON.stringify(record) ?? '';
