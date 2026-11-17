@@ -7,7 +7,7 @@
     "en": "Nine-slice UI element",
     "zh-CN": "九宫格 UI 元素"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A button, panel or frame designed so its corners stay fixed and its edges and center stretch cleanly, keyed to transparency and trimmed.",
   "description_i18n": {
@@ -131,8 +131,8 @@
           "placeholder": "button_wood"
         }
       ],
-      "prompt": "A single game UI {{element}} sprite in its {{state}} state, built for nine-slice scaling. A rectangular shape seen straight on, centered, with generous empty space around it. Decoration lives only in the four corners and along a border of uniform thickness; the straight edges between the corners are plain and repeat evenly, and the center is a flat, even fill with no ornament, so the middle and edges can stretch without distortion. All four corners match. Material and theme: {{theme}}. Style: {{style}}, crisp edges, flat even lighting, no drop shadow. No text, icons or labels on it. Background: one perfectly flat, uniform solid magenta #FF00FF fill from edge to edge, with no gradient, texture, floor, cast shadow or vignette. Do not use magenta, hot pink or purple anywhere on the subject.",
-      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, magenta or pink on the subject, button label, icons, perspective, tilted, ornament in the center, uneven border thickness, mismatched corners, drop shadow, outer glow, multiple elements",
+      "prompt": "A single game UI {{element}} sprite in its {{state}} state, built for nine-slice scaling. A rectangular shape seen straight on, centered, with generous empty space around it. Decoration lives only in the four corners and along a border of uniform thickness; the straight edges between the corners are plain and repeat evenly, and the center is a flat, even fill with no ornament, so the middle and edges can stretch without distortion. All four corners match. Material and theme: {{theme}}. Style: {{style}}, crisp edges, flat even lighting, no drop shadow. No text, icons or labels on it. Background: fully transparent, with nothing behind the subject: no floor, cast shadow, scenery or vignette.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, button label, icons, perspective, tilted, ornament in the center, uneven border thickness, mismatched corners, drop shadow, outer glow, multiple elements",
       "models": {
         "requires": [
           "t2i"
@@ -152,17 +152,10 @@
           "default": 3,
           "max": 6
         },
-        "aspect": "1:1"
+        "aspect": "1:1",
+        "background": "transparent"
       },
       "postprocess": [
-        {
-          "op": "remove-bg",
-          "params": {
-            "mode": "chroma",
-            "color": "#FF00FF",
-            "tolerance": 32
-          }
-        },
         {
           "op": "trim",
           "params": {

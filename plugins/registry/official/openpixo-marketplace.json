@@ -1210,7 +1210,7 @@
         "en": "Character turnaround",
         "zh-CN": "角色三视图"
       },
-      "version": "0.1.0",
+      "version": "0.2.0",
       "kind": "recipe",
       "source": "./plugins/_official/recipes/character-turnaround",
       "engines": [
@@ -1248,7 +1248,7 @@
         "en": "Item icon set",
         "zh-CN": "道具图标组"
       },
-      "version": "0.1.0",
+      "version": "0.2.0",
       "kind": "recipe",
       "source": "./plugins/_official/recipes/item-icon-set",
       "engines": [
@@ -1267,7 +1267,7 @@
         "en": "Nine-slice UI element",
         "zh-CN": "九宫格 UI 元素"
       },
-      "version": "0.1.0",
+      "version": "0.2.0",
       "kind": "recipe",
       "source": "./plugins/_official/recipes/ui-nine-slice",
       "engines": [

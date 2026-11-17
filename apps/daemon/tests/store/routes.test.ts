@@ -220,13 +220,13 @@ it('reuses a recipe the app already ships as a bundled plugin instead of reinsta
   expect(getInstalledPlugin(db, 'openpixo/item-icon-set')?.sourceKind).toBe('bundled');
   const seeded = ensureMarketplaceManifest(db, { id: 'official', url: 'bundled:openpixo-official', trust: 'official',
     manifestText: JSON.stringify({ name: 'offline', version: '1.0.0', plugins: [
-      { name: 'openpixo/item-icon-set', kind: 'recipe', source: path.join(bundledRoot, 'recipes', 'item-icon-set'), version: '0.1.0', license: 'MIT' },
+      { name: 'openpixo/item-icon-set', kind: 'recipe', source: path.join(bundledRoot, 'recipes', 'item-icon-set'), version: '0.2.0', license: 'MIT' },
     ] }) });
   if (!seeded.ok) throw new Error(seeded.message);
   const catalog = await httpFetch(`${base}/api/store/catalog?kind=recipe&pricing=free`).then(res => res.json()) as StoreCatalogResponse;
-  expect(catalog.items.find(item => item.name === 'openpixo/item-icon-set')?.installedVersion).toBe('0.1.0');
+  expect(catalog.items.find(item => item.name === 'openpixo/item-icon-set')?.installedVersion).toBe('0.2.0');
   const response = await post({ name: 'openpixo/item-icon-set' });
-  expect(await response.json()).toMatchObject({ name: 'openpixo/item-icon-set', pluginId: 'openpixo/item-icon-set', version: '0.1.0' });
+  expect(await response.json()).toMatchObject({ name: 'openpixo/item-icon-set', pluginId: 'openpixo/item-icon-set', version: '0.2.0' });
   expect(response.status).toBe(200);
   expect(getInstalledPlugin(db, 'openpixo/item-icon-set')?.sourceKind).toBe('bundled');
 });

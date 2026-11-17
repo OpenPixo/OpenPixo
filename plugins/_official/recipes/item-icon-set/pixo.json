@@ -7,7 +7,7 @@
     "en": "Item icon set",
     "zh-CN": "道具图标组"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A matching set of inventory icons generated on one sheet, sliced into single icons and resized to a fixed size.",
   "description_i18n": {
@@ -110,8 +110,8 @@
           "placeholder": "potions"
         }
       ],
-      "prompt": "A game inventory icon set on a strict {{grid}} grid (columns x rows) of equal square cells, one item per cell, with no gaps, no visible grid lines and no slot frames. Items in reading order, left to right then top to bottom: {{items}}. Leave a cell empty if the list is shorter than the grid. Each item is centered in its cell, fills about 80 percent of it, and never touches or crosses the cell edge. All icons share one style, one light direction from the top left, one outline weight and the same slight three-quarter angle, so they read as a single set. Bold readable silhouettes and strong value contrast that stay clear at small sizes. Style: {{style}}. Background: one perfectly flat, uniform solid magenta #FF00FF fill from edge to edge, with no gradient, texture, floor, cast shadow or vignette. Do not use magenta, hot pink or purple anywhere on the subject.",
-      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, magenta or pink on the subject, slot backgrounds, rarity borders, overlapping icons, items spanning two cells, inconsistent styles, tiny details that vanish at small size, hands holding items",
+      "prompt": "A game inventory icon set on a strict {{grid}} grid (columns x rows) of equal square cells, one item per cell, with no gaps, no visible grid lines and no slot frames. Items in reading order, left to right then top to bottom: {{items}}. Leave a cell empty if the list is shorter than the grid. Each item is centered in its cell, fills about 80 percent of it, and never touches or crosses the cell edge. All icons share one style, one light direction from the top left, one outline weight and the same slight three-quarter angle, so they read as a single set. Bold readable silhouettes and strong value contrast that stay clear at small sizes. Style: {{style}}. Background: fully transparent, with nothing behind the subject: no floor, cast shadow, scenery or vignette.",
+      "negative": "text, letters, numbers, labels, captions, watermark, signature, logo, border, frame, grid lines, gradient background, background scenery, floor shadow, photograph, blurry, jpeg artifacts, cropped, cut off at the edge, duplicated parts, deformed anatomy, extra limbs, slot backgrounds, rarity borders, overlapping icons, items spanning two cells, inconsistent styles, tiny details that vanish at small size, hands holding items",
       "models": {
         "requires": [
           "t2i"
@@ -131,17 +131,10 @@
           "default": 2,
           "max": 4
         },
-        "aspect": "1:1"
+        "aspect": "1:1",
+        "background": "transparent"
       },
       "postprocess": [
-        {
-          "op": "remove-bg",
-          "params": {
-            "mode": "chroma",
-            "color": "#FF00FF",
-            "tolerance": 32
-          }
-        },
         {
           "op": "resize",
           "params": {

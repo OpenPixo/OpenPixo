@@ -206,12 +206,19 @@ it('asks the image provider for a transparent background when the recipe declare
   expect(generate.mock.calls[1]![0]).not.toHaveProperty('background');
 });
 
-it('makes the bundled walk recipe request transparency instead of keying a painted magenta', () => {
-  const walk = discoverRecipes(path.resolve(import.meta.dirname, '../../../plugins/_official')).find(recipe => recipe.id === 'sprite-walk-8dir')!;
-  const recipe = walk.manifest.pixo!.recipe!;
-  expect(recipe.generation?.background).toBe('transparent');
-  expect(`${recipe.prompt}\n${recipe.negative ?? ''}`).not.toMatch(/magenta|#FF00FF/i);
-  expect(recipe.postprocess?.map(step => step.op)).not.toContain('remove-bg');
+it('makes every bundled recipe that promises alpha request transparency instead of keying a painted magenta', () => {
+  // A remove-bg step only keys a derived copy; the staged primary, which the 生成 page shows and adoption
+  // names after the recipe, would keep the painted backdrop. Only the media layer keys the primary itself.
+  const recipes = discoverRecipes(path.resolve(import.meta.dirname, '../../../plugins/_official'));
+  const transparent = recipes.filter(entry => entry.manifest.pixo!.recipe!.checks?.some(check => check.check === 'has-alpha'));
+  expect(transparent.map(entry => entry.id)).toEqual(expect.arrayContaining(['character-turnaround', 'item-icon-set', 'parallax-layers', 'sprite-walk-8dir', 'ui-nine-slice']));
+  for (const entry of transparent) {
+    const recipe = entry.manifest.pixo!.recipe!;
+    expect(recipe.generation?.background, entry.id).toBe('transparent');
+    expect(`${recipe.prompt}\n${recipe.negative ?? ''}`, entry.id).not.toMatch(/magenta|#FF00FF/i);
+    expect(recipe.postprocess?.map(step => step.op) ?? [], entry.id).not.toContain('remove-bg');
+  }
+  const recipe = recipes.find(entry => entry.id === 'sprite-walk-8dir')!.manifest.pixo!.recipe!;
   // A character drawn to the cell border is clipped when the sheet is sliced.
   expect(recipe.prompt).toContain('clear empty space between the cell edges and every part of the character');
 });
@@ -306,4 +313,43 @@ it('runs a 3D recipe on its reference image and adopts the GLB into the project'
   const adopted = await executor.adopt('p', started.id, [ready.candidates[0]!.id], project);
   expect(adopted.candidates[0]!.adoptedPaths).toEqual(['models/chest/chest.glb']);
   expect(await readFile(path.join(project, 'models/chest/chest.glb'))).toEqual(glb);
+});
+
+it('keys the painted backdrop out of a character turnaround, so the staged primary itself has alpha', async () => {
+  // A real provider without native alpha: a mocked OpenAI-compatible endpoint, no network, no spend.
+  // Models paint "magenta" a shade off; the result shown and adopted is the staged primary, not a derived copy.
+  vi.stubEnv('FAL_KEY', ''); vi.stubEnv('PIXO_FAL_KEY', '');
+  const configDir = path.join(root, 'media-config'); await mkdir(configDir);
+  await writeFile(path.join(configDir, 'media-config.json'), JSON.stringify({ providers: { 'custom-image': { baseUrl: 'https://images.example.test/v1', model: 'acme-image' } } }));
+  vi.stubEnv('PIXO_MEDIA_CONFIG_DIR', configDir);
+  const knight = await sharp({ create: { width: 40, height: 120, channels: 3, background: { r: 150, g: 160, b: 170 } } }).png().toBuffer();
+  const render = await sharp({ create: { width: 320, height: 180, channels: 3, background: { r: 246, g: 14, b: 236 } } })
+    .composite([40, 140, 240].map(left => ({ input: knight, left, top: 30 }))).png().toBuffer();
+  const requests: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+    requests.push(String(input));
+    return new Response(JSON.stringify({ data: [{ b64_json: render.toString('base64') }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }));
+  try {
+    await sharp({ create: { width: 16, height: 16, channels: 3, background: { r: 150, g: 160, b: 170 } } }).png().toFile(path.join(project, 'knight.png'));
+    await mkdir(path.join(project, '.openpixo/characters'), { recursive: true });
+    await writeFile(path.join(project, '.openpixo/characters/knight.json'), JSON.stringify({ slug: 'knight', name: 'Knight', description: 'a knight in steel armour', references: ['knight.png'] }));
+    const detail = discoverRecipes(path.resolve(import.meta.dirname, '../../../plugins/_official')).find(recipe => recipe.id === 'character-turnaround')!;
+    const executor = new RecipeExecutor({ runtimeDataDir: data, projectRoot: root, db, mediaTasks: createMediaTaskStore(db) });
+    const custom = IMAGE_MODELS.find(entry => entry.id === 'custom-image')!;
+    const started = await executor.start(detail, 'p', project, { recipeId: detail.id, count: 1, inputs: { character: 'knight' } }, custom);
+    const ready = await executor.wait('p', started.id);
+    expect(ready.status, JSON.stringify(ready)).toBe('ready');
+    // The character's reference image went with the request (the i2i edit path).
+    expect(requests).toEqual([expect.stringMatching(/\/images\/edits$/)]);
+    const candidate = ready.candidates[0]!;
+    const primary = candidate.stagedFiles[0]!;
+    expect(primary.role).toBe('primary');
+    const { data: rgba, info } = await sharp(primary.ref).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const pixel = (x: number, y: number) => [...rgba.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4)];
+    expect(pixel(2, 2)[3]).toBe(0);
+    expect(pixel(110, 90)[3]).toBe(0);
+    expect(pixel(60, 90)).toEqual([150, 160, 170, 255]);
+    expect(candidate.checks).toContainEqual(expect.objectContaining({ check: 'has-alpha', ok: true }));
+  } finally { vi.unstubAllGlobals(); }
 });
