@@ -4,6 +4,7 @@ import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { Button } from '@openpixo/components';
 import { reportAgentDetectDiagnostics } from './analytics/agent-detect';
 import { useAnalytics } from './analytics/provider';
+import { analyticsAvailable } from './analytics/client';
 import {
   trackExperienceSurveyDismissed,
   trackExperienceSurveySent,
@@ -1200,10 +1201,13 @@ function AppInner() {
     if (route.kind === 'project') suspendThumbnailLoads();
     else resumeThumbnailLoads();
   }, [route.kind]);
-  // Gate the privacy banner on three things:
+  // Gate the privacy banner on four things:
   //   1. Daemon config has hydrated (privacyDecisionAt is daemon-owned).
   //   2. The user has not yet made a privacy decision.
-  //   3. Onboarding is complete (Skip and design-system creation both flip
+  //   3. This build can send at all (it has an analytics key). Consent is off
+  //      by default, so the banner is how a user can say yes; without a key
+  //      there is nothing to ask.
+  //   4. Onboarding is complete (Skip and design-system creation both flip
   //      onboardingCompleted to true; see handleCompleteOnboarding wiring).
   // Once onboarding is done the banner is allowed on any route — including
   // the project view the design-system finish path drops the user into, so
@@ -1211,10 +1215,16 @@ function AppInner() {
   // is running. Settings is irrelevant to visibility; the banner sits above
   // the modal-backdrop layer in index.css so opening Settings does not hide
   // it.
+  const [canSendAnalytics, setCanSendAnalytics] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void analyticsAvailable().then((available) => { if (!cancelled) setCanSendAnalytics(available); });
+    return () => { cancelled = true; };
+  }, []);
   const showPrivacyConsent =
     daemonConfigLoaded &&
     config.privacyDecisionAt == null &&
-    config.telemetry?.metrics === true &&
+    canSendAnalytics &&
     config.onboardingCompleted === true;
   useEffect(() => {
     const body = activeProjectId

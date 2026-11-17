@@ -141,7 +141,7 @@ describe('run failure telemetry smoke', () => {
     );
 
     process.env.PIXO_CHAT_RUN_INACTIVITY_TIMEOUT_MS = '5000';
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     started = await startIsolatedServer();
     await putConfig(started.url, {
       telemetry: { metrics: true, },
@@ -218,7 +218,7 @@ async function removeDataDir(root: string): Promise<void> {
 function snapshotEnv(): Record<string, string | undefined> {
   return {
     PIXO_TELEMETRY_RELAY_URL: process.env.PIXO_TELEMETRY_RELAY_URL,
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     PIXO_CHAT_RUN_INACTIVITY_TIMEOUT_MS: process.env.PIXO_CHAT_RUN_INACTIVITY_TIMEOUT_MS,
     PIXO_DATA_DIR: process.env.PIXO_DATA_DIR,
     PATH: process.env.PATH,

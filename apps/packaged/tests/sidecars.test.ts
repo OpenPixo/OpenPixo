@@ -737,28 +737,25 @@ it('passes the original desktop attempt/session to the daemon before it starts',
     );
   });
 
-  it('forwards POSTHOG_KEY/POSTHOG_HOST to the daemon spawn env when baked into the bundle', () => {
+  it('forwards the usage-events ingest address to the daemon spawn env when baked into the bundle', () => {
     const env = buildPackagedDaemonSpawnEnv(fakePaths(), {
       appVersion: null,
       daemonCliEntry: null,
       requireDesktopAuth: true,
-      posthogKey: 'phc_packaged_test',
-      posthogHost: 'https://us.i.posthog.com',
+      usageEventsUrl: 'https://events.test.invalid',
     });
-    expect(env.POSTHOG_KEY).toBe('phc_packaged_test');
-    expect(env.POSTHOG_HOST).toBe('https://us.i.posthog.com');
+    expect(env.PIXO_USAGE_EVENTS_URL).toBe('https://events.test.invalid');
+    expect(env.POSTHOG_KEY).toBeUndefined();
   });
 
-  it('omits POSTHOG_KEY/POSTHOG_HOST for fork builds that lack the secret', () => {
+  it('omits the ingest address for builds that have none', () => {
     const env = buildPackagedDaemonSpawnEnv(fakePaths(), {
       appVersion: null,
       daemonCliEntry: null,
       requireDesktopAuth: true,
-      posthogKey: null,
-      posthogHost: null,
+      usageEventsUrl: null,
     });
-    expect(env.POSTHOG_KEY).toBeUndefined();
-    expect(env.POSTHOG_HOST).toBeUndefined();
+    expect(env.PIXO_USAGE_EVENTS_URL).toBeUndefined();
   });
 });
 

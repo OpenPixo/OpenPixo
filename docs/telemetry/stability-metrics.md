@@ -139,7 +139,7 @@ default; it is not one of the three Electron process categories above.
 
 Product analytics retains its consent checks, including fail-closed config reads.
 The optional daemon-health sampler remains unarmed by default. Safety capture
-still requires the existing PostHog key/environment gates; missing credentials
+still requires the usage-events ingest address (`docs/telemetry/usage-events.md`) and the user's consent; missing credentials
 do not trigger network traffic. Content consent and privacy projection are unchanged.
 
 ## Envelope and verification

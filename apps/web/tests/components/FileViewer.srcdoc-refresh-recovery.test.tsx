@@ -48,8 +48,6 @@ function transportGeneration(frame: HTMLIFrameElement): string {
 beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 800, height: 600, top: 0, left: 0, bottom: 600, right: 800 } as DOMRect);
   setExceptionTrackingContext({
-    apiKey: 'phc_preview_test',
-    host: 'https://posthog.test',
     distinctId: 'preview-test-user',
     clientType: 'web',
     osName: 'Mac OS X',
@@ -300,7 +298,7 @@ describe('FileViewer srcDoc file-watch refresh recovery', () => {
       input: RequestInfo | URL,
       _init?: RequestInit,
     ) => new Response('', {
-      status: String(input).includes('/i/v0/e/') ? 200 : 404,
+      status: String(input).includes('/api/analytics/events') ? 200 : 404,
     }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -348,7 +346,7 @@ describe('FileViewer srcDoc file-watch refresh recovery', () => {
     expect(recoveredFrame.srcdoc).toContain('data-pixo-lazy-srcdoc-transport');
 
     const postHogCalls = fetchMock.mock.calls.filter(([input, init]) =>
-      String(input).includes('/i/v0/e/') && JSON.parse(String(init?.body ?? '{}')).event === 'client_preview_white_screen');
+      String(input).includes('/api/analytics/events') && JSON.parse(String(init?.body ?? '{}')).event === 'client_preview_white_screen');
     expect(postHogCalls).toHaveLength(1);
     const [, postHogInit] = postHogCalls[0]!;
     expect(postHogInit).toBeDefined();
@@ -441,7 +439,7 @@ describe('FileViewer srcDoc file-watch refresh recovery', () => {
     });
 
     expect(screen.getByTestId('artifact-preview-frame')).toBe(parsingFrame);
-    expect(fetchMock.mock.calls.some(([input, init]) => String(input).includes('/i/v0/e/')
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input).includes('/api/analytics/events')
       && JSON.parse(String(init?.body ?? '{}')).event === 'client_preview_white_screen')).toBe(false);
   });
 

@@ -125,17 +125,13 @@ export type ToolPackConfig = {
   
   telemetryRelayUrl?: string;
   /**
-   * PostHog product-analytics ingest key, sourced from process.env.POSTHOG_KEY
-   * at packaging time. Baked into openpixo-config.json so the packaged
-   * daemon can read it as POSTHOG_KEY env at launch — only official Open
-   * Design builds (CI with the secret set) ship with this; forks compiling
-   * locally produce binaries that omit the key and the integration
-   * short-circuits cleanly. Apache-2.0 keeps the bundle public, but `phc_`
-   * keys are write-only event ingest keys (cannot read your project data),
-   * so embedding them in the binary is the PostHog-recommended pattern.
+   * OpenPixo's usage-events ingest address (its own Cloudflare Worker), from
+   * PIXO_USAGE_EVENTS_URL at packaging time (never the upstream POSTHOG_*).
+   * Baked into openpixo-config.json and handed to the daemon as
+   * PIXO_USAGE_EVENTS_URL. Only OpenPixo release builds set it; without it the
+   * app sends nothing, and with it the app still waits for the user's yes.
    */
-  posthogKey?: string;
-  posthogHost?: string;
+  usageEventsUrl?: string;
   
   /**
    * Personal API key (`phx_...`) used by the @posthog/cli sourcemap helper to
@@ -362,11 +358,12 @@ export function resolveToolPackConfig(
     silent: options.silent !== false,
     signed: options.signed === true,
     
-    // Do not bake upstream analytics configuration or sourcemap credentials into a fork.
+    // Do not bake upstream analytics configuration or sourcemap credentials into a fork:
+    // the upstream POSTHOG_* names stay ignored. OpenPixo's own ingest key comes only from
+    // PIXO_USAGE_EVENTS_URL (its own Worker), and the app still sends nothing until the user says yes.
     telemetryRelayUrl: undefined,
     updateMetadataUrl: resolveToolPackUpdateMetadataUrl(process.env.PIXO_UPDATE_METADATA_URL, releaseChannel),
-    posthogKey: undefined,
-    posthogHost: undefined,
+    usageEventsUrl: resolveOpenPixoUsageEventsUrl(process.env.PIXO_USAGE_EVENTS_URL),
     
     
     posthogCliApiKey: undefined,
@@ -376,4 +373,14 @@ export function resolveToolPackConfig(
     webOutputMode: resolveToolPackWebOutputMode(platform, process.env.PIXO_WEB_OUTPUT_MODE),
     workspaceRoot: WORKSPACE_ROOT,
   };
+}
+
+/** OpenPixo's ingest origin: https only, no path, query or credentials, so a wrong value fails the build. */
+export function resolveOpenPixoUsageEventsUrl(raw: string | undefined): string | undefined {
+  const value = raw?.trim().replace(/\/+$/u, "");
+  if (!value) return undefined;
+  if (!/^https:\/\/[A-Za-z0-9.-]+$/u.test(value)) {
+    throw new Error("PIXO_USAGE_EVENTS_URL must be an https origin with no path, such as https://events.openpixo.com.");
+  }
+  return value;
 }

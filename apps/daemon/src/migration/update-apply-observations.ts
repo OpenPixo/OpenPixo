@@ -16,7 +16,7 @@ import {
 
 import { buildClientTelemetryParams, parseClientMetricEvent, UPDATE_METRIC_STAGES, updateStageMetricSchema } from '@openpixo/contracts/analytics';
 import type { AnalyticsContext, AnalyticsService } from '../analytics.js';
-import { readPosthogConfig } from '../analytics.js';
+import { readUsageEventsConfig } from '../analytics.js';
 import { readAppConfig, readMetricsConsent, type AppConfigPrefs } from '../app-config.js';
 
 const INSTALLER_OBSERVATION_SCHEMA_VERSION = 1;
@@ -219,7 +219,7 @@ function deliveryForConfig(
   if (appConfig.telemetry?.metrics !== true) {
     return { delivery: { eventName: 'update_apply_observed', status: 'skipped_no_consent', updatedAt } };
   }
-  if (readPosthogConfig(env) == null) {
+  if (readUsageEventsConfig(env) == null) {
     return { delivery: { eventName: 'update_apply_observed', status: 'skipped_analytics_disabled', updatedAt } };
   }
   const deviceId = typeof appConfig.installationId === 'string' && appConfig.installationId.length > 0
@@ -407,7 +407,7 @@ async function replayUpdateStageMetrics(
             !Number.isFinite(at) || at > now.getTime() || now.getTime() - at > INSTALLER_OBSERVATION_TTL_MS) continue;
         const insertId = `update_stage:${flowId}:${stage}:${phase}`;
         let status = 'skipped_analytics_disabled';
-        if (readPosthogConfig(options.env ?? process.env) != null) {
+        if (readUsageEventsConfig(options.env ?? process.env) != null) {
           const properties = parseClientMetricEvent('client_update_stage_result', {
             ...parsed.data, metric_schema_version: 1, telemetry_capability: 'supported',
             ...buildClientTelemetryParams({ ...raw, occurred_at: new Date(at).toISOString() }, { eventId: insertId, deviceId: null,

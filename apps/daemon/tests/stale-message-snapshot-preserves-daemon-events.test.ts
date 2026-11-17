@@ -74,7 +74,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-stale-put-msg-bin-'));
     const fakeClaude = await writeCleanClaude(binDir, 'claude-stale-put');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -180,7 +180,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-terminal-latch-bin-'));
     const fakeClaude = await writeCleanClaude(binDir, 'claude-terminal-latch');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -246,7 +246,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // nettee review (#6418): the accepted merge path must not let an
     // equal-length snapshot omit or rewind lastRunEventId, or reattach can
     // replay from the wrong cursor.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -389,7 +389,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // a stale client snapshot clear content after the daemon has already
     // written it. This can happen when events persisted before the client
     // reducer/content update, so event counts match while content is stale.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -472,7 +472,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-event-growth-content-bin-'));
     const fakeClaude = await writeCleanClaude(binDir, 'claude-event-growth-content');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -544,7 +544,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-meta-update-bin-'));
     const fakeClaude = await writeCleanClaude(binDir, 'claude-meta-update');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -613,7 +613,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
   it('rejects a message id that belongs to another conversation', async () => {
     // The route must not read or rewrite a daemon-backed message through a
     // different conversation's endpoint (looper review on #6418).
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -693,7 +693,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // grows the stored event list (from empty to non-empty) must flow through,
     // including the terminal runStatus. Regression for the UI P0
     // app-restoration suite after the #6396 guard.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -764,7 +764,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // client/mock path is the writer. A terminal PUT with fewer/omitted events
     // must be able to finalize status/content instead of preserving a stale
     // non-terminal row forever.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -834,7 +834,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // set, runStatus queued, no events yet) followed by a stale web snapshot
     // that omits runId must not null `run_id` — otherwise the row drops out of
     // the protected path and the next stale PUT can wipe events once they land.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -902,7 +902,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // run's start, so the retry's final PUT shares the pinned runId with a
     // non-terminal stored status and must flow through the no-regression guard
     // even though it carries fewer client events and a fresh terminal status.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -968,7 +968,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
     // nettee P2 on #6418: after a retry pins run B, a delayed snapshot from the
     // old run A must not repopulate run B's data — the guard keeps the current
     // generation's run fields while letting metadata land.
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -1029,7 +1029,7 @@ describe('stale web message snapshot does not wipe daemon-owned run events', () 
   });
 
   it('still lets the client write non-daemon-backed messages', async () => {
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -1104,7 +1104,7 @@ function snapshotEnv(): Record<string, string | undefined> {
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     PIXO_TELEMETRY_RELAY_URL: process.env.PIXO_TELEMETRY_RELAY_URL,
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
   };
 }

@@ -532,8 +532,7 @@ async function writeAssembledApp(
         namespace: config.namespace,
         nodeCommandRelative: "openpixo/bin/node",
         ...(config.telemetryRelayUrl == null ? {} : { telemetryRelayUrl: config.telemetryRelayUrl }),
-        ...(config.posthogKey == null ? {} : { posthogKey: config.posthogKey }),
-        ...(config.posthogHost == null ? {} : { posthogHost: config.posthogHost }),
+        ...(config.usageEventsUrl == null ? {} : { usageEventsUrl: config.usageEventsUrl }),
         ...(config.cloud == null ? {} : { cloudUrl: config.cloud.url, cloudAnonKey: config.cloud.anonKey, cloudAgentUrl: config.cloud.agentUrl }),
 
 

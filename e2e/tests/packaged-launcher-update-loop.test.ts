@@ -20,8 +20,7 @@ type PackagedConfigLike = {
   namespace: string;
   namespaceBaseRoot: string;
   nodeCommand: null;
-  posthogHost: null;
-  posthogKey: null;
+  usageEventsUrl: null;
   resourceRoot: string;
   telemetryRelayUrl: string | null;
   webOutputMode: "server";
@@ -75,8 +74,7 @@ type PackagedLauncherRuntime = {
     daemonCliEntry: string | null;
     daemonSidecarEntry: string | null;
     nodeCommand: string | null;
-    posthogHost: string | null;
-    posthogKey: string | null;
+    usageEventsUrl: string | null;
     resourceRoot: string;
     telemetryRelayUrl: string | null;
     webOutputMode: "server" | "standalone";
@@ -120,8 +118,7 @@ type PackagedSidecarsModule = {
       mcpBootstrapArgs: readonly string[];
       mcpBootstrapCommand: string | null;
       nodeCommand: string | null;
-      posthogHost: string | null;
-      posthogKey: string | null;
+      usageEventsUrl: string | null;
       requireDesktopAuth: boolean;
       telemetryRelayUrl: string | null;
       webOutputMode: "server" | "standalone";
@@ -227,8 +224,7 @@ function fakePackagedConfig(root: string, testCase: PlatformCase): PackagedConfi
     namespace: testCase.namespace,
     namespaceBaseRoot: join(root, "namespaces"),
     nodeCommand: null,
-    posthogHost: null,
-    posthogKey: null,
+    usageEventsUrl: null,
     resourceRoot: join(root, "installed", "resources", "openpixo"),
     telemetryRelayUrl: HISTORICAL_OUTER_RELAY_URL,
     webOutputMode: "server",
@@ -554,8 +550,7 @@ describe("packaged launcher payload update loop", () => {
         // binary. Use the test process's Node while preserving the real
         // startPackagedSidecars -> spawnSidecarChild environment path.
         nodeCommand: process.execPath,
-        posthogHost: promoted.config.posthogHost,
-        posthogKey: promoted.config.posthogKey,
+        usageEventsUrl: promoted.config.usageEventsUrl,
         requireDesktopAuth: true,
         telemetryRelayUrl: promoted.config.telemetryRelayUrl,
         webOutputMode: promoted.config.webOutputMode,
@@ -1021,8 +1016,7 @@ async function checkPackagedUpdate(scenario: FloorScenario): Promise<{
       namespace: "default",
       namespaceBaseRoot: join(root, "namespaces"),
       nodeCommand: null,
-      posthogHost: null,
-      posthogKey: null,
+      usageEventsUrl: null,
       resourceRoot: join(root, "installed", "resources", "openpixo"),
       telemetryRelayUrl: null,
       webOutputMode: "server",

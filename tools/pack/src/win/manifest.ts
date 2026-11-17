@@ -29,8 +29,7 @@ function createPackagedConfig(
     ...(config.telemetryRelayUrl == null ? {} : { telemetryRelayUrl: config.telemetryRelayUrl }),
     ...(config.updateMetadataUrl == null ? {} : { updateMetadataUrl: config.updateMetadataUrl }),
     ...(config.cloud == null ? {} : { cloudUrl: config.cloud.url, cloudAnonKey: config.cloud.anonKey, cloudAgentUrl: config.cloud.agentUrl }),
-    ...(config.posthogKey == null ? {} : { posthogKey: config.posthogKey }),
-    ...(config.posthogHost == null ? {} : { posthogHost: config.posthogHost }),
+    ...(config.usageEventsUrl == null ? {} : { usageEventsUrl: config.usageEventsUrl }),
     
     
     webOutputMode: config.webOutputMode,

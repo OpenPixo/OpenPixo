@@ -89,6 +89,7 @@ export function registerGenerateRoutes(app: Express, handlers: RecipeRunHandlers
       const target = await game(req, res, true, request.projectId); if (!target) return;
       const result = await executor.adopt(ALL_GAMES, run.id, request.candidateIds,
         { projectId: request.projectId, root: target.root, engine: target.value?.metadata?.engineProfile });
+      handlers.adopted(req, result, request.candidateIds);
       res.json(result);
     } catch (error) { fail(res, error); }
   });

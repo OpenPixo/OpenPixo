@@ -73,7 +73,7 @@ describe('resume-on-failure runtime', () => {
       'claude-resumable',
     );
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -133,7 +133,7 @@ describe('resume-on-failure runtime', () => {
       'claude-noout',
     );
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -174,7 +174,7 @@ describe('resume-on-failure runtime', () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-resume-textonly-bin-'));
     const { bin: fakeClaude } = await writeTextOnlyUpstreamClaude(binDir, 'claude-textonly');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -207,7 +207,7 @@ describe('resume-on-failure runtime', () => {
       'opencode-client-error',
     );
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -248,7 +248,7 @@ function snapshotEnv(): Record<string, string | undefined> {
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     PIXO_TELEMETRY_RELAY_URL: process.env.PIXO_TELEMETRY_RELAY_URL,
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
   };
 }

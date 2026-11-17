@@ -2,6 +2,7 @@ import { observeUpdateLifecycleStages } from '../migration/update-apply-observat
 import express, { type Express } from 'express';
 import { SIDECAR_DEFAULTS } from '@openpixo/sidecar-proto';
 import { randomUUID } from 'node:crypto';
+import { USAGE_EVENTS_MAX_BATCH } from '@openpixo/contracts/analytics';
 import {
   type McpAnalyticsEventRequest,
   type McpAnalyticsContextResponse,
@@ -129,14 +130,15 @@ export function registerTelemetryRoutes(app: Express, deps: RegisterTelemetryRou
     deliver: (capture) => analyticsService.captureSafety(capture),
   });
 
-  // PostHog runtime config.
+  // Usage data config.
   //
   // - `enabled` reflects ONLY the user's consent toggle (Privacy -> "Share
-  //   usage data"). When false, posthog-js's full autocapture/$pageview/
-  //   $autocapture pipeline must stay off.
-  // - `key` and `host` are populated whenever the server has a build-time
-  //   POSTHOG_KEY, regardless of consent, so safety/error tracking can run.
-  // - Without a build-time key, every telemetry client remains a no-op.
+  //   usage data"). When false, the web app sends no events at all.
+  // - `available` says the build has an ingest address, so the app may ask.
+  // - No ingest address or key is ever returned: the app sends through the
+  //   daemon. OpenPixo sends nothing, error reports included, until the user
+  //   says yes.
+  // - Without a build-time ingest address, every telemetry client is a no-op.
   app.get('/api/analytics/config', async (_req, res) => {
     const baseline = readPublicConfigResponse();
     if (!baseline.enabled) {
@@ -153,17 +155,15 @@ export function registerTelemetryRoutes(app: Express, deps: RegisterTelemetryRou
           : null;
       res.json({
         enabled: consentGranted,
+        available: true,
         env: baseline.env,
-        key: baseline.key,
-        host: baseline.host,
-        installationId,
+        installationId: consentGranted ? installationId : null,
       });
     } catch {
       res.json({
         enabled: false,
+        available: true,
         env: baseline.env,
-        key: baseline.key,
-        host: baseline.host,
         installationId: null,
       });
     }
@@ -244,6 +244,43 @@ export function registerTelemetryRoutes(app: Express, deps: RegisterTelemetryRou
       insertId: body.eventId,
     });
     res.json({ ok: true });
+  });
+
+  // The web app's events. The browser never talks to the ingest Worker: it
+  // posts here with its analytics headers, `capture` re-checks consent, and the
+  // usage-events client drops anything that is not a count before sending.
+  // Two body forms: a batch `{ events: [{ event, eventId, occurredAt, properties }] }`
+  // from the usage client, and a single `{ event, event_id, timestamp, properties }`
+  // keepalive beacon from the error tracker.
+  app.post('/api/analytics/events', express.json({ limit: '64kb' }), async (req, res) => {
+    const context = readAnalyticsContext(req);
+    const raw = (req.body ?? {}) as { events?: unknown; event?: unknown; event_id?: unknown; timestamp?: unknown; properties?: unknown };
+    const body = typeof raw.event === 'string' && raw.events === undefined
+      ? { events: [{ event: raw.event, eventId: raw.event_id, occurredAt: raw.timestamp, properties: raw.properties }] }
+      : raw;
+    if (!Array.isArray(body.events) || body.events.length > USAGE_EVENTS_MAX_BATCH) {
+      res.status(400).json({ error: 'events must be an array of at most 50' });
+      return;
+    }
+    if (!context) { res.json({ accepted: 0 }); return; }
+    const appVersion = (await appVersionPromise)?.version ?? UNKNOWN_APP_VERSION;
+    let accepted = 0;
+    for (const raw of body.events) {
+      const item = (raw ?? {}) as { event?: unknown; eventId?: unknown; occurredAt?: unknown; properties?: unknown };
+      if (typeof item.event !== 'string' || !/^[a-z][a-z0-9_]{0,63}$/u.test(item.event)) continue;
+      const properties = item.properties && typeof item.properties === 'object' && !Array.isArray(item.properties)
+        ? { ...(item.properties as Record<string, unknown>) } : {};
+      if (typeof item.occurredAt === 'string' && Number.isFinite(Date.parse(item.occurredAt))) properties.occurred_at = new Date(item.occurredAt).toISOString();
+      const result = await analyticsService.capture({
+        eventName: item.event,
+        context,
+        appVersion,
+        properties,
+        insertId: typeof item.eventId === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(item.eventId) ? item.eventId : randomUUID(),
+      });
+      if (result.status === 'queued') accepted += 1;
+    }
+    res.json({ accepted });
   });
 
   app.post('/api/observability/event', express.json({ limit: '64kb' }), async (req, res) => {

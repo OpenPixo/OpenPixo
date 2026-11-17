@@ -12,9 +12,12 @@ import { bearerTokenFromRequest } from '../http/tool-request-auth.js';
 import { resolveProjectDir } from '../projects.js';
 import type { RouteDeps } from '../server-context.js';
 import { toolTokenRegistry, type ToolTokenGrant } from '../tool-tokens.js';
+import { gameVerifiedProperties, type GameFunnelRecorder } from '../game/game-funnel.js';
 
 export interface RegisterGameVerifyRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest' | 'authorizeProjectToolRequest'> {
   captureGameWeb?: GameWebCapture | null;
+  /** Counts verification and playtest outcomes, with the user's consent; absent in tests. */
+  gameFunnel?: GameFunnelRecorder;
 }
 
 function parseRequest(body: unknown): GameVerifyRequest {
@@ -31,6 +34,8 @@ export function registerGameVerifyRoutes(app: Express, ctx: RegisterGameVerifyRo
   const { sendApiError, requireLocalDaemonRequest, isLocalSameOrigin, resolvedPortRef } = ctx.http;
   const error = (res: Response, caught: unknown) => sendApiError(res, 400, 'BAD_REQUEST', caught instanceof Error ? caught.message : String(caught));
   const agentToken = (req: Request) => bearerTokenFromRequest(req)?.startsWith('pixott_') === true;
+  // A CLI-registered result was produced elsewhere; the engine the daemon last recorded is enough to group it.
+  const registeredEngine = (id: string) => getProject(ctx.db, id)?.metadata?.engineProfile?.engine;
   async function authorize(req: Request, res: Response, write: boolean): Promise<{ grant?: ToolTokenGrant } | null> {
     const id = String(req.params.id);
     if (!getProject(ctx.db, id)) { sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'project not found'); return null; }
@@ -76,7 +81,9 @@ export function registerGameVerifyRoutes(app: Express, ctx: RegisterGameVerifyRo
       const prepared = await context(req);
       const result = await verifyGame({ ...prepared, request, resolveTool: gameToolResolver(prepared.toolPaths),
         ...(ctx.captureGameWeb ? { captureWeb: ctx.captureGameWeb } : {}) });
-      res.json(await registerGameVerifyResult(prepared.artifactDir, result, request.runId));
+      const registered = await registerGameVerifyResult(prepared.artifactDir, result, request.runId);
+      ctx.gameFunnel?.record(req, 'game_verified', gameVerifiedProperties({ result: registered, engine: prepared.profile.engine, actor: 'user', mode: 'verify' }));
+      res.json(registered);
     } catch (caught) { error(res, caught); }
   });
   app.post('/api/projects/:id/game/verify/register', requireLocalDaemonRequest, async (req, res) => {
@@ -85,7 +92,10 @@ export function registerGameVerifyRoutes(app: Express, ctx: RegisterGameVerifyRo
       const request = parseRequest({ runId: req.body?.runId });
       if (auth.grant && request.runId && request.runId !== auth.grant.runId) throw new Error('runId must match the tool token');
       const dir = gameVerifyArtifactDir(ctx.paths.ARTIFACTS_DIR, String(req.params.id));
-      res.json(await registerGameVerifyResult(dir, req.body?.result, auth.grant?.runId ?? request.runId));
+      const registered = await registerGameVerifyResult(dir, req.body?.result, auth.grant?.runId ?? request.runId);
+      ctx.gameFunnel?.record(req, 'game_verified', gameVerifiedProperties({ result: registered, engine: registeredEngine(String(req.params.id)),
+        actor: auth.grant ? 'agent' : 'user', mode: 'verify' }));
+      res.json(registered);
     } catch (caught) { error(res, caught); }
   });
   app.post('/api/projects/:id/game/verify/capture', requireLocalDaemonRequest, async (req, res) => {

@@ -96,6 +96,8 @@ export interface TelemetryDeps {
     eventName: string,
     properties: Record<string, unknown>,
   ) => Promise<void> | void;
+  /** The consented game funnel (`game/game-funnel.ts`); absent in tests. */
+  gameFunnel?: import('./game/game-funnel.js').GameFunnelRecorder;
 }
 
 export interface ServerContext {

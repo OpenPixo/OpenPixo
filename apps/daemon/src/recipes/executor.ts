@@ -59,6 +59,8 @@ export interface RecipeExecutorDeps {
   mediaTasks: ReturnType<typeof createMediaTaskStore>;
   generate?: typeof generateMedia;
   postprocess?: typeof runAssetOp;
+  /** Told once when a run started in this process ends: ready, failed or cancelled. Must not throw. */
+  onRunSettled?: (run: RecipeRun) => void;
 }
 /** What a video recipe fixes about its clip (`generation.video`). */
 export interface RecipeVideo { duration: number; resolution?: string | undefined; loop?: boolean | undefined }
@@ -327,7 +329,10 @@ export class RecipeExecutor {
     const job = this.execute(record, surface, model, referenceBytes, steps, recipe.checks ?? [], prepared.variables, controller.signal, aspect, paidFor)
       .catch(async error => { if (record.run.status !== 'cancelled') { record.run.status = 'failed'; Object.assign(record.run, recipeFailure(error)); await this.save(record); } })
       // A candidate cancelled or failed before its submit leaves its reservation unused.
-      .finally(() => { releasePaid(); this.jobs.delete(id); this.controllers.delete(id); });
+      .finally(() => {
+        releasePaid(); this.jobs.delete(id); this.controllers.delete(id);
+        if (terminal(record.run)) { try { this.deps.onRunSettled?.(structuredClone(record.run)); } catch { /* observers never affect a run */ } }
+      });
     this.jobs.set(id, job);
     return structuredClone(record.run);
   }

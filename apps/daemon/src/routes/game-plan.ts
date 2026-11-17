@@ -21,6 +21,7 @@ import { resolveProjectDir } from '../projects.js';
 import type { RouteDeps } from '../server-context.js';
 import { toolTokenRegistry } from '../tool-tokens.js';
 import { setArtBudgetForUser, type ArtBudgetDeps } from './art-budget.js';
+import { gamePlanApprovedProperties, type GameFunnelRecorder } from '../game/game-funnel.js';
 
 export const GAME_PLAN_NOT_APPROVED = 'GAME_PLAN_NOT_APPROVED';
 
@@ -38,6 +39,8 @@ interface ProjectStore {
 }
 
 export interface RegisterGamePlanRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest' | 'authorizeProjectToolRequest'> {
+  /** Counts approved plans, with the user's consent; absent in tests. */
+  gameFunnel?: GameFunnelRecorder;
   templatesRoot: string;
   /** True while the project has an active run; an agent's shell only exists during one. */
   isProjectBusy: (projectId: string) => boolean;
@@ -112,6 +115,9 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
     const updated = store.update(id, { metadata: { ...project.metadata!, gamePlan: approved } });
     if (!updated) return http.sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'project not found');
     store.forgetAgentSessions(id);
+    ctx.gameFunnel?.record(req, 'game_plan_approved', gamePlanApprovedProperties({
+      setup: project.metadata?.gameSetup, startedAt: plan.startedAt, now: approved.approvedAt,
+      recordedPlan: Boolean(recorded), artBudgetCredits: credits }));
     const body: ApproveGamePlanResponse = { plan: approved, project: updated };
     return res.json(body);
   });

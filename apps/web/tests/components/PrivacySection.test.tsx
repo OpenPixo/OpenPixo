@@ -110,7 +110,7 @@ describe('PrivacySection', () => {
 
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
     expect(screen.getByRole('button', { name: "Don't share" })).toBeTruthy();
-    expect(screen.getByText(/Optional telemetry is off by default in OpenPixo/i)).toBeTruthy();
+    expect(screen.getByText(/Usage data is off until you say yes/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Anonymous metrics/ })).toBeNull();
   });
 

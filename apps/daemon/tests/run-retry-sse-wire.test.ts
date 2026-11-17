@@ -34,7 +34,7 @@ import { startServer } from '../src/server.js';
 type StartedServer = { url: string; server: Server; shutdown?: () => Promise<void> | void };
 
 const TELEMETRY_ENV = [
-  'POSTHOG_KEY', 'POSTHOG_HOST', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY',
+  'PIXO_USAGE_EVENTS_URL', 'POSTHOG_HOST', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY',
   'LANGFUSE_BASE_URL', 'PIXO_TELEMETRY_RELAY_URL',
 ] as const;
 

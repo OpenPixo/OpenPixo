@@ -8,7 +8,7 @@
 
 import crypto from 'node:crypto';
 import os from 'node:os';
-import { PostHog } from 'posthog-node';
+import { createUsageEventsClient } from './usage-events-client.js';
 import type { Request } from 'express';
 import {
   ANALYTICS_HEADER_DEVICE_ID,
@@ -43,7 +43,6 @@ import { readAppConfig } from './app-config.js';
 import { readTelemetryEnvironment } from './telemetry-environment.js';
 import { inferReleaseChannelFromVersion, normalizeTelemetryAppVersion, readCurrentAppVersionInfo, resolveAppVersionInfo } from './app-version.js';
 
-const DEFAULT_HOST = 'https://us.i.posthog.com';
 
 // The daemon runs on the user's own machine, so `process.platform` IS the
 // user's OS. posthog-node — unlike posthog-js, which parses `$os` from the
@@ -174,20 +173,34 @@ function boundedFreeTextHeader(req: Request, name: string): string | undefined {
   return value;
 }
 
-export interface PosthogConfig {
-  key: string;
-  host: string;
+export interface UsageEventsConfig {
+  /** OpenPixo's ingest origin (its own Cloudflare Worker), from PIXO_USAGE_EVENTS_URL. */
+  url: string;
   env: string;
 }
 
-export function readPosthogConfig(
+/** https anywhere, or plain http to this machine for local tests. */
+export function isUsageEventsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.username || url.password || url.search || url.hash) return false;
+    if (url.protocol === 'https:') return true;
+    return url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Without PIXO_USAGE_EVENTS_URL every analytics path is a no-op. The upstream
+// POSTHOG_* variables are not read: OpenPixo sends usage data only to its own
+// ingest Worker.
+export function readUsageEventsConfig(
   env: NodeJS.ProcessEnv = process.env,
   packagedRuntime?: boolean,
-): PosthogConfig | null {
-  const key = env.POSTHOG_KEY?.trim();
-  if (!key) return null;
-  const host = (env.POSTHOG_HOST?.trim() || DEFAULT_HOST).replace(/\/+$/, '');
-  return { key, host, env: readTelemetryEnvironment(env, packagedRuntime) };
+): UsageEventsConfig | null {
+  const url = env.PIXO_USAGE_EVENTS_URL?.trim().replace(/\/+$/u, '');
+  if (!url || !isUsageEventsUrl(url)) return null;
+  return { url, env: readTelemetryEnvironment(env, packagedRuntime) };
 }
 
 // Baseline wire response for GET /api/analytics/config — checks only the
@@ -197,10 +210,10 @@ export function readPublicConfigResponse(
   env: NodeJS.ProcessEnv = process.env,
   packagedRuntime?: boolean,
 ): AnalyticsConfigResponse {
-  const cfg = readPosthogConfig(env, packagedRuntime);
+  const cfg = readUsageEventsConfig(env, packagedRuntime);
   const telemetryEnv = cfg?.env ?? readTelemetryEnvironment(env, packagedRuntime);
-  if (!cfg) return { enabled: false, env: telemetryEnv, key: null, host: null };
-  return { enabled: true, env: cfg.env, key: cfg.key, host: cfg.host };
+  if (!cfg) return { enabled: false, available: false, env: telemetryEnv };
+  return { enabled: true, available: true, env: cfg.env };
 }
 
 export type AnalyticsCaptureErrorType =
@@ -251,10 +264,9 @@ export interface AnalyticsService {
   }): Promise<AnalyticsCaptureResult>;
   /**
    * Safety / reliability events (renderer crashes, daemon uncaught errors,
-   * SSE health, etc.) that intentionally BYPASS the user's analytics
-   * consent toggle. The product policy is: we always retain ground-truth
-   * stability data even for opted-out users — the user-facing consent copy
-   * in Settings → Privacy must call this out.
+   * SSE health, etc.). OpenPixo policy: these follow the same consent as
+   * every other event. A user who has not said yes to anonymous metrics
+   * sends nothing at all, crash reports included.
    *
    * Falls back to a synthetic distinctId when the installationId is not
    * yet stamped (first-launch or fork builds without an app-config file).
@@ -315,34 +327,12 @@ export function createAnalyticsService(args: {
 }): AnalyticsService {
   const env = args.env ?? process.env;
   const packagedRuntime = args.packagedRuntime;
-  const cfg = readPosthogConfig(env, packagedRuntime);
+  const cfg = readUsageEventsConfig(env, packagedRuntime);
   if (!cfg) return NOOP_SERVICE;
 
-  // flushAt: 1 keeps the daemon-emit-then-respond pattern simple at the cost
-  // of one network round-trip per event; flushInterval: 1000 still batches
-  // bursts so a streaming run doesn't fire one HTTP per event.
-  //
-  // disableGeoip: false REVERSES posthog-node's default (true). The library
-  // assumes a server deployment where the ingestion request originates from a
-  // datacenter IP, so GeoIP would mis-attribute every user to the server's
-  // location — hence it stamps `$geoip_disable: true` and PostHog skips
-  // country enrichment. OpenPixo's daemon runs on the USER'S OWN machine,
-  // so the request's source IP is the user's real public IP, identical to what
-  // posthog-js already sends. Leaving the default on stripped country from
-  // every daemon-emitted event (run_created, run_finished, *_result, …) —
-  // they all landed in the null bucket on any country breakdown while web
-  // events were 100% enriched. Same reason we hand-stamp `$os` below:
-  // posthog-node does not auto-enrich what posthog-js gets for free.
-  const client = new PostHog(cfg.key, {
-    host: cfg.host,
-    flushAt: 1,
-    flushInterval: 1000,
-    disableGeoip: false,
-  });
-
-  // Suppress posthog-node's own internal error spam — analytics failures
-  // must never look like product errors. The library exposes `on('error')`.
-  client.on?.('error', () => undefined);
+  // OpenPixo's own ingest Worker. Country comes from the Worker's view of the
+  // request (the user's own machine), so nothing here adds location.
+  const client = createUsageEventsClient({ url: cfg.url });
 
   const sharedProperties = async (
     properties: Record<string, unknown>, appVersion: string, eventId: string,
@@ -470,7 +460,7 @@ export function createAnalyticsService(args: {
       }
     },
     captureSafety: async ({ eventName, distinctId, appVersion, properties, insertId }) => {
-      // No consent re-check here: all stability events use the safety channel.
+      // OpenPixo sends nothing without the user's yes, stability events included.
       // We still fall back gracefully when the installationId is missing
       // (cold start before the daemon has stamped one in app-config) by
       // synthesizing an anonymous distinct id rooted at the process boot.
@@ -483,6 +473,7 @@ export function createAnalyticsService(args: {
       // See codex review on PR #2527 (Siri-Ray) for the original race.
       const resolvedInsertId = insertId ?? randomInsertId();
       try {
+        if ((await readAppConfig(args.dataDir)).telemetry?.metrics !== true) return;
         const resolvedDistinctId =
           distinctId && distinctId.length > 0
             ? distinctId

@@ -67,7 +67,7 @@ type RunStatus = {
 
 describe('claude sub-agent assistant error false failure', () => {
   const originalEnv = {
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
     LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
@@ -96,7 +96,7 @@ describe('claude sub-agent assistant error false failure', () => {
     const controlBin = await writeRecoveringClaude(binDir, 'claude-control', { withSubagentError: false });
     const sidechainBin = await writeRecoveringClaude(binDir, 'claude-sidechain-error', { withSubagentError: true });
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;

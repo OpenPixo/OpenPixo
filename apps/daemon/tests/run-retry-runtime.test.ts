@@ -69,7 +69,7 @@ describe('same-run retry runtime', () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-run-retry-runtime-bin-'));
     const fakeClaude = await writeFlakyClaude(binDir, 'claude-flaky');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -127,7 +127,7 @@ describe('same-run retry runtime', () => {
       'opencode-stream-error-then-success',
     );
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -159,7 +159,7 @@ describe('same-run retry runtime', () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-run-retry-stall-bin-'));
     const { bin: fakeClaude, argsLogPath } = await writeStallingClaude(binDir, 'claude-stall');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -233,7 +233,7 @@ describe('same-run retry runtime', () => {
       promptLogPath,
     } = await writePostToolStallingClaude(binDir, 'claude-post-tool-stall');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -304,7 +304,7 @@ describe('same-run retry runtime', () => {
       true,
     );
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -384,7 +384,7 @@ describe('same-run retry runtime', () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-run-retry-crossgen-bin-'));
     const { bin: fakeClaude } = await writeCrossGenKillClaude(binDir, 'claude-crossgen');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -470,7 +470,7 @@ function snapshotEnv(): Record<string, string | undefined> {
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     PIXO_TELEMETRY_RELAY_URL: process.env.PIXO_TELEMETRY_RELAY_URL,
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
     PIXO_CHAT_RUN_INACTIVITY_TIMEOUT_MS: process.env.PIXO_CHAT_RUN_INACTIVITY_TIMEOUT_MS,
     PIXO_CHAT_RUN_FIRST_OUTPUT_TIMEOUT_MS: process.env.PIXO_CHAT_RUN_FIRST_OUTPUT_TIMEOUT_MS,

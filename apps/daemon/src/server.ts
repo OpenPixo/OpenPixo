@@ -308,6 +308,7 @@ import {
 
 import { buildPromptStackTelemetry } from './prompt-telemetry.js';
 import { newInsertId, readAnalyticsContext, type AnalyticsContext } from './analytics.js';
+import { createGameFunnelRecorder } from './game/game-funnel.js';
 import {
   agentIdToTracking,
   modelIdForTracking,
@@ -2343,6 +2344,7 @@ export async function startServer({
   const currentAppVersion = () =>
     currentAppVersionInfo()?.version ?? UNKNOWN_APP_VERSION;
   const { analyticsService } = telemetry;
+  const gameFunnel = createGameFunnelRecorder({ analytics: analyticsService, dataDir: RUNTIME_DATA_DIR, appVersion: currentAppVersion, newInsertId });
   const codexThreadCleanupOwner = createCodexThreadCleanupOwner();
   const design = {
     runs: createChatRunService({
@@ -2760,7 +2762,7 @@ export async function startServer({
     projectFiles: projectFileDeps,
     authorizeProjectRequest,
   });
-  const gameVerifyRouteDeps = { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, captureGameWeb };
+  const gameVerifyRouteDeps = { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, captureGameWeb, gameFunnel };
   registerGameVerifyRoutes(app, gameVerifyRouteDeps);
   registerGamePlaytestRoutes(app, gameVerifyRouteDeps);
   const stopGameRuns = registerGameRunRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest });
@@ -2816,6 +2818,7 @@ export async function startServer({
     events: projectEventDeps,
     ids: idDeps,
     telemetry: {
+      gameFunnel,
       captureProductEvent: async (req, eventName, properties) => {
         const analyticsContext = readAnalyticsContext(req);
         if (!analyticsContext) return;
@@ -2900,7 +2903,7 @@ export async function startServer({
   });
   // Ahead of the media and recipe routes: it guards what an agent spends before approval.
   registerGamePlanRoutes(app, {
-    db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest,
+    db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, gameFunnel,
     templatesRoot: gameTemplatesRoot,
     isProjectBusy: checkpointProjectBusyReader(design.runs),
     artBudget: artBudgetDeps,
@@ -7503,7 +7506,7 @@ export async function startServer({
 
 
   const recipeExecutor = registerRecipeRoutes(app, { db, http: httpDeps, paths: { ...pathDeps, BUNDLED_PLUGINS_DIR }, authorizeProjectRequest, authorizeProjectToolRequest, mediaTasks: mediaTaskStore, resources: { listAllSkills },
-    artBudget: { ledger: artBudgetLedger, openpixoHosted: openPixoHosted, hasSession: () => openPixoAccount.hasSession() } });
+    artBudget: { ledger: artBudgetLedger, openpixoHosted: openPixoHosted, hasSession: () => openPixoAccount.hasSession() }, gameFunnel });
   registerImageLookRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectToolRequest, gateway: openPixoAgentGateway,
     recipeCandidateFile: (projectId, file) => recipeExecutor.stagedFileAt(projectId, file) });
 

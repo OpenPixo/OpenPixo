@@ -44,7 +44,7 @@ type RunStatus = {
 
 describe('same-run retry stale turnCompletedCleanly (review red spec)', () => {
   const originalEnv = {
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
     LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
@@ -73,7 +73,7 @@ describe('same-run retry stale turnCompletedCleanly (review red spec)', () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-stale-turn-flag-bin-'));
     const fakeClaude = await writeEmptyTurnThenCrashClaude(binDir, 'claude-staleflag');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;

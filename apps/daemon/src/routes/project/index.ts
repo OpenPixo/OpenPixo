@@ -59,6 +59,7 @@ import {
 import { FIRST_PARTY_ATOMS, getInstalledPlugin, listInstalledPlugins, automaticScenarioTaskProfile, createProjectExampleBinding, digestExampleSkillManifest, InvalidProjectExampleBindingError, readVerifiedProjectScenarioBinding, resolvePluginSnapshot, type ResolveSnapshotError, type ResolveSnapshotOk } from '../../plugins/index.js';
 import type { RouteDeps } from '../../server-context.js';
 import { gamePlanAppliesToKind, newGamePlan } from '../../game/plan.js';
+import { gameCreatedProperties } from '../../game/game-funnel.js';
 import { listSkills } from '../../skills.js';
 import { isSafeId, validateProjectPath } from '../../projects.js';
 import {
@@ -1887,6 +1888,17 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
           : {}),
       };
       res.json(body);
+      if (needsGamePlan && ctx.telemetry?.gameFunnel) {
+        const funnel = ctx.telemetry.gameFunnel;
+        const created = projectMetadata as Pick<ProjectMetadata, 'kind' | 'gameSetup' | 'templateId'> | null | undefined;
+        void readAppConfig(ctx.paths.RUNTIME_DATA_DIR).then((config: { gameExperience?: unknown }) => funnel.record(req, 'game_created', gameCreatedProperties({
+          projectKind: created?.kind,
+          setup: created?.gameSetup,
+          experience: config.gameExperience,
+          fromTemplate: typeof created?.templateId === 'string',
+          ownFolder: Boolean(externalProjectDir),
+        }))).catch(() => {});
+      }
     } catch (err: any) {
       if (err instanceof ProjectCreatePreparationTimeoutError) {
         return sendApiError(

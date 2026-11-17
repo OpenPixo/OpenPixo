@@ -181,10 +181,17 @@ export const ANALYTICS_HEADER_MCP_SESSION_ID =
 //   `installationId` is the anonymous id Langfuse and PostHog both key
 //   off of. Echoed when present so the web client uses the same anonymous
 //   identity PostHog already saw on prior runs.
+/**
+ * GET /api/analytics/config. The app never sends usage data itself: it posts
+ * events to the daemon (`POST /api/analytics/events`), which checks consent and
+ * forwards them to OpenPixo's ingest Worker. No ingest address or key reaches
+ * the browser.
+ */
 export interface AnalyticsConfigResponse {
+  /** The user said yes and this build can send. */
   enabled: boolean;
+  /** This build has an ingest address, so the app may ask the user. Says nothing about consent. */
+  available?: boolean;
   env: string;
-  key: string | null;
-  host: string | null;
   installationId?: string | null;
 }

@@ -19,7 +19,7 @@ import { parseClientMetricEvent } from '@openpixo/contracts/analytics';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   reportDaemonExit,
@@ -32,18 +32,50 @@ import {
   readErrnoFields,
   scrubUserPaths,
   reportLaunchEvent,
+  setStartupTelemetryConsentForTest,
+  useStartupTelemetryConsent,
 } from '../src/startup-telemetry.js';
 
+/**
+ * Reads one usage-event batch the launcher sent and returns the event with its
+ * envelope folded back into `properties`, so assertions read one object. The
+ * envelope is what the ingest Worker stores beside the counts.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function decodeUsage(raw: unknown): any {
+  const body = JSON.parse(String(raw)) as { schema?: number; events?: Array<Record<string, any>> };
+  const event = body.events?.[0] ?? {};
+  return {
+    schema: body.schema,
+    event: event.event,
+    distinct_id: event.device_id,
+    timestamp: event.occurred_at,
+    properties: {
+      ...event.properties,
+      event_id: event.event_id,
+      device_id: event.device_id,
+      app_session_id: event.session_id,
+      app_version: event.app_version,
+      channel: event.channel,
+      occurred_at: event.occurred_at,
+    },
+  };
+}
+
 const optedOutRoot = mkdtempSync(join(tmpdir(), 'pixo-startup-consent-'));
-// Startup safety delivery must also work with product analytics disabled.
+// The data root a report names does not decide consent: the launcher's own
+// consent reader does. These transport tests run as a user who said yes; the
+// consent tests below swap in a real reader.
 writeFileSync(join(optedOutRoot, 'app-config.json'), JSON.stringify({ telemetry: { metrics: false } }));
 afterAll(() => rmSync(optedOutRoot, { recursive: true, force: true }));
+beforeEach(() => setStartupTelemetryConsentForTest(() => true));
+afterEach(() => setStartupTelemetryConsentForTest(() => false));
 
 describe('launch timing transport', () => {
   it('preserves occurrence identity/time and does not invent an installation identity', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => new Response('{}'));
     const args = {
-      posthogKey: 'test-key', posthogHost: 'https://telemetry.invalid',
+      usageEventsUrl: 'https://events.test.invalid',
       installationRoot: null, namespace: 'test', appVersion: '0.25.1', channel: 'beta',
       event: 'client_launch_attempt' as const,
       properties: { metric_schema_version: 1, telemetry_capability: 'supported', startup_type: 'cold', launch_type: 'warm', measurement_boundary: 'process_entry', started_at: '2026-10-16T00:00:00.000Z', event_id: 'event-1', occurred_at: '2026-10-16T00:00:00.000Z', app_session_id: 'session-1', launch_attempt_id: 'launch-1' },
@@ -54,11 +86,11 @@ describe('launch timing transport', () => {
     try {
       writeFileSync(join(root, 'installation.json'), JSON.stringify({ installationId: 'installation-1' }));
       await reportLaunchEvent({ dataRoot: optedOutRoot, ...args, installationRoot: root }, { fetchImpl, now: () => '2026-10-16T00:00:02.000Z' });
-      const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+      const body = decodeUsage(String(fetchImpl.mock.calls[0]?.[1]?.body));
+      expect(body.schema).toBe(1);
       expect(body.properties).toMatchObject({ event_schema_version: 4, client_type: 'desktop' });
-      expect(parseClientMetricEvent(body.event, body.properties)).not.toBeNull();
       expect(body).toMatchObject({ event: 'client_launch_attempt', distinct_id: 'installation-1', timestamp: args.properties.occurred_at,
-        properties: { ...args.properties, $insert_id: 'event-1', reported_at: '2026-10-16T00:00:02.000Z', channel: 'beta', app_version: '0.25.1' } });
+        properties: { ...args.properties, reported_at: '2026-10-16T00:00:02.000Z', channel: 'beta', app_version: '0.25.1' } });
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
 });
@@ -221,18 +253,17 @@ describe('captureStartupFailure', () => {
   it('is a no-op (zero network) without a PostHog key', async () => {
     const fetchImpl = vi.fn();
     await captureStartupFailure(
-      { posthogKey: null, posthogHost: null, distinctId: 'd', event: 'e', properties: {} },
+      { usageEventsUrl: null, distinctId: 'd', event: 'e', properties: {} },
       { fetchImpl: fetchImpl as unknown as typeof fetch },
     );
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('POSTs to /capture/ with the PostHog wire shape', async () => {
+  it('POSTs one usage-event batch to the ingest Worker', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     await captureStartupFailure(
       {
-        posthogKey: 'phc_test',
-        posthogHost: 'https://us.i.posthog.com',
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'install-123',
         event: STARTUP_FAILURE_EVENT,
         properties: { failure_kind: 'daemon-start' },
@@ -241,13 +272,13 @@ describe('captureStartupFailure', () => {
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://us.i.posthog.com/capture/');
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
-    expect(body.api_key).toBe('phc_test');
-    expect(body.event).toBe(STARTUP_FAILURE_EVENT);
-    expect(body.distinct_id).toBe('install-123');
-    expect((body.properties as Record<string, unknown>).failure_kind).toBe('daemon-start');
-    expect((body.properties as Record<string, unknown>).$os).toBeDefined();
+    expect(url).toBe('https://events.test.invalid/v1/events');
+    const raw = JSON.parse(init.body as string) as { schema: number; events: Array<Record<string, unknown>> };
+    expect(raw.schema).toBe(1);
+    expect(raw.events).toHaveLength(1);
+    expect(raw.events[0]).toMatchObject({ event: STARTUP_FAILURE_EVENT, device_id: 'install-123', client_type: 'desktop',
+      properties: expect.objectContaining({ failure_kind: 'daemon-start' }) });
+    expect(raw.events[0]!.os).toBeTruthy();
   });
 
   it('stamps the shared safety-event envelope so dashboards bucket it', async () => {
@@ -257,8 +288,7 @@ describe('captureStartupFailure', () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     await captureStartupFailure(
       {
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'install-123',
         event: STARTUP_FAILURE_EVENT,
         properties: { failure_kind: 'daemon-start', app_version: '0.11.0' },
@@ -270,15 +300,15 @@ describe('captureStartupFailure', () => {
       },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const p = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+    const p = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
       .properties;
     expect(p.event_schema_version).toBe(2);
     expect(p.device_id).toBe('install-123');
-    expect(p.client_type).toBe('packaged_main');
-    expect(p.capture_source).toBe('packaged/startup');
+    expect(p.process_kind).toBe('packaged_main');
+    // Has a slash, like a path, so the counts-only rule leaves it out.
+    expect(p.capture_source).toBeUndefined();
     expect(p.ui_version).toBe('0.11.0');
     expect(p.event_id).toBe('ins-fixed');
-    expect(p.$insert_id).toBe('ins-fixed');
     expect(typeof p.env).toBe('string');
   });
 
@@ -303,8 +333,7 @@ describe('captureStartupFailure', () => {
       const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
       await captureStartupFailure(
         {
-          posthogKey: 'phc_test',
-          posthogHost: null,
+          usageEventsUrl: 'https://events.test.invalid',
           distinctId: 'install-123',
           event: STARTUP_FAILURE_EVENT,
           properties: { failure_kind: 'daemon-start' },
@@ -312,7 +341,7 @@ describe('captureStartupFailure', () => {
         { fetchImpl: fetchImpl as unknown as typeof fetch, now: () => '2026-06-23T00:00:00.000Z' },
       );
       const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-      const p = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+      const p = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
         .properties;
       expect(p.env).toBe('production');
     } finally {
@@ -330,8 +359,7 @@ describe('captureStartupFailure', () => {
       const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
       await captureStartupFailure(
         {
-          posthogKey: 'phc_test',
-          posthogHost: null,
+          usageEventsUrl: 'https://events.test.invalid',
           distinctId: 'install-123',
           event: STARTUP_FAILURE_EVENT,
           properties: { failure_kind: 'daemon-start' },
@@ -339,7 +367,7 @@ describe('captureStartupFailure', () => {
         { fetchImpl: fetchImpl as unknown as typeof fetch, now: () => '2026-06-23T00:00:00.000Z' },
       );
       const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-      const p = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+      const p = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
         .properties;
       expect(p.env).toBe('development');
     } finally {
@@ -357,7 +385,7 @@ describe('captureStartupFailure', () => {
     const fetchImpl = vi.fn().mockReturnValue(hung);
     const start = Date.now();
     await captureStartupFailure(
-      { posthogKey: 'phc_test', posthogHost: null, distinctId: 'd', event: 'e', properties: {} },
+      { usageEventsUrl: 'https://events.test.invalid', distinctId: 'd', event: 'e', properties: {} },
       { fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 30 },
     );
     expect(Date.now() - start).toBeLessThan(2000);
@@ -367,7 +395,7 @@ describe('captureStartupFailure', () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
     await expect(
       captureStartupFailure(
-        { posthogKey: 'phc_test', posthogHost: null, distinctId: 'd', event: 'e', properties: {} },
+        { usageEventsUrl: 'https://events.test.invalid', distinctId: 'd', event: 'e', properties: {} },
         { fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 50 },
       ),
     ).resolves.toBeUndefined();
@@ -375,15 +403,14 @@ describe('captureStartupFailure', () => {
 });
 
 describe('reportStartupFailure', () => {
-  it('reads the log tail, enriches the event, scrubs paths, and sends once', async () => {
+  it('reads the log tail, sends what it names as codes, and never the path', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     await reportStartupFailure(
       {
         dataRoot: optedOutRoot,
         error: new Error(DAEMON_EXIT_MESSAGE),
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'install-123',
         appVersion: '0.11.0',
         namespace: 'release-stable',
@@ -397,14 +424,15 @@ describe('reportStartupFailure', () => {
     );
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const props = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+    const props = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
       .properties;
     expect(props.failure_kind).toBe('daemon-start');
     expect(props.error_code).toBe('ERR_MODULE_NOT_FOUND');
     expect(props.missing_module).toBe('better-sqlite3');
     expect(props.app_version).toBe('0.11.0');
     expect(props.exit_code).toBe(1);
-    expect(props.log_path).not.toContain('liudetao');
+    expect(props.log_path).toBeUndefined();
+    expect(init.body as string).not.toContain('liudetao');
   });
 
   it('never throws even when the log read blows up', async () => {
@@ -415,8 +443,7 @@ describe('reportStartupFailure', () => {
         dataRoot: optedOutRoot,
           error: new Error(DAEMON_EXIT_MESSAGE),
           isPathAccess: false,
-          posthogKey: 'phc_test',
-          posthogHost: null,
+          usageEventsUrl: 'https://events.test.invalid',
           distinctId: 'd',
           appVersion: '0.11.0',
           namespace: 'release-stable',
@@ -439,8 +466,7 @@ describe('reportStartupFailure', () => {
         dataRoot: optedOutRoot,
         error: new Error(DAEMON_EXIT_MESSAGE),
         isPathAccess: false,
-        posthogKey: null,
-        posthogHost: null,
+        usageEventsUrl: null,
         distinctId: 'd',
         appVersion: '0.11.0',
         namespace: 'release-stable',
@@ -457,7 +483,7 @@ describe('reportStartupFailure', () => {
   // can't load it, the event must carry on-machine evidence: the scrubbed error
   // message/stack (the only signal for the `unknown` bucket, which has no daemon
   // log to parse) and whether the native module file actually exists there.
-  it('captures scrubbed error message/stack + native-module probe (on-machine evidence)', async () => {
+  it('sends the native-module probe as counts, and no message, stack or path', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     const error = new Error(
       "Cannot find package 'better-sqlite3' imported from /Users/liudetao/App/Contents/Resources/app/prebundled/daemon/server.mjs",
@@ -468,8 +494,7 @@ describe('reportStartupFailure', () => {
         dataRoot: optedOutRoot,
         error,
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.13.0',
         namespace: 'release-stable',
@@ -484,15 +509,15 @@ describe('reportStartupFailure', () => {
       },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const props = (JSON.parse(init.body as string) as { properties: Record<string, unknown> }).properties;
-    // scrubbed message/stack: content kept, home dir gone.
-    expect(props.error_message).toContain("Cannot find package 'better-sqlite3'");
-    expect(props.error_message).not.toContain('liudetao');
-    expect(String(props.error_stack)).not.toContain('liudetao');
+    const props = (decodeUsage(init.body as string) as { properties: Record<string, unknown> }).properties;
+    // OpenPixo sends counts only: the message, stack and path stay on the machine.
+    expect(props.error_message).toBeUndefined();
+    expect(props.error_stack).toBeUndefined();
+    expect(props.native_module_path).toBeUndefined();
+    expect(init.body as string).not.toContain('liudetao');
     // native-module probe answers "is the .node actually on THIS machine".
     expect(props.native_module_present).toBe(true);
     expect(props.native_module_size).toBe(1_234_567);
-    expect(props.native_module_path).not.toContain('liudetao');
   });
 
   it('reports native_module_present=false when the .node is missing on the machine', async () => {
@@ -502,8 +527,7 @@ describe('reportStartupFailure', () => {
         dataRoot: optedOutRoot,
         error: new Error('boom'),
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.13.0',
         namespace: 'release-stable',
@@ -517,9 +541,10 @@ describe('reportStartupFailure', () => {
       },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const props = (JSON.parse(init.body as string) as { properties: Record<string, unknown> }).properties;
+    const props = (decodeUsage(init.body as string) as { properties: Record<string, unknown> }).properties;
     expect(props.native_module_present).toBe(false);
-    expect(props.native_module_size).toBeNull();
+    // A null is not a count; it is left out.
+    expect(props.native_module_size).toBeUndefined();
   });
 });
 
@@ -577,8 +602,7 @@ SqliteError: database disk image is malformed
         dataRoot: optedOutRoot,
         error: spawnError,
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.15.1',
         namespace: 'release-stable-win',
@@ -587,7 +611,7 @@ SqliteError: database disk image is malformed
       { fetchImpl: fetchImpl as unknown as typeof fetch },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const props = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+    const props = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
       .properties;
     expect(props.sys_code).toBe('UNKNOWN');
     expect(props.sys_errno).toBe(-4094);
@@ -595,7 +619,7 @@ SqliteError: database disk image is malformed
     expect(props.failure_kind).toBe('spawn-failed');
   });
 
-  it('never reports a null error_message for an Error that carries none', async () => {
+  it('names an Error that carries no message by its failure kind, never by text', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     // The 149-device black hole: instanceof Error, name 'Error', no message, no
     // stack. Whatever we send must be non-null so the residue stays countable.
@@ -606,8 +630,7 @@ SqliteError: database disk image is malformed
         dataRoot: optedOutRoot,
         error: empty,
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.15.1',
         namespace: 'release-stable-win',
@@ -616,21 +639,20 @@ SqliteError: database disk image is malformed
       { fetchImpl: fetchImpl as unknown as typeof fetch },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const props = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+    const props = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
       .properties;
-    expect(props.error_message).not.toBeNull();
-    expect(String(props.error_message)).toContain('Error');
+    expect(props.error_message).toBeUndefined();
+    expect(props.failure_kind).toEqual(expect.any(String));
   });
 
-  it('surfaces the parsed daemon error on the emitted event', async () => {
+  it('keeps the parsed daemon error text on the machine', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     await reportStartupFailure(
       {
         dataRoot: optedOutRoot,
         error: new Error(DAEMON_EXIT_MESSAGE),
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.15.1',
         namespace: 'release-stable',
@@ -642,9 +664,10 @@ SqliteError: database disk image is malformed
       },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    const props = (JSON.parse(init.body as string) as { properties: Record<string, unknown> })
+    const props = (decodeUsage(init.body as string) as { properties: Record<string, unknown> })
       .properties;
-    expect(props.daemon_error).toBe('SqliteError: database disk image is malformed');
+    expect(props.daemon_error).toBeUndefined();
+    expect(init.body as string).not.toContain('database disk image');
   });
 });
 
@@ -685,8 +708,7 @@ describe('errno triplet privacy', () => {
         dataRoot: optedOutRoot,
         error: err,
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.15.1',
         namespace: 'release-stable',
@@ -718,107 +740,61 @@ describe('errno triplet privacy', () => {
 // threw away. These tests pin the recovery: when parsing yields nothing, send
 // the tail itself — scrubbed and bounded — so the largest startup-failure
 // bucket stops being undiagnosable.
-describe('daemon_log_tail (unparseable log recovery)', () => {
-  // Nothing here matches ERR_*, "Cannot find module/package", or the
-  // `XError: …` headline — exactly the shape that reports all-null today.
-  const UNPARSEABLE_LOG = [
-    '[openpixo packaged] starting app=daemon',
-    'loading config from /Users/liudetao/Library/Application Support/OpenPixo/config.json',
-    'cache dir C:\\Users\\John Doe\\AppData\\Roaming\\OpenPixo\\cache',
-    'something we have never seen went wrong while binding the port',
-    '[openpixo packaged] exited app=daemon pid=45305 code=1 signal=none',
-  ].join('\n');
-
-  async function captureProps(
-    readLogTail: () => Promise<string | null>,
-  ): Promise<Record<string, unknown>> {
+// The daemon's log tail is read to name known failures (ERR_* codes, a missing
+// module), and those names are sent. The tail itself is text, so under
+// OpenPixo's counts-only rule it never leaves the machine, whatever it holds.
+describe('daemon_log_tail stays on the machine', () => {
+  it('never sends the tail, even when the log matches no known pattern', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
     await reportStartupFailure(
       {
         dataRoot: optedOutRoot,
         error: new Error(DAEMON_EXIT_MESSAGE),
         isPathAccess: false,
-        posthogKey: 'phc_test',
-        posthogHost: null,
+        usageEventsUrl: 'https://events.test.invalid',
         distinctId: 'd',
         appVersion: '0.20.2',
         namespace: 'release-stable',
         source: 'openpixo-packaged',
       },
-      { fetchImpl: fetchImpl as unknown as typeof fetch, readLogTail },
+      {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        readLogTail: async () => 'something we have never seen went wrong while binding the port\nC:\\Users\\John Doe\\AppData',
+      },
     );
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    return (JSON.parse(init.body as string) as { properties: Record<string, unknown> }).properties;
-  }
-
-  it('ships the scrubbed tail when the log matches no known pattern', async () => {
-    const props = await captureProps(async () => UNPARSEABLE_LOG);
-    // Precondition: this really is the blind case — every parsed field is null.
-    expect(props.error_code).toBeNull();
-    expect(props.missing_module).toBeNull();
-    expect(props.daemon_error).toBeNull();
-    // The recovery: the line that names the failure actually reaches us.
-    expect(String(props.daemon_log_tail)).toContain(
-      'something we have never seen went wrong while binding the port',
-    );
-  });
-
-  it('redacts POSIX and Windows home dirs in the tail it ships', async () => {
-    const props = await captureProps(async () => UNPARSEABLE_LOG);
-    const tail = String(props.daemon_log_tail);
-    expect(tail).not.toContain('liudetao');
-    expect(tail).not.toContain('John Doe');
-    expect(tail).toContain('/Users/<redacted>');
-    expect(tail).toContain('C:\\Users\\<redacted>');
-  });
-
-  it('bounds the shipped tail and keeps the lines nearest the exit', async () => {
-    // A daemon that logged a lot before dying must not blow the payload up, and
-    // the part worth keeping is the END: the tail is chronological, so the
-    // fatal line sits nearest the exit.
-    const noisy = [
-      ...Array.from({ length: 500 }, (_, i) => `noise line ${i} ${'x'.repeat(200)}`),
-      'the actual last words before the daemon died',
-    ].join('\n');
-    const props = await captureProps(async () => noisy);
-    const tail = String(props.daemon_log_tail);
-    expect(tail).toContain('the actual last words before the daemon died');
-    expect(tail).not.toContain('noise line 0 ');
-    expect(tail.length).toBeLessThanOrEqual(4200);
-  });
-
-  it('sends no tail when the log already parsed into a known signal', async () => {
-    // Guard against ballooning every event: when we can already name the cause
-    // (#4638 shape), the raw tail adds bytes and privacy surface for nothing.
-    const props = await captureProps(async () => ISSUE_4638_LOG);
-    expect(props.error_code).toBe('ERR_MODULE_NOT_FOUND');
-    expect(props.daemon_log_tail).toBeNull();
-  });
-
-  it('sends no tail when there is no log to read (status-timeout / spawn buckets)', async () => {
-    const props = await captureProps(async () => null);
-    expect(props.daemon_log_tail).toBeNull();
-  });
-
-  it('sends no tail for a log file that exists but is blank', async () => {
-    // A daemon that opened its log and died before writing anything: the read
-    // succeeds and the string is truthy, so this reaches the builder. Sending
-    // "\n\n" would be residue that reads like real evidence on a dashboard.
-    const props = await captureProps(async () => '\n   \n\n');
-    expect(props.daemon_log_tail).toBeNull();
+    const props = decodeUsage(init.body as string).properties as Record<string, unknown>;
+    expect(props.daemon_log_tail).toBeUndefined();
+    expect(init.body as string).not.toContain('binding the port');
+    expect(init.body as string).not.toContain('John Doe');
+    expect(props.failure_kind).toBe('daemon-start');
   });
 });
 
-it.each(['false', 'corrupt', 'unavailable'])('reports startup exits when metrics consent is %s', async state => {
+it.each(['false', 'corrupt', 'unavailable'])('sends no startup report when metrics consent is %s', async state => {
   const root = mkdtempSync(join(tmpdir(), 'pixo-exit-consent-'));
   const fetchImpl = vi.fn();
   try {
-    writeFileSync(join(root, 'app-config.json'), state === 'false' ? '{"telemetry":{"metrics":false}}' : '{');
-    await reportStartupFailure({ dataRoot: state === 'unavailable' ? null : root, error: new Error('daemon failed'),
-      isPathAccess: false, posthogKey: 'phc_test', posthogHost: null, distinctId: 'installation-1',
+    if (state !== 'unavailable') writeFileSync(join(root, 'app-config.json'), state === 'false' ? '{"telemetry":{"metrics":false}}' : '{');
+    useStartupTelemetryConsent(root);
+    await reportStartupFailure({ dataRoot: root, error: new Error('daemon failed'),
+      isPathAccess: false, usageEventsUrl: 'https://events.test.invalid', distinctId: 'installation-1',
+      appVersion: '1.0.0', namespace: 'test', source: 'openpixo-packaged' }, { fetchImpl });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+it('sends a private-data-free startup report once the user said yes, read at send time', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'pixo-exit-consent-'));
+  const fetchImpl = vi.fn();
+  try {
+    useStartupTelemetryConsent(root);
+    writeFileSync(join(root, 'app-config.json'), '{"installationId":"installation-1","telemetry":{"metrics":true}}');
+    await reportStartupFailure({ dataRoot: root, error: new Error('daemon failed'),
+      isPathAccess: false, usageEventsUrl: 'https://events.test.invalid', distinctId: 'installation-1',
       appVersion: '1.0.0', namespace: 'test', source: 'openpixo-packaged' }, { fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    const payloads = fetchImpl.mock.calls.map(([, init]) => JSON.parse(init.body));
+    const payloads = fetchImpl.mock.calls.map(([, init]) => decodeUsage(init.body));
     const exit = payloads.find(p => p.event === 'client_process_exit');
     expect(exit).toBeDefined();
     for (const key of ['path', 'url', 'content', 'prompt', 'pid', 'error_message']) expect(exit.properties).not.toHaveProperty(key);
@@ -829,10 +805,10 @@ it.each(['daemon', 'web'])('correlates injected %s startup failure with its laun
   const fetchImpl = vi.fn().mockResolvedValue(new Response('ok'));
   await reportStartupFailure({ dataRoot: optedOutRoot,
     error: new Error(`daemon exited before reporting status (code=1, signal=none); see /private/${role}/latest.log for details`),
-    isPathAccess: false, posthogKey: 'phc_test', posthogHost: null, distinctId: 'installation-1',
+    isPathAccess: false, usageEventsUrl: 'https://events.test.invalid', distinctId: 'installation-1',
     appVersion: '1.0.0-beta.1', namespace: 'test', source: 'openpixo-packaged',
     launchContext: { app_session_id: 'session-1', launch_attempt_id: 'launch-1' } }, { fetchImpl, readLogTail: async () => null });
-  const payloads = fetchImpl.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+  const payloads = fetchImpl.mock.calls.map(([, init]) => decodeUsage((init as RequestInit).body as string));
   const exit = payloads.find(p => p.event === 'client_process_exit');
   expect(exit.properties).toMatchObject({ app_session_id: 'session-1', launch_attempt_id: 'launch-1',
     app_version: '1.0.0-beta.1', reason: 'crash', process_role: role });
@@ -854,17 +830,15 @@ describe('runtime daemon death safety capture', () => {
       writeFileSync(join(root, 'app-config.json'), JSON.stringify({ telemetry: { metrics: false } }));
       const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status }));
       await reportDaemonExit({ dataRoot: root, installationRoot: root, namespace: 'test',
-        posthogKey: 'test-key', posthogHost: 'https://capture.invalid',
+        usageEventsUrl: 'https://events.test.invalid',
         observation: { ...observation, pid: 987654, content: 'private-content', path: '/private/path' } as typeof observation },
         { fetchImpl });
       expect(fetchImpl).toHaveBeenCalledTimes(1);
-      const body = JSON.parse(fetchImpl.mock.calls[0]![1]!.body as string);
+      const body = decodeUsage(fetchImpl.mock.calls[0]![1]!.body as string);
       expect(body.properties).toMatchObject({ process_role: 'daemon', reason: 'killed', signal: 'SIGKILL',
         process_instance_id: observation.process_instance_id, app_session_id: 'dead-session', launch_attempt_id: 'dead-launch',
         occurred_at: observation.occurred_at, occurrence_time_source: 'observed', is_backfill: false,
-        event_id: `${observation.process_instance_id}-unclean-exit:exit`,
-        $insert_id: `${observation.process_instance_id}-unclean-exit:exit` });
-      expect(parseClientMetricEvent(body.event, body.properties)).not.toBeNull();
+        event_id: `${observation.process_instance_id}-unclean-exit:exit` });
       for (const field of ['pid', 'path', 'content', 'delivered']) expect(body.properties).not.toHaveProperty(field);
       expect(JSON.parse(readFileSync(join(root, 'diagnostics', 'daemon-exit-observation.json'), 'utf8')))
         .toEqual({ ...observation, delivered: status === 200 });
@@ -875,7 +849,7 @@ describe('runtime daemon death safety capture', () => {
     let resolve!: (response: Response) => void;
     try {
       const sending = reportDaemonExit({ dataRoot: root, installationRoot: root, namespace: 'test',
-        posthogKey: 'test', posthogHost: null, observation }, { fetchImpl: () => new Promise(r => { resolve = r; }) });
+        usageEventsUrl: 'test', observation }, { fetchImpl: () => new Promise(r => { resolve = r; }) });
       const path = join(root, 'diagnostics', 'daemon-exit-observation.json');
       rmSync(path); resolve(new Response('', { status: 200 })); await sending;
       expect(() => readFileSync(path)).toThrow();
@@ -892,10 +866,10 @@ it('uses explicit same-instance V8 OOM evidence before runtime signal capture', 
     writeFileSync(join(root, 'diagnostics', 'daemon-health.json'), JSON.stringify({ bootId: instanceId, pid: 987654, startedAt: Date.now() - 1000 }));
     writeFileSync(join(root, 'diagnostics', 'fatal-reports', 'report.json'), JSON.stringify({ header: { processId: 987654, trigger: 'OOMError' } }));
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status: 200 }));
-    await reportDaemonExit({ dataRoot: root, installationRoot: root, namespace: 'test', posthogKey: 'test', posthogHost: null,
+    await reportDaemonExit({ dataRoot: root, installationRoot: root, namespace: 'test', usageEventsUrl: 'test',
       observation: { process_instance_id: instanceId, app_session_id: null, launch_attempt_id: null, app_version: '1.2.3',
         occurred_at: new Date().toISOString(), exit_code: null, signal: 'SIGABRT', reason: 'killed', delivered: false } }, { fetchImpl });
-    const body = JSON.parse(fetchImpl.mock.calls[0]![1]!.body as string);
+    const body = decodeUsage(fetchImpl.mock.calls[0]![1]!.body as string);
     expect(body.properties).toMatchObject({ reason: 'oom', signal: 'SIGABRT' });
     expect(JSON.stringify(body)).not.toContain('987654');
   } finally { rmSync(root, { recursive: true, force: true }); }

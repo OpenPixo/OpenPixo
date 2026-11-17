@@ -17,7 +17,10 @@
 //    in Promise.race with a hard timeout, and swallows every error — it can
 //    neither block nor crash the exit.
 //
-// Stability events use the safety channel independently of metrics consent.
+// OpenPixo policy: stability events follow the user's metrics consent like every
+// other event. `captureStartupFailure` is the only transport and sends nothing
+// until `useStartupTelemetryConsent` points it at a data root whose app config
+// says yes (`telemetry.metrics === true`).
 //
 // Payload PII: the free-form crash fields (error_message, error_stack) and every
 // path we send (log_path, native_module_path) run through `scrubUserPaths` to
@@ -25,13 +28,12 @@
 // errors are module-resolution / daemon-exit messages, not user content, so this
 // bounds the exposure to build/OS strings rather than anything the user typed.
 
-import { daemonExitObservationSchema, type DaemonExitObservation, buildClientTelemetryParams, isClientMetricEventName, parseClientMetricEvent, processExitMetricFields, classifyProcessExit } from "@openpixo/contracts/analytics";
+import { daemonExitObservationSchema, type DaemonExitObservation, buildClientTelemetryParams, isClientMetricEventName, normalizeUsageEvent, parseClientMetricEvent, processExitMetricFields, classifyProcessExit, USAGE_EVENTS_PATH, USAGE_EVENTS_SCHEMA_VERSION } from "@openpixo/contracts/analytics";
 import { readFile } from "node:fs/promises";
 import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { release } from "node:os";
 
-const DEFAULT_HOST = "https://us.i.posthog.com";
 // Real-machine e2e (local packaged build → delete better-sqlite3 → launch →
 // query PostHog) proved a 1.5s cap silently DROPPED the event: a cold DNS+TLS
 // handshake to us.i.posthog.com from a fresh main process exceeds 1.5s, so the
@@ -364,12 +366,37 @@ export interface CaptureDeps {
   onCaptured?: () => void;
 }
 
-// Fire a single PostHog capture over plain HTTPS. No-op without a key; never
-// throws; never blocks longer than `timeoutMs`.
+let startupTelemetryConsent: () => boolean = () => false;
+
+/**
+ * Reads consent from the daemon's own app config in `dataRoot` at send time, so
+ * a choice made in Settings applies to the next report without a restart. The
+ * file is the daemon's; this only reads it.
+ */
+export function useStartupTelemetryConsent(dataRoot: string): void {
+  startupTelemetryConsent = () => {
+    try {
+      const config = JSON.parse(readFileSync(join(dataRoot, "app-config.json"), "utf8")) as { telemetry?: { metrics?: unknown } };
+      return config?.telemetry?.metrics === true;
+    } catch {
+      return false;
+    }
+  };
+}
+
+/** Tests only: replace the consent reader. */
+export function setStartupTelemetryConsentForTest(read: () => boolean): void {
+  startupTelemetryConsent = read;
+}
+
+// Send one usage event to OpenPixo's ingest Worker over HTTPS. No-op without an
+// ingest address or without the user's consent; never throws; never blocks
+// longer than `timeoutMs`. The event passes the counts-only rule
+// (`normalizeUsageEvent`): messages, stack text, paths and log tails are built
+// for local diagnostics but never leave the machine.
 export async function captureStartupFailure(
   args: {
-    posthogKey: string | null;
-    posthogHost: string | null;
+    usageEventsUrl: string | null;
     distinctId: string;
     event: string;
     properties: Record<string, unknown>;
@@ -377,9 +404,9 @@ export async function captureStartupFailure(
   },
   deps: CaptureDeps = {},
 ): Promise<void> {
-  const key = args.posthogKey?.trim();
-  if (!key) return; // fork builds / no key → no-op, zero network
-  const host = (args.posthogHost?.trim() || DEFAULT_HOST).replace(/\/+$/, "");
+  const url = args.usageEventsUrl?.trim().replace(/\/+$/u, "");
+  if (!url) return; // fork builds / no ingest address → no-op, zero network
+  if (!startupTelemetryConsent()) return; // no yes from the user → no-op, zero network
   const fetchImpl = deps.fetchImpl ?? fetch;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const now = deps.now ?? (() => new Date().toISOString());
@@ -388,36 +415,36 @@ export async function captureStartupFailure(
     typeof args.properties.app_version === "string" ? args.properties.app_version : null;
   const metric = isClientMetricEventName(args.event) ? parseClientMetricEvent(args.event, args.properties) : null;
   if (isClientMetricEventName(args.event) && !metric) return;
-  const body = JSON.stringify({
-    api_key: key,
+  const source = (metric ?? args.properties) as Record<string, unknown>;
+  const event = normalizeUsageEvent({
     event: args.event,
-    distinct_id: args.distinctId,
-    // Metric envelopes are already normalized and validated; the legacy
-    // crash envelope below must not overwrite their schema or client type.
-    properties: metric ? { ...metric, $insert_id: insertId } : {
+    event_id: typeof source.event_id === "string" ? source.event_id : insertId,
+    device_id: args.distinctId,
+    session_id: source.app_session_id,
+    occurred_at: args.occurredAt ?? (typeof source.occurred_at === "string" ? source.occurred_at : now()),
+    app_version: appVersion ?? source.client_version,
+    channel: source.channel,
+    client_type: "desktop",
+    os: osName(),
+    // Metric envelopes are already normalized and validated; the legacy crash
+    // envelope adds the shared dimensions the daemon's safety events carry.
+    properties: metric ? { ...metric } : {
       ...args.properties,
-      // Shared safety-event envelope, mirroring captureSafety in
-      // apps/daemon/src/analytics.ts. posthog-node-style manual enrichment:
-      // the SDK auto-fills $os/$insert_id for posthog-js but not for server
-      // emits, and dashboards filter on env / event_schema_version.
-      event_id: insertId,
       event_schema_version: EVENT_SCHEMA_VERSION,
       env: resolveTelemetryEnv(),
-      device_id: args.distinctId,
-      client_type: CLIENT_TYPE,
+      process_kind: CLIENT_TYPE,
       capture_source: CAPTURE_SOURCE,
       ui_version: appVersion,
-      $os: osName(),
-      $os_version: release(),
-      $insert_id: insertId,
+      os_version: release(),
     },
-    timestamp: args.occurredAt ?? now(),
   });
+  if (!event) return;
+  const body = JSON.stringify({ schema: USAGE_EVENTS_SCHEMA_VERSION, events: [event] });
 
   let acceptingResponse = true;
   const send = (async () => {
     try {
-      const response = await fetchImpl(`${host}/capture/`, {
+      const response = await fetchImpl(`${url}${USAGE_EVENTS_PATH}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body,
@@ -441,8 +468,7 @@ export async function captureStartupFailure(
 // crash path, launch denominators require a real installation identity: never
 // group unrelated installations under the synthetic namespace fallback.
 export async function reportLaunchEvent(args: {
-  posthogKey: string | null;
-  posthogHost: string | null;
+  usageEventsUrl: string | null;
   installationRoot: string | null;
   dataRoot?: string | null;
   namespace: string;
@@ -452,7 +478,7 @@ export async function reportLaunchEvent(args: {
   properties: Record<string, unknown>;
 }, deps: CaptureDeps = {}): Promise<void> {
   try {
-    if (!args.posthogKey?.trim() || !args.installationRoot) return;
+    if (!args.usageEventsUrl?.trim() || !args.installationRoot) return;
     const identity = JSON.parse(readFileSync(join(args.installationRoot, "installation.json"), "utf8")) as { installationId?: unknown };
     if (typeof identity.installationId !== "string" || !identity.installationId.trim()) return;
     const occurredAt = args.properties.occurred_at;
@@ -477,8 +503,7 @@ export interface ReportStartupFailureArgs {
   launchContext?: { app_session_id: string; launch_attempt_id: string };
   error: unknown;
   isPathAccess: boolean;
-  posthogKey: string | null;
-  posthogHost: string | null;
+  usageEventsUrl: string | null;
   distinctId: string;
   appVersion: string | null;
   namespace: string;
@@ -599,8 +624,7 @@ export async function reportStartupFailure(
     };
     const legacySend = captureStartupFailure(
       {
-        posthogKey: args.posthogKey,
-        posthogHost: args.posthogHost,
+        usageEventsUrl: args.usageEventsUrl,
         distinctId: args.distinctId,
         event: STARTUP_FAILURE_EVENT,
         properties,
@@ -661,8 +685,7 @@ export async function reportDaemonExit(args: {
   dataRoot: string;
   installationRoot: string;
   namespace: string;
-  posthogKey: string | null;
-  posthogHost: string | null;
+  usageEventsUrl: string | null;
   observation: DaemonExitObservation;
   logPath?: string;
 }, deps: CaptureDeps = {}): Promise<void> {

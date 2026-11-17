@@ -6,6 +6,12 @@ import { resolveToolPackConfig, WORKSPACE_ROOT } from "@/config/index.js";
 const savedTelemetryRelayUrl = process.env.PIXO_TELEMETRY_RELAY_URL;
 const savedPosthogKey = process.env.POSTHOG_KEY;
 const savedPosthogHost = process.env.POSTHOG_HOST;
+const savedUsageEventsUrl = process.env.PIXO_USAGE_EVENTS_URL;
+
+function restore(name: string, value: string | undefined): void {
+  if (value == null) delete process.env[name];
+  else process.env[name] = value;
+}
 
 afterEach(() => {
   if (savedTelemetryRelayUrl == null) {
@@ -23,6 +29,7 @@ afterEach(() => {
   } else {
     process.env.POSTHOG_HOST = savedPosthogHost;
   }
+  restore("PIXO_USAGE_EVENTS_URL", savedUsageEventsUrl);
 });
 
 describe("resolveToolPackConfig win build target", () => {
@@ -87,12 +94,26 @@ describe("OpenPixo packaging telemetry isolation", () => {
     process.env.PIXO_TELEMETRY_RELAY_URL = "https://telemetry.example.test/api/langfuse";
     process.env.POSTHOG_KEY = "phc_test_abc123";
     process.env.POSTHOG_HOST = "https://us.i.posthog.com";
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     const config = resolveToolPackConfig("win", { namespace: "telemetry-test" });
     expect(config.telemetryRelayUrl).toBeUndefined();
-    expect(config.posthogKey).toBeUndefined();
-    expect(config.posthogHost).toBeUndefined();
+    expect(config.usageEventsUrl).toBeUndefined();
     expect(config.posthogCliApiKey).toBeUndefined();
     expect(config.posthogCliProjectId).toBeUndefined();
     expect(config.posthogCliHost).toBeUndefined();
+  });
+
+  it("bakes OpenPixo's own ingest address only from PIXO_USAGE_EVENTS_URL", () => {
+    delete process.env.PIXO_USAGE_EVENTS_URL;
+    expect(resolveToolPackConfig("win", { namespace: "telemetry-test" }).usageEventsUrl).toBeUndefined();
+    process.env.PIXO_USAGE_EVENTS_URL = " https://events.openpixo.com/ ";
+    expect(resolveToolPackConfig("win", { namespace: "telemetry-test" }).usageEventsUrl).toBe("https://events.openpixo.com");
+  });
+
+  it("refuses an ingest address that is not a plain https origin", () => {
+    for (const bad of ["http://events.openpixo.com", "https://events.openpixo.com/v1/events", "https://user:pw@events.openpixo.com", "phc_0123456789abcdef"]) {
+      process.env.PIXO_USAGE_EVENTS_URL = bad;
+      expect(() => resolveToolPackConfig("win", { namespace: "telemetry-test" })).toThrow(/PIXO_USAGE_EVENTS_URL/);
+    }
   });
 });

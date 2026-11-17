@@ -24,8 +24,6 @@ beforeEach(() => {
   globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
   clearExceptionTrackingContext();
   setExceptionTrackingContext({
-    apiKey: 'phc_test',
-    host: 'https://us.i.posthog.com',
     distinctId: 'device-1',
     clientType: 'web',
     osName: 'Mac OS X',

@@ -28,8 +28,6 @@ beforeEach(() => {
   globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
   // Pre-arm the transport so the buffered event flushes immediately.
   setExceptionTrackingContext({
-    apiKey: 'phc_test',
-    host: 'https://us.i.posthog.com',
     distinctId: 'white-screen-test',
     clientType: 'web',
     osName: 'Mac OS X',

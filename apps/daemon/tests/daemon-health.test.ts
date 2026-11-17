@@ -101,7 +101,7 @@ describe('daemon health checkpoint and previous-session classification', () => {
       header: { processId: 4242, trigger: 'OOMError', event: 'Allocation failed - JavaScript heap out of memory', commandLine: ['secret'] },
       javascriptHeap: { heapSpaces: { old_space: { used: 3800 * MIB }, large_object_space: { used: 60 * MIB }, new_large_object_space: { used: 4 * MIB } } },
       resourceUsage: { maxRss: 4200 * MIB },
-      environmentVariables: { POSTHOG_KEY: 'phc_secret' },
+      environmentVariables: { PIXO_USAGE_EVENTS_URL: 'phc_secret' },
     }));
 
     const second = createDaemonHealth({ dataRoot: root, pid: 5000, readHeap: () => heap(100), instrumentProcess: false, isProcessAlive: () => false });

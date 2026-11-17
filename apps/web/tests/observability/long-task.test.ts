@@ -27,7 +27,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock.mockReset().mockResolvedValue(new Response('')));
   observe.mockReset(); Observer.supportedEntryTypes = ['longtask'];
   localStorage.clear();
-  setExceptionTrackingContext({ apiKey: 'phc_test', host: 'https://example.test', distinctId: 'install-test', clientType: 'web', osName: 'Mac OS X' });
+  setExceptionTrackingContext({ distinctId: 'install-test', clientType: 'web', osName: 'Mac OS X' });
 });
 afterEach(() => { stop?.(); stop = undefined; clearExceptionTrackingContext(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 

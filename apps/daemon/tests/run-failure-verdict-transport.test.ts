@@ -77,7 +77,7 @@ describe('daemon carries the failure verdict to every client-visible exit', () =
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-failure-verdict-bin-'));
     const fakeClaude = await writeHardQuotaClaude(binDir, 'claude-hard-quota');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -133,7 +133,7 @@ function snapshotEnv(): Record<string, string | undefined> {
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     PIXO_TELEMETRY_RELAY_URL: process.env.PIXO_TELEMETRY_RELAY_URL,
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
   };
 }

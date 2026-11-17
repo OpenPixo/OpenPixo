@@ -35,6 +35,9 @@
 // single source of truth for browser exception capture.
 
 import {
+  ANALYTICS_HEADER_CLIENT_TYPE,
+  ANALYTICS_HEADER_DEVICE_ID,
+  ANALYTICS_HEADER_SESSION_ID,
   buildClientTelemetryParams,
   isClientMetricEventName,
   parseClientMetricEvent,
@@ -42,6 +45,7 @@ import {
 } from '@openpixo/contracts/analytics';
 import { isResolvedAppVersion } from './app-version';
 import { scrubExceptionList, scrubFilePath } from './scrub';
+import { WEB_USAGE_EVENTS_ENDPOINT } from './usage-client';
 
 export type BrowserOsName =
   | 'Mac OS X'
@@ -93,8 +97,6 @@ export function detectBrowserOsName(): BrowserOsName {
 }
 
 interface ExceptionTrackingContext {
-  apiKey: string;
-  host: string;
   distinctId: string;
   clientType: AnalyticsClientType;
   osName: BrowserOsName;
@@ -278,8 +280,12 @@ function captureException(
     $insert_id: randomId(),
     capture_source: 'web/error-tracking',
     handled: metadata.handled === true,
+    // The only exception detail that can leave the machine: the error's type
+    // (TypeError, ...). Messages, stacks and URLs are dropped by the daemon's
+    // usage-event rule.
+    exception_type: scrubbed[0]?.type,
   };
-  enqueue('$exception', properties);
+  enqueue('client_exception', properties);
 }
 
 // Generic safety-telemetry surface for non-exception observability events
@@ -350,42 +356,33 @@ function dispatch(item: BufferedSafetyEvent): void {
   const metric = isClientMetricEventName(item.eventName)
     ? parseClientMetricEvent(item.eventName, { ...original, ...common }) : null;
   if (isClientMetricEventName(item.eventName) && !metric) return;
-  const payload = {
-    api_key: context.apiKey,
-    event: item.eventName,
-    distinct_id: common.device_id ?? context.distinctId,
-    properties: metric ? { ...metric, $insert_id: common.event_id } : {
-      ...item.body.properties,
-      $lib: 'web/error-tracking',
-      $os: context.osName,
-      ...(context.sessionId ? { session_id: context.sessionId } : {}),
-      ...common,
-      ui_version: common.app_version,
-      $insert_id: common.event_id,
-    },
-    timestamp: common.occurred_at,
+  const properties = metric ? { ...metric, $insert_id: common.event_id } : {
+    ...item.body.properties,
+    $lib: 'web/error-tracking',
+    $os: context.osName,
+    ...(context.sessionId ? { session_id: context.sessionId } : {}),
+    ...common,
+    ui_version: common.app_version,
+    $insert_id: common.event_id,
   };
-  // `keepalive` ensures the request survives an immediate window unload —
-  // important for events that fire during navigation that are followed by
-  // a route change a millisecond later.
+  // Through the daemon, which re-checks consent and keeps only counts. The
+  // browser never talks to an analytics service.
   try {
-    void fetch(`${context.host.replace(/\/+$/, '')}/i/v0/e/`, {
+    void fetch(WEB_USAGE_EVENTS_ENDPOINT, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
+      headers: {
+        'content-type': 'application/json',
+        [ANALYTICS_HEADER_DEVICE_ID]: String(common.device_id ?? context.distinctId),
+        ...(context.sessionId ? { [ANALYTICS_HEADER_SESSION_ID]: context.sessionId } : {}),
+        [ANALYTICS_HEADER_CLIENT_TYPE]: context.clientType,
+      },
+      // The single-event form of the daemon route: one beacon per report.
+      body: JSON.stringify({ event: item.eventName, event_id: String(common.event_id), timestamp: common.occurred_at, properties }),
       keepalive: true,
-      // No credentials — PostHog ingest uses the public `phc_` key as the
-      // auth surface; cookies are irrelevant and sending them would just
-      // add CORS preflight friction.
-      credentials: 'omit',
     }).catch(() => {
-      // Swallow the async rejection too. The synchronous try/catch below
-      // only guards against fetch throwing on a malformed argument; the
-      // returned promise rejects separately when the beacon can't reach
-      // PostHog (offline, ingest down). Left unhandled, that rejection is
-      // itself scooped up by the `unhandledrejection` listener above and
-      // re-reported as a `Failed to fetch` $exception — a self-amplifying
-      // loop where our own telemetry transport manufactures telemetry.
+      // Swallow the async rejection too. Left unhandled, it would be scooped
+      // up by the `unhandledrejection` listener above and re-reported: a
+      // self-amplifying loop where telemetry manufactures telemetry.
     });
   } catch {
     // best-effort: safety telemetry must never propagate

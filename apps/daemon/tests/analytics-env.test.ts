@@ -18,8 +18,10 @@ const posthogCtor = vi.hoisted(() =>
   }),
 );
 
-vi.mock('posthog-node', () => ({
-  PostHog: posthogCtor,
+// The analytics service's transport: OpenPixo's usage-events client, which keeps
+// posthog-node's `capture({ distinctId, event, properties })` call shape.
+vi.mock('../src/usage-events-client.js', () => ({
+  createUsageEventsClient: (options: { url: string }) => posthogCtor(options.url, options),
 }));
 
 describe('analytics telemetry environment', () => {
@@ -27,31 +29,36 @@ describe('analytics telemetry environment', () => {
     const { readPublicConfigResponse } = await import('../src/analytics.js');
 
     expect(readPublicConfigResponse({
-      POSTHOG_KEY: 'phc_test',
+      PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid',
       PIXO_TELEMETRY_ENV: 'local_development',
     })).toMatchObject({
       enabled: true,
       env: 'local_development',
-      key: 'phc_test',
     });
+    // The ingest address never reaches the browser.
+    expect(readPublicConfigResponse({ PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' })).not.toHaveProperty('key');
   });
 
-  it('enables GeoIP so daemon events get user country from their real IP', async () => {
-    // posthog-node defaults disableGeoip:true (it assumes a datacenter
-    // deployment). The daemon runs on the user's own machine, so its
-    // ingestion IP is the user's real public IP and country enrichment is
-    // accurate — the service must explicitly opt back in or every
-    // daemon-emitted event lands in the null-country bucket.
+  it('reads only PIXO_USAGE_EVENTS_URL, refuses non-https remote addresses, and ignores upstream PostHog keys', async () => {
+    const { readUsageEventsConfig } = await import('../src/analytics.js');
+    expect(readUsageEventsConfig({ POSTHOG_KEY: 'phc_upstream', POSTHOG_HOST: 'https://us.i.posthog.com' })).toBeNull();
+    expect(readUsageEventsConfig({ PIXO_USAGE_EVENTS_URL: 'http://events.example.com' })).toBeNull();
+    expect(readUsageEventsConfig({ PIXO_USAGE_EVENTS_URL: 'https://user:pw@events.example.com' })).toBeNull();
+    expect(readUsageEventsConfig({ PIXO_USAGE_EVENTS_URL: 'http://127.0.0.1:9999/' })?.url).toBe('http://127.0.0.1:9999');
+    expect(readUsageEventsConfig({ PIXO_USAGE_EVENTS_URL: 'https://events.openpixo.com' })?.url).toBe('https://events.openpixo.com');
+  });
+
+  it('sends to the configured ingest address', async () => {
     posthogCtor.mockClear();
     const dataDir = await mkdtemp(path.join(tmpdir(), 'pixo-analytics-geoip-'));
     const { createAnalyticsService } = await import('../src/analytics.js');
     createAnalyticsService({
       dataDir,
-      env: { POSTHOG_KEY: 'phc_test', PIXO_TELEMETRY_ENV: 'local_development' },
+      env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid', PIXO_TELEMETRY_ENV: 'local_development' },
     });
 
     expect(posthogCtor).toHaveBeenCalledTimes(1);
-    expect(posthogCtor.mock.calls[0]?.[1]).toMatchObject({ disableGeoip: false });
+    expect(posthogCtor.mock.calls[0]?.[0]).toBe('https://events.test.invalid');
   });
 
   it('stamps daemon PostHog captures with env', async () => {
@@ -65,7 +72,7 @@ describe('analytics telemetry environment', () => {
     const analytics = createAnalyticsService({
       dataDir,
       env: {
-        POSTHOG_KEY: 'phc_test',
+        PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid',
         PIXO_TELEMETRY_ENV: 'local_development',
       },
     });
@@ -110,7 +117,7 @@ describe('analytics telemetry environment', () => {
     const { createAnalyticsService } = await import('../src/analytics.js');
     const analytics = createAnalyticsService({
       dataDir,
-      env: { POSTHOG_KEY: 'phc_test', PIXO_TELEMETRY_ENV: 'local_development' },
+      env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid', PIXO_TELEMETRY_ENV: 'local_development' },
     });
 
     await analytics.identifyGroup({
@@ -146,7 +153,7 @@ describe('analytics telemetry environment', () => {
     const { createAnalyticsService } = await import('../src/analytics.js');
     const analytics = createAnalyticsService({
       dataDir,
-      env: { POSTHOG_KEY: 'phc_test' },
+      env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' },
     });
 
     await expect(analytics.capture({
@@ -172,7 +179,7 @@ describe('analytics telemetry environment', () => {
     const { createAnalyticsService } = await import('../src/analytics.js');
     const analytics = createAnalyticsService({
       dataDir,
-      env: { POSTHOG_KEY: 'phc_test' },
+      env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' },
     });
 
     await expect(analytics.capture({
@@ -210,7 +217,7 @@ describe('CS01 capture channel and shared identity', () => {
         installationId: 'install-1', telemetry: { metrics: true },
       }));
       const { createAnalyticsService, readPublicConfigResponse } = await import('../src/analytics.js');
-      const settings = { ...env, POSTHOG_KEY: 'phc_test' };
+      const settings = { ...env, PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' };
       expect(readPublicConfigResponse(settings, false).env).toBe(expectedEnv);
       const analytics = createAnalyticsService({ dataDir, env: settings, packagedRuntime: false });
       const context = {
@@ -247,7 +254,7 @@ it('fills missing capture versions from packaged metadata and preserves original
     await writeFile(path.join(dataDir, 'app-config.json'), JSON.stringify({ installationId: 'install-1', telemetry: { metrics: true } }));
     const { createAnalyticsService } = await import('../src/analytics.js');
     const analytics = createAnalyticsService({ dataDir, env: {
-      POSTHOG_KEY: 'phc_test', PIXO_APP_VERSION: '2.0.0',
+      PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid', PIXO_APP_VERSION: '2.0.0',
     } });
     await analytics.captureSafety({ eventName: 'daemon_health', appVersion: 'unknown', properties: {} });
     expect(posthogCapture.mock.calls[0]?.[0].properties).toMatchObject({ app_version: '2.0.0', client_version: '2.0.0' });
@@ -281,11 +288,11 @@ it('fills missing capture versions from packaged metadata and preserves original
 
 
 it.each(['{"telemetry":{"metrics":false}', 'null', '[]'])(
-  'keeps memory safety captures private after saved opt-out is damaged: %s', async (damaged) => {
+  'sends no safety captures without a yes, also when the saved choice is damaged: %s', async (damaged) => {
     posthogCapture.mockReset();
     const dataDir = await mkdtemp(path.join(tmpdir(), 'pixo-memory-damaged-consent-'));
     const { createAnalyticsService } = await import('../src/analytics.js');
-    const service = createAnalyticsService({ dataDir, env: { POSTHOG_KEY: 'phc_test' } });
+    const service = createAnalyticsService({ dataDir, env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' } });
     const properties = {
       metric_schema_version: 1, telemetry_capability: 'supported',
       event_id: 'event-1', app_session_id: 'session-1',
@@ -298,14 +305,14 @@ it.each(['{"telemetry":{"metrics":false}', 'null', '[]'])(
       const file = path.join(dataDir, 'app-config.json');
       await writeFile(file, JSON.stringify({ installationId: 'install-1', telemetry: { metrics: false } }));
       await service.captureSafety({ eventName: 'client_process_memory_sample', appVersion: '1.0.0', properties });
-      expect(posthogCapture).toHaveBeenCalledTimes(1);
+      expect(posthogCapture).toHaveBeenCalledTimes(0);
       await writeFile(file, damaged);
       await service.captureSafety({ eventName: 'client_process_memory_sample', appVersion: '1.0.0', properties });
-      expect(posthogCapture).toHaveBeenCalledTimes(2);
-      // Safety delivery also survives a repaired explicit opt-in.
+      expect(posthogCapture).toHaveBeenCalledTimes(0);
+      // A repaired explicit opt-in sends again, still without private fields.
       await writeFile(file, JSON.stringify({ installationId: 'install-1', telemetry: { metrics: true } }));
       await service.captureSafety({ eventName: 'client_process_memory_sample', appVersion: '1.0.0', properties });
-      expect(posthogCapture).toHaveBeenCalledTimes(3);
+      expect(posthogCapture).toHaveBeenCalledTimes(1);
       for (const [call] of posthogCapture.mock.calls) for (const key of ['path', 'url', 'content', 'prompt', 'pid']) expect(call.properties).not.toHaveProperty(key);
     } finally { await service.shutdown(); await rm(dataDir, { recursive: true, force: true }); }
   },
@@ -318,7 +325,7 @@ it('emits safety exit metrics with occurrence version, bounded reasons and stabl
   try {
     await writeFile(config, JSON.stringify({ installationId: 'installation-1', telemetry: { metrics: true } }));
     const { createAnalyticsService } = await import('../src/analytics.js');
-    const service = createAnalyticsService({ dataDir, env: { POSTHOG_KEY: 'phc_test' } });
+    const service = createAnalyticsService({ dataDir, env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' } });
     const properties = { previous_app_version: '1.0.0-beta.1', app_session_id: 'previous-session', launch_attempt_id: 'previous-launch',
       reason: 'unknown', occurred_at: '2026-10-16T01:00:00.000Z', occurrence_time_source: 'last_checkpoint', pid: 123, path: '/private' };
     for (const reason of ['unknown', 'killed', 'oom', 'recovery-attempt', 'clean-exit']) {
@@ -330,10 +337,11 @@ it('emits safety exit metrics with occurrence version, bounded reasons and stabl
     expect(metrics[0]).toMatchObject({ properties: { app_version: '1.0.0-beta.1', channel: 'beta', app_session_id: 'previous-session',
       launch_attempt_id: 'previous-launch', $insert_id: 'old-exit-unknown:exit', occurred_at: properties.occurred_at } });
     expect(metrics[0]!.properties).not.toHaveProperty('pid'); expect(metrics[0]!.properties).not.toHaveProperty('path');
+    // A damaged saved choice is not a yes: nothing more is sent.
     await writeFile(config, '{"telemetry":{"metrics":false}');
     const count = posthogCapture.mock.calls.length;
     await service.captureSafety({ eventName: 'daemon_unclean_exit', appVersion: '2.0.0', properties });
-    expect(posthogCapture).toHaveBeenCalledTimes(count + 2);
+    expect(posthogCapture).toHaveBeenCalledTimes(count);
     await service.shutdown();
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });

@@ -30,6 +30,7 @@ import { resolveArtStyleForGeneration } from '../styles/service.js';
 import { registerGenerateRoutes } from './generate-routes.js';
 import { GENERATE_AREA_DIR, assertNoGameRequest, pictureType, saveGenerateReference } from './generate-area.js';
 import { recipePath } from './paths.js';
+import { NOOP_GAME_FUNNEL, recipeCandidatesAdoptedProperties, recipeRunSettledProperties, type GameFunnelRecorder } from '../game/game-funnel.js';
 
 export interface RecipeRoutesDeps {
   db: RecipeExecutorDeps['db'];
@@ -41,6 +42,8 @@ export interface RecipeRoutesDeps {
   resources: Pick<ResourceDeps, 'listAllSkills'>;
   /** What lets a recipe pay a hosted model, from the art budget or at a price the user confirmed; without it recipes never spend. */
   artBudget?: { ledger: ArtBudgetLedger; openpixoHosted: OpenPixoHostedMedia; hasSession: () => Promise<boolean> } | undefined;
+  /** Counts finished runs and kept candidates, with the user's consent; absent in tests. */
+  gameFunnel?: GameFunnelRecorder;
 }
 
 /** A price the user was shown for every candidate of one run, held until it is spent or expires. */
@@ -98,6 +101,8 @@ export interface RecipeRunHandlers {
   run(target: RunTarget, request: RecipeRunRequest, req: Request, res: Response, next: NextFunction): Promise<void>;
   list(scope: RunScope, query: Request['query']): Promise<RecipeRunListResponse>;
   generateRoot: string;
+  /** Records which candidates were kept; never throws. */
+  adopted(req: Request, run: RecipeRun, candidateIds: readonly string[]): void;
 }
 
 export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): RecipeExecutor {
@@ -107,7 +112,11 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
     for (const [key, held] of quotes) if (held.expiresAt + (held.started ? SPENT_QUOTE_KEPT_MS : 0) <= now) quotes.delete(key);
   };
   const heldQuote = (id: string): HeldRecipeQuote | undefined => { pruneQuotes(); return quotes.get(id); };
-  const executor = new RecipeExecutor({ runtimeDataDir: ctx.paths.RUNTIME_DATA_DIR, projectRoot: ctx.paths.PROJECT_ROOT, db: ctx.db, mediaTasks: ctx.mediaTasks });
+  const funnel = ctx.gameFunnel ?? NOOP_GAME_FUNNEL;
+  const executor = new RecipeExecutor({ runtimeDataDir: ctx.paths.RUNTIME_DATA_DIR, projectRoot: ctx.paths.PROJECT_ROOT, db: ctx.db, mediaTasks: ctx.mediaTasks,
+    onRunSettled: run => funnel.record(null, 'recipe_run_settled', recipeRunSettledProperties(run, Date.now())) });
+  const adopted = (req: Request, run: RecipeRun, candidateIds: readonly string[]) =>
+    funnel.record(req, 'recipe_candidates_adopted', recipeCandidatesAdoptedProperties(run, candidateIds, Date.now()));
   void executor.initialized.catch(error => console.error('[recipes] Initialization failed', error));
   const catalog = () => discoverRecipes(ctx.paths.BUNDLED_PLUGINS_DIR);
   const generateRoot = path.join(ctx.paths.RUNTIME_DATA_DIR, GENERATE_AREA_DIR);
@@ -398,6 +407,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
       const target = await project(req, res, true); if (!target) return;
       const request = RecipeAdoptRequestSchema.parse(req.body);
       const result = await executor.adopt(target.id, String(req.params.runId), request.candidateIds, { projectId: target.id!, root: target.root, engine: engineOf(target) });
+      adopted(req, result, request.candidateIds);
       res.json(result);
     } catch (error) { fail(res, error); }
   });
@@ -425,7 +435,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
     try { const target = await project(req, res, true); if (target) { await deleteCharacter(target.root, String(req.params.slug)); res.json({ deleted: true }); } }
     catch (error) { fail(res, error); }
   });
-  registerGenerateRoutes(app, { executor, http: ctx.http, fail, game, noGame, agentGrant: mediaGrant, quote, run, list, generateRoot });
+  registerGenerateRoutes(app, { executor, http: ctx.http, fail, game, noGame, agentGrant: mediaGrant, quote, run, list, generateRoot, adopted });
   return executor;
 }
 

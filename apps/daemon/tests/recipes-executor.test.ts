@@ -73,6 +73,16 @@ it('stages stub candidates, postprocesses survivors, keeps failing checks, and a
   expect(await readdir(restored.root)).toEqual([]);
   expect(await readFile(path.join(project, paths[0]!))).toEqual(adoptedBytes);
 });
+it('tells its observer once when a run settles, and never lets the observer break the run', async () => {
+  const generate: typeof generateMedia = async args => generateMedia({ ...args, output: 'primary.svg' });
+  const onRunSettled = vi.fn((_run: RecipeRun) => { throw new Error('observer failure'); });
+  const executor = new RecipeExecutor({ runtimeDataDir: data, projectRoot: root, db, mediaTasks: createMediaTaskStore(db), generate, onRunSettled });
+  const started = await executor.start(recipeDetail(), 'p', project, { recipeId: 'test-sprite', inputs: {}, count: 1 }, model);
+  const settled = await executor.wait('p', started.id);
+  expect(['ready', 'failed']).toContain(settled.status);
+  expect(onRunSettled).toHaveBeenCalledTimes(1);
+  expect(onRunSettled.mock.calls[0]?.[0]).toMatchObject({ id: started.id, status: settled.status, recipeId: 'test-sprite' });
+});
 it('cancels during generation and rejects late candidates and production stub output', async () => {
   let release!: () => void, entered!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });

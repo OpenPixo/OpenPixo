@@ -29,7 +29,7 @@ describe('run creation atomic assistant-message ownership (#6418)', () => {
   });
 
   async function startWithHangingClaude() {
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;

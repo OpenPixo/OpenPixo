@@ -18,6 +18,7 @@ import {
   runPackagedHeadless,
 } from "./headless-runtime.js";
 import { resolvePackagedNamespacePaths } from "./paths.js";
+import { useStartupTelemetryConsent } from "./startup-telemetry.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -61,8 +62,7 @@ function resolveHeadlessConfig(): PackagedConfig {
     telemetryRelayUrl:
       process.env.PIXO_TELEMETRY_RELAY_URL?.trim() || null,
     updateMetadataUrl: process.env.PIXO_UPDATE_METADATA_URL?.trim() || null,
-    posthogKey: process.env.POSTHOG_KEY?.trim() || null,
-    posthogHost: process.env.POSTHOG_HOST?.trim() || null,
+    usageEventsUrl: process.env.PIXO_USAGE_EVENTS_URL?.trim() || null,
     
     
     webSidecarEntry: null,
@@ -79,6 +79,7 @@ const headlessRequest = parsePackagedHeadlessRequest([
 async function main(): Promise<void> {
   const config = resolveHeadlessConfig();
   const paths = resolvePackagedNamespacePaths(config, config.namespace, process.env);
+  useStartupTelemetryConsent(paths.dataRoot);
   const currentStamp = (() => {
     try { return readCurrentSidecarStamp(); } catch { return null; }
   })();

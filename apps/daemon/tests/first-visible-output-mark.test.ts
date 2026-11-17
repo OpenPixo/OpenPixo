@@ -123,8 +123,7 @@ describe('first_visible_output is stamped at emission, not at first token', () =
   async function runOnceAndReadTiming(options: { bin: string; label: string }): Promise<RunTiming> {
     posthog = await startCaptureSink();
     clearTelemetryEnv();
-    process.env.POSTHOG_KEY = 'phc_first_visible_output_test';
-    process.env.POSTHOG_HOST = posthog.url;
+    process.env.PIXO_USAGE_EVENTS_URL = posthog.url;
     started = (await startServer({ port: 0, returnServer: true })) as StartedServer;
     await putConfig(started.url, { agentId: 'opencode', agentCliEnv: { opencode: { OPENCODE_BIN: options.bin } }, telemetry: { metrics: true, }, privacyDecisionAt: Date.now() });
     const conversation: Conversation = await createChatProject(started.url, options.label);

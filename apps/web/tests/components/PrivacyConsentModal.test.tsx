@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { localizedProductPage, PRODUCT_PRIVACY_URL } from '@openpixo/contracts';
 import { PrivacyConsentModal } from '../../src/components/PrivacyConsentModal';
 import { I18nProvider } from '../../src/i18n';
 
@@ -43,18 +44,20 @@ describe('PrivacyConsentModal', () => {
 
   it('tells the user choices are changeable in Settings', () => {
     renderModal();
-    expect(screen.getByText(/Optional telemetry is off by default in OpenPixo/i)).toBeTruthy();
+    expect(screen.getByText(/Usage data is off until you say yes/i)).toBeTruthy();
+    // Share turns on counts only; the banner says what never leaves the computer.
+    expect(screen.getByText('Never sent')).toBeTruthy();
+    expect(screen.getByText(/prompts, conversations, code, images, audio and game files never leave/i)).toBeTruthy();
     const footer = screen.getByText(/You can change these any time/i);
     expect(footer.textContent ?? '').toMatch(/You can change these any time/i);
     expect(footer.textContent ?? '').toMatch(/Settings/);
     expect(footer.textContent ?? '').toMatch(/Privacy/);
   });
 
-  it('keeps the privacy policy destination disabled until configured', () => {
+  it('links to the OpenPixo privacy policy in a new window', () => {
     renderModal();
     const link = screen.getByRole('link', { name: /policy/i });
-    expect(link.getAttribute('href')).toBeNull();
-    expect(link.getAttribute('aria-disabled')).toBe('true');
+    expect(link.getAttribute('href')).toBe(localizedProductPage(PRODUCT_PRIVACY_URL, 'en'));
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel') ?? '').toContain('noopener');
   });

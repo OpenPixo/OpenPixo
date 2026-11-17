@@ -149,7 +149,7 @@ type RunStatus = { id: string; status: string; exitCode: number | null };
 
 describe('run event-buffer truncation vs artifact verdict (HTTP)', () => {
   const originalEnv = {
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
     LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
@@ -179,7 +179,7 @@ describe('run event-buffer truncation vs artifact verdict (HTTP)', () => {
     // is spliced out of the in-memory run.events buffer.
     const fakeClaude = await writeArtifactThenFloodClaude(binDir, 'claude-trunc', PROD_DEFAULT_MAX_EVENTS + 500);
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;

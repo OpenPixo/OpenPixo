@@ -240,8 +240,7 @@ export async function runPackagedHeadless(
         mcpBootstrapCommand: mcpBootstrap.command,
         nodeCommand: activeConfig.nodeCommand,
         telemetryRelayUrl: activeConfig.telemetryRelayUrl,
-        posthogKey: activeConfig.posthogKey,
-        posthogHost: activeConfig.posthogHost,
+        usageEventsUrl: activeConfig.usageEventsUrl,
         cloud: activeConfig.cloud,
         
         

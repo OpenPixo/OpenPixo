@@ -77,7 +77,7 @@ describe('OPEND-2566 duplicate answer after an upstream reconnect', () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-dup-answer-bin-'));
     const fakeClaude = await writeReconnectingClaude(binDir, 'claude-reconnect-dup');
 
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;
@@ -318,7 +318,7 @@ async function readRunEvents(file: string): Promise<RunEvent[]> {
 }
 
 const TRACKED_ENV_KEYS = [
-  'POSTHOG_KEY',
+  'PIXO_USAGE_EVENTS_URL',
   'POSTHOG_HOST',
   'LANGFUSE_PUBLIC_KEY',
   'LANGFUSE_SECRET_KEY',

@@ -21,7 +21,7 @@ import {
  *   1. `installErrorHandlers()` hooks `window.error` and
  *      `unhandledrejection` at module load. Idempotent.
  *   2. Captured exceptions buffer in memory until
- *      `setExceptionTrackingContext({apiKey, host, distinctId})` arrives.
+ *      `setExceptionTrackingContext({distinctId, ...})` arrives.
  *   3. Once a context is set, buffered events drain to the PostHog ingest
  *      endpoint via `fetch`. Subsequent captures dispatch immediately.
  *   4. Buffer is capped at 50 entries to bound memory in an error loop.
@@ -38,8 +38,6 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 function setExceptionTrackingContext(
   next: {
-    apiKey: string;
-    host: string;
     distinctId: string;
     appVersion?: string;
     sessionId?: string;
@@ -72,7 +70,9 @@ function lastFetchedBody(): Record<string, unknown> {
   expect(fetchMock).toHaveBeenCalled();
   const lastCall = fetchMock.mock.calls.at(-1)!;
   const init = lastCall[1] as RequestInit;
-  return JSON.parse(init.body as string) as Record<string, unknown>;
+  // The installation id travels as the daemon's analytics header, not in the body.
+  const headers = (init.headers ?? {}) as Record<string, string>;
+  return { ...(JSON.parse(init.body as string) as Record<string, unknown>), distinct_id: headers['x-pixo-analytics-device-id'] };
 }
 
 describe('error-tracking', () => {
@@ -99,8 +99,6 @@ describe('error-tracking', () => {
 
     // Now the bootstrap completes — buffer should drain.
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-1',
       appVersion: '1.2.3',
       sessionId: 'session-abc',
@@ -109,8 +107,7 @@ describe('error-tracking', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = lastFetchedBody();
     expect(body).toMatchObject({
-      api_key: 'phc_test',
-      event: '$exception',
+      event: 'client_exception',
       distinct_id: 'user-1',
       properties: expect.objectContaining({
         $exception_type: 'Error',
@@ -124,8 +121,6 @@ describe('error-tracking', () => {
 
   it('dispatches immediately when a context is already set', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-2',
     });
 
@@ -142,8 +137,6 @@ describe('error-tracking', () => {
 
   it('stamps OS and client type on direct safety events', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-platform-metadata',
       clientType: 'desktop',
       osName: 'Mac OS X',
@@ -174,8 +167,6 @@ describe('error-tracking', () => {
       ].join('\n')]: 'chunk-page-abc',
     };
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-chunk',
     });
 
@@ -205,8 +196,6 @@ describe('error-tracking', () => {
   it('captures unhandledrejection events via the window hook', () => {
     installErrorHandlers();
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-3',
     });
 
@@ -236,8 +225,6 @@ describe('error-tracking', () => {
   it('captures synchronous window.error events', () => {
     installErrorHandlers();
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-4',
     });
 
@@ -273,8 +260,6 @@ describe('error-tracking', () => {
     expect(fetchMock).not.toHaveBeenCalled();
 
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-loop',
     });
 
@@ -294,8 +279,6 @@ describe('error-tracking', () => {
 
   it('scrubs absolute filesystem paths from stack frames before dispatch', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-scrub',
     });
 
@@ -328,8 +311,6 @@ describe('error-tracking', () => {
 
   it('treats reportHandledException string input as a non-Error message', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-str',
     });
 
@@ -351,8 +332,6 @@ describe('error-tracking', () => {
 
   it('patchExceptionTrackingAppVersion updates appVersion on dispatched events', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-patch',
       appVersion: '0.0.0',
     });
@@ -374,8 +353,6 @@ describe('error-tracking', () => {
   // `web:javascript` on every frame; we must too.
   it('stamps platform on every stack frame so PostHog ingestion accepts the event', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-platform',
     });
 
@@ -405,8 +382,6 @@ describe('error-tracking', () => {
   // Drop it, but ONLY when it originates in packaged app code (openpixo:// scheme).
   it('drops packaged-app fetch noise but keeps the same error from the web app', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-noise',
     });
 
@@ -441,8 +416,6 @@ describe('error-tracking', () => {
   // too, otherwise part of the noise path leaks through.
   it('drops packaged fetch noise from file:// app-bundle stack frames', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-bundle',
     });
 
@@ -468,8 +441,6 @@ describe('error-tracking', () => {
   // cancellation and was never a measured noise source. It flows through.
   it('does not drop AbortError', () => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-abort',
     });
     const aborted = new Error('the operation was aborted.');
@@ -494,8 +465,6 @@ describe('error-tracking', () => {
   it('a failed beacon surfacing as an unhandledrejection does not spawn a second beacon', () => {
     installErrorHandlers();
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-loop',
     });
 
@@ -544,8 +513,6 @@ describe('error-tracking', () => {
 describe('exception attribution', () => {
   beforeEach(() => {
     setExceptionTrackingContext({
-      apiKey: 'phc_test',
-      host: 'https://us.i.posthog.com',
       distinctId: 'user-attrib',
     });
   });
@@ -607,7 +574,7 @@ describe('exception attribution', () => {
 
 describe('CS01 safety envelope', () => {
   it('does not replace a resolved version with placeholder or unknown', () => {
-    setExceptionTrackingContext({ apiKey: 'phc_test', host: 'https://ingest.invalid', distinctId: 'install-1', appVersion: '1.2.3' });
+    setExceptionTrackingContext({ distinctId: 'install-1', appVersion: '1.2.3' });
     patchExceptionTrackingAppVersion('0.0.0');
     patchExceptionTrackingAppVersion('unknown');
     reportSafetyEvent('client_boot_timing');
@@ -616,7 +583,7 @@ describe('CS01 safety envelope', () => {
 
   it('stamps stable event/device identity and separate occurrence/report timestamps', () => {
     reportSafetyEvent('client_boot_timing', { duration_ms: 12 });
-    setExceptionTrackingContext({ apiKey: 'phc_test', host: 'https://ingest.invalid', distinctId: 'install-1', appVersion: '1.2.3', sessionId: 'session-1', telemetryEnv: 'test' });
+    setExceptionTrackingContext({ distinctId: 'install-1', appVersion: '1.2.3', sessionId: 'session-1', telemetryEnv: 'test' });
     const body = lastFetchedBody();
     const properties = body.properties as Record<string, unknown>;
     expect(properties).toMatchObject({
@@ -638,7 +605,7 @@ it('preserves buffered safety metric occurrence metadata and strips URL/content 
   };
   reportSafetyEvent('client_navigation_result', properties);
   expect(fetchMock).not.toHaveBeenCalled();
-  setExceptionTrackingContext({ apiKey: 'phc_test', host: 'https://ingest.invalid', distinctId: 'install-1', appVersion: '2.0.0', sessionId: 'current-session', telemetryEnv: 'test' });
+  setExceptionTrackingContext({ distinctId: 'install-1', appVersion: '2.0.0', sessionId: 'current-session', telemetryEnv: 'test' });
   expect(fetchMock).toHaveBeenCalledOnce();
   reportSafetyEvent('client_navigation_result', properties);
   const body = lastFetchedBody();
@@ -659,7 +626,7 @@ it('buffers preview metrics and reports after product analytics is opted out', a
     path: '/private', url: 'https://private.invalid', content: 'secret', prompt: 'secret', pid: 123 };
   expect(reportClientMetricEvent('client_preview_attempt', fields)).toBe(true);
   expect(fetchMock).not.toHaveBeenCalled();
-  setExceptionTrackingContext({ apiKey: 'phc_test', host: 'https://ingest.invalid', distinctId: 'install' });
+  setExceptionTrackingContext({ distinctId: 'install' });
   expect(fetchMock).toHaveBeenCalledOnce();
   expect(reportClientMetricEvent('client_preview_result', { ...fields, result: 'success', duration_ms: 1, monitoring_kind: 'visible_content' })).toBe(true);
   expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -675,12 +642,12 @@ it('keeps legacy preview/app-white-screen/firstpaint events on the safety channe
   const names = ['client_preview_white_screen', 'client_preview_runtime_error', 'client_preview_resource_error', 'client_white_screen', 'client_chat_first_paint'];
   for (const event of names) reportSafetyEvent(event, { monitoring_kind: 'fixture' });
   expect(fetchMock).not.toHaveBeenCalled();
-  setExceptionTrackingContext({ apiKey: 'phc_test', host: 'https://ingest.invalid', distinctId: 'install' });
+  setExceptionTrackingContext({ distinctId: 'install' });
   expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).event)).toEqual(names);
 });
 
 describe('safety identity on a fresh install (OPEND-4220)', () => {
-  const base = { apiKey: 'phc_test', host: 'https://ingest.invalid', appVersion: '1.2.3', sessionId: 'session-1', telemetryEnv: 'test' };
+  const base = { appVersion: '1.2.3', sessionId: 'session-1', telemetryEnv: 'test' };
 
   it('switches renderer stability events to the installation id minted after bootstrap', () => {
     setExceptionTrackingContext({ ...base, distinctId: 'anon-bootstrap' });

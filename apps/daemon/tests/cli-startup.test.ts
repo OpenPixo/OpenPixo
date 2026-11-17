@@ -118,7 +118,7 @@ describe('CLI startup boundaries', () => {
       ...process.env,
       PIXO_BIND_HOST: '127.0.0.1',
       PIXO_DATA_DIR: dataDir,
-      POSTHOG_KEY: '',
+      PIXO_USAGE_EVENTS_URL: '',
       POSTHOG_HOST: '',
       PIXO_TELEMETRY_RELAY_URL: '',
       LANGFUSE_PUBLIC_KEY: '',

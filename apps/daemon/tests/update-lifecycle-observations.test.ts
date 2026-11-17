@@ -19,7 +19,7 @@ async function fixture() {
   const captureSafety = vi.fn(async (_args: Parameters<ObserveUpdateLifecycleStagesOptions['analytics']['captureSafety']>[0]) => undefined);
   const options: ObserveUpdateLifecycleStagesOptions = {
     analytics: { capture, captureSafety }, appVersion: summary.toVersion, currentVersion: summary.toVersion,
-    currentChannel: 'prerelease', namespace: 'test', dataRoot: root, env: { POSTHOG_KEY: 'ph_test' },
+    currentChannel: 'prerelease', namespace: 'test', dataRoot: root, env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' },
     now: () => new Date('2026-09-10T05:22:00Z'),
     readConfig: async () => ({ installationId: 'test-device', telemetry: { metrics: true } }),
   };

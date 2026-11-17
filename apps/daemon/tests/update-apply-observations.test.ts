@@ -96,7 +96,7 @@ describe('update apply observations', () => {
         currentChannel: 'beta',
         currentVersion: '0.8.0-beta.6',
         dataRoot,
-        env: { POSTHOG_KEY: 'ph_test' },
+        env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' },
         namespace: 'release-beta-win',
         now: () => new Date('2026-05-20T00:03:00.000Z'),
         readConfig: async () => ({
@@ -140,7 +140,7 @@ describe('update apply observations', () => {
         appVersion: '0.8.0-beta.6',
         currentVersion: '0.8.0-beta.6',
         dataRoot,
-        env: { POSTHOG_KEY: 'ph_test' },
+        env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' },
         namespace: 'release-beta-win',
       });
       expect(capture).toHaveBeenCalledTimes(1);
@@ -159,7 +159,7 @@ describe('update apply observations', () => {
         appVersion: '0.8.0-beta.6',
         currentVersion: '0.8.0-beta.6',
         dataRoot,
-        env: { POSTHOG_KEY: 'ph_test' },
+        env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' },
         namespace: 'release-beta-win',
         readConfig: async () => ({
           installationId: null,
@@ -188,7 +188,7 @@ it('fails closed on damaged consent rather than recovering the default opt-in', 
     await writeSummary(root, pendingSummary());
     await writeFile(path.join(root, 'app-config.json'), '{broken');
     await observePendingInstallerApplyAttempts({ analytics: { capture }, appVersion: '0.8.0-beta.6',
-      currentVersion: '0.8.0-beta.6', dataRoot: root, namespace: 'release-beta-win', env: { POSTHOG_KEY: 'ph_test' } });
+      currentVersion: '0.8.0-beta.6', dataRoot: root, namespace: 'release-beta-win', env: { PIXO_USAGE_EVENTS_URL: 'https://events.test.invalid' } });
     expect(capture).not.toHaveBeenCalled();
   } finally { await rm(root, { force: true, recursive: true }); }
 });

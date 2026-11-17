@@ -1389,10 +1389,10 @@ export const zhCN: Dict = {
   "settings.privacyConsentPolicyLink": "阅读遥测政策",
   "settings.privacyMetrics": "匿名指标",
   "settings.privacyMetricsHint":
-    "运行次数、token 用量、错误率、耗时等基础使用指标。",
-  "settings.privacyContent": "对话和工具内容",
+    "运行次数、token 用量、错误和崩溃报告、耗时，以及游戏进展：计划是否批准、构建是否通过、生成结果保留了几个。",
+  "settings.privacyContent": "从不发送",
   "settings.privacyContentHint":
-    "在剥离密钥等敏感信息后，我们会使用提示词、助手回复、工具输入/输出，以及质量回看所需的上下文。",
+    "你的提示词、对话、代码、图片、音频和游戏文件都不会通过使用数据离开你的电脑。也不会录屏，不记录你点了什么。",
   "settings.privacyInstallationId": "匿名 ID",
   "settings.privacyOptedOut": "已退出",
   "settings.privacyDataDeletion": "删除我的数据",

@@ -38,7 +38,7 @@ type RunStatus = {
 
 const originalEnv = {
   PIXO_DATA_DIR: process.env.PIXO_DATA_DIR,
-  POSTHOG_KEY: process.env.POSTHOG_KEY,
+  PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
   POSTHOG_HOST: process.env.POSTHOG_HOST,
   LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
   LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
@@ -55,7 +55,7 @@ describe('successful run deliverable syntax finalizer (HTTP)', () => {
     dataDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-syntax-finalizer-data-'));
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-syntax-finalizer-bin-'));
     process.env.PIXO_DATA_DIR = dataDir;
-    delete process.env.POSTHOG_KEY;
+    delete process.env.PIXO_USAGE_EVENTS_URL;
     delete process.env.POSTHOG_HOST;
     delete process.env.LANGFUSE_PUBLIC_KEY;
     delete process.env.LANGFUSE_SECRET_KEY;

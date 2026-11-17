@@ -79,7 +79,7 @@ import {
 import { findPackagedDeeplinkArg, launchPackagedPayloadDesktop } from "./payload-desktop-launch.js";
 import { packagedEntryUrl, registerPixoProtocol } from "./protocol.js";
 import { startPackagedSidecars } from "./sidecars.js";
-import { classifyStartupFailure, reportLaunchEvent, reportStartupFailure, resolveStartupDistinctId } from "./startup-telemetry.js";
+import { classifyStartupFailure, reportLaunchEvent, reportStartupFailure, resolveStartupDistinctId, useStartupTelemetryConsent } from "./startup-telemetry.js";
 import { resolvePackagedWindowTitle } from "./window-title.js";
 import { syncWindowsUninstallDisplayVersion } from "./windows-lifecycle.js";
 
@@ -94,8 +94,7 @@ const secondInstanceHandoff = createPackagedSecondInstanceHandoff();
 // `startup-telemetry.ts` for the zero-startup-side-effect contract.
 let startupTelemetryContext:
   | {
-      posthogKey: string | null;
-      posthogHost: string | null;
+      usageEventsUrl: string | null;
       appVersion: string | null;
       namespace: string;
       source: string;
@@ -268,6 +267,7 @@ async function main(): Promise<void> {
   markStartupStep("launcher_resolved");
   const activeConfig = launcherRuntime.config;
   const paths = launcherRuntime.paths;
+  useStartupTelemetryConsent(paths.dataRoot);
   const mcpBootstrap = resolvePackagedMcpBootstrapLaunch({
     installedLaunchPath: launcherRuntime.installedLaunchPath,
     managed: isPackagedManagedLaunch(launcherRuntime),
@@ -279,8 +279,7 @@ async function main(): Promise<void> {
   startupTelemetryContext = {
     dataRoot: paths.dataRoot,
     channel: launchStamp.channel,
-    posthogKey: activeConfig.posthogKey,
-    posthogHost: activeConfig.posthogHost,
+    usageEventsUrl: activeConfig.usageEventsUrl,
     appVersion: activeConfig.appVersion,
     namespace,
     source: convergedArgvStamp?.source ?? SIDECAR_SOURCES.PACKAGED,
@@ -381,8 +380,7 @@ async function main(): Promise<void> {
     mcpBootstrapCommand: mcpBootstrap.command,
     nodeCommand: activeConfig.nodeCommand,
     telemetryRelayUrl: activeConfig.telemetryRelayUrl,
-    posthogKey: activeConfig.posthogKey,
-    posthogHost: activeConfig.posthogHost,
+    usageEventsUrl: activeConfig.usageEventsUrl,
     cloud: activeConfig.cloud,
     
     
@@ -602,8 +600,7 @@ void main().catch(async (error: unknown) => {
       isPathAccess,
       dataRoot: startupTelemetryContext.dataRoot,
       launchContext: packagedStartupTiming?.context(),
-      posthogKey: startupTelemetryContext.posthogKey,
-      posthogHost: startupTelemetryContext.posthogHost,
+      usageEventsUrl: startupTelemetryContext.usageEventsUrl,
       distinctId: resolveStartupDistinctId(
         startupTelemetryContext.namespace,
         startupTelemetryContext.installationRoot,

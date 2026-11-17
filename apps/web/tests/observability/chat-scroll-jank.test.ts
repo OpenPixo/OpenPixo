@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock.mockReset().mockResolvedValue(new Response('')));
   raf.mockReset().mockImplementation((cb) => { frame = cb; return 1; });
   vi.stubGlobal('requestAnimationFrame', raf); vi.stubGlobal('cancelAnimationFrame', vi.fn());
-  setExceptionTrackingContext({ apiKey: 'test', host: 'https://example.test', distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
+  setExceptionTrackingContext({ distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
   document.body.innerHTML = '<div data-testid="chat-log"></div>'; stop = installChatScrollJankObserver();
 });
 afterEach(() => { stop(); clearExceptionTrackingContext(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });

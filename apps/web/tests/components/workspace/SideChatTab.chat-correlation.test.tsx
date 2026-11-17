@@ -93,8 +93,6 @@ beforeEach(() => {
   fetchMock.mockResolvedValue(new Response('', { status: 200 }));
   globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
   setExceptionTrackingContext({
-    apiKey: 'phc_test',
-    host: 'https://us.i.posthog.com',
     distinctId: 'side-chat-correlation-test',
     clientType: 'web',
     osName: 'Mac OS X',

@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { gunzipSync } from 'node:zlib';
 import {
   createServer,
   type IncomingMessage,
@@ -24,7 +23,7 @@ type StartedServer = {
   shutdown?: () => Promise<void> | void;
 };
 
-type PostHogEvent = {
+type UsageEventRecord = {
   event: string;
   properties: Record<string, unknown>;
 };
@@ -48,17 +47,19 @@ describe('media generation analytics', () => {
   });
 
   it('reports one consent-gated final event for retried success and failure without private payloads', async () => {
-    const captured: PostHogEvent[] = [];
+    const captured: UsageEventRecord[] = [];
     const ingestionStarted = await listen((req, res) => {
       const chunks: Buffer[] = [];
       req.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
       req.on('end', () => {
-        const compressed = Buffer.concat(chunks);
-        const raw = req.headers['content-encoding'] === 'gzip'
-          ? gunzipSync(compressed)
-          : compressed;
-        const body = JSON.parse(raw.toString('utf8')) as { batch?: PostHogEvent[] };
-        captured.push(...(body.batch ?? []));
+        // The envelope carries the identity; fold it back in so assertions read one object.
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+          events?: Array<UsageEventRecord & { device_id?: string; client_type?: string }>;
+        };
+        captured.push(...(body.events ?? []).map((event) => ({
+          event: event.event,
+          properties: { ...event.properties, device_id: event.device_id, client_type: event.client_type },
+        })));
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end('{}');
       });
@@ -89,8 +90,7 @@ describe('media generation analytics', () => {
     });
     provider = providerStarted.server;
 
-    process.env.POSTHOG_KEY = 'phc_media_test';
-    process.env.POSTHOG_HOST = ingestionStarted.url;
+    process.env.PIXO_USAGE_EVENTS_URL = ingestionStarted.url;
     process.env.NO_PROXY = '127.0.0.1,localhost';
     delete process.env.HTTP_PROXY;
     delete process.env.HTTPS_PROXY;
@@ -255,7 +255,7 @@ async function generateAndWait(
   return taskId;
 }
 
-async function waitForMediaEvents(events: PostHogEvent[], count: number): Promise<PostHogEvent[]> {
+async function waitForMediaEvents(events: UsageEventRecord[], count: number): Promise<UsageEventRecord[]> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < 3_000) {
     const found = events.filter((event) => event.event === 'media_generation_result');
@@ -267,7 +267,7 @@ async function waitForMediaEvents(events: PostHogEvent[], count: number): Promis
 
 function snapshotEnv(): Record<string, string | undefined> {
   return Object.fromEntries([
-    'POSTHOG_KEY',
+    'PIXO_USAGE_EVENTS_URL',
     'POSTHOG_HOST',
     'NO_PROXY',
     'HTTP_PROXY',

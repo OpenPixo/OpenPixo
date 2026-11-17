@@ -9,6 +9,7 @@ import { detectEngineProfile } from './engine-detect.js';
 import { gameToolResolver } from './verify.js';
 import { gameVerifyArtifactDir, registerGameVerifyResult } from './verify-store.js';
 import { playtestGame } from './playtest.js';
+import { gameVerifiedProperties } from './game-funnel.js';
 
 /** UI execution only. Agent callers use verify context/capture/register and execute in their CLI sandbox. */
 export function registerGamePlaytestRoutes(app: Express, ctx: RegisterGameVerifyRoutesDeps): void {
@@ -26,10 +27,12 @@ export function registerGamePlaytestRoutes(app: Express, ctx: RegisterGameVerify
       const projectDir = resolveProjectDir(ctx.paths.PROJECTS_DIR, id, project.metadata);
       const config = await readAppConfig(ctx.paths.RUNTIME_DATA_DIR);
       const artifactDir = gameVerifyArtifactDir(ctx.paths.ARTIFACTS_DIR, id);
-      const result = await playtestGame({ projectDir, artifactDir, request,
-        profile: detectEngineProfile(projectDir, config.gameEnginePaths ? { enginePaths: config.gameEnginePaths } : {}),
+      const profile = detectEngineProfile(projectDir, config.gameEnginePaths ? { enginePaths: config.gameEnginePaths } : {});
+      const result = await playtestGame({ projectDir, artifactDir, request, profile,
         resolveTool: gameToolResolver({ ...config.gameEnginePaths }), ...(ctx.captureGameWeb ? { captureWeb: ctx.captureGameWeb } : {}) });
-      res.json(await registerGameVerifyResult(artifactDir, result));
+      const registered = await registerGameVerifyResult(artifactDir, result);
+      ctx.gameFunnel?.record(req, 'game_verified', gameVerifiedProperties({ result: registered, engine: profile.engine, actor: 'user', mode: 'playtest' }));
+      res.json(registered);
     } catch (error) { sendApiError(res, 400, 'BAD_REQUEST', error instanceof Error ? error.message : String(error)); }
   });
 }

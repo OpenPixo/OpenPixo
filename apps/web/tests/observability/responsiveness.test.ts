@@ -22,7 +22,7 @@ it('sends buffered responsiveness metrics after product analytics opt-out', asyn
   vi.stubGlobal('fetch', fetcher);
   clearExceptionTrackingContext();
   reportResponsiveness('client_long_task', { duration_ms: 5_000 });
-  setExceptionTrackingContext({ apiKey: 'test', host: 'https://example.test', distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
+  setExceptionTrackingContext({ distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
   expect(fetcher).toHaveBeenCalledOnce();
   clearExceptionTrackingContext();
 });
@@ -37,7 +37,7 @@ it('keeps early safety samples through product analytics consent changes', async
   applyConsent(false);
   applyConsent(true);
   reportResponsiveness('client_long_task', { duration_ms: 6_000 });
-  setExceptionTrackingContext({ apiKey: 'test', host: 'https://example.test', distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
+  setExceptionTrackingContext({ distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
   expect(fetcher).toHaveBeenCalledTimes(2);
   expect(JSON.parse(fetcher.mock.calls[0]![1].body).properties.duration_ms).toBe(5_000);
   expect(JSON.parse(fetcher.mock.calls[1]![1].body).properties.duration_ms).toBe(6_000);
@@ -58,7 +58,7 @@ it('validates new metrics through the buffered transport and preserves occurrenc
   };
   reportResponsiveness('client_input_responsiveness', fields);
   reportResponsiveness('client_input_responsiveness', { ...fields, over_500ms_count: 3 });
-  setExceptionTrackingContext({ apiKey: 'test', host: 'https://example.test', distinctId: 'test-install', appSessionId: 'session-test', clientType: 'web', osName: 'Mac OS X' });
+  setExceptionTrackingContext({ distinctId: 'test-install', appSessionId: 'session-test', clientType: 'web', osName: 'Mac OS X' });
   expect(fetcher).toHaveBeenCalledTimes(1);
   const payload = JSON.parse(fetcher.mock.calls[0]![1].body);
   expect(payload.timestamp).toBe(occurredAt);

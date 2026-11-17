@@ -39,14 +39,11 @@ export type RawPackagedConfig = {
   // the daemon at runtime; Langfuse credentials never ship in packaged config.
   telemetryRelayUrl?: string;
   updateMetadataUrl?: string;
-  // PostHog product-analytics ingest key, baked by tools/pack from
-  // process.env.POSTHOG_KEY at packaging time. Forwarded to the daemon
-  // sidecar's spawn env as POSTHOG_KEY. `phc_` keys are public ingest
-  // tokens (write-only event capture); embedding them in the bundle is
-  // the PostHog-recommended pattern. The integration short-circuits when
-  // either this is absent or the user has declined Privacy → metrics.
-  posthogKey?: string;
-  posthogHost?: string;
+  // OpenPixo's usage-events ingest address (its own Cloudflare Worker), baked
+  // by tools/pack from PIXO_USAGE_EVENTS_URL at packaging time and forwarded
+  // to the daemon as PIXO_USAGE_EVENTS_URL. It is an address, not a secret.
+  // Nothing is sent when it is absent or the user has not said yes.
+  usageEventsUrl?: string;
   
   
   webSidecarEntryRelative?: string;
@@ -66,8 +63,7 @@ export type PackagedConfig = {
   resourceRoot: string;
   telemetryRelayUrl: string | null;
   updateMetadataUrl: string | null;
-  posthogKey: string | null;
-  posthogHost: string | null;
+  usageEventsUrl: string | null;
   
   
   webSidecarEntry: string | null;
@@ -241,8 +237,7 @@ export async function readPackagedConfig(): Promise<PackagedConfig> {
     // Fork builds never inherit upstream telemetry destinations or ingest keys.
     telemetryRelayUrl: null,
     updateMetadataUrl: cleanOptionalString(raw.updateMetadataUrl),
-    posthogKey: null,
-    posthogHost: null,
+    usageEventsUrl: null,
     
     
     webSidecarEntry,

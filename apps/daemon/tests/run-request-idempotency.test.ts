@@ -303,7 +303,7 @@ describe('run request idempotency', () => {
 
 function snapshotEnv(): Record<string, string | undefined> {
   return {
-    POSTHOG_KEY: process.env.POSTHOG_KEY,
+    PIXO_USAGE_EVENTS_URL: process.env.PIXO_USAGE_EVENTS_URL,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
     LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
@@ -320,7 +320,7 @@ function restoreEnv(env: Record<string, string | undefined>): void {
 }
 
 async function startWithFakeClaude(bin: string): Promise<StartedServer> {
-  delete process.env.POSTHOG_KEY;
+  delete process.env.PIXO_USAGE_EVENTS_URL;
   delete process.env.POSTHOG_HOST;
   delete process.env.LANGFUSE_PUBLIC_KEY;
   delete process.env.LANGFUSE_SECRET_KEY;

@@ -20,7 +20,7 @@ beforeEach(() => {
     observe = observe;
     disconnect() {}
   });
-  setExceptionTrackingContext({ apiKey: 'test', host: 'https://example.test', distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
+  setExceptionTrackingContext({ distinctId: 'test-install', clientType: 'web', osName: 'Mac OS X' });
   __resetChatInteractionForTest();
   document.body.innerHTML = '<div data-testid="chat-composer"><textarea></textarea></div><input type="search"><div class="modal-settings"><input></div><input type="password">';
   const add = document.addEventListener.bind(document);

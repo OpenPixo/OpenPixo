@@ -14,21 +14,26 @@ const FIRST_SESSION_KEY = 'pixo:analytics.first_session_id';
 
 const posthogState = vi.hoisted(() => ({ initShouldThrow: false }));
 
-vi.mock('posthog-js', () => {
+// The usage client (which replaced posthog-js); a throwing create stands in
+// for an init that fails.
+vi.mock('../src/analytics/usage-client', () => {
   const stub = {
-    init: (_key: string, config: { loaded?: (i: unknown) => void }) => {
-      if (posthogState.initShouldThrow) throw new Error('posthog init failed');
-      config.loaded?.(stub);
-      return stub;
-    },
     register: () => undefined,
-    setPersonProperties: () => undefined,
+    capture: () => undefined,
     opt_in_capturing: () => undefined,
     opt_out_capturing: () => undefined,
     reset: () => undefined,
     identify: () => undefined,
+    get_session_id: () => undefined,
+    flush: async () => undefined,
   };
-  return { default: stub };
+  return {
+    WEB_USAGE_EVENTS_ENDPOINT: '/api/analytics/events',
+    createWebUsageClient: () => {
+      if (posthogState.initShouldThrow) throw new Error('usage client init failed');
+      return stub;
+    },
+  };
 });
 
 function analyticsConfigResponse(enabled: boolean): Response {

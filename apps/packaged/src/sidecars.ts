@@ -697,8 +697,7 @@ export type PackagedDaemonSpawnEnvOptions = {
    */
   requireDesktopAuth: boolean;
   telemetryRelayUrl?: string | null;
-  posthogKey?: string | null;
-  posthogHost?: string | null;
+  usageEventsUrl?: string | null;
   cloud?: OpenPixoCloudConfig | null;
 };
 
@@ -748,17 +747,12 @@ export function buildPackagedDaemonSpawnEnv(
     ...(options.telemetryRelayUrl == null || options.telemetryRelayUrl.length === 0
       ? {}
       : { PIXO_TELEMETRY_RELAY_URL: options.telemetryRelayUrl }),
-    // PostHog analytics ingest key, baked into the bundle at packaging time
-    // by tools/pack. Daemon reads this as POSTHOG_KEY at startup. Absent
-    // for fork builds without the CI secret — the daemon's analytics
-    // module no-ops cleanly in that case, and /api/analytics/config
-    // returns enabled=false regardless of user consent.
-    ...(options.posthogKey == null || options.posthogKey.length === 0
+    // OpenPixo's usage-events ingest address, baked into the bundle by
+    // tools/pack. Absent on other builds: the daemon's analytics module is
+    // then a no-op and /api/analytics/config reports nothing to ask about.
+    ...(options.usageEventsUrl == null || options.usageEventsUrl.length === 0
       ? {}
-      : { POSTHOG_KEY: options.posthogKey }),
-    ...(options.posthogHost == null || options.posthogHost.length === 0
-      ? {}
-      : { POSTHOG_HOST: options.posthogHost }),
+      : { PIXO_USAGE_EVENTS_URL: options.usageEventsUrl }),
     // The account service reads these once at daemon start (apps/daemon/src/account/config.ts).
     ...(options.cloud == null ? {} : { PIXO_CLOUD_URL: options.cloud.url, PIXO_CLOUD_ANON_KEY: options.cloud.anonKey, PIXO_AGENT_URL: options.cloud.agentUrl }),
   };
@@ -953,8 +947,7 @@ export async function startPackagedSidecars(
     mcpBootstrapCommand: string | null;
     mcpBootstrapArgs: readonly string[];
     telemetryRelayUrl: string | null;
-    posthogKey: string | null;
-    posthogHost: string | null;
+    usageEventsUrl: string | null;
     cloud: OpenPixoCloudConfig | null;
     
     /**
@@ -1058,8 +1051,7 @@ export async function startPackagedSidecars(
         nodeCommand: options.nodeCommand,
         requireDesktopAuth: options.requireDesktopAuth,
         telemetryRelayUrl: options.telemetryRelayUrl,
-        posthogKey: options.posthogKey,
-        posthogHost: options.posthogHost,
+        usageEventsUrl: options.usageEventsUrl,
         cloud: options.cloud,
       }), [SIDECAR_ENV.DAEMON_PORT]: daemonPort },
       electronNodeCommand: options.electronNodeCommand,
@@ -1070,7 +1062,7 @@ export async function startPackagedSidecars(
     }).then((daemon) => {
       const daemonExitObserver = observeDaemonExit(daemon.child, (exit) => reportDaemonExit({
         dataRoot: paths.dataRoot, installationRoot: paths.installationRoot, namespace: runtime.namespace,
-        posthogKey: options.posthogKey, posthogHost: options.posthogHost, logPath: daemon.logPath,
+        usageEventsUrl: options.usageEventsUrl, logPath: daemon.logPath,
         observation: { process_instance_id: processInstanceId,
           app_session_id: options.launchContext?.app_session_id ?? null,
           launch_attempt_id: options.launchContext?.launch_attempt_id ?? null,
