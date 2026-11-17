@@ -14,6 +14,8 @@ triggers:
   - platformer difficulty ramp
   - 瓦片地图关卡
   - 关卡难度递进
+  - level layout
+  - 关卡布局
 license: Apache-2.0
 pixo:
   mode: utility
@@ -37,6 +39,14 @@ The user's route and difficulty goals, project conventions, engine version and c
 5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser, then verify required routes in gameplay.
 
 Add `--project <id>` when `PIXO_PROJECT_ID` is absent. `pixo game run <projectId> --json` starts supported interactive gameplay; on Unity, play the route in the Editor or a player build.
+
+## Focused design jobs
+
+When the task is one of these, also read the file named here before building. It adds the method for that job; the game's style reference and the confirmed plan still decide the tiles and colours.
+
+| Job | Read |
+| --- | --- |
+| Laying out a new level: beats, landmarks, checkpoints, secrets, pacing | [references/level-layout.md](references/level-layout.md) |
 
 ## Pick the existing map path
 

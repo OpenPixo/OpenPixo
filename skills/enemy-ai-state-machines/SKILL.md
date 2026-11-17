@@ -15,6 +15,10 @@ triggers:
   - 敌人状态机
   - 巡逻追击
   - 受击判定框
+  - attack telegraph
+  - boss intro
+  - 攻击预警
+  - Boss 登场
 license: Apache-2.0
 pixo:
   mode: utility
@@ -38,6 +42,15 @@ Keep the user's behavior rules and the project's engine and version, combat and 
 5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser; inspect logs and play the transition cases.
 
 Add `--project <id>` to verify outside a run with `PIXO_PROJECT_ID`. `pixo game run <projectId> --json` starts supported interactive gameplay; on Unity, play in the Editor or a player build.
+
+## Focused design jobs
+
+When the task is one of these, also read the file named here before building. It adds the method for that job; the game's style reference and the confirmed plan still decide how enemies and effects look.
+
+| Job | Read |
+| --- | --- |
+| How an attack warns the player: wind-up, tells, danger zones | [references/enemy-telegraphs.md](references/enemy-telegraphs.md) |
+| Boss entrance, name card, phases and defeat | [references/boss-intros.md](references/boss-intros.md) |
 
 ## Transition decisions
 
