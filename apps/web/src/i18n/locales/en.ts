@@ -1907,7 +1907,7 @@ export const en: Dict = {
   'newproj.promptTemplateOptimizeHint': 'Edit anything — your changes carry into the agent\'s brief.',
   'newproj.promptTemplateBodyEmpty': 'Empty body — the agent will get no template reference.',
   'designs.subRecent': 'Recent',
-  'designs.subYours': 'Your projects',
+  'designs.subYours': 'Your games',
   'designs.filterAria': 'Filter projects',
   'designs.searchPlaceholder': 'Search…',
   'designs.emptyNoProjects': 'No projects yet.',

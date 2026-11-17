@@ -1983,7 +1983,7 @@ export const zhCN: Dict = {
     "可以任意编辑 — 修改后的内容会作为 AI 生成时的参考。",
   "newproj.promptTemplateBodyEmpty": "正文为空 — AI 不会拿到模板参考。",
   "designs.subRecent": "最近",
-  "designs.subYours": "你的项目",
+  "designs.subYours": "你的游戏",
   "designs.filterAria": "筛选项目",
   "designs.searchPlaceholder": "搜索…",
   "designs.emptyNoProjects": "还没有项目。",
