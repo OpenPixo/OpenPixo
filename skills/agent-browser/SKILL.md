@@ -1,15 +1,13 @@
 ---
 name: agent-browser
-description: "Inspect or automate the selected browser tab or a local OpenPixo game or web preview. Navigate, interact, extract DOM evidence and capture screenshots. Not for native-engine playtests or generic game accessibility design."
+description: "Inspect or automate the selected browser tab or a local OpenPixo game or web preview with the external agent-browser CLI. Navigate, interact, extract DOM evidence and capture screenshots. Not the first tool for playtesting the project's own game (pixo game verify and pixo game playtest do that), not for native-engine playtests or generic game accessibility design."
 triggers:
   - selected browser tab
-  - test this web game
   - test this web app
   - OpenPixo preview screenshot
   - browser DOM inspection
   - browser game QA
   - 当前浏览器标签页
-  - 网页游戏试玩
 pixo:
   mode: prototype
   surface: web
@@ -27,6 +25,8 @@ pixo:
 # Agent Browser
 
 Validate browser behavior with the external `agent-browser` CLI when that backend is needed. The user's target, existing attached tools and project workflow take precedence. Prefer a selected OpenPixo `browser` workspace URL and title for “this page”; otherwise use the actual preview URL returned by the host. A URL and title alone grant no access to page internals.
+
+For the project's own web game, `pixo game verify --steps check,build,run --screenshot --json` and `pixo game playtest` already run it with real input and capture frames, with nothing to install. Use this CLI only for what they cannot do, such as DOM inspection or a tab the user selected.
 
 ## Quick path
 

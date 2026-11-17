@@ -2,8 +2,8 @@
 name: steam-release
 en_name: Steam release preparation
 zh_name: Steam 发售准备
-description: Prepare or validate the requested Steamworks integration, store assets, demo, Next Fest event or depot and branch build; not an automatic full-release or publishing workflow.
-zh_description: 按请求准备或验证 Steamworks 接入、商店素材、试玩版与新品节、depot 和分支构建；不自动扩展为完整发售或发布流程。
+description: Prepare or validate the requested Steamworks integration, store assets, demo, Next Fest event or depot and branch build, only when the user asks for Steam work; never suggest Steam unprompted. Not an automatic full-release or publishing workflow, and not for a web link (publish-game).
+zh_description: 仅在用户要求做 Steam 相关工作时，按请求准备或验证 Steamworks 接入、商店素材、试玩版与新品节、depot 和分支构建；不主动建议上 Steam，不自动扩展为完整发售或发布流程，也不用于网页链接（publish-game）。
 triggers:
   - release game on Steam
   - Steamworks setup
@@ -103,7 +103,7 @@ Keep editable masters; recompose crops rather than stretch.
 Preview localized titles and smallest placements in the portal. Feature claims and content-survey answers must match the game.
 Inspect dimensions and origin using `pixo asset info <path> --json` and `pixo asset provenance <path> --json`.
 
-If new art is requested, discover `pixo recipe list --surface image --json` and read `pixo recipe show <id> --json`.
+If new art is requested, show the list as the media section says (the art card when it spends credits), then discover `pixo recipe list --surface image --json` and read `pixo recipe show <id> --json`.
 Stage with `pixo recipe run <id> --input key=value --wait --json`; inspect candidates before `pixo recipe adopt <runId> --candidate <candidateId> --json`.
 Use the recipe's real input keys and returned paths. Generated art still needs composition, text and current-spec review.
 

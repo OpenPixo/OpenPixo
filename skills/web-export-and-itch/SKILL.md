@@ -2,9 +2,9 @@
 name: web-export-and-itch
 en_name: Web export and itch.io packaging
 zh_name: Web 导出与 itch.io 打包
-description: Build or debug a Godot 4 or Phaser 3 HTML5 export and package a tested local itch.io-ready ZIP when requested; not for native export or automatic publishing.
-en_description: Build or debug portable Godot 4 or Phaser 3 Web output and a requested local HTML5 ZIP; not a native-export or automatic publishing workflow.
-zh_description: 构建或修复 Godot 4、Phaser 3 的便携 Web 导出，并按请求打包经过验证的本地 HTML5 ZIP；不用于原生导出或自动发布。
+description: Build or debug a Godot 4 or Vite/static web game (Phaser 3, Three.js) HTML5 export and package a tested local itch.io-ready ZIP when the user asks for one; not for native export or automatic publishing. For a public OpenPixo link use publish-game; for one offline HTML file use pixo game export.
+en_description: Build or debug portable Godot 4 or Vite/static web game (Phaser 3, Three.js) Web output and a requested local HTML5 ZIP; not a native-export or automatic publishing workflow. For a public OpenPixo link use publish-game; for one offline HTML file use pixo game export.
+zh_description: 构建或修复 Godot 4 或 Vite/静态网页游戏（Phaser 3、Three.js）的便携 Web 导出，并在用户要求时打包经过验证的本地 itch.io HTML5 ZIP；不用于原生导出或自动发布。要 OpenPixo 公开链接用 publish-game，要单个离线 HTML 文件用 pixo game export。
 triggers:
   - export game to web
   - itch.io package
@@ -17,12 +17,15 @@ pixo:
   engines:
     - godot
     - phaser
+    - threejs
+    - web-generic
   category: game-development
 ---
 
 # Web export and itch.io packaging
 
-Prepare and test a local HTML5 build or ZIP from an existing Godot 4 or Phaser 3 game.
+Prepare and test a local HTML5 build or ZIP from an existing Godot 4 or web game (Phaser 3, Three.js or another Vite or static build; the Phaser section applies to any Vite build).
+A playable link to share is OpenPixo's own feature: `pixo publish` (the publish-game skill) for web games. To send one file that plays offline, `pixo game export --json` writes the web game as a single HTML file. Use this skill when the user wants a ZIP for itch.io or another host, or a Godot Web build.
 Project conventions, installed versions, architecture, export settings and explicit user choices take precedence.
 Apply only the requested branch: a broken asset URL does not require new release documentation or a full export redesign.
 Reuse existing authorization for an upload or page change; a local packaging request alone does not authorize publication.

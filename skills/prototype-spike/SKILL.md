@@ -2,14 +2,14 @@
 name: prototype-spike
 en_name: Prototype spike
 zh_name: 玩法原型验证
-description: "Answer one game-design or technical question with a throwaway build in the project's own engine, then record a PROCEED, PIVOT, KILL or NOT ASSESSED verdict. Not production implementation, polish, or a refactor of prototype code into the game."
-en_description: "Answer one game-design or technical question with a throwaway build in the project's own engine, then record a PROCEED, PIVOT, KILL or NOT ASSESSED verdict. Not production implementation, polish, or a refactor of prototype code into the game."
-zh_description: "在项目自身引擎中用一次性原型回答一个玩法或技术问题，并记录 PROCEED、PIVOT、KILL 或 NOT ASSESSED 结论；不用于正式实现、打磨，也不把原型代码重构进正式游戏。"
+description: "When the user asks to try one mechanic or technical question before building it, answer it with a throwaway build in the project's own engine and record a PROCEED, PIVOT, KILL or NOT ASSESSED verdict. Not a new game's planning or a build stage, not production implementation, polish, or a refactor of prototype code into the game."
+en_description: "When the user asks to try one mechanic or technical question before building it, answer it with a throwaway build in the project's own engine and record a PROCEED, PIVOT, KILL or NOT ASSESSED verdict. Not a new game's planning or a build stage, not production implementation, polish, or a refactor of prototype code into the game."
+zh_description: "在用户要求先试一个玩法或技术问题时，在项目自身引擎中用一次性原型回答，并记录 PROCEED、PIVOT、KILL 或 NOT ASSESSED 结论；不用于新游戏的规划或制作阶段，不用于正式实现、打磨，也不把原型代码重构进正式游戏。"
 triggers:
   - prototype a mechanic
   - spike
   - is this fun
-  - test a game idea
+  - test a mechanic first
   - throwaway prototype
   - 玩法原型
   - 验证玩法
@@ -23,6 +23,8 @@ pixo:
 # Prototype spike
 
 A prototype answers one question as cheaply as possible, then gets thrown away. The user's question, the project's engine and version and its existing conventions take precedence. Work in the selected project; do not build a separate HTML mockup or switch engines unless the user asks.
+
+Run a spike only when the user asks for one. A new game's planning steps and build stages already settle gameplay with the user, so a spike does not replace them, add a stage or start while the plan is unapproved; offer it in the stage's closing `<question-form>` when a stage raises a question only play can answer.
 
 ## Quick path
 
@@ -51,14 +53,14 @@ If the question grows while building, stop and narrow it. Two small prototypes a
 - The entry switch is Godot `run/main_scene` in `project.godot`, the Phaser scene list or start scene, or the Unity build scene list. Record the original value in the README and restore it when the spike ends, even on KILL.
 - In Unity, the folder is `Assets/Prototypes/<name>/`, because nothing outside `Assets/` is imported. Give it a scene and its own `.asmdef`, so production code cannot reference it and it references production only on purpose. A compile error anywhere still stops Play and the batch check, so delete a broken spike rather than leaving it. Play in the Editor runs the open scene, so the entry switch only matters for builds. Use `--steps check,build` in step 4: Unity has no `run` step or `pixo game run`, so the user plays it in the Editor. Deleting the folder needs its `.meta` removed too.
 - Expose the numbers under test as a few named constants at the top of one file so the user can retune them between plays.
-- Budget about a day. If the engine fights the build for hours, reframe the question or test it a cheaper way, such as a paper or spreadsheet model for economy questions.
+- Keep it to one short turn of work. If the engine fights the build, stop, reframe the question or test it a cheaper way, such as a paper or spreadsheet model for economy questions.
 - A local build cannot show how a networked mechanic feels under latency. It can show the mechanic is interesting; feel needs real peers or simulated delay.
 
 ## Verdicts
 
 | Verdict | When | Next |
 | --- | --- | --- |
-| PROCEED | The question's success result was observed | Write the mechanic into the GDD; implement it fresh to project standards |
+| PROCEED | The question's success result was observed | Ask the user whether to add the mechanic to the plan; implement it fresh to project standards in the stage they choose |
 | PIVOT | Something nearby looked promising | Write the next, different question; prototype again |
 | KILL | The result failed, or this is the third PIVOT on one idea | Record why; try a different idea rather than a fourth iteration |
 | NOT ASSESSED | Nobody played it, or the build never reached the question | Say what blocked it; claim no result |
@@ -92,4 +94,4 @@ Next question: does a dash that refunds on a perfect dodge keep players engaged?
 - [ ] The README holds the question, success result, entry switch, verdict and findings.
 - [ ] The verify JSON was read and its screenshots inspected, or the report says they were not.
 - [ ] The original entry is restored and nothing outside the prototype folder changed.
-- [ ] The report names the verdict and the next step: GDD update, next question or a new idea.
+- [ ] The report names the verdict and ends with a `<question-form>` on the next step: add it to the plan, a next question or a new idea.

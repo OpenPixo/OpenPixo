@@ -149,7 +149,7 @@ On the Mac, the analogous installed commands are `pnpm exec cap sync ios` and `p
 | Canvas safe area | Convert display or CSS insets through Phaser Scale Manager | Drawing and hit targets agree after orientation changes and resizing |
 | Native lifecycle | Existing owners of saves, pause and audio plus installed platform callbacks | Backgrounding, locking, interruptions and resume preserve progress and clear input |
 
-For a DOM overlay, enable `viewport-fit=cover` in the page viewport and confirm the WebView exposes safe-area values:
+Draw new touch controls inside the game canvas: a web game is the whole window, with no HTML around it. Only when the project already has a DOM overlay, enable `viewport-fit=cover` in the page viewport and confirm the WebView exposes safe-area values:
 
 ```css
 .game-controls {

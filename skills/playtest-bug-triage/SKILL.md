@@ -2,9 +2,9 @@
 name: playtest-bug-triage
 en_name: Playtest bug triage
 zh_name: 试玩问题定位与修复
-description: Reproduce and fix a specific Godot 4, Unity 6 or Phaser 3 playtest defect using logs, state and input replay; not for feature design or general performance tuning.
+description: Reproduce and fix a specific Godot 4, Unity 6 or browser-game (Phaser 3, Three.js, canvas) playtest defect using logs, state and input replay; not for feature design or general performance tuning.
 en_description: Triage a specific game defect, reproduce its inputs and state, and verify a focused fix; not a general feature or performance workflow.
-zh_description: 利用日志、状态与输入回放定位并修复 Godot 4、Unity 6 或 Phaser 3 的具体试玩缺陷；不用于功能设计或一般性能调优。
+zh_description: 利用日志、状态与输入回放定位并修复 Godot 4、Unity 6 或网页游戏（Phaser 3、Three.js、canvas）的具体试玩缺陷；不用于功能设计或一般性能调优。
 triggers:
   - playtest bug
   - reproduce game bug
@@ -18,12 +18,14 @@ pixo:
     - godot
     - unity
     - phaser
+    - threejs
+    - web-generic
   category: game-development
 ---
 
 # Playtest bug triage
 
-Reproduce a specific broken behavior, isolate its cause and verify a focused fix in Godot 4, Unity 6 or Phaser 3.
+Reproduce a specific broken behavior, isolate its cause and verify a focused fix in Godot 4, Unity 6 or a browser game. The Phaser 3 anchors below show the browser method; the replay commands work the same for Three.js and plain canvas games.
 Project conventions, installed versions, architecture and explicit user choices take precedence.
 Use existing evidence and tests; a small bug does not require a new report, fixture scene or controller rewrite.
 If reproduction remains uncertain, report attempts and add bounded diagnostics instead of claiming a fix.

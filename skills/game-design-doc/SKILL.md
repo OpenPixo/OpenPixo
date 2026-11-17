@@ -2,9 +2,9 @@
 name: game-design-doc
 en_name: One-page game design document
 zh_name: 单页游戏设计文档
-description: "Create or revise a concise project GDD with a testable core loop, player verbs, win rules, loss rules and a playable scope. Use for gameplay decisions; not a mandatory document for an already specified code tweak."
-en_description: "Create or revise a concise project GDD with a testable core loop, player verbs, win rules, loss rules and a playable scope. Use for gameplay decisions; not a mandatory document for an already specified code tweak."
-zh_description: "创建或修订简明项目 GDD，明确可验证的核心循环、玩家动作、胜负规则与可试玩范围；用于玩法决策，不为已明确的代码小改动强制增加文档。"
+description: "Create or revise a concise project GDD with a testable core loop, player verbs, win rules, loss rules and a playable scope, when the user asks for a written design or a scope check of an existing game. Not for planning a new game (the planning steps settle gameplay with the user), and not a mandatory document for an already specified code tweak."
+en_description: "Create or revise a concise project GDD with a testable core loop, player verbs, win rules, loss rules and a playable scope, when the user asks for a written design or a scope check of an existing game. Not for planning a new game (the planning steps settle gameplay with the user), and not a mandatory document for an already specified code tweak."
+zh_description: "在用户要求书面设计或检查既有游戏范围时，创建或修订简明项目 GDD，明确可验证的核心循环、玩家动作、胜负规则与可试玩范围；不用于规划新游戏（规划步骤会与用户确定玩法），也不为已明确的代码小改动强制增加文档。"
 triggers:
   - one-page GDD
   - game design document
@@ -25,6 +25,8 @@ pixo:
 
 Use the user's scope, existing GDD, project conventions, engine and version. Revise the relevant section for a small design change; create a new page only when needed. A design step can support an already authorized implementation task without becoming a new approval gate.
 
+A new game is planned in chat, step by step with the user (gameplay, art, engine, plan), and built one approved stage at a time. Do not run this page as a second planning process beside those steps, and do not write it while planning. After approval the approved plan is the design: write a GDD only when the user asks for one, from the confirmed plan, and keep its slice equal to the plan's stages instead of re-planning them.
+
 ## Quick path
 
 1. Read existing design notes and inspect only the prototype files needed to distinguish current behavior from proposals.
@@ -41,7 +43,7 @@ If baseline behavior needs inspection, `pixo game run <projectId> --json` starts
 | --- | --- |
 | Clear single-rule change | Update that rule and its acceptance case |
 | Rough idea without a loop | Draft one concise page with explicit reversible assumptions |
-| Choice changes the core game, such as co-op vs solo | Ask for the essential decision; continue independent inspection |
+| Choice changes the core game, such as co-op vs solo | Ask for the essential decision in a short `<question-form>`; continue independent inspection |
 | Broad feature wish list | Select a playable slice and name scope cuts |
 | Existing implementation also requested | Use the GDD to guide that work; continue within the authorized request |
 | A new system joins an existing slice | Compare it with the saved slice and cut list; name what it displaces |
