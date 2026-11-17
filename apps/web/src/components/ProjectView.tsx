@@ -5649,7 +5649,10 @@ export function ProjectView({
       // round-trip through the agent.
       if (isFirstTurn) {
         const title = fallbackFirstTurnTitle;
-        if (title) {
+        // A conversation created with a title keeps it: one opened for the next build
+        // stage is "阶段 3 / 共 3", not the opening words of its first message.
+        const existingTitle = conversationsRef.current.find((c) => c.id === runConversationId)?.title?.trim();
+        if (title && !existingTitle) {
           setConversations((curr) =>
             curr.map((c) =>
               c.id === runConversationId ? { ...c, title } : c,

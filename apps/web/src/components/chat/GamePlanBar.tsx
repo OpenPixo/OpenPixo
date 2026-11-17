@@ -14,8 +14,8 @@
  * already on the pane's ResizeObserver list, so opening and closing here keeps
  * the chat following. Always mounted so the collapse animates.
  */
-import { useState } from 'react';
-import { Button, Input } from '@openpixo/components';
+import { useId, useState } from 'react';
+import { Button, Input, VisuallyHidden } from '@openpixo/components';
 import { gamePlanIsPending, type GamePlanState } from '@openpixo/contracts';
 import { useT } from '../../i18n';
 import { budgetDraft, imagesForCredits } from '../../runtime/chat/art-budget';
@@ -52,6 +52,7 @@ export function GamePlanBar({
   const { state, setState } = useArtBudget(projectId, { enabled: open, streaming: false });
   const [saved, setSaved] = useState(false);
   const [budgetFailed, setBudgetFailed] = useState(false);
+  const hintId = useId();
   const account = state?.account;
   const maxCredits = account?.maxCredits ?? null;
   // With no balance to show there is nothing to choose from, so no budget is sent either.
@@ -157,13 +158,14 @@ export function GamePlanBar({
               variant="ghost"
               disabled={busy}
               tabIndex={open ? 0 : -1}
-              title={t('chat.nextStage.approveHint')}
+              aria-describedby={hintId}
               data-testid="game-plan-approve-new-conversation"
               onClick={() => { void approve(true); }}
             >
               {t('chat.nextStage.approve')}
             </Button>
           ) : null}
+          {onApprovedInNewConversation ? <VisuallyHidden id={hintId}>{t('chat.nextStage.approveHint')}</VisuallyHidden> : null}
         </div>
       </div>
     </div>

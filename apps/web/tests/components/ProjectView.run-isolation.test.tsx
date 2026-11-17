@@ -1893,6 +1893,35 @@ describe('ProjectView conversation run isolation', () => {
     );
   });
 
+  it('keeps the title an empty conversation was created with on its first turn', async () => {
+    // A conversation opened for the next build stage is created as "阶段 3 / 共 3"; its first
+    // message must not rename it after its own opening words.
+    const stageConversation: Conversation = {
+      id: 'conv-stage',
+      projectId: project.id,
+      title: '阶段 3 / 共 3',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    listConversations.mockResolvedValue([stageConversation]);
+    listMessages.mockResolvedValue([]);
+    fetchChatRunStatus.mockResolvedValue(null);
+
+    renderProjectView(config, project);
+
+    await waitFor(() => expect(screen.getByTestId('active-conversation').textContent).toBe('conv-stage'));
+    await waitFor(() => expect(screen.getByTestId('send-message')).toHaveProperty('disabled', false));
+
+    fireEvent.click(screen.getByTestId('send-message'));
+
+    await waitFor(() => expect(streamViaDaemon).toHaveBeenCalledTimes(1));
+    expect(patchConversation).not.toHaveBeenCalledWith(
+      project.id,
+      stageConversation.id,
+      expect.objectContaining({ title: expect.any(String) }),
+    );
+  });
+
   it('replaces a raw prompt-head project name with the first prompt summary', async () => {
     const promptNamedProject: Project = {
       ...project,

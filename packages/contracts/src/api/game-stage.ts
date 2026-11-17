@@ -21,19 +21,21 @@ export interface GameStageLabel {
   locale: 'zh-CN' | 'en';
 }
 
-const ZH_LABEL = /阶段\s*(\d{1,2})\s*[/／]\s*(?:共\s*)?(\d{1,2})\s*(?:个阶段)?\s*[：:]/u;
-const EN_LABEL = /\bstage\s+(\d{1,2})\s*(?:of|\/)\s*(\d{1,2})\s*[：:]/iu;
+// Only at the very start of the reply, after markdown heading or emphasis marks: the
+// approved plan itself lists "阶段 1 / 共 3：…" further down, and is not stage 1 built.
+const OPENING = String.raw`^\s*(?:#{1,6}\s*)?(?:\*\*|__|\*|_)?\s*`;
+const ZH_LABEL = new RegExp(`${OPENING}阶段\\s*(\\d{1,2})\\s*[/／]\\s*(?:共\\s*)?(\\d{1,2})\\s*(?:个阶段)?\\s*[：:]`, 'u');
+const EN_LABEL = new RegExp(`${OPENING}stage\\s+(\\d{1,2})\\s*(?:of|\\/)\\s*(\\d{1,2})\\s*[：:]`, 'iu');
 
 /**
- * The first stage label in a build reply, or null. The reply opens with it
- * (`renderApprovedPlanBlock`); markdown emphasis around it is ignored.
+ * The stage label a build reply opens with (`renderApprovedPlanBlock`), or null.
+ * Markdown heading and emphasis marks before it are ignored; a label anywhere
+ * else in the reply, such as the stage list of the plan, does not count.
  */
 export function parseGameStageLabel(text: string | null | undefined): GameStageLabel | null {
   if (!text) return null;
-  const head = text.slice(0, 2000);
-  const zh = ZH_LABEL.exec(head);
-  const en = EN_LABEL.exec(head);
-  const match = zh && (!en || zh.index <= en.index) ? zh : en;
+  const zh = ZH_LABEL.exec(text);
+  const match = zh ?? EN_LABEL.exec(text);
   if (!match) return null;
   const stage = Number(match[1]);
   const total = Number(match[2]);

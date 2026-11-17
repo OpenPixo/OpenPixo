@@ -8,6 +8,12 @@ describe('a build reply\'s stage label', () => {
     expect(parseGameStageLabel('## Stage 3 of 5: the boss')).toEqual({ stage: 3, total: 5, locale: 'en' });
   });
 
+  it('does not read the plan\'s list of stages as a built stage', () => {
+    const plan = '第 4 步 / 共 5 步：计划\n\n阶段 1 / 共 3：能动的剑修\n阶段 2 / 共 3：敌潮';
+    expect(parseGameStageLabel(plan)).toBeNull();
+    expect(parseGameStageLabel('Here is the plan.\n\nStage 1 of 3: the core loop')).toBeNull();
+  });
+
   it('ignores planning steps, impossible numbers and replies without a label', () => {
     expect(parseGameStageLabel('第 2 步 / 共 5 步：画风')).toBeNull();
     expect(parseGameStageLabel('阶段 5 / 共 3：x')).toBeNull();

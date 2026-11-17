@@ -179,6 +179,8 @@ describe('the plan state at the daemon HTTP boundary', () => {
       const next = () => post(`/api/projects/${id}/game-plan/next-stage-conversation`, { fromConversationId: conversationId, locale: 'zh-CN' });
       // Planning is not built in stages yet.
       expect((await next()).status).toBe(409);
+      // The approved plan lists its stages; that is not stage 1 built.
+      expect((await put('ns0', { role: 'assistant', content: '第 4 步 / 共 5 步：计划\n\n阶段 1 / 共 4：剑修\n阶段 2 / 共 4：敌潮' })).status).toBe(200);
       await post(`/api/projects/${id}/game-plan/approve`);
       // Approved, nothing built: stage 1, in the UI's language.
       const first = await (await next()).json() as StartNextStageConversationResponse;
