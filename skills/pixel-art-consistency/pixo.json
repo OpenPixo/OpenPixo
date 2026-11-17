@@ -5,10 +5,10 @@
   "version": "0.1.0",
   "title": "Pixel art consistency",
   "title_i18n": { "en": "Pixel art consistency", "zh-CN": "像素美术一致性" },
-  "description": "Align selected sprites to an approved palette, native pixel grid, canvas and outline rule with deterministic asset operations and engine import checks.",
+  "description": "In a game whose chosen look is pixel art, align selected sprites to its native pixel grid, canvas, outline rule and the user's palette (if they set one) with deterministic asset operations and engine import checks.",
   "description_i18n": {
-    "en": "Align selected sprites to an approved palette, native pixel grid, canvas and outline rule with deterministic asset operations and engine import checks.",
-    "zh-CN": "通过确定性素材操作与引擎导入检查，统一选定精灵的调色板、原生像素网格、画布与描边规则。"
+    "en": "In a game whose chosen look is pixel art, align selected sprites to its native pixel grid, canvas, outline rule and the user's palette (if they set one) with deterministic asset operations and engine import checks.",
+    "zh-CN": "在选定像素画风的游戏中，通过确定性素材操作与引擎导入检查，按原生像素网格、画布、描边规则以及用户设定的调色板（如有）统一选定精灵。"
   },
   "license": "Apache-2.0",
   "author": { "name": "OpenPixo" },

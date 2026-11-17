@@ -2,8 +2,8 @@
 name: sprite-animation-pipeline
 en_name: Sprite animation pipeline
 zh_name: 精灵动画流水线
-description: Import existing sprite sheets or ordered frames and fix slicing, atlas references, pivots or timing in Godot 4, Unity 6 or Phaser 3; not for generating art or skeletal rigs.
-zh_description: 在 Godot 4、Unity 6 或 Phaser 3 中导入已有精灵表或有序帧，修复切图、图集引用、轴心与时长；不用于美术生成或骨骼绑定。
+description: Import existing sprite sheets or ordered frames and fix slicing, atlas references, pivots or timing in Godot 4, Unity 6 or Phaser 3; not for generating new frames (game-art-set and the media section) or skeletal rigs.
+zh_description: 在 Godot 4、Unity 6 或 Phaser 3 中导入已有精灵表或有序帧，修复切图、图集引用、轴心与时长；不用于生成新帧（见 game-art-set 与提示词的媒体部分）或骨骼绑定。
 triggers:
   - sprite animation pipeline
   - spriteframes
@@ -48,6 +48,7 @@ Unity has no `run` step or screenshot here: use `--steps check,build` and watch 
 | Working regular sheet, timing-only change | Existing SpriteFrames, Unity clip or Phaser sheet | Frame ranges, texture key, shared baseline |
 | Regular grid needs separate frames | `pixo asset slice --cell WxH` or `--grid CxR` with an input path | Margin, spacing and expected coverage |
 | Frames wobble, slide or differ in size | `pixo asset frames check`, then `frames align` | Input order, one scale for every frame |
+| Generated state frames to the sheet the engine loads | `export-spritesheet <frames...> --columns <n> --fps <n>`, as the media section says | Play order; `--no-loop` for a one-shot |
 | Ordered PNGs for Godot | `pack --format godot-tres` | Input order; keep PNG and TRES together |
 | Ordered PNGs for Phaser | `pack --format texturepacker-json` | Input order, actual descriptor keys |
 | Sheet or frames for Unity | Import as Sprite and slice in Unity; `pack` has no Unity output | Pivot, Pixels Per Unit, existing `.meta` |
@@ -220,5 +221,5 @@ Key times are seconds, so a hold is a wider gap between keys. Set `stopTime` so 
 - [ ] Actual frame count, frame order, clip timing, looping and one-shot behavior match the request.
 - [ ] Feet and pivots remain stable through transitions between idle and run, mirroring and restart; `pixo asset frames check` reports `ok` for each state, or its remaining issues are deliberate.
 - [ ] Atlas references and load paths are real; visual changes preserve collision behavior.
-- [ ] Use `pixo game run <projectId> --json`, or the Editor on Unity, to watch complete loops and one-shot completion; a still image cannot prove timing. Report tested timings and unresolved issues.
+- [ ] Watch complete loops and one-shot completion in a `pixo game playtest` that triggers them (or the Editor on Unity); a still image cannot prove timing. Report tested timings and unresolved issues.
 - [ ] Inspect `pixo game verify --steps check,build,run --screenshot --json`, including resource errors and skipped steps.

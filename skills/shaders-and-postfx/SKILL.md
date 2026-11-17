@@ -40,7 +40,7 @@ Keep damage and collision authority in gameplay; visual effects subscribe to tho
 3. Expose useful controls for intensity, duration and disabling the effect. Preserve alpha, instance ownership and UI readability.
 4. Compare the same scene and resolution with the effect off and on; measure cost when the effect adds meaningful work.
 5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for web; inspect logs.
-6. Inspect `pixo game playtest --preset observe --duration 10 --json` frames, then exercise the triggering event and restart interactively.
+6. Inspect `pixo game playtest --preset observe --duration 10 --json` frames, then a `pixo game playtest --script <file> --json` that triggers the event and a restart.
 
 Commands assume `PIXO_PROJECT_ID`; otherwise add `--project <id>`.
 Godot observation does not inject input; headless import does not prove target GPU behavior. Unity capture is unsupported, so look at the effect in the Game view or a player.
@@ -230,4 +230,4 @@ Reference: [EffectComposer](https://threejs.org/docs/pages/EffectComposer.html);
 - [ ] Disabling the effect restores the prior material and tint correctly; HUD and controls remain usable.
 - [ ] Relevant cost with the effect on and off is measured; unavailable GPU or capture evidence is identified.
 - [ ] Inspect `pixo game verify --steps check --json` (Godot), `--steps check,build` (Unity) or `--steps build` (web).
-- [ ] Inspect `pixo game playtest --preset observe --duration 10 --json`, then use `pixo game run <projectId> --json` for event and restart checks that observation cannot cover.
+- [ ] Inspect `pixo game playtest --preset observe --duration 10 --json`, then a scripted playtest for event and restart checks that observation cannot cover.
