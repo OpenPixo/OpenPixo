@@ -135,6 +135,8 @@ describe('plan approval in the funnel', () => {
         update: (id, patch) => { store.set(id, { id, metadata: patch.metadata }); return store.get(id) as never; },
         forgetAgentSessions: () => {},
         latestAgentMessage: () => '阶段 1：做一个能跳的猫',
+        conversationAgentMessages: () => null,
+        createConversation: () => { throw new Error('not used by this test'); },
       },
     });
     store.set('p1', { id: 'p1', metadata: { kind: 'other', gameSetup: { scope: 'quick', genre: PRIVATE[0] }, gamePlan: { status: 'planning', startedAt: Date.now() - 3_600_000 } } });
