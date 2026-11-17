@@ -2,12 +2,14 @@
 name: pixel-art-consistency
 en_name: Pixel art consistency
 zh_name: 像素美术一致性
-description: Align selected existing pixel-art sprites to an approved palette, native grid, canvas and outline; not for generating replacements or choosing a new art style.
-zh_description: 按已认可的调色板、原生网格、画布与描边规则统一选定的已有像素精灵；不用于生成替代素材或选择新画风。
+description: Align selected existing sprites in a game whose chosen look is pixel art to its native grid, canvas, outline and, only if the user set one, its palette. Not for games with another look, generating new art (game-art-set) or choosing a new art style.
+zh_description: 在选定像素画风的游戏中，按原生网格、画布、描边以及用户设定的调色板（仅当用户设了）统一选定的已有精灵；不用于其他画风的游戏、生成新美术（game-art-set）或选择新画风。
 triggers:
   - consistent pixel art
   - pixel sprite palette
   - pixel grid
+  - blurry pixel sprites
+  - 像素图模糊
   - 像素美术一致性
   - 统一像素精灵调色板
 license: Apache-2.0
@@ -18,14 +20,15 @@ pixo:
 
 # Pixel art consistency
 
-Align selected existing sprites only when the project uses or explicitly requests pixel art.
-Project art conventions, engine version, architecture and explicit user choices take precedence.
-Use an existing palette and grid contract; for a small edit, state the relevant rule in the handoff rather than requiring a new style document.
-Generation or a new art direction is a separate task.
+Align selected existing sprites only when the game's chosen look (its style reference or the user's direction) is pixel art; never turn another look into pixel art.
+The user's choices, the style reference, project art conventions, engine version and architecture take precedence.
+A palette is a requirement only when the user set it (Palette in Game setup, or in chat); a style's palette or one extracted from an image is a suggestion. Without a user palette, keep each sprite's colours and fix only grid, canvas, outline and alignment.
+For a small edit, state the relevant rule in the handoff rather than requiring a new style document.
+Generation (game-art-set) or a new art direction is a separate task.
 
 ## Quick path
 
-1. Inspect one approved reference and the selected input: `pixo asset info <path> --json`; inspect `pixo asset provenance <path> --json` when origin matters.
+1. Inspect the style reference (`pixo style get "$PIXO_PROJECT_ID"`) or another approved sprite, and the selected input: `pixo asset info <path> --json`; inspect `pixo asset provenance <path> --json` when origin matters.
 2. Confirm native canvas, visible baseline, palette and intended display scale before changing pixels.
 3. Choose the smallest correction from the table and produce derivatives, preserving originals.
 4. Review native-size and integer-zoom previews over light, dark and gameplay backgrounds.
@@ -39,8 +42,8 @@ On Unity, `run` and `--screenshot` are skipped: use `--steps check,build` and re
 
 | Defect or request | Choose | Limits to check |
 | --- | --- | --- |
-| Palette differs, grid already correct | `pixelate --size <input-longest-side> --palette <file> --dither none` | Remaps RGB; alpha values remain |
-| Need a palette proposal | `palette --colors 16` | Extracted colors need approval; extraction is not the style contract |
+| Off the user's palette, grid already correct | `pixelate --size <input-longest-side> --palette <file> --dither none` | Remaps RGB; alpha values remain |
+| User asks for a palette proposal | `palette --colors 16` | A proposal only; it becomes a requirement when the user adopts it |
 | Enlarge native pixels | `resize --scale 2 --filter nearest` | Integer scale preserves clusters; display scaling is separate |
 | Sheet needs per-cell editing | `slice --cell 32x32` | Confirm margin, spacing and expected count |
 | Ragged outline or partial-alpha fringe | Existing pixel editor or focused local processing | No built-in outline-repair or alpha-threshold flag |
@@ -51,7 +54,7 @@ Useful contract fields, only where needed:
 | Field | Example |
 | --- | --- |
 | Canvas and grid | Player 32 × 32, tiles 16 × 16; one drawn pixel per native pixel |
-| Palette and alpha | Approved `art/palette.hex`, six-digit RGB entries; opaque or transparent unless style allows partial alpha |
+| Palette and alpha | The user's `art/palette.hex` (only if they set one), six-digit RGB entries; opaque or transparent unless style allows partial alpha |
 | Outline | One native pixel; deliberate outline color and contour rule |
 | Alignment | Feet at y=29 on every frame; same pivot and canvas |
 | Display | Integer enlargement, nearest filtering; mipmaps disabled where inappropriate |
@@ -91,13 +94,15 @@ pixo asset slice public/assets/player.png --cell 32x32 --out derived/player-fram
 **Phaser 3**
 
 ```ts
-// Merge into the existing Game config only when this is the chosen art style:
-const renderOptions = { pixelArt: true, roundPixels: true };
-// After loading, for an individual texture:
+// Game config: keep the canvas at 1280x720 or more, and add roundPixels: true.
+// Do not set pixelArt: true or antialias: false on the whole game: they scale text with hard edges.
+// After loading, per pixel-art texture:
 this.textures.get('player').setFilter(Phaser.Textures.FilterMode.NEAREST);
+// The chunky look comes from a whole-number zoom of the world camera; HUD text stays in a zoom-1 UI scene.
+this.cameras.main.setZoom(3);
 ```
 
-`FIT` can still yield a fractional CSS display scale. Inspect target viewports or use the project's integer-scale presentation.
+`FIT` can still yield a fractional CSS display scale. Inspect target viewports at the screenshot size.
 Vite public assets load without the `public/` URL prefix. Keep gameplay hitboxes in their existing units when swapping art.
 
 **Unity 6**
@@ -141,7 +146,7 @@ public sealed class PixelArtImport : AssetPostprocessor
 
 ## Done when
 
-- [ ] Selected derivatives match agreed palette, canvas, alpha and baseline rules without unrequested art changes.
+- [ ] Selected derivatives match the agreed canvas, alpha and baseline rules (and the user's palette, if set) without unrequested art changes.
 - [ ] Native-size, integer-zoom and in-game reviews include animation transitions and actual backgrounds.
 - [ ] Output paths and preservation results are checked; unresolved visual defects are named.
 - [ ] Use `pixo game run <projectId> --json`, or the Editor on Unity, if motion or alignment needs interaction; a build alone cannot establish art consistency.

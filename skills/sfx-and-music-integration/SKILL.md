@@ -2,8 +2,8 @@
 name: sfx-and-music-integration
 en_name: SFX and music integration
 zh_name: 音效与音乐接入
-description: Integrate existing game audio and fix voices, ducking, loops, saved mix preferences or browser unlock in Godot 4, Unity 6 or Phaser 3; not for audio generation.
-zh_description: 在 Godot 4、Unity 6 或 Phaser 3 中接入已有音频，修复声部、闪避、循环、混音偏好与浏览器解锁；不用于音频生成。
+description: Integrate existing game audio and fix voices, ducking, loops, saved mix preferences or browser unlock in Godot 4, Unity 6 or Phaser 3; not for generating new audio (the media section of the system prompt).
+zh_description: 在 Godot 4、Unity 6 或 Phaser 3 中接入已有音频，修复声部、闪避、循环、混音偏好与浏览器解锁；不用于生成新音频（见系统提示的媒体部分）。
 triggers:
   - game audio integration
   - audio buses
@@ -30,7 +30,7 @@ Use the current audio and settings service. A clip fix does not require a new ma
 
 ## Quick path
 
-1. Locate the real audio files and events; inspect `pixo asset info <path> --json` and listen.
+1. Locate the real audio files and events; inspect `pixo asset info <path> --json` (duration, format). You cannot hear the result, so the listening checks below go to the user.
 2. Reproduce the issue: first gesture, busy encounter, loop boundary, mute or restart.
 3. Choose the relevant branch below; derive new files only when preparation is actually needed.
 4. Wire playback to the accepted gameplay event, preserving user gain separately from ducking and per-clip gain.
@@ -204,6 +204,6 @@ public sealed class SfxVoices : MonoBehaviour
 
 - [ ] First-gesture unlock, frequent cues and overlapping voices behave as intended.
 - [ ] Mute during ducking stays muted; current volume survives pause, restart and New Game as required.
-- [ ] Two loop boundaries and the busy summed mix were heard on the target runtime.
-- [ ] Use `pixo game run <projectId> --json` for listening tests, or a player build on Unity; report missing audio inputs and remaining audible defects.
+- [ ] Loop boundaries and the busy summed mix are on the user's listening list for the target runtime.
+- [ ] The reply's listening list names what to listen for and where (first click, a burst of pickups, the loop seam, pause), with missing audio inputs and log findings.
 - [ ] Inspect `pixo game verify --steps check,build,run --json`; report skipped checks and loader errors.

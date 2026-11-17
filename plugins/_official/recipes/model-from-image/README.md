@@ -1,6 +1,6 @@
 # 3D model from image
 
-Turns one reference image of a prop or character into a textured 3D model (GLB). Needs a provider with image-to-3D support.
+Turns one reference image of a prop or character into a textured 3D model (GLB).
 
 One textured 3D model file in the format the provider returns (usually GLB).
 

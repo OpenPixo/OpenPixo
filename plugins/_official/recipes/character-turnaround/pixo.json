@@ -7,7 +7,7 @@
     "en": "Character turnaround",
     "zh-CN": "角色三视图"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "Front, side and back views of one character at identical scale on a transparent background, ready to use as character-card reference images.",
   "description_i18n": {
@@ -64,30 +64,15 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "match the reference images",
-            "pixel art",
-            "hand-painted 2D",
-            "clean cartoon with bold outlines",
-            "chibi 2D",
-            "low-poly 3D render"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "match the reference images": "与参考图一致",
-              "pixel art": "像素风",
-              "hand-painted 2D": "2D 手绘",
-              "clean cartoon with bold outlines": "粗描边的简洁卡通",
-              "chibi 2D": "2D Q 版",
-              "low-poly 3D render": "低多边形 3D 渲染"
-            }
-          },
-          "default": "match the reference images"
+          "type": "string",
+          "placeholder": "e.g. chibi 2D with bold outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：粗描边的 Q 版 2D"
+          }
         }
       ],
       "prompt": "Character turnaround reference sheet of {{character.name}}: {{character.description}}. Show the same character in {{views}} views, arranged left to right in a single row with equal spacing. Neutral relaxed standing A-pose, arms slightly away from the body. Every view at exactly the same scale, feet on one shared baseline, head at the same height. Orthographic camera, no perspective, flat even studio lighting. Identical outfit, colors, proportions and details in every view; where reference images are provided, follow them exactly. Full body visible in every view with clear space around it; views never overlap. Style: {{style}}. Background: fully transparent, with nothing behind the subject: no floor, cast shadow, scenery or vignette.",
@@ -144,8 +129,7 @@
         "zh-CN": "正面、侧面和背面"
       },
       "inputs": {
-        "views": "front, side and back",
-        "style": "match the reference images"
+        "views": "front, side and back"
       },
       "before": "examples/knight-before.webp",
       "after": "examples/knight-after.webp"

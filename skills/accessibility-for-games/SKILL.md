@@ -43,7 +43,7 @@ OpenPixo commands use `PIXO_PROJECT_ID` in a host run; otherwise add `--project 
 | Spoken or meaningful audio cue | Use a cue ID, a speaker or event label, and timing from the owner of the sound event | Muted play remains understandable; retry leaves no stuck or duplicate caption |
 | Status or team shown only by color | Pair color with shape, icon, pattern or label | Identify the information without color on actual backgrounds |
 | Shake, flash or camera motion | Let the effect owner adjust intensity or turn the effect off | Zero removes displacement and strong flashes while hazards remain readable |
-| Reading or target size | Adjust font and target sizes; reflow the existing layout | Long text and largest requested scale fit the smallest supported viewport |
+| Reading or target size | Adjust font and target sizes, never below the system prompt's floor (16 px, body 20 px, CJK 18 px at 1280x720); reflow the existing layout | Long text and largest requested scale fit the smallest supported viewport |
 | Timing or difficulty | Specific assist such as longer timing windows or lower incoming damage | Make effects on scoring and saves explicit; network authority remains consistent |
 
 Expose new options before the affected gameplay and from pause where useful. An opaque master toggle hides which barrier each setting addresses.
@@ -111,7 +111,7 @@ Replace `PlayerPrefs` with the project's settings owner, and reload at startup w
 - Keep essential text out of baked artwork. Subtitle size, background, speaker labels and placement must survive changing scenery and long translations.
 - For reading-time changes, choose player advance, replay or longer display according to the scene. A local menu preference cannot slow only one peer's authoritative online simulation.
 - Keep sound and captions independently selectable. Use a single event to schedule each so replay or restart cannot desynchronize them.
-- Use semantic controls and accessible names for web menus; verify actual keyboard and screen-reader flow when that is the requested capability.
+- A browser game draws its menus in the canvas, so a screen reader sees nothing there. Only when the user asks for narration, add a visually hidden live region that announces the focused item, and verify the actual keyboard and screen-reader flow; do not rebuild menus as HTML.
 - For broader design and test guidance: select the relevant [Xbox Accessibility Guidelines](https://learn.microsoft.com/en-us/xbox/accessibility/guidelines), rather than imposing the whole set on every edit.
 
 ## Pitfalls: wrong → right

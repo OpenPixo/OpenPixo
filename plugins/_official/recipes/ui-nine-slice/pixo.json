@@ -7,7 +7,7 @@
     "en": "Nine-slice UI element",
     "zh-CN": "九宫格 UI 元素"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A button, panel or frame designed so its corners stay fixed and its edges and center stretch cleanly, keyed to transparency and trimmed.",
   "description_i18n": {
@@ -99,26 +99,15 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "pixel art",
-            "hand-painted fantasy",
-            "sci-fi flat",
-            "clean modern flat"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "pixel art": "像素风",
-              "hand-painted fantasy": "手绘奇幻",
-              "sci-fi flat": "科幻扁平",
-              "clean modern flat": "简洁现代扁平"
-            }
-          },
-          "default": "pixel art"
+          "type": "string",
+          "placeholder": "e.g. clean flat with thin outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：扁平，细描边"
+          }
         },
         {
           "name": "name",
@@ -188,7 +177,6 @@
         "element": "panel",
         "state": "normal",
         "theme": "wooden fantasy panel with brass corners",
-        "style": "hand-painted fantasy",
         "name": "wood_panel"
       },
       "after": "examples/wood_panel-after.webp"

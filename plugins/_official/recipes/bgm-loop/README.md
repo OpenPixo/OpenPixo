@@ -1,6 +1,6 @@
 # Looping background music
 
-An instrumental track written to loop, given a crossfaded loop point and converted for the engine. Needs a music provider.
+An instrumental track written to loop, given a crossfaded loop point and converted for the engine.
 
 One loop-ready track per candidate with a 500 ms crossfade at the loop point.
 

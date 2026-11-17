@@ -155,5 +155,5 @@ Unsubscribe owned events and dispose runtime objects on shutdown; multiple actor
 - [ ] Requested joints and clips survive extreme poses, transitions, mirroring and target-scale inspection.
 - [ ] Foot contact, draw order, atlas pages and alpha look correct; actors and events remain independent.
 - [ ] Relevant editable sources, pivots, clip and event names, and export and runtime versions are handed off.
-- [ ] Use `pixo game run <projectId> --json` for action and restart checks where supported; report missing editors, licenses or runtimes, and identify untested export targets.
+- [ ] Check actions and restart in a `pixo game playtest --script <file> --json` that triggers them where supported (the Editor on Unity); report missing editors, licenses or runtimes, and identify untested export targets.
 - [ ] Inspect `pixo game verify --steps check --json` (Godot), `--steps check,build` (Unity) or `--steps build` (web).

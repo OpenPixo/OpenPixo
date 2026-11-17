@@ -161,7 +161,8 @@ card first,
 \`"$PIXO_NODE_BIN" "$PIXO_BIN" character create <slug> --name <name> --description <text> --reference <design>\`.
 First draw the walk sheet:
 \`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-walk-sheet-8dir --input character=<slug> --json --wait\`
-(\`recipe show sprite-walk-sheet-8dir --json\` lists the style options). It makes
+(its \`style\` input left empty takes the game's look; pass \`--input style=<text>\`
+to name the look in words). It makes
 two candidates, one picture each: the character eight times on green, every copy
 mid-stride. Look at every copy before going on: top row facing down, down-right,
 right, up-right; bottom row up, up-left, left, down-left; each one facing its

@@ -36,7 +36,9 @@ pixo:
 2. Run `pixo publish --json`. It builds the game, uploads the output and waits. Publishing again updates the same link and keeps its URL.
 3. Report the link from `game.url`, plus the title if you set one. Tell the creator that anyone with the link can play it.
 
-Add `--project <id>` when `PIXO_PROJECT_ID` is absent, `--title <text>` to name the game, and `--no-build` to upload the existing build output as it is.
+Add `--project <id>` when `PIXO_PROJECT_ID` is absent, `--title <text>` to name the game, and `--no-build` to upload the existing build output as it is. Never pass `--accept-terms` or `--pay-extra-game` yourself: they are the creator's agreement and the creator's credits.
+
+To send a file instead of a link, `pixo game export --json` writes the web game as one HTML file that plays offline.
 
 Other commands:
 
@@ -61,18 +63,20 @@ With `--json`, a failed publish prints `error.code`, `error.message` and, when f
 | `SHARE_TERMS_REQUIRED` | The sharing rules are not accepted | See above |
 | `PUBLISH_REFUSED` | Files broke the upload rules | Fix each path in `refusedFiles`, rebuild and publish again |
 | `PUBLISH_QUOTA` | Over the games or daily publish limit | Report the message. Do not retry today, and never remove a game to make room unless asked |
+| `PUBLISH_PLAN_REQUIRED` | Publishing a link needs a subscription | Tell the creator; `pixo credits catalog` lists the plans. Do not retry |
+| `PUBLISH_EXTRA_GAME_REQUIRED` | All of the plan's games are live; one more costs a one-time credit charge | Tell the creator the price in the message. Only they can confirm it, in the Share dialog or with `pixo publish --pay-extra-game` in their own terminal |
+| `INSUFFICIENT_CREDITS` | Not enough credits for that charge | Report it; buying credits is the creator's choice |
 | `PUBLISH_BUILD_FAILED` | The project's build failed | Fix the errors in the message |
 | `PUBLISH_NO_OUTPUT` | No build folder with a root `index.html` | Check the build config's output folder; `dist` and `build` are found automatically |
 | `PUBLISH_UPLOAD_FAILED`, `PUBLISH_UPLOAD_REJECTED`, `PUBLISH_FILES_CHANGED`, `CLOUD_UNAVAILABLE` | The upload or the cloud failed. The link still shows the previous version | Publish again once, then report it |
 
-A refusal saying only web games can be published means the project is Godot, Unity, Unreal or unknown. Do not try to publish a native export this way. See the `web-export-and-itch` skill for a Godot web export.
+A refusal saying only web games can be published means the project is Godot, Unity, Unreal or unknown. Do not try to publish a native export, or a Godot Web export, this way: it cannot get an OpenPixo link. When the creator wants a Godot Web build for another host, see the `web-export-and-itch` skill.
 
 ## What gets refused
 
 - A build with no root `index.html`.
 - Any file type outside the allowed game formats: web files, images, audio, video, fonts, data and 3D formats. Source maps are allowed. Dotfiles are left out without an error.
 - A page containing a password box. Remove the login form; players do not sign in.
-- Publishing needs a subscription (`PUBLISH_PLAN_REQUIRED`). Tell the user; do not retry.
 - Over the limits, which the cloud may change: 100 to 500 MB in total by plan, 50 MB per file, 2,000 files, 10 to 50 live games by plan, 30 publishes per account per day.
 - Links that point outside the build folder.
 

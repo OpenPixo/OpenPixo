@@ -32,7 +32,7 @@ The project's engine and version, input backend, physics architecture and the us
 2. Reproduce the requested behavior on a flat surface, ledge, ramp or wall that exposes it.
 3. Change the existing owner. Keep movement in physics; keep view and presentation in their existing update paths.
 4. Discover exposed values with `pixo game tuning list --json` if tuning is relevant; use returned IDs with `pixo game tuning set <id> <value> --json`.
-5. Verify Godot with `pixo game verify --steps check --json`, Unity with `--steps check,build` or web with `--steps build`, then play the affected cases. Unity has no `pixo game run`, so play in the Editor or a player.
+5. Verify Godot with `pixo game verify --steps check --json`, Unity with `--steps check,build` or web with `--steps build`, then play the affected cases: on web with `pixo game playtest --script - --json` (or `--preset wasd`); Godot only from code, as its playtest note says; Unity not at all, so list the cases for the user to try in the Editor.
 
 Add `--project <id>` to these commands when `PIXO_PROJECT_ID` is absent. OpenPixo tuning edits supported Godot sources and tuning JSON sources; it is not a live Unity inspector.
 
@@ -44,7 +44,7 @@ Add `--project <id>` to these commands when `PIXO_PROJECT_ID` is absent. OpenPix
 | Third person | Camera-yaw-relative movement, separate visual facing | Preserve stick magnitude; cap combined input rather than normalizing all input |
 | Godot 4 | `CharacterBody3D` and capsule | Set `velocity` in units per second, call `move_and_slide()` without delta |
 | Unity 6 | Existing `CharacterController` or Rigidbody controller | `CharacterController.Move` takes displacement and applies no gravity |
-| Three.js | Existing physics backend's capsule and sweep queries | Scene transforms alone do not resolve solid collisions |
+| Three.js | Existing physics backend, or the capsule-and-Octree method below | Scene transforms alone do not resolve solid collisions |
 
 Mouse motion is already a delta; gamepad angular velocity needs delta time. Reuse action edges once per physics tick. Keep root motion and code displacement under one owner to avoid double movement.
 
@@ -160,6 +160,45 @@ public sealed class CharacterMotor : MonoBehaviour
 - A Rigidbody controller instead moves in `FixedUpdate`, with Interpolate on and input read in `Update` (see unity-csharp). Use one or the other on an actor.
 - Camera follow belongs in `LateUpdate` or a Cinemachine camera, or it jitters against movement.
 
+## Three.js: capsule against an Octree
+
+Three.js has no character physics. Keep a project's existing physics backend (Rapier, cannon-es and others have their own character controllers); without one, the `Octree` and `Capsule` addons that ship with `three` collide a capsule with static level meshes. Y-up meters, called from a fixed-step loop (the accumulator in player-controller-2d) with `dt` in seconds:
+
+```ts
+import * as THREE from 'three';
+import { Octree } from 'three/addons/math/Octree.js';
+import { Capsule } from 'three/addons/math/Capsule.js';
+
+const world = new Octree();
+world.fromGraphNode(level); // static collision meshes only; rebuild after they change
+const body = new Capsule(new THREE.Vector3(0, 0.35, 0), new THREE.Vector3(0, 1.45, 0), 0.35);
+const velocity = new THREE.Vector3();
+let grounded = false, coyoteLeft = 0, bufferLeft = 0;
+
+// wish: yaw-only direction, length at most 1. jumpPressed: a press edge since the last step.
+function step(dt: number, wish: THREE.Vector3, jumpPressed: boolean): void {
+  coyoteLeft = grounded ? 0.10 : Math.max(0, coyoteLeft - dt);
+  bufferLeft = jumpPressed ? 0.12 : Math.max(0, bufferLeft - dt);
+  const rate = (grounded ? 28 : 10) * dt;
+  velocity.x += THREE.MathUtils.clamp(wish.x * 5 - velocity.x, -rate, rate);
+  velocity.z += THREE.MathUtils.clamp(wish.z * 5 - velocity.z, -rate, rate);
+  if (bufferLeft > 0 && coyoteLeft > 0) { velocity.y = 7; bufferLeft = coyoteLeft = 0; }
+  else velocity.y = grounded ? -2 : velocity.y - 20 * dt; // -2 keeps floor contact
+  body.translate(velocity.clone().multiplyScalar(dt));
+  const hit = world.capsuleIntersect(body);
+  grounded = hit !== false && hit.normal.y > 0.7; // floor, not wall or ceiling
+  if (hit) {
+    if (!grounded) velocity.addScaledVector(hit.normal, -hit.normal.dot(velocity));
+    body.translate(hit.normal.multiplyScalar(hit.depth));
+  }
+}
+```
+
+- Build `wish` from the camera's yaw only: `new THREE.Vector3(x, 0, -y).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw)`, then cap its length at 1.
+- One push per step: a fast body needs substeps, or it tunnels through thin walls.
+- First person: `PointerLockControls` from `three/addons/controls/PointerLockControls.js` owns the look and needs a click to lock; put the camera at `body.end`. Third person: cast a `THREE.Raycaster` from the head to the wanted camera position against the level and stop the camera short of the first hit.
+- Moving platforms and dynamic props are outside this Octree; use a physics backend when the game needs them.
+
 ## Camera collision or lock-on, when requested
 
 - Godot: `YawPivot/PitchPivot/SpringArm3D/Camera3D`, with camera directly under the arm. Set the arm's collision mask, margin and shape. Exclude the player's RID with `add_excluded_object(player.get_rid())`. See [SpringArm3D 4.3](https://docs.godotengine.org/en/4.3/classes/class_springarm3d.html).
@@ -183,4 +222,4 @@ public sealed class CharacterMotor : MonoBehaviour
 - [ ] Relevant checks pass: diagonal and analog speed, jump edges, ceiling, slope boundary, platform departure, respawn, pause and focus loss.
 - [ ] Camera and lock-on checks cover only requested features; targets can disappear safely.
 - [ ] Compare different render rates at the same physics tick; record changed tunables and observations.
-- [ ] Verification logs are clean or limitations are explicit. `pixo game playtest --duration 10 --json` offers supported Godot or web capture; it injects no Godot movement and provides no Unity capture, so report Unity checks from the Editor or a player.
+- [ ] Verification logs are clean or limitations are explicit. A web playtest can send keys and clicks; Godot capture injects no input and Unity has none, so say what the user should try.

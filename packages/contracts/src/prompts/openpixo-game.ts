@@ -294,6 +294,7 @@ ${lines.join('\n')}
 \`\`\`
 
 - Read \`recipe show\` for the inputs before running; pass each with \`--input\`, or a JSON object with \`--inputs-file <path|->\`.
+- A recipe's \`style\` input left empty takes the game's look (the user's direction from Game setup or the project's style), never a look of the recipe's own. When the game's look is written down (a style line), pass it word for word with \`--input style=<text>\`.
 - \`run --wait\` returns staged candidates with check results and nothing is written to the project yet. Exit 2 means still running (poll \`recipe status <runId> --json\`); exit 5 means failed, so report the error.
 - Never adopt blindly. If you can view images, open every candidate image and pick the one that matches the request and passes its checks; a passing check does not prove the asset looks right. If you cannot view images (or the asset is audio or 3D), adopt nothing: list the candidates and checks and ask the user to choose.
 - A recipe paid from the art budget makes one candidate unless you pass \`--count\`, and each candidate costs one image.

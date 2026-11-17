@@ -7,7 +7,7 @@
     "en": "Item icon set",
     "zh-CN": "道具图标组"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A matching set of inventory icons generated on one sheet, sliced into single icons and resized to a fixed size.",
   "description_i18n": {
@@ -63,26 +63,15 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "pixel art",
-            "hand-painted 2D",
-            "clean cartoon with bold outlines",
-            "flat vector"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "pixel art": "像素风",
-              "hand-painted 2D": "2D 手绘",
-              "clean cartoon with bold outlines": "粗描边的简洁卡通",
-              "flat vector": "扁平矢量"
-            }
-          },
-          "default": "pixel art"
+          "type": "string",
+          "placeholder": "e.g. hand-painted, thick dark outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：手绘，粗深色描边"
+          }
         },
         {
           "name": "iconSize",
@@ -187,7 +176,6 @@
       "inputs": {
         "items": "red health potion, blue mana potion, green poison flask, golden elixir",
         "grid": "2x2",
-        "style": "pixel art",
         "iconSize": "64",
         "setName": "potions"
       },

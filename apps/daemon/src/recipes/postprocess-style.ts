@@ -10,11 +10,15 @@ export interface RecipePostprocessStep {
 
 const pixelTag = (value: string) => /(?:^|[\s,_-])pixel(?:s|[\s_-]?art)?(?:$|[\s,_-])|像素/i.test(value);
 
-/** Style defaults enter after final frame geometry and before analysis/export. Explicit op parameters win. */
-export function applyRecipePostprocessStyle(steps: RecipePostprocessStep[], style: ArtStyle | null, inputs: Record<string, unknown>): RecipePostprocessStep[] {
+/**
+ * Style defaults enter after final frame geometry and before analysis/export. Explicit op parameters win.
+ * Art is pixelated only when the game is pixel art (`pixelGrid`, a pixel style) or the request's own style
+ * words ask for it; a recipe has no style default that could ask on the game's behalf.
+ */
+export function applyRecipePostprocessStyle(steps: RecipePostprocessStep[], style: ArtStyle | null, inputs: Record<string, unknown>, pixelGrid = false): RecipePostprocessStep[] {
   const tags = (style as (ArtStyle & { tags?: string[] }) | null)?.tags ?? [];
   const explicit = Object.entries(inputs).filter(([key]) => /^(?:art_?style|style)$/i.test(key)).map(([, value]) => String(value));
-  const pixel = style?.constraints?.pixelSize !== undefined || [...(style?.medium ?? []), ...tags, style?.id ?? '', ...explicit].some(pixelTag);
+  const pixel = pixelGrid || style?.constraints?.pixelSize !== undefined || [...(style?.medium ?? []), ...tags, style?.id ?? '', ...explicit].some(pixelTag);
   if (!pixel) return steps;
   const result = steps.map(step => ({ ...step, params: { ...(step.op === 'resize' ? { filter: 'nearest' } : {}), ...step.params } }));
   const additions: RecipePostprocessStep[] = [];

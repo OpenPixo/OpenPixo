@@ -27,6 +27,7 @@ import { configuredRecipeProviders, hostedRecipeModelIds, modelsForRecipe, Recip
 import { createCharacter, deleteCharacter, getCharacter, listCharacters, updateCharacter } from './characters.js';
 import { renderRecipeTemplate } from './template.js';
 import { resolveArtStyleForGeneration } from '../styles/service.js';
+import { gameLookFromMetadata, type RecipeLook } from './game-look.js';
 import { registerGenerateRoutes } from './generate-routes.js';
 import { GENERATE_AREA_DIR, assertNoGameRequest, pictureType, saveGenerateReference } from './generate-area.js';
 import { recipePath } from './paths.js';
@@ -236,9 +237,17 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
     const hosted = await hostedFallback(detail, target, request, engine);
     return { model: selectRecipeModel(recipe, modelsForRecipe(recipe), configuredRecipeProviders(config, process.env.NODE_ENV === 'test'), request.model, hosted), hosted };
   }
-  // With no game there is no game style to fall back to: only a style the request names.
-  const artStyleFor = (detail: RecipeDetail, target: RunTarget, request: RecipeRunRequest) => detail.manifest.pixo!.recipe!.surface === 'image'
-    ? resolveArtStyleForGeneration(ctx.db, ctx.paths.PROJECT_ROOT, target.id ?? undefined, target.id === null ? request.styleId ?? null : request.styleId) : Promise.resolve(null);
+  /**
+   * The look an image recipe is made in (`recipes/game-look.ts`). With no game there is no
+   * game style to fall back to: only a style the request names. In a game, the user's own
+   * look from Game setup fills a style slot the request left empty.
+   */
+  const lookFor = async (detail: RecipeDetail, target: RunTarget, request: RecipeRunRequest): Promise<RecipeLook | null> => {
+    if (detail.manifest.pixo!.recipe!.surface !== 'image') return null;
+    const artStyle = await resolveArtStyleForGeneration(ctx.db, ctx.paths.PROJECT_ROOT, target.id ?? undefined, target.id === null ? request.styleId ?? null : request.styleId);
+    if (target.id === null) return { artStyle };
+    return { artStyle, inGame: true, ...gameLookFromMetadata(target.value?.metadata ?? getProject(ctx.db, target.id)?.metadata) };
+  };
 
   // Prices every candidate of a run for the user to confirm. Nothing is spent here. Only the
   // local UI or the user's own CLI may ask: an agent's recipes are paid from the art budget.
@@ -250,7 +259,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
     if (recipe.surface === 'code') throw new Error('A code recipe starts an agent run and has no price here');
     const engine = engineOf(target);
     const { model } = await chooseModel(detail, target, request, engine);
-    const plan = await executor.plan(detail, target.root, request, model, engine, await artStyleFor(detail, target, request));
+    const plan = await executor.plan(detail, target.root, request, model, engine, await lookFor(detail, target, request));
     if (model.provider !== 'openpixo') { const body: RecipeRunQuote = { paid: false, model: { provider: model.provider, id: model.id }, count: plan.count }; res.json(body); return; }
     const { openpixoHosted } = ctx.artBudget!;
     const requests: AgentHostedRequest[] = [];
@@ -319,7 +328,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
       if (!held || held.projectId !== target.id) { sendApiError(res, 409, 'RECIPE_QUOTE_UNKNOWN', 'This price has expired or was never given. Ask for a new one.'); return; }
       if (held.key !== quotedRequest(request)) { sendApiError(res, 409, 'RECIPE_QUOTE_MISMATCH', 'This run asks for something other than what was priced. Ask for a new price.'); return; }
       if (!held.started) {
-        const artStyle = await artStyleFor(detail, target, request);
+        const artStyle = await lookFor(detail, target, request);
         held.started = executor.start(detail, target.id, target.root, request, held.model, engine, artStyle,
           { kind: 'confirmed', media: ctx.artBudget!.openpixoHosted, requests: held.requests }, 'user');
         held.started.catch(() => { held.started = undefined; });
@@ -332,7 +341,7 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
       sendApiError(res, 403, 'GENERATION_CONFIRMATION_REQUIRED', `This run spends credits. Price it first (\`${PRODUCT_CLI_NAME} recipe quote\`) and run it with that quote.`);
       return;
     }
-    const artStyle = await artStyleFor(detail, target, request);
+    const artStyle = await lookFor(detail, target, request);
     const spending = hosted.includes(model.id) && target.grant ? hostedSpending(target, target.grant, model.id, recipe.surface) : undefined;
     res.status(202).json(await executor.start(detail, target.id, target.root, request, model, engine, artStyle, spending, target.grant ? 'agent' : 'user'));
   }

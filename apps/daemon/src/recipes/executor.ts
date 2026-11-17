@@ -18,6 +18,7 @@ import { recipeFileName, recipePath } from './paths.js';
 import { recipeVariables, renderRecipeParams, renderRecipeTemplate, validateRecipeInputs } from './template.js';
 import { mergeImageArtStyle } from '../media/art-style.js';
 import { applyRecipePostprocessStyle, type RecipePostprocessStep } from './postprocess-style.js';
+import { recipeLook, recipeStyleSlot, type RecipeLook } from './game-look.js';
 import { spriteExportFormat } from '../assets/ops/export-spritesheet.js';
 import { detectEngineProfile } from '../game/engine-detect.js';
 
@@ -237,11 +238,17 @@ export class RecipeExecutor {
    * the pricing input. A quote and the run it pays for both come from here, so the
    * run sends what was priced. A paid run makes one candidate unless asked for more.
    */
-  async plan(detail: RecipeDetail, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null): Promise<RecipePlan> {
+  async plan(detail: RecipeDetail, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, lookOrStyle: RecipeLook | ArtStyle | null = null): Promise<RecipePlan> {
     const recipe = detail.manifest.pixo!.recipe!;
     if (recipe.surface === 'code') throw new Error(`No media backend for surface: ${recipe.surface}`);
     const paid = model.provider === 'openpixo';
+    const look = recipeLook(lookOrStyle);
+    const artStyle = look.artStyle;
     const prepared = await prepareRecipe(detail, projectRoot, request, engine);
+    // A style slot the request left empty takes the game's look, never a look of the recipe's own.
+    if (recipe.inputs.some(input => input.name === 'style') && !String(prepared.inputs.style ?? '').trim()) {
+      prepared.variables.style = recipeStyleSlot(look, prepared.references.length > 0);
+    }
     const basePrompt = renderRecipeTemplate(recipe.prompt!, prepared.variables);
     const negativePrompt = recipe.negative ? renderRecipeTemplate(recipe.negative, prepared.variables) : undefined;
     const imageRequest = recipe.surface === 'image' ? mergeImageArtStyle({ prompt: basePrompt, negativePrompt }, artStyle) : null;
@@ -257,7 +264,7 @@ export class RecipeExecutor {
     if (!Number.isInteger(count) || count < 1 || count > (recipe.generation?.count.max ?? 4)) throw new Error('Count exceeds recipe limit');
     // Render the entire pipeline before submitting paid tasks.
     const steps = applyRecipePostprocessStyle((recipe.postprocess ?? []).map(step => ({ ...step, params: renderRecipeParams(step.params, prepared.variables) })),
-      recipe.surface === 'image' ? artStyle : null, recipe.surface === 'image' ? prepared.inputs : {});
+      recipe.surface === 'image' ? artStyle : null, recipe.surface === 'image' ? prepared.inputs : {}, recipe.surface === 'image' && look.pixelGrid === true);
     for (const step of steps) {
       if (step.op === 'export-spritesheet' && (step.params.format === undefined || step.params.format === 'auto')) {
         step.params.format = spriteExportFormat(engine?.engine ?? detectEngineProfile(projectRoot, { resolveOnPath: () => null }).engine);
@@ -285,14 +292,15 @@ export class RecipeExecutor {
    * `projectId` null is a run the user made on the 生成 page with no game: `projectRoot` is
    * then the daemon's generate area, where its uploaded references live.
    */
-  async start(detail: RecipeDetail, projectId: string | null, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, artStyle: ArtStyle | null = null, hosted?: RecipeHostedSpending, origin: RecipeRunOrigin = 'user'): Promise<RecipeRun> {
+  async start(detail: RecipeDetail, projectId: string | null, projectRoot: string, request: RecipeRunRequest, model: MediaModel, engine?: EngineProfile | null, look: RecipeLook | ArtStyle | null = null, hosted?: RecipeHostedSpending, origin: RecipeRunOrigin = 'user'): Promise<RecipeRun> {
+    const artStyle = recipeLook(look).artStyle;
     await this.initialized;
     const recipe = detail.manifest.pixo!.recipe!;
     if (recipe.surface === 'code') throw new Error(`No media backend for surface: ${recipe.surface}`);
     if (model.provider === 'stub' && process.env.NODE_ENV !== 'test') throw new Error('Stub provider is only allowed in tests');
     const paid = model.provider === 'openpixo';
     if (paid && !hosted) throw new RecipeSpendRefused(403, 'GENERATION_CONFIRMATION_REQUIRED', 'This recipe would spend credits: the user confirms a price first, or an agent pays from the art budget.');
-    const plan = await this.plan(detail, projectRoot, request, model, engine, artStyle);
+    const plan = await this.plan(detail, projectRoot, request, model, engine, look);
     const { prepared, prompt, output, steps, aspect } = plan;
     let count = plan.count;
     if (paid && hosted!.kind === 'confirmed') {

@@ -132,7 +132,7 @@ For live multiplayer in a Phaser, Three.js or other web game, with no networking
 **One player hosts, and the server only relays messages. A host can cheat, and the room ends or moves when the host leaves. Say so when it matters, and do not use rooms for ranked or prize play.** Rooms hold at most 8 players. Each message is at most 16 KB, and each player can send at most 60 messages a second. There is no chat API, and players are ids like `p1`, not names.
 
 1. `pixo rooms add --json` puts the SDK in the game, normally at `src/openpixo-rooms.ts`, and prints where. Import from that file and do not edit it: an edited copy stops getting updates.
-2. Build a lobby: a "Create room" button, a join-by-code box, the invite link shown to the host, and `joinFromUrl()` at startup so that an opened link joins straight away.
+2. Build a lobby scene in the game's own canvas (not an HTML form around it): a "Create room" button, a join-by-code entry (typed keys, plus an on-screen letter pad for touch), the invite link shown to the host, and `joinFromUrl()` at startup so that an opened link joins straight away.
 3. Write the game loop host-authoritative, as in the example below.
 4. Test two players: `pixo rooms test --json` prints two URLs. Open each in its own window, create in one and join in the other. Show both directions working, and record what each window showed.
 5. Run `pixo game verify --steps build --json`.

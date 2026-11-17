@@ -39,7 +39,7 @@ Animation and camera code should consume movement state rather than become a sec
 2. Pick the relevant movement branch below. Tune only the requested parameters.
 3. Integrate with the existing controller; consume each buffered jump once and reset transient state on respawn or focus changes.
 4. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser.
-5. Play the affected timing cases and one nearby boundary; use a small test lane only if the existing level cannot expose them.
+5. Play the affected timing cases and one nearby boundary; use a small test lane only if the existing level cannot expose them. In Phaser, script them with `pixo game playtest --script - --json` on stdin. The host cannot send Godot or Unity input (Godot can be driven from code, as its playtest note says), so list the cases for the user to try.
 
 Commands assume `PIXO_PROJECT_ID`; otherwise add `--project <id>`.
 
@@ -251,4 +251,4 @@ In Unity, Collision Detection Continuous protects a Dynamic Rigidbody2D moved by
 - [ ] Ceiling, reversal, pause, focus, respawn and supported devices work; compare different render rates.
 - [ ] The fastest fall, dash or projectile does not pass through the thinnest collider it can meet.
 - [ ] Inspect `pixo game verify --steps check --json` (Godot), `--steps check,build` (Unity) or `--steps build` (Phaser), including skipped checks.
-- [ ] Use `pixo game run <projectId> --json` for timing tests. For matching browser bindings, `pixo game playtest --preset runJump --json` adds replay evidence; screenshots or Godot capture alone do not prove input timing. Neither command supports Unity: test in the Editor or a player, at more than one refresh rate.
+- [ ] Phaser: replay the timing cases with `pixo game playtest --script - --json`, or `--preset runJump` when ArrowRight and Space match the bindings. Screenshots or Godot capture alone do not prove input timing: say what is untested and what the user should try.

@@ -63,10 +63,12 @@ All processing commands accept input paths plus `--out <rel-dir>`, `--dry-run` a
 | `slice` | Exactly one of `--grid CxR` or `--cell WxH`; optional `--margin` and `--spacing` |
 | `pack` | `--max-size`, `--padding`, `--format texturepacker-json` or `--format godot-tres` |
 | `export-spritesheet` | Equal-sized animation frames: `--format godot` or `--format phaser`, `--columns`, `--animations`, `--fps`; inspect `--help` for other formats |
+| `frames check` / `frames align` | Frames in play order; `check` measures feet, drift and empty frames, `align` puts them on one canvas (see sprite-animation-pipeline) |
+| `video-frames` | One video in; `--count N` or `--fps N`, `--drop-repeated-end` for a clip that loops back to its first image |
 | `pixelate` | Exactly one of `--size` (low-resolution longest side) or `--pixel-size` (block size); optional `--palette`; optional dithering with `--dither none` or `ordered` |
 | `palette` | `--colors N` writes GPL and HEX; `--apply` also writes a quantized image copy |
 | `seamless-check` | Writes edge score and tiled preview; does not repair seams |
-| `remove-bg` | `--mode chroma --color RRGGBB --tolerance N`. Model-based removal is deferred |
+| `remove-bg` | `--mode chroma --color RRGGBB --tolerance N`; `--softness N --despill` for green- or blue-screen video frames. Model-based removal is deferred |
 | `audio normalize` | `--lufs <target>`; inspect the result for the intended loudness and clipping |
 | `audio trim` | `--silence-threshold <dB>` |
 | `audio loop` | `--crossfade-ms <ms>`; crossfade changes duration, so audition the loop seam |

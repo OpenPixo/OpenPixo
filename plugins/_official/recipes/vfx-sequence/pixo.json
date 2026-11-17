@@ -7,7 +7,7 @@
     "en": "VFX flipbook",
     "zh-CN": "特效序列帧"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A skill or impact flipbook, generated on black then exported as transparent frames with engine animation metadata.",
   "description_i18n": {
@@ -76,24 +76,15 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "pixel art",
-            "hand-drawn anime",
-            "stylized painterly"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "pixel art": "像素风",
-              "hand-drawn anime": "手绘动画",
-              "stylized painterly": "风格化绘画"
-            }
-          },
-          "default": "hand-drawn anime"
+          "type": "string",
+          "placeholder": "e.g. hand-drawn anime",
+          "placeholder_i18n": {
+            "zh-CN": "例如：手绘动画风"
+          }
         },
         {
           "name": "name",
@@ -191,7 +182,6 @@
         "effect": "magic explosion burst",
         "palette": "purple and gold",
         "grid": "3x3",
-        "style": "hand-drawn anime",
         "name": "magic_burst"
       },
       "after": "examples/magic_burst-after.webp"

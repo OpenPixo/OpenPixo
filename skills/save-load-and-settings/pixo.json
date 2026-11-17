@@ -15,7 +15,7 @@
   },
   "license": "Apache-2.0",
   "author": { "name": "OpenPixo" },
-  "engines": ["godot", "unity", "phaser"],
+  "engines": ["godot", "unity", "phaser", "threejs", "web-generic"],
   "tags": ["game-development", "first-party", "openpixo", "godot", "unity", "phaser", "saves", "settings"],
   "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
   "pixo": { "kind": "skill", "mode": "utility", "category": "game-development" },

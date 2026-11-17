@@ -109,12 +109,14 @@ Fields assigned in `create()` can use definite assignment with an accurate type 
 - Tilemaps: `this.make.tilemap`, `addTilesetImage`, `createLayer`, `setCollisionByProperty({ collides: true })`, then a collider.
 - World and camera bounds are separate: `this.physics.world.setBounds` and `this.cameras.main.setBounds`.
 - Follow with `startFollow`; a HUD can use its own Scene or `setScrollFactor(0)`.
-- `Phaser.Scale.FIT` preserves logical dimensions; `RESIZE` needs resize-aware layout. Use `this.scale.width/height`.
+- The game is the whole window: the page holds only the canvas mount, and title, HUD, pause, settings and level select are Scenes in that canvas, not HTML around it.
+- Canvas 1280x720 or more. `Phaser.Scale.FIT` preserves logical dimensions; `RESIZE` needs resize-aware layout. Use `this.scale.width/height`.
 - Pixel art: zoom the world, keep the canvas large. Do not set `pixelArt: true` or `antialias: false` on the game: the browser then scales the whole canvas, text included, with hard edges, and text breaks apart at non-integer sizes and Windows display scaling. Filter the art textures instead, and keep HUD text on a camera at zoom 1.
 
 ```ts
 // Game config: canvas 1280x720, scale FIT, roundPixels: true (no pixelArt).
-// create(), after loading: nearest filtering on the art only, world zoom to the pixel resolution.
+// create(), after loading: nearest filtering on the art only, world zoom to the pixel resolution
+// from Game setup (320x180 below stands for it).
 for (const key of ['player', 'tiles']) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
 const zoom = Math.max(1, Math.floor(Math.min(this.scale.width / 320, this.scale.height / 180)));
 this.cameras.main.setZoom(zoom);

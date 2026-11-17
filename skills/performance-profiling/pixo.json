@@ -19,7 +19,9 @@
   "engines": [
     "godot",
     "unity",
-    "phaser"
+    "phaser",
+    "threejs",
+    "web-generic"
   ],
   "tags": [
     "game-development",

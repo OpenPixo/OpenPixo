@@ -71,8 +71,8 @@ Working UI can still fail to read as a game. A plain one looks like a debug over
 - **Icons and numbers, few words.** The player learns an icon in seconds; labels such as "Kills", "Level 1", "Not learned" or "Ready" are noise during play. Show locked or unavailable states as dim or empty slots, and ready states with a glow or pulse.
 - **Bars and sweeps.** Show health, XP and charge as bars, and ability cooldowns as a radial sweep on the icon. Show low health and danger at the value itself, with colour and motion.
 - **Palette and type from the art.** Take a dark base, a light text colour and one or two accents from the project's existing art, and reuse its fonts. Use the same palette on the HUD, pause, upgrade and result screens. Menus may use panels; the in-run HUD rarely needs them.
-- **Art makes a HUD look finished.** Shapes drawn in code (Phaser `Graphics`, Godot `StyleBoxFlat`, Unity sliced sprites) produce clean rectangles and outlines, which tend to look like web UI. Prefer existing art. When a convincing HUD needs a few pieces, such as a slot frame, bar end caps or a counter backing, list them with their cost and ask the user before generating them.
-- **Readable over the busiest frame.** Outline or shadow text over gameplay, keep at least 4.5:1 contrast against the background, and stay legible at the smallest target resolution.
+- **Art makes a HUD look finished.** Shapes drawn in code (Phaser `Graphics`, Godot `StyleBoxFlat`, Unity sliced sprites) produce clean rectangles and outlines, which tend to look like web UI. Prefer existing art. When a convincing HUD needs a few pieces, such as a slot frame, bar end caps or a counter backing, put them on the stage's art list the way the media section says (one `--sheet` for the set) instead of generating them unlisted.
+- **Readable over the busiest frame.** Outline or shadow text over gameplay, keep at least 4.5:1 contrast against the background, and stay legible at the smallest target resolution. At 1280x720, text is at least 16 px, body text 20 px, Chinese, Japanese and Korean 18 px, drawn at screen scale outside any world zoom.
 - **Transient help.** Show control hints at the start and fade them after a few seconds; keep them in the pause menu. Short-lived numbers and pickups vanish quickly. Tutorial text does not stay on screen.
 - **Truthful labels.** A timer, countdown or wave label says what the game actually does.
 - **Motion that stays still.** Bars drain with a trailing chunk and changed numbers pop briefly. The HUD never shakes or scrolls with the camera.
@@ -87,7 +87,7 @@ The title screen is the game's cover, and the rules above for a HUD over gamepla
 - **Menu items as text, not boxes.** Three to five items, shown as text. Mark the selection with a cursor, glow, scale or colour change, a short sound and a little motion. No bordered rectangle per item, no web-style arrows or chevrons. Panels belong to sub-screens such as settings and upgrades.
 - **Something moves.** Parallax layers, an idle animation on the key art, drifting particles, a slow camera pan or a logo intro. A static screen with static buttons reads as a page.
 - **Start from the genre.** Before drawing, write down how title screens of this genre are usually composed. Use the shared conventions, never a copy of one game. For example: an action or anime-style game puts characters at a dynamic angle with a large stylized logo; a cozy game puts a soft illustrated scene with a rounded logo; a pixel roguelike puts a pixel logo over an animated scene with a hard-edged menu.
-- **When the art is missing, offer it, do not fake it.** If the project has no logo or key art that can carry the screen, list the pieces it needs (logo, title background or key art, perhaps a menu frame) with what each costs and which tool would make it, and ask the user before generating them. Until the user decides, build the best version from existing art and a display font, and say plainly that the logo is a placeholder. Never present code-drawn boxes and system text as the finished look.
+- **When the art is missing, offer it, do not fake it.** If the project has no logo or key art that can carry the screen and the approved plan did not already list it, put the pieces it needs (logo, title background or key art, perhaps a menu frame) on the stage's art list the way the media section says; key art passes the style reference with `--image`. Until it exists, build the best version from existing art and a display font, and say plainly that the logo is a placeholder. Never present code-drawn boxes and system text as the finished look.
 - **Judge it as a cover.** Look at a full-size screenshot next to the composition you wrote down. If it could pass for a website's hero section, it is not done.
 
 ## By kind of game
@@ -96,7 +96,7 @@ The look rules above assume an action game with a HUD. Adjust them for these cas
 
 | Game or UI | What changes |
 | --- | --- |
-| Pixel art | Use a pixel font at whole-number sizes, scale the UI layer by whole numbers, and draw hard 1 px outlines. Avoid blurred shadows and smooth gradients. Take colours from the game's palette, following the pixel-art-consistency skill where it applies. |
+| Pixel art | Use the game's pixel font at whole-number multiples of its size, scale the UI layer by whole numbers, and keep outlines hard-edged like the art's. Avoid blurred shadows and smooth gradients. Take colours from the game's own art (or the user's palette, if they set one). |
 | Touch and mobile | Make tap targets at least 44 pt. Put frequent actions within thumb reach in the bottom corners, and keep a pause button always visible because there is no Escape key. Respect notches and safe areas, and never hide information behind hover. |
 | Dialogue, inventory, shop, quest log | Keep text panels at the bottom or a side, 45–75 characters per line, with generous line height. One press finishes typewriter text and the next advances. A grid shows its selected slot clearly, with a details panel beside it. Leave room for translations that run 30–40 % longer. |
 | Card, puzzle, visual novel, strategy | The UI is the play area, so "keep the centre clear" does not apply. Make the current decision the focal point, show cost and outcome before the player confirms, keep standing information in fixed side panels, and animate each state change so cause and effect can be followed. |
@@ -234,17 +234,18 @@ In a settings subpanel, `UI/Cancel` goes Back first, before closing the whole pa
 - Add `onClick` listeners once, in `Awake` or `Start`. Adding them in `OnEnable` without removing them fires the action twice after the second opening.
 - UI Toolkit equivalents: `rootVisualElement.Q<Button>("resume").Focus()`, `PanelSettings.scaleMode`, `NavigationCancelEvent` for Back, and `focusable` on custom controls.
 
-## Three.js and plain web games: an HTML layer over the canvas
+## Three.js and plain web games: UI drawn in the canvas
 
-There is no engine UI. Build the HUD and menus as HTML and CSS in one container layered over the canvas (`position: absolute; inset: 0`). It stays fixed in screen space whatever the camera does. If the project already has a UI layer or framework, extend that.
+There is no engine UI, and the game is the whole window: the HTML page holds only the canvas mount, so the HUD, title, pause and settings are drawn in that canvas, not as HTML or CSS around or over it. If the project already has an in-canvas UI layer, extend that.
 
-- Give the HUD container `pointer-events: none` and interactive panels `pointer-events: auto`, so clicks reach the game except on controls.
+- Three.js: keep a second scene with an `OrthographicCamera` in screen pixels and render it after the world (`renderer.autoClear = false`, then `renderer.clearDepth()` before the HUD pass). Draw text into a `CanvasTexture` on a plane or `Sprite`, or use the project's text library; redraw a label only when its value changes. Plain canvas: draw the world, then reset the transform (`ctx.setTransform(1, 0, 0, 1, 0, 0)` times the device pixel ratio) and draw the HUD in screen space.
+- Hit-test menu items yourself in screen coordinates; block gameplay input while a menu is open.
 - Pause through the existing loop owner: keep rendering but skip the simulation. Discard the time that passed while paused (for example, call `clock.getDelta()` once on resume) so physics does not jump. Also pause on `document.visibilitychange` when hidden.
 - With pointer lock, the browser exits the lock on Escape and keeps that key to itself. Open the pause menu on `pointerlockchange` when the lock is lost, and request the lock again from the Resume click, which counts as the required user gesture.
-- Use real `<button>` elements with a `:focus-visible` style. Focus the first item on open, move focus with arrow keys, and restore the previous focus on close.
-- The Gamepad API fires no button events. Poll `navigator.getGamepads()` each frame, act on press edges, and map D-pad and stick to focus moves and the A button to `click()`.
-- Scale from the canvas size, with CSS `clamp()` or a fixed logical root under `transform: scale()`. Respect `env(safe-area-inset-*)`. The canvas pixel ratio is a separate setting.
-- For labels in the world, such as enemy bars and names, use `CSS2DRenderer` from `three/addons/renderers/CSS2DRenderer.js` or `vector.project(camera)`. Hide a label once its projected `z` exceeds 1, because it is behind the camera.
+- Keep one selected index shared by pointer hover, arrow keys and gamepad, draw the selection visibly, and restore it when a subpanel closes.
+- The Gamepad API fires no button events. Poll `navigator.getGamepads()` each frame, act on press edges, and map D-pad and stick to selection moves and the A button to activate.
+- Lay the UI out from the canvas size on every resize, inset safe areas, and keep the canvas pixel ratio a separate setting.
+- For labels in the world, such as enemy bars and names, project the target with `vector.project(camera)` into the HUD scene's coordinates, and hide a label once its projected `z` exceeds 1, because it is behind the camera.
 
 ## Pitfalls: wrong → right
 

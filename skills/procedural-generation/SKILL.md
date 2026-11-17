@@ -16,12 +16,18 @@ triggers:
 license: Apache-2.0
 pixo:
   mode: utility
+  engines:
+    - godot
+    - unity
+    - phaser
+    - threejs
+    - web-generic
   category: game-development
 ---
 
 # Seeded procedural game generation
 
-Build or debug reproducible rooms, dungeons or terrain in Godot 4, Unity 6 or Phaser 3.
+Build or debug reproducible rooms, dungeons or terrain in Godot 4, Unity 6, Phaser 3 or another web game.
 Project conventions, installed versions, architecture and explicit user choices take precedence.
 Reuse the current generator and traversal rules; a seed bug does not require replacing the algorithm or creating a new game.
 
@@ -110,7 +116,7 @@ Check bounds, distinct nonblocking placements and clearance using the player's r
 Render accepted cells through the project's TileMap or TileMapLayer; TileMapLayer requires Godot 4.3+.
 Keep atlas IDs in the renderer, not the generator.
 
-## Phaser 3 and noise anchors
+## Phaser 3, web and noise anchors
 
 ```ts
 const layoutRng = new Phaser.Math.RandomDataGenerator([String(seed)]);
@@ -119,6 +125,19 @@ const roomWidth = layoutRng.integerInRange(5, 9);
 ```
 
 Keep plain grid or graph data and the same reachability checks outside Scene creation.
+Three.js and plain canvas have no seeded RNG, and `Math.random()` cannot be seeded. Reuse the project's generator, or own one per stream, and port the Godot rooms and flood fill above to plain TypeScript:
+
+```ts
+function mulberry32(seed: number): () => number { // [0, 1); reproducible, not secure
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+```
 Phaser does not imply a built-in terrain-noise library; reuse the installed, pinned implementation.
 Godot's `FastNoiseLite` uses explicit `seed`, `frequency` and noise type; sample world coordinates across chunks.
 Thresholds change density, not solvability. Repair or reject disconnected components before placing gameplay entities.
