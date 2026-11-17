@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -119,6 +119,50 @@ describe('project checkpoints in real git repositories', () => {
     const shown = await new ProjectCheckpoints(folder).show(first.id);
     expect(shown.checkpoint.runChanges).toEqual([{ path: 'game.txt', status: 'modified' }]);
     expect(shown.currentChanges.map(change => change.path)).toEqual(['game.txt', 'later.txt']);
+  });
+
+  it('leaves OpenPixo atomic-write temporaries out of snapshots, so a write in flight cannot fail one', async () => {
+    // `publishFiles` writes `<file>.pixo-<uuid>.tmp<ext>` and renames it. When the rename lands while
+    // `git add -A` is scanning, Git fails the whole snapshot ("unable to index file"). Seen on
+    // 2026-11-14 while an agent ran `pixo asset frames check` during a run.
+    const folder = await fixture();
+    const checkpoints = new ProjectCheckpoints(folder);
+    const checkpoint = (await checkpoints.snapshot(input))!;
+    const temporary = 'derived/report.json.pixo-6c1706c4-69ee-49d4-9d04-58d764ef72db.tmp.json';
+    await mkdir(path.join(folder, 'derived'));
+    await writeFile(path.join(folder, temporary), '{"partial":');
+    await writeFile(path.join(folder, 'derived', 'report.json'), '{}\n');
+    const shown = await checkpoints.show(checkpoint.id);
+    expect(shown.currentChanges.map(change => change.path)).toEqual(['derived/report.json']);
+    const finished = await checkpoints.finish(checkpoint.id);
+    expect(finished.runChanges).toEqual([{ path: 'derived/report.json', status: 'added' }]);
+    expect(git(folder, 'ls-tree', '-r', '--name-only', `refs/openpixo/checkpoint-results/${checkpoint.id}`)).not.toContain(temporary);
+  });
+
+  it('retries a snapshot when a file changes while Git reads it', async () => {
+    // Seen 2026-11-14 while Codex edited src/main.ts mid-run: "short read while indexing src/main.ts",
+    // "failed to insert into database", "adding files failed". The next read sees a whole file.
+    const folder = await fixture();
+    const checkpoints = new ProjectCheckpoints(folder);
+    const checkpoint = (await checkpoints.snapshot(input))!;
+    await writeFile(path.join(folder, 'game.txt'), 'agent edit\n');
+    const proto = ProjectCheckpoints.prototype as unknown as { git: (...args: unknown[]) => Promise<string> };
+    const original = proto.git;
+    let failures = 0;
+    const spy = vi.spyOn(proto, 'git').mockImplementation(async function (this: unknown, ...args: unknown[]) {
+      if (failures === 0 && (args[0] as string[])[0] === 'add') {
+        failures++;
+        throw Object.assign(new Error('Command failed: git add -A'), {
+          stderr: 'error: short read while indexing game.txt\nerror: game.txt: failed to insert into database\nerror: unable to index file \'game.txt\'\nfatal: adding files failed\n',
+        });
+      }
+      return original.apply(this, args);
+    });
+    try {
+      const shown = await checkpoints.show(checkpoint.id);
+      expect(failures).toBe(1);
+      expect(shown.currentChanges).toEqual([{ path: 'game.txt', status: 'modified' }]);
+    } finally { spy.mockRestore(); }
   });
 
   it('prunes old refs and retains the most recent 50 checkpoints', async () => {

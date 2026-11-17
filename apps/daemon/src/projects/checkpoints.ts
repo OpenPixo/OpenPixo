@@ -42,6 +42,22 @@ const activeRuns = new Map<string, number>();
  */
 const RESERVED_PATH_EXCLUSIONS = [...RESERVED_PROJECT_FILE_SEGMENTS].flatMap(name => [`:(exclude,glob)**/${name}`, `:(exclude,glob)**/${name}/**`]);
 
+/**
+ * OpenPixo's atomic writes (`publishFiles` in assets/ops/files.ts) stage `<file>.pixo-<uuid>.tmp<ext>`
+ * and rename it into place. Such a file is never the user's, and it can vanish while `git add -A`
+ * scans the folder, which fails the whole snapshot. An agent's run writes them all the time.
+ */
+const IN_FLIGHT_WRITE_EXCLUSIONS = [':(exclude,glob)**/*.pixo-*.tmp*'];
+
+const WORKING_TREE_READ_ATTEMPTS = 3;
+
+/** Git's own words when a file was rewritten, truncated or removed between its scan and its read. */
+function fileChangedWhileRead(error: unknown): boolean {
+  const stderr = (error as { stderr?: unknown } | null)?.stderr;
+  return typeof stderr === 'string'
+    && /short read while indexing|failed to insert into database|unable to index file|No such file or directory/u.test(stderr);
+}
+
 /** Drops reserved paths from `ls-files --stage -z` or `ls-tree -r -z` output. */
 function withoutReservedEntries(listing: string): string {
   return listing.split('\0').filter(entry => entry && !isReservedProjectFilePath(entry.slice(entry.indexOf('\t') + 1))).map(entry => `${entry}\0`).join('');
@@ -255,7 +271,17 @@ export class ProjectCheckpoints {
     // assume-unchanged and skip-worktree bits. Tracked ignored files stay tracked.
     const tracked = withoutReservedEntries(await this.git(['ls-files', '--stage', '-z']));
     await this.git(['update-index', '-z', '--index-info'], index, tracked);
-    await this.git(['add', '-A', '--', '.', ...RESERVED_PATH_EXCLUSIONS], index);
+    // A run keeps writing while the Changes view asks for its state, so a file can be cut short or
+    // vanish while Git reads it. That is the moment, not the project: read the folder again.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.git(['add', '-A', '--', '.', ...RESERVED_PATH_EXCLUSIONS, ...IN_FLIGHT_WRITE_EXCLUSIONS], index);
+        break;
+      } catch (error) {
+        if (attempt >= WORKING_TREE_READ_ATTEMPTS || !fileChangedWhileRead(error)) throw error;
+        await new Promise(resolve => setTimeout(resolve, 150 * attempt));
+      }
+    }
     const tree = (await this.git(['write-tree'], index)).trim();
     if ((await this.git(['ls-tree', '-r', tree])).split('\n').some(entry => entry.startsWith('160000 '))) {
       throw new CheckpointError('CHECKPOINT_UNAVAILABLE', 'unsupported_repository');

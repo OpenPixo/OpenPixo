@@ -2204,7 +2204,7 @@ export const zhCN: Dict = {
   "chat.projectSkillHint": "这个技能会随这个项目的每条消息一起发送。移除后只在你用 @ 选它时才发送。",
   "chat.projectSkillRemove": "不再每条都带",
   "chat.example1Prompt":
-    "让这个游戏里的角色操作更跟手：加上加速度和摩擦、可变高度跳跃、土狼时间和跳跃缓冲，再加平滑的镜头跟随。沿用项目现有的引擎和写法，把可调参数集中放在一处，最后告诉我怎么试玩。",
+    "让这个游戏里的角色操作更跟手：按这个游戏的玩法调好起步和停下的手感，在合适的地方加输入缓冲，再加平滑的镜头跟随。沿用项目现有的引擎和写法，把可调参数集中放在一处，最后告诉我怎么试玩。",
   "chat.example2Prompt":
     "检查这个游戏项目和错误日志，复现报告的问题，修复根因并验证修复结果。说明改了什么，以及我该如何检查。",
   "chat.example3Prompt":
@@ -3312,6 +3312,7 @@ export const zhCN: Dict = {
   'settings.codexImageRateLimited': "Codex 图片请求过于频繁，请稍后重试。",
   'settings.codexImageQuota': "Codex 套餐的图片额度已用完，请等待额度恢复或选择其他提供商。",
   'settings.codexImageNoOutput': "Codex 未返回图片，请调整提示词或选择其他提供商。",
+  'settings.codexImageContentBlocked': "图片没通过内容审核 —— 换个说法再试。",
   'settings.codexImageTimeout': "Codex 图片生成超时，请重试或选择其他提供商。",
   'settings.codexImageCancelled': "已取消 Codex 图片生成。",
   'settings.codexImageFailed': "Codex 图片生成失败，请检查本地 CLI 或选择其他提供商。",

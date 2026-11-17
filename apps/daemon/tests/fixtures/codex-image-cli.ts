@@ -36,6 +36,12 @@ if (mode === 'hang') {
     : 'Rate limit reached: too many requests (429).';
   process.stdout.write(JSON.stringify({ type: 'turn.failed', error: { message } }) + '\n');
   process.exitCode = 1;
+} else if (mode === 'safety') {
+  // Recorded 2026-11-14 (Codex CLI, ChatGPT Plus): image_gen got `moderation_blocked` at the output
+  // stage, the thread exits 0 with no image and says so in its last agent message.
+  process.stdout.write(JSON.stringify({ type: 'item.completed', item: { id: 'item_1', type: 'agent_message',
+    text: 'Image generation was blocked by the safety system. No image was created.' } }) + '\n');
+  process.stdout.write(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }) + '\n');
 } else {
   const count = Number(/exactly (\d+) image/.exec(input)?.[1] ?? '1');
   if (mode !== 'none') {
