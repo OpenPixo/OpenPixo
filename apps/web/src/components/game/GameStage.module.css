@@ -65,3 +65,10 @@
 .title { margin: 0; color: var(--text-strong); font: var(--shell-meta-font); font-weight: 600; }
 .body { max-width: 320px; margin: 0; color: var(--text-muted); font-size: 13px; line-height: 18px; }
 .run { gap: 6px; margin-top: 6px; }
+
+/* The empty stage while the game installs or starts. */
+.spinner { animation: game-stage-spin 1s linear infinite; }
+@keyframes game-stage-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}

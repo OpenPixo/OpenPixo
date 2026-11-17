@@ -1,6 +1,6 @@
 import { Button } from '@openpixo/components';
 import type { GameEngineId } from '@openpixo/contracts';
-import { Play } from 'lucide-react';
+import { LoaderCircle, Play } from 'lucide-react';
 
 import { useT } from '../../i18n';
 import { Icon } from '../Icon';
@@ -37,8 +37,13 @@ export function gameStageContent({ running, liveUrl, shot, engine }: {
  * game. A canvas engine's page never scrolls, whatever the project's own CSS
  * does; a page-based web game may need to.
  */
-export function GameStage({ content, onRun, runDisabled, reloadKey = 0 }: {
+export function GameStage({ content, onRun, runDisabled, reloadKey = 0, startingLabel }: {
   content: GameStageContent;
+  /**
+   * Set while the game is installing or starting. The empty stage then says so
+   * instead of 「还没有运行」 and a second Run button next to the toolbar's Stop.
+   */
+  startingLabel?: string | undefined;
   /** Absent when this project cannot run here (no Run button then). */
   onRun?: () => void;
   runDisabled?: boolean;
@@ -58,7 +63,11 @@ export function GameStage({ content, onRun, runDisabled, reloadKey = 0 }: {
       <p className={styles.title}>{t('panel.game.nativeWindow')}</p>
       <p className={styles.body}>{t(content.shot ? 'panel.game.nativeWindowShot' : 'panel.game.nativeWindowNoShot')}</p>
     </div> : null}
-    {content.kind === 'empty' ? <div className={styles.empty}>
+    {content.kind === 'empty' && startingLabel ? <div className={styles.empty} data-starting="true">
+      <LoaderCircle size={20} aria-hidden="true" className={`${styles.icon} ${styles.spinner}`} />
+      <p className={styles.title}>{startingLabel}</p>
+    </div> : null}
+    {content.kind === 'empty' && !startingLabel ? <div className={styles.empty}>
       <Icon name="play" size={20} className={styles.icon} />
       <p className={styles.title}>{t('panel.game.emptyTitle')}</p>
       {onRun ? <Button size="sm" variant="primary" className={styles.run} disabled={runDisabled} onClick={onRun}>
