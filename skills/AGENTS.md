@@ -36,6 +36,24 @@ GPU artifact, it belongs under `../design-templates/` instead. See
 3. The daemon's lazy scanner picks the entry up on the next
    `/api/skills` request — no rebuild required during local dev.
 
+## Sub-skills for focused design jobs
+
+A focused job inside a broad skill (health bars inside `game-ui-hud`, boss
+intros inside `enemy-ai-state-machines`) is a sub-skill, not a new top-level
+skill: every top-level skill costs an index line on every model request.
+
+- Write it as `skills/<parent>/references/<topic>.md` with only `en_name` and
+  `zh_name` frontmatter, and link it from a row of the parent's
+  "Focused design jobs" table.
+- It decides layout, timing and readability, never the look: the game's style
+  reference, the confirmed plan and the parent's look rules do. It says what the
+  agent decides itself and what it must ask first.
+- Add a parent trigger only when the job's name would not otherwise lead an
+  agent to the parent; triggers enter the prompt index.
+- Shape, rationale and next steps: `specs/current/secondary-skills.md`.
+  `apps/daemon/tests/game/skill-references.test.ts` fails on a broken or
+  unlinked reference.
+
 ## Resource scope
 
 - Keep game-engine workflows, asset generation and processing, media

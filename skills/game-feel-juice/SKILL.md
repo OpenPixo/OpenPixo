@@ -14,6 +14,8 @@ triggers:
   - 游戏手感
   - 打击感
   - 游戏震屏
+  - pickup feedback
+  - 拾取反馈
 license: Apache-2.0
 pixo:
   mode: utility
@@ -37,6 +39,14 @@ Preserve the user's intended style and the project's engine and version, camera,
 5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser, then play the action at normal speed.
 
 Add `--project <id>` when `PIXO_PROJECT_ID` is absent. Inspect exposed values with `pixo game tuning list --json` only when source tuning helps the task.
+
+## Focused design jobs
+
+When the task is one of these, also read the file named here before building. It adds the method for that job; the game's style reference and the confirmed plan still decide the sprites, particles and colours.
+
+| Job | Read |
+| --- | --- |
+| Pickups, counters, level-ups, chests and other reward moments | [references/reward-moments.md](references/reward-moments.md) |
 
 ## Choose the layer
 

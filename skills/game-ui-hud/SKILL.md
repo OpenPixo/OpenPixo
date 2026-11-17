@@ -19,6 +19,18 @@ triggers:
   - 标题画面
   - 开始界面
   - 主菜单
+  - health bar
+  - minimap
+  - damage numbers
+  - inventory grid
+  - dialogue box
+  - tutorial prompt
+  - 血条
+  - 小地图
+  - 伤害数字
+  - 背包格子
+  - 对话框
+  - 新手引导提示
 license: Apache-2.0
 pixo:
   mode: utility
@@ -47,6 +59,20 @@ Preserve the user's requested UI, project visual and input conventions, engine a
 5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity, `--steps build` for Phaser, or `pixo game verify --json` for Three.js and plain web games. Then test relevant devices, resize and restart.
 
 Add `--project <id>` when `PIXO_PROJECT_ID` is absent. `pixo game run <projectId> --json` starts supported gameplay for interaction checks; on Unity, test in the Editor or a player build.
+
+## Focused design jobs
+
+When the task is one of these, also read the file named here before building. It adds the method for that job; this file's look rules, the game's style reference and the confirmed plan still decide the look.
+
+| Job | Read |
+| --- | --- |
+| Health, shield or boss bars, hearts, low-health warning | [references/health-bars.md](references/health-bars.md) |
+| Minimap, full world map, objective markers | [references/minimap-world-map.md](references/minimap-world-map.md) |
+| Floating damage or heal numbers | [references/damage-numbers.md](references/damage-numbers.md) |
+| Inventory grid, hotbar, item details | [references/inventory-grids.md](references/inventory-grids.md) |
+| Dialogue box, speech bubbles, choices | [references/dialogue-boxes.md](references/dialogue-boxes.md) |
+| Building a title or start screen | [references/title-screens.md](references/title-screens.md) |
+| Control prompts and tutorial hints | [references/tutorial-prompts.md](references/tutorial-prompts.md) |
 
 ## Choose the boundary
 

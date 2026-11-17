@@ -15,6 +15,8 @@ triggers:
   - 核心循环
   - 游戏范围取舍
   - 范围蔓延
+  - first minute of play
+  - 开局第一分钟
 license: Apache-2.0
 pixo:
   mode: utility
@@ -36,6 +38,14 @@ A new game is planned in chat, step by step with the user (gameplay, art, engine
 5. Save to the project's existing design path, or `docs/GDD.md` if none exists; reread the saved text against one success and one failure path.
 
 If baseline behavior needs inspection, `pixo game run <projectId> --json` starts supported gameplay. A document-only task does not require a build or asset generation.
+
+## Focused design jobs
+
+When the task is one of these, also read the file named here. It adds the method for that job and never decides the game's look.
+
+| Job | Read |
+| --- | --- |
+| Writing or checking the "one minute of play", onboarding, the opening of a game | [references/first-minute.md](references/first-minute.md) |
 
 ## Decide how much design is needed
 
