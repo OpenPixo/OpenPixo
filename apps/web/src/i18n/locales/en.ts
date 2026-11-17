@@ -3667,7 +3667,7 @@ export const en: Dict = {
   'game.wizard.edit': 'Edit',
   'game.wizard.kickoff': 'Start planning with the agent right away',
   'game.wizard.kickoffHint': 'The agent talks through what these settings leave open, then writes a short plan. It builds only after you approve.',
-  'game.wizard.kickoffPrompt': 'Let\'s plan {title}, a {genre} game. The settings I just filled in are what I\'ve decided so far. Ask me about the rest one step at a time.',
+  'game.wizard.kickoffPrompt': 'Let\'s plan {title}, my {genre} game. The settings I just filled in are what I\'ve decided so far. Ask me about the rest one step at a time.',
   'game.wizard.title': 'Game title',
   'game.wizard.titlePlaceholder': 'A working title is fine',
   'game.wizard.studio': 'Studio or developer',
