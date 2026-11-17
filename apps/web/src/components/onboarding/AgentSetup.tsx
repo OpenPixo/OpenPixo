@@ -475,7 +475,8 @@ export function AgentSetup({
   const agentModelOptions =
     selectedAgent?.models?.map((model) => ({
       value: model.id,
-      label: model.label ?? model.id,
+      // The daemon's `default` row carries an English label; say it in the user's language.
+      label: model.id === 'default' ? t('settings.modelUsesCliDefault') : model.label ?? model.id,
     })) ?? [];
   const fetchedProviderModels =
     activeProviderModelsCache[providerModelsInputKey] ?? [];
