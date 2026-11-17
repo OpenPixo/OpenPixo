@@ -4,6 +4,7 @@ import {
   type OpenPixoAgentModel, type OpenPixoAgentPrices, type OpenPixoAgentReasoningEffort,
 } from '@openpixo/contracts';
 import { AGENT_RESPONSE_TIMEOUT_MS, OPENPIXO_AGENT_MODEL_ID } from '../account/agent-gateway.js';
+import { openCodeBuildAgentConfig } from '../runtimes/opencode-build-agent.js';
 import type { RuntimeModelOption } from '../runtimes/types.js';
 import { OPENPIXO_AGENT_PROXY_BASE, OPENPIXO_AGENT_TOKEN_ENV } from './gateway.js';
 
@@ -164,7 +165,8 @@ export function buildOpenPixoAgentOpenCodeConfig(daemonUrl: string, model: strin
   return {
     // OpenCode names each session with an extra call on the chosen model. OpenPixo never shows
     // that name, and on a dear model it cost about a quarter of a short turn (measured on Sol).
-    agent: { title: { disable: true } },
+    // `build` is the agent `opencode run` uses: progress in the chat and a step limit.
+    agent: { title: { disable: true }, build: openCodeBuildAgentConfig(id) },
     provider: {
       [OPENPIXO_AGENT_OPENCODE_PROVIDER_ID]: {
         name: 'OpenPixo',

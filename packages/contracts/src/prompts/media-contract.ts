@@ -62,6 +62,13 @@ only the assets the task needs, one call per asset or per set of small assets
 ("Small art in one image" below), and do not regenerate an asset without a
 reason.
 
+When the user asks you to make or remake an asset (a walk, a sprite, a
+background, a sound), the generation is the work. Find only what it needs: the
+character card or design, the asset it replaces, and where the game loads that
+asset. Start the recipe or generation, then read the rest of the game only to
+connect the result. Do not survey the project first: earlier attempts, old
+pipeline notes and scripts, logs and derived files are not inputs to a remake.
+
 Choose the final size for how the asset is used. \`--width\`/\`--height\` (or
 \`--size WxH\`) set the exact size of the written PNG; the long edge is capped at
 ${IMAGE_OUTPUT_MAX_EDGE} px and the host resizes the provider's render, so never ask

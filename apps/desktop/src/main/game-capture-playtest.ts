@@ -140,9 +140,12 @@ export async function captureGamePlaytest(contents: WebContents, request: Parsed
     })();
     // Attach a handler immediately so an asynchronous screenshot failure is never an unhandled rejection.
     const periodicFailure = periodic.then(() => new Promise<never>(() => {}));
+    // A parsed script fits its duration: its waits, holds and drags add up to no more. Taking frames
+    // and sending input take host time on top, so a script can reach its end a moment late. Waits are
+    // cut to the time left and every step still runs; the outer capture timeout bounds the whole run.
+    // Throwing here once discarded a whole 50-second playtest that overran by under a second.
     const replay = async () => {
       for (const step of request.script) {
-        if (Date.now() - started > request.durationMs) throw new Error('Input script exceeded the playtest duration');
         if ('wait' in step) await delay(Math.min(step.wait, Math.max(0, request.durationMs - (Date.now() - started))));
         else if ('key' in step) {
           if ('down' in step) await key(step.key, step.down);

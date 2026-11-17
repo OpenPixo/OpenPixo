@@ -26,7 +26,24 @@ export const OPENCODE_PERMISSION_CAPABILITY = {
  *
  * The permission, not `OPENCODE_DISABLE_EXTERNAL_SKILLS`, because that flag still
  * leaves OpenCode's global skills folder. Someone's own OpenCode CLI keeps theirs.
+ *
+ * The bundled runtimes also turn off OpenCode's file snapshots. OpenCode records the
+ * whole working tree in a private git repository before and after every model step
+ * (`git add` + `write-tree`), only so that its own undo and revert can restore files.
+ * OpenPixo never calls either, and it finds a turn's changed files itself. In a game
+ * folder with art in it each snapshot took about 1.2 s on Windows, two per step: 2.5 s
+ * of a 4 to 5 s step with DeepSeek Flash, a minute or two of every request (owner
+ * report, 2026-11-16).
+ *
+ * And they cap what one tool call puts into the conversation (`tool_output`). OpenCode's
+ * own cap is 2,000 lines or 50 KB, about 15k tokens, and whatever goes in is sent again
+ * with every later request. A walk-animation turn on Flash listed whole folders, printed
+ * a 47 KB manifest and a 51 KB `git status`, grew from 26k to 197k tokens in three minutes
+ * and spent 29 credits without generating anything (owner report, 2026-11-16). Past the
+ * cap OpenCode keeps the full output in a file and tells the agent its path to search.
  */
+export const OPENCODE_TOOL_OUTPUT_LIMITS = { max_lines: 400, max_bytes: 16 * 1024 } as const;
+
 export function openCodeRunExtraConfig(
   agentId: string,
   providerConfig: Record<string, unknown> | null | undefined,
@@ -35,7 +52,7 @@ export function openCodeRunExtraConfig(
   projectInstructions: readonly string[] = [],
 ): Record<string, unknown> | null {
   let config = usesBundledOpenCode(agentId)
-    ? withOpenCodeSkillsDenied(providerConfig ?? {})
+    ? { ...withOpenCodeSkillsDenied(providerConfig ?? {}), snapshot: false, tool_output: { ...OPENCODE_TOOL_OUTPUT_LIMITS } }
     : providerConfig ?? null;
   if (projectInstructions.length > 0) config = withOpenCodeInstructions(config ?? {}, projectInstructions);
   return readOnlyTurn ? readOnlyTurnOpenCodeConfig(config ?? {}) : config;

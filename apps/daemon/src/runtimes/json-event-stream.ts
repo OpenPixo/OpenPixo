@@ -18,6 +18,8 @@ type ParserState = {
    */
   openCodeHeldText: string[];
   openCodeHeldTextTimer: ReturnType<typeof setTimeout> | null;
+  /** The last text part already sent, so the next one can start a new paragraph. */
+  openCodeTextTail: string | null;
   /** The last two steps' context sizes: by the compaction mark, the later one is the summary's. */
   openCodeLastUsedTokens: number | null;
   openCodeEarlierUsedTokens: number | null;
@@ -225,7 +227,21 @@ function releaseOpenCodeHeldText(onEvent: StreamEventHandler, state: ParserState
   state.openCodeHeldTextTimer = null;
   const held = state.openCodeHeldText;
   state.openCodeHeldText = [];
-  for (const delta of held) onEvent({ type: 'text_delta', delta });
+  for (const part of held) {
+    onEvent({ type: 'text_delta', delta: `${openCodeTextPartBreak(state.openCodeTextTail, part)}${part}` });
+    state.openCodeTextTail = part;
+  }
+}
+
+/**
+ * Each OpenCode text part is a separate thing the agent said, usually a progress line
+ * between tool calls. The reply joins them, so without a paragraph break between two
+ * parts the lines run together into one block (seen on a Flash run, 2026-11-16).
+ */
+function openCodeTextPartBreak(previous: string | null, next: string): string {
+  if (previous === null || next.startsWith('\n')) return '';
+  if (previous.endsWith('\n\n')) return '';
+  return previous.endsWith('\n') ? '\n' : '\n\n';
 }
 
 /** The context a step left behind, by the sum OpenCode itself compares to its limit. */
@@ -1038,6 +1054,7 @@ function createParserState(): ParserState {
   return {
     openCodeHeldText: [],
     openCodeHeldTextTimer: null,
+    openCodeTextTail: null,
     openCodeLastUsedTokens: null,
     openCodeEarlierUsedTokens: null,
     openCodeToolEvents: new OpenCodeToolEvents(),

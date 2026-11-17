@@ -146,7 +146,7 @@ function renderGameBaseRules(input: GameProjectPromptInput): string[] {
   const planning = input.gamePlan?.status === 'planning';
   const parts = [
     '# OpenPixo game development workbench',
-    'Help the user develop their real game project with the coding tools and enabled skills/MCP available in this run. Read the project instructions, engine configuration, and relevant existing code before editing. Reuse its tools, dependencies, patterns, and assets; make the smallest complete change that fulfills the request.',
+    'Help the user develop their real game project with the coding tools and enabled skills/MCP available in this run. Read the project instructions, engine configuration, and relevant existing code before editing. Reuse its tools, dependencies, patterns, and assets; make the smallest complete change that fulfills the request. Change only what the request is about: do not add features, effects, shortcuts, screens or text nobody asked for, and do not rework other parts of the game. Offer such ideas in your reply instead.',
     `The selected project folder is ${input.baseDir ? JSON.stringify(input.baseDir) : "the runtime working directory"}. This folder is the source of truth. Work directly in it; do not create a separate HTML mockup, copy the project elsewhere, or replace its engine unless the user asks.`,
     planning
       ? 'This is a new game: plan it with the user first, as "New game plan" below describes. For a question on any turn, emit an inline <question-form> with a JSON body as specified below; the host returns the answer as the next user message. Do not invent an AskUserQuestion tool or wait for stdin answers.'
@@ -177,7 +177,7 @@ function renderGameBaseRules(input: GameProjectPromptInput): string[] {
 export function renderProjectNotesRule(canWrite: boolean): string {
   const read = 'Project notes: `AGENTS.md` in the project folder holds short notes for whoever works on this game next. When it exists, its text is usually already in your instructions; if it is not, read the file before exploring. Trust it, check only what the task touches, and do not list or search the whole project to rediscover what it says.';
   if (!canWrite) return read;
-  return `${read} When a turn taught you something lasting about the project, update the notes as the last step of the turn, never in the middle: which files hold the main scenes, the player, animations and asset manifests; how assets are made and loaded; how to check, run and playtest the game, including playtest inputs that get past menus into play; and traps you hit. Keep the file under about 60 lines, replace what is out of date instead of appending a log of this turn, keep anything the user wrote there, and leave it unchanged when nothing lasting changed.`;
+  return `${read} When a turn taught you something lasting about the project, update the notes as the last step of the turn, never in the middle: which files hold the main scenes, the player, animations and asset manifests; how assets are made and loaded; how to check, run and playtest the game, including playtest inputs that get past menus into play; and traps you hit. The notes describe the game and how to work on it; they are not a checklist every later turn must run, a record of this turn's evidence or screenshots, or a history of changes. Keep the file under about 60 lines, replace what is out of date instead of appending a log of this turn, keep anything the user wrote there, and leave it unchanged when nothing lasting changed.`;
 }
 
 function renderEngineCommand(command: EngineCommand): string {
@@ -289,13 +289,16 @@ After changing code, scenes, or assets, verify through the host:
 
 PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN game verify ...\`. Use \`--steps check\` for a quick pass while iterating, and the full form with \`--screenshot\` once the change is visible on screen (sprites, UI, layout, camera, effects).
 
+A check takes seconds. A run with a screenshot, and every playtest, starts the game from scratch and takes 30 to 60 seconds that the user sits waiting, so plan for one per change.
+
 - Read the JSON: \`status\` is \`passed\`, \`failed\`, or \`unavailable\`; each step has \`exitCode\` and \`timedOut\`; \`missingTools\` names engine tools the host could not find.
 - \`failed\`: read the failing step's log, fix the cause, and run it again. Do not re-run unchanged code hoping for a different result.
 - \`unavailable\`, or the command cannot run (missing tool, sandbox refusal, no display): say which step did not run and why. You may run the project's own scripts instead, but report them by name, not as verification.
 - Never say the game builds, runs, or is verified unless a step in this run exited 0 for it.
 - If you can view images, open every \`screenshots[].path\` from the JSON and check the change is actually on screen and nothing else broke (missing textures, error overlays, a blank canvas). If you cannot view images, say the screenshot was not inspected and judge only by exit codes.
+- Size the checking to the request. A small change (one screen, one value, one bug) gets one full verify, one look at its screenshot, a fix for whatever looks wrong, and then your reply. Do not hunt for more to polish: put further ideas in the reply and let the user choose. Test the part you changed (for a menu, open the menu and use it), not the rest of the game unless your change can affect it. Give a one-off playtest script on stdin (\`--script -\`) instead of saving it, and do not copy screenshots into the project unless the user asks. A build stage still ends with the playtest below.
 
-For gameplay, input, animation, physics, camera or interaction changes, choose a matching preset or write a short JSON input script that exercises the change (not just startup), then use the playtest commands above. The script is an array, for example:
+For gameplay, input, animation, physics, camera or interaction changes, choose a matching preset or write a short JSON input script that exercises the change (not just startup), then use the playtest commands above. A playtest confirms a change; it is not how you find out what the code does. Read the code to diagnose and to answer questions about speeds, timings, distances or spawns, and do not playtest before you have changed anything unless only running the game can tell. Keep \`--duration\` as short as the script needs. The script is an array, for example:
 
 \`[{"wait":500},{"key":"ArrowRight","down":true},{"wait":500},{"key":"ArrowRight","down":false},{"key":"Space","press":true,"holdMs":120},{"capture":"after-jump"},{"click":[200,200]}]\`
 
@@ -308,7 +311,7 @@ For gameplay, input, animation, physics, camera or interaction changes, choose a
 
 ### What "playable" means
 
-A stage, a fix or a game is playable only when a playtest in this run drove its core loop with real input and the game answered. For the loop this stage has, that means: the player moves or acts under the keys, mouse or touch the game uses; the goal can be reached (a win, a score, a cleared level, a finished round); and the way to lose happens (health reaches zero, time runs out, an enemy gets through). Startup, a menu, a title screen or a still screenshot is not playable.
+A stage or a game is playable only when a playtest in this run drove its core loop with real input and the game answered. A fix or a change to one part needs only the playtest of the part it changed, not this whole loop. For the loop this stage has, that means: the player moves or acts under the keys, mouse or touch the game uses; the goal can be reached (a win, a score, a cleared level, a finished round); and the way to lose happens (health reaches zero, time runs out, an enemy gets through). Startup, a menu, a title screen or a still screenshot is not playable.
 
 - End every build stage with that playtest: script inputs that move, win and lose. A quick setup is fine for reaching the end (start next to the goal, one enemy with one hit point) when it goes through the game's own code; remove it afterwards.
 - Read the frames and errors, fix what fails, and run it again.
@@ -770,6 +773,7 @@ PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN look <path> --question "..."\`.
 - Use it for every image you need to judge: verification screenshots (\`screenshots[].path\`), the playtest overview (\`playtest.overview.path\`) and frames, generated art and recipe candidates, style samples, and the user's reference images. The path is a project file or a path the host returned. It prints a text answer; only that text joins this conversation.
 - Ask one specific question per look, naming what to check, never "describe this". For example: "Is the player sprite standing on the floor tiles, and is any HUD text cut off at the right edge?" or "How many coins are visible, and is the score number readable?"
 - A look costs a fraction of a credit. When an answer leaves a detail open, look again with a narrower question, or at a single frame, rather than guessing.
+- Look to decide something you need: whether the change shows and nothing broke, or which candidate to keep. Do not look again to find more things to improve.
 - Wherever these instructions say "if you can view images", or tell you to open, view or inspect an image, \`look\` is how you do it, and it counts: you can view images. Opening each image only once does not apply to looks.
 - Report what the look answered, not what you expected to see. If a look fails, say the image was not inspected.`;
 }

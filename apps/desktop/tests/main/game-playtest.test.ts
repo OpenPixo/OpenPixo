@@ -72,3 +72,25 @@ it('drives mouse move, hold and smooth drag gestures with the left button state,
   // The script ended with the button held; teardown must release it at the last pointer position.
   expect(mouse.at(-1)).toMatchObject({ type: 'mouseReleased', x: 7, y: 8 });
 });
+it('finishes a script that fits its duration even when taking frames makes it run a little over', async () => {
+  // A 30-second script ran 51 s and then threw everything away because its captures pushed it
+  // past the duration by a moment (2026-11-16). Waits that fit on paper must not fail the playtest.
+  vi.useFakeTimers();
+  const debuggerApi = { attach: vi.fn(), detach: vi.fn(), isAttached: () => true, removeListener: vi.fn(), on: vi.fn(),
+    sendCommand: vi.fn(async () => ({})) };
+  const contents = { debugger: debuggerApi, setFrameRate: vi.fn(), setWindowOpenHandler: vi.fn(), on: vi.fn(),
+    session: { webRequest: { onBeforeRequest: vi.fn() }, setPermissionRequestHandler: vi.fn() },
+    executeJavaScript: vi.fn(async (script: string) => script.includes('.active = false') ? [0, 16, 32] : undefined),
+    // A detailed frame takes a while to encode.
+    capturePage: vi.fn(() => new Promise(resolve => setTimeout(() => resolve({ getSize: () => ({ width: 1, height: 1 }), toPNG: () => Buffer.from('png') }), 40))) };
+  mocks.create.mockImplementation(function () { return { webContents: contents, isDestroyed: () => false, destroy: vi.fn(), loadURL: async () => {} }; });
+  const promise = captureGamePage({ url: 'http://localhost:5199/', timeoutMs: 5000, waitMs: 0,
+    playtest: { durationMs: 1000, captureIntervalMs: 5000, script: [{ wait: 400 }, { capture: 'middle' }, { wait: 500 },
+      { key: 'Enter', press: true, holdMs: 100 }, { capture: 'end' }] } });
+  await vi.runAllTimersAsync();
+  const result = await promise;
+  expect(result).toMatchObject({ status: 'passed', playtest: { completed: true } });
+  const labels = (result as { playtest: { frames: Array<{ label?: string }> } }).playtest.frames.map(frame => frame.label);
+  expect(labels).toEqual(expect.arrayContaining(['middle', 'end']));
+  expect(debuggerApi.sendCommand).toHaveBeenCalledWith('Input.dispatchKeyEvent', expect.objectContaining({ type: 'keyDown', key: 'Enter' }));
+});

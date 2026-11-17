@@ -17,6 +17,8 @@ describe('pixo look in the game prompt', () => {
     expect(prompt).toContain('You cannot open images directly in this run');
     expect(prompt).toContain('Ask one specific question per look');
     expect(prompt).toContain('A look costs a fraction of a credit');
+    // A cheap look is still a step: a Flash run spent 18 looks hunting for polish (2026-11-15).
+    expect(prompt).toContain('Do not look again to find more things to improve.');
     // The other blocks keep their wording; this block says how this run satisfies it.
     expect(prompt).toContain('If you can view images, open every `screenshots[].path`');
     expect(prompt).toContain('Wherever these instructions say "if you can view images"');

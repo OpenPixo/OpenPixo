@@ -123,6 +123,10 @@ describe('OpenPixo imported game project prompt', () => {
     const build = composeOpenPixoGamePrompt({ baseDir: '/g' });
     expect(build).toContain('Project notes: `AGENTS.md`');
     expect(build).toContain('as the last step of the turn, never in the middle');
+    // Notes that prescribed a full menu playtest and saved evidence made every later turn repeat it (2026-11-16).
+    expect(build).toContain('not a checklist every later turn must run, a record of this turn\'s evidence or screenshots, or a history of changes');
+    // Scope: a menu redo added petals, glows and a hotkey nobody asked for.
+    expect(build).toContain('do not add features, effects, shortcuts, screens or text nobody asked for');
     const plan = composeOpenPixoGamePrompt({ baseDir: '/g', sessionMode: 'plan' });
     expect(plan).toContain('Project notes: `AGENTS.md`');
     expect(plan).not.toContain('update the notes');

@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -7,6 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
+import { OPENCODE_BUILD_AGENT_STEPS } from '../src/runtimes/opencode-build-agent.js';
+import { OPENCODE_TOOL_OUTPUT_LIMITS } from '../src/runtimes/opencode-permissions.js';
 import { startServer } from '../src/server.js';
 import { ANON, fakeSupabase, USER } from './account/fixtures.js';
 
@@ -212,6 +215,104 @@ it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with 
   await turn('Again.', '## user\nSay hello.\n\n## assistant\nfirst answer\n\n## user\nAgain.');
   expect(system(bodies[2]!)).toContain('Notes v2');
   expect(system(bodies[2]!)).not.toContain('Notes v1');
+}, 240_000);
+
+it.skipIf(process.platform !== 'win32' || !OPENCODE)('Flash is told to keep the user posted, and the step limit makes a long turn stop and report', async () => {
+  sandbox = await mkdtemp(path.join(os.tmpdir(), 'openpixo-build-agent-'));
+  for (const [key, leaf] of [['XDG_DATA_HOME', 'data'], ['XDG_CONFIG_HOME', 'config'], ['XDG_STATE_HOME', 'state'], ['XDG_CACHE_HOME', 'cache'], ['OPENCODE_TEST_HOME', 'home']] as const) {
+    process.env[key] = path.join(sandbox, leaf);
+  }
+  process.env.OPENCODE_PURE = '1';
+  cloud = await fakeSupabase();
+  const bodies: Wire[] = [];
+  // A model that never stops calling tools until OpenCode takes them away.
+  cloud.handlers.set('POST /functions/v1/agent-chat/chat/completions', (request) => {
+    bodies.push(request.body as unknown as Wire);
+    const stopped = JSON.stringify(request.body).includes('MAXIMUM STEPS REACHED');
+    return { raw: stopped ? ANSWER('Here is where things stand.') : TOOL_TURN, headers: { 'Content-Type': 'text/event-stream' } };
+  });
+  process.env.PIXO_CLOUD_URL = cloud.url;
+  process.env.PIXO_CLOUD_ANON_KEY = ANON;
+  started = await startServer({ port: 0, returnServer: true }) as NonNullable<typeof started>;
+  const post = (route: string, body: unknown, method = 'POST') => fetch(`${started!.url}${route}`,
+    { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  expect((await post('/api/app-config', { agentId: 'openpixo-agent', agentCliEnv: { opencode: { OPENCODE_BIN: OPENCODE! } },
+    telemetry: { metrics: false }, privacyDecisionAt: Date.now() }, 'PUT')).status).toBe(200);
+  expect((await post('/api/openpixo/account/email/verify', { email: USER.email, code: '123456' })).status).toBe(200);
+  const projectId = `steps_${randomUUID()}`;
+  const created = await post('/api/projects', { id: projectId, name: 'Step limit', metadata: { kind: 'prototype' }, skipDiscoveryBrief: true });
+  const { conversationId } = await created.json() as { conversationId: string };
+  // A game under git, like most: the case where OpenCode would snapshot the folder at every step.
+  const projectDir = path.join(process.env.PIXO_DATA_DIR!, 'projects', projectId);
+  mkdirSync(projectDir, { recursive: true });
+  writeFileSync(path.join(projectDir, 'main.js'), 'console.log("game");\n');
+  execFileSync('git', ['init', '-q'], { cwd: projectDir });
+
+  const response = await post('/api/runs', { projectId, conversationId, agentId: 'openpixo-agent', model: 'openpixo-agent-flash',
+    message: '## user\nRedo the menu.', currentPrompt: 'Redo the menu.', assistantMessageId: randomUUID(), clientRequestId: randomUUID() });
+  expect(response.status).toBe(202);
+  const { runId } = await response.json() as { runId: string };
+  await expect.poll(async () => (await (await fetch(`${started!.url}/api/runs/${runId}`)).json() as { status: string }).status,
+    { timeout: 180_000, interval: 250 }).toBe('succeeded');
+
+  const system = JSON.stringify(bodies[0]!.messages.filter((message) => message.role === 'system'));
+  expect(system).toContain('You are the OpenPixo agent');
+  expect(system).not.toContain('One word answers are best');
+  expect(bodies.length).toBe(OPENCODE_BUILD_AGENT_STEPS);
+  expect(JSON.stringify(bodies.at(-1))).toContain('MAXIMUM STEPS REACHED');
+  expect(JSON.stringify(bodies.at(-2))).not.toContain('MAXIMUM STEPS REACHED');
+  // No whole-folder git snapshot before and after each of those 50 steps.
+  expect(existsSync(path.join(sandbox, 'data', 'opencode', 'snapshot'))).toBe(false);
+}, 300_000);
+
+it.skipIf(process.platform !== 'win32' || !OPENCODE)('a command that prints a lot puts at most the capped part into the conversation', async () => {
+  // A walk turn printed whole manifests and folder trees of 50 KB each and paid for them on every
+  // later request (2026-11-16). The cut keeps the rest in a file the agent can search.
+  sandbox = await mkdtemp(path.join(os.tmpdir(), 'openpixo-tool-output-'));
+  for (const [key, leaf] of [['XDG_DATA_HOME', 'data'], ['XDG_CONFIG_HOME', 'config'], ['XDG_STATE_HOME', 'state'], ['XDG_CACHE_HOME', 'cache'], ['OPENCODE_TEST_HOME', 'home']] as const) {
+    process.env[key] = path.join(sandbox, leaf);
+  }
+  process.env.OPENCODE_PURE = '1';
+  cloud = await fakeSupabase();
+  const bodies: Wire[] = [];
+  const PRINT = sse({ delta: { role: 'assistant', content: '' } },
+    { delta: { tool_calls: [{ index: 0, id: 'call_print', type: 'function', function: { name: 'bash', arguments: JSON.stringify({ command: 'cat big.txt', description: 'Print the file' }) } }] } },
+    { delta: {}, finish: 'tool_calls' });
+  cloud.handlers.set('POST /functions/v1/agent-chat/chat/completions', (request) => {
+    bodies.push(request.body as unknown as Wire);
+    return { raw: bodies.length === 1 ? PRINT : ANSWER('done'), headers: { 'Content-Type': 'text/event-stream' } };
+  });
+  process.env.PIXO_CLOUD_URL = cloud.url;
+  process.env.PIXO_CLOUD_ANON_KEY = ANON;
+  started = await startServer({ port: 0, returnServer: true }) as NonNullable<typeof started>;
+  const post = (route: string, body: unknown, method = 'POST') => fetch(`${started!.url}${route}`,
+    { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  expect((await post('/api/app-config', { agentId: 'openpixo-agent', agentCliEnv: { opencode: { OPENCODE_BIN: OPENCODE! } },
+    telemetry: { metrics: false }, privacyDecisionAt: Date.now() }, 'PUT')).status).toBe(200);
+  expect((await post('/api/openpixo/account/email/verify', { email: USER.email, code: '123456' })).status).toBe(200);
+  const projectId = `output_${randomUUID()}`;
+  const created = await post('/api/projects', { id: projectId, name: 'Tool output', metadata: { kind: 'prototype' }, skipDiscoveryBrief: true });
+  const { conversationId } = await created.json() as { conversationId: string };
+  const projectDir = path.join(process.env.PIXO_DATA_DIR!, 'projects', projectId);
+  mkdirSync(projectDir, { recursive: true });
+  writeFileSync(path.join(projectDir, 'big.txt'), Array.from({ length: 3000 }, (_, i) => `line ${i} ${'x'.repeat(40)}`).join('\n'));
+
+  const response = await post('/api/runs', { projectId, conversationId, agentId: 'openpixo-agent', model: 'openpixo-agent-flash',
+    message: '## user\nPrint big.txt.', currentPrompt: 'Print big.txt.', assistantMessageId: randomUUID(), clientRequestId: randomUUID() });
+  expect(response.status).toBe(202);
+  const { runId } = await response.json() as { runId: string };
+  await expect.poll(async () => (await (await fetch(`${started!.url}/api/runs/${runId}`)).json() as { status: string }).status,
+    { timeout: 120_000, interval: 250 }).toBe('succeeded');
+
+  expect(bodies.length).toBe(2);
+  const result = JSON.stringify(bodies[1]!.messages.filter((message) => message.role === 'tool'));
+  // 3,000 lines of about 50 bytes is 150 KB; OpenCode's own cap would have let 50 KB through.
+  // A command keeps its end, as a terminal would; the start is in the saved file.
+  expect(result).toContain('line 2999 ');
+  expect(result).not.toContain('line 0 ');
+  expect(result.length).toBeLessThan(OPENCODE_TOOL_OUTPUT_LIMITS.max_bytes + 4_000);
+  expect(result).toContain('...output truncated...');
+  expect(result).toContain('Full output saved to');
 }, 240_000);
 
 it.skipIf(process.platform !== 'win32' || !OPENCODE)('/compact summarizes inside the cached session, and the next turn starts a new one', async () => {

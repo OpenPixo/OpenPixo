@@ -8,6 +8,7 @@ import { OpenPixoAgentGateway, OPENPIXO_AGENT_PROXY_PATH, OPENPIXO_AGENT_TOKEN_E
 import { agentModels, agentRequestUsage } from '../../src/account/agent-gateway.js';
 import { buildOpenPixoAgentOpenCodeConfig, fetchOpenPixoAgentModels, openpixoAgentContextLimits, openpixoAgentEffort, openpixoAgentModelArg, setOpenPixoAgentCatalogReader } from '../../src/openpixo-agent/runtime.js';
 import { openpixoAgentDef } from '../../src/runtimes/defs/openpixo-agent.js';
+import { openCodeBuildAgentConfig } from '../../src/runtimes/opencode-build-agent.js';
 import { registerOpenPixoAgentProxy, registerOpenPixoAgentRoutes } from '../../src/routes/openpixo-agent.js';
 import { ACCESS, accountHarness } from './fixtures.js';
 
@@ -264,7 +265,7 @@ describe('OpenPixo agent runtime', () => {
   it('points the bundled OpenCode at the local gateway and keeps the token out of config and argv', () => {
     const config = buildOpenPixoAgentOpenCodeConfig('http://127.0.0.1:17456/', 'openpixo-agent-glm-5-3-flash');
     const provider = (config.provider as Record<string, any>).openpixo;
-    expect(config.agent).toEqual({ title: { disable: true } });
+    expect(config.agent).toEqual({ title: { disable: true }, build: openCodeBuildAgentConfig('openpixo-agent-glm-5-3-flash') });
     expect(provider.npm).toBe('@ai-sdk/openai-compatible');
     expect(provider.options).toMatchObject({ baseURL: 'http://127.0.0.1:17456/api/openpixo/agent/v1', apiKey: `{env:${OPENPIXO_AGENT_TOKEN_ENV}}` });
     expect(Object.keys(provider.models)).toEqual(['openpixo-agent-glm-5-3-flash']);

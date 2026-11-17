@@ -330,6 +330,61 @@ tool token, reads a project file, a verification image or a staged recipe candid
 fits it like the agent's own pictures and sends it with the question through the run's gateway
 state, so its usage joins the run's hosted totals and out of credits fails the run as usual.
 
+## OpenCode system prompt and step limit (hosted agent)
+
+OpenCode opens every request with a system prompt it picks by model id; the composed game prompt is the
+user message. A model whose id names no family OpenCode knows (Flash, GLM and other non-GPT, non-Claude
+hosted models) got OpenCode's terminal default, which says "fewer than 4 lines", "One word answers are
+best", no preamble and "After working on a file, just stop". Owner report, 2026-11-15: a one-line menu
+request on Flash ran 18 minutes and 77 requests without a word in the chat, and every Flash run on record
+spoke only after its last tool call.
+
+`runtimes/opencode-build-agent.ts` sets the hosted run's `agent.build` (the agent `opencode run` uses)
+through `buildOpenPixoAgentOpenCodeConfig`. Both levers are OpenCode's own:
+
+- `prompt` replaces the model-family prompt only where OpenCode 1.18.35 would use its default
+  (`openCodeUsesDefaultPrompt` mirrors its selection; re-check it when the pinned version moves).
+  `OPENPIXO_OPENCODE_AGENT_PROMPT` keeps the default's working rules and asks for a line before the first
+  tool call, a line at least every 8 tool calls, work sized to the request and a reply as soon as it is
+  done. It keeps the default's limit on proactiveness, made concrete: change only what was asked, no
+  extra effects, shortcuts or screens, test only the changed part, save no screenshots or scripts into
+  the project (dropping that section let a menu redo add petals and a hotkey, 2026-11-16). GPT and
+  Claude models keep OpenCode's prompt for them; the GPT-6 one already asks for progress updates.
+- `steps` (`OPENCODE_BUILD_AGENT_STEPS`, 50) caps the model requests of one turn. On the last one
+  OpenCode turns tools off and asks for what is done, what is left and what to do next; "continue"
+  resumes the cached session. A long build stage can need that word.
+
+The shared verification block also says to size the checking to the request (one verify and one look for
+a small change, ideas in the reply, test only the changed part, one-off playtest scripts on stdin), the
+look block says a look decides something rather than hunts for polish, the base rules forbid unrequested
+features, and the project-notes rule says notes describe the game, not a checklist, evidence or history
+(agent-written notes that prescribed a full menu playtest made each later turn repeat it); those apply to
+every runtime. `json-event-stream.ts` starts each OpenCode text part on its own paragraph, because the
+reply joins the parts and progress lines otherwise run together. `openpixo-agent-prompt-cache.test.ts` runs the real binary to
+show Flash receives the OpenPixo prompt and stops at the limit.
+
+Speed, 2026-11-16. A Flash step's own model time is often one or two seconds, so fixed costs set the pace:
+
+- Every bundled OpenCode run gets `snapshot: false` (`openCodeRunExtraConfig`). OpenCode otherwise
+  records the whole working tree in a private git repository before and after each model step, about
+  1.2 s each in a game folder with art, for its own undo and revert, which OpenPixo never calls. The
+  same real-binary test runs 50 steps in 29 s instead of 99 s, and checks no snapshot store appears.
+- A screenshot run or a playtest restarts the game and takes 30 to 60 s. The verification block says
+  so, says a playtest confirms a change and is not how to read the code (Flash had run three playtests
+  to measure enemy speed before changing anything), asks for a duration no longer than the script,
+  and keeps the whole move-win-lose loop for a stage or a game, not for every fix. The hosted agent
+  prompt repeats it in one line.
+- Every bundled OpenCode run caps one tool call's output at 400 lines or 16 KB
+  (`OPENCODE_TOOL_OUTPUT_LIMITS`, OpenCode's `tool_output`; its own cap is 2,000 lines or 50 KB).
+  Past the cap OpenCode keeps a command's end and saves the whole output to a file it names.
+  A walk turn had grown from 26k to 197k tokens in three minutes by printing folder trees,
+  a 47 KB manifest and a 51 KB git status, each paid again on every later request, and spent
+  29 credits without generating anything. The hosted agent prompt asks for small output and
+  no audit of old attempts, and the media contract's art rules say a make-or-remake request
+  starts with the generation and reads the game only to connect the result (every runtime).
+- A playtest whose script fits its duration no longer fails because taking frames made it end a
+  moment late (`apps/desktop/src/main/game-capture-playtest.ts`); one such failure threw away 51 s.
+
 ## Game shape
 
 The `A game is a game` block is always present. A browser-engine game is one

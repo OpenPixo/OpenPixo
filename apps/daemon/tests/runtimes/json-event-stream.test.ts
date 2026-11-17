@@ -54,6 +54,31 @@ test('opencode step_start without a session id reports a null sessionId (no spur
   ]);
 });
 
+// A Flash run's progress lines arrived as separate parts and ran together into one block (2026-11-16).
+test('opencode starts each text part the agent says on its own paragraph', () => {
+  const { events, handler } = collectEvents('opencode');
+  const text = (value: string) => JSON.stringify({ type: 'text', sessionID: 'ses-1', part: { type: 'text', text: value } });
+  const tool = (id: string) => JSON.stringify({ type: 'tool_use', sessionID: 'ses-1',
+    part: { tool: 'read', callID: id, state: { input: '{}', output: 'ok', status: 'completed' } } });
+
+  handler.feed([
+    text('先看标题代码。'), tool('call-1'),
+    text('改好了，跑一次检查。'), tool('call-2'),
+    text('ends with a newline\n'), tool('call-3'),
+    text('\nalready starts with one'), tool('call-4'),
+    text('完成。'),
+    JSON.stringify({ type: 'step_finish', sessionID: 'ses-1', part: { type: 'step-finish', reason: 'tool-calls' } }),
+  ].join('\n') + '\n');
+
+  assert.deepEqual(events.filter((event) => event.type === 'text_delta').map((event) => event.delta), [
+    '先看标题代码。',
+    '\n\n改好了，跑一次检查。',
+    '\n\nends with a newline\n',
+    '\nalready starts with one',
+    '\n\n完成。',
+  ]);
+});
+
 test('opencode json stream emits tool events', () => {
   const { events, handler } = collectEvents('opencode');
 
