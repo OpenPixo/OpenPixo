@@ -19,8 +19,11 @@ const tools: { tool: EditorTool; label: keyof Dict }[] = [
 ];
 const suffix = (tool: EditorTool): ImageEditOp['op'] => tool.startsWith('flip-') ? 'flip' : tool as ImageEditOp['op'];
 
+/** What the editor reads from its source: the library passes an indexed asset, the file viewer a plain file. */
+export type ImageEditorSource = Pick<ProjectAsset, 'projectId' | 'relPath' | 'mtime' | 'width' | 'height'>;
+
 export function ImageEditorDialog({ asset, onClose, onSaved }: {
-  asset: ProjectAsset; onClose: () => void; onSaved: (asset: ProjectAsset) => void;
+  asset: ImageEditorSource; onClose: () => void; onSaved: (asset: ProjectAsset) => void;
 }) {
   const { t } = useI18n();
   const [original, setOriginal] = useState<HTMLCanvasElement | null>(null);

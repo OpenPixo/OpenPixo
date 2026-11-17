@@ -4,6 +4,7 @@ import { bindMotionPreviewActivity, unbindMotionPreviewActivity } from '../runti
 import { CenteredLoader } from './Loading';
 import { HandoffButton } from './HandoffButton';
 import { ViewerAddToChat } from './files/ViewerAddToChat';
+import { ImageViewer } from './image-viewer/ImageViewer';
 import { previewStorageKey, readPreviewStorage, savePreviewStorageMessage } from '../runtime/preview-storage';
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type CSSProperties, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import type { ArtifactExportFormat } from '../runtime/chat/artifact-export';
@@ -1066,6 +1067,10 @@ interface Props {
   // atomic tab-state update. The React module pointer uses this to jump to the
   // HTML entry that renders a module and drop the dead-end module tab.
   onOpenFileReplacing?: (openName: string, closeName: string) => void;
+  /** Open a file in the panel beside this one (an image edit's new file). */
+  onOpenFile?: (name: string) => void;
+  /** Every file name in the project; the image viewer steps through its folder's images. */
+  imageFileNames?: readonly string[];
   // Bumped nonce asking this viewer to open its Download/Export menu (chat-side
   // "Download" next-step action).
   downloadRequest?: { nonce: number; anchorId?: string } | null;
@@ -1139,6 +1144,8 @@ export const FileViewer = memo(function FileViewer({
   onFileSaved,
   onFileWritten,
   onOpenFileReplacing,
+  onOpenFile,
+  imageFileNames,
   downloadRequest,
   sourceLineRequest = null,
   viewerOnly = false,
@@ -1265,7 +1272,18 @@ export const FileViewer = memo(function FileViewer({
     return <SvgViewer projectId={projectId} file={file} />;
   }
   if (file.kind === 'image') {
-    return <ImageViewer projectId={projectId} file={file} />;
+    return (
+      <ImageViewer
+        key={`${file.name}:${file.mtime}`}
+        projectId={projectId}
+        file={file}
+        viewerOnly={viewerOnly}
+        fileNames={imageFileNames}
+        onStep={onOpenFileReplacing ? (name) => onOpenFileReplacing(name, file.name) : undefined}
+        onFileSaved={onFileSaved}
+        onOpenFile={onOpenFile}
+      />
+    );
   }
   if (file.kind === 'video') {
     return <VideoViewer projectId={projectId} file={file} />;
@@ -7274,55 +7292,6 @@ function escapeHtmlAttr(value: string): string {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-}
-
-function ImageViewer({
-  projectId,
-  file,
-}: {
-  projectId: string;
-  file: ProjectFile;
-}) {
-  const t = useT();
-
-  const url = appendResourceQuery(
-    projectFileUrl(projectId, file.name),
-    `v=${Math.round(file.mtime)}`,
-  );
-  return (
-    <div className="viewer image-viewer">
-      <div className="viewer-toolbar">
-        <div className="viewer-toolbar-left">
-          <span className="viewer-meta">
-            {file.kind === 'sketch'
-              ? t('fileViewer.sketchMeta', { size: humanSize(file.size) })
-              : t('fileViewer.imageMeta', { size: humanSize(file.size) })}
-          </span>
-        </div>
-        <div className="viewer-toolbar-actions">
-          <ViewerAddToChat file={file} />
-          <a
-            className="ghost-link"
-            href={projectFileUrl(projectId, file.name)}
-            download={file.name}
-          >
-            {t('fileViewer.download')}
-          </a>
-          <a
-            className="ghost-link"
-            href={projectFileUrl(projectId, file.name)}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {t('fileViewer.open')}
-          </a>
-        </div>
-      </div>
-      <div className="viewer-body image-body">
-        <img alt={file.name} src={url} />
-      </div>
-    </div>
-  );
 }
 
 function VideoViewer({
