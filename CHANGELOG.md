@@ -1,5 +1,31 @@
 # Changelog
 
+## OpenPixo 1.0.7
+
+- Build each stage of a new game in a fresh conversation: approve the plan with **Approve and start in a new conversation**, or continue the next stage from the line under a stage reply. The new conversation keeps the plan and the project notes and sends far less each turn.
+- `/compact` in the chat summarizes a long conversation, so later turns send less.
+- Image viewer: zoom with the wheel, Fit and 1:1, sharp pixels above 100%, a pixel grid, the colour under the pointer (click to copy), and the arrow keys step through the images in the folder.
+- With credits, the AI says what it is doing while it works, stops after 50 steps in one turn to report where it got to (type "continue" to go on), and runs noticeably faster.
+- Routine steps (reading files, searching, running commands) fold into one line that says what they added up to.
+- An art style preset is a starting point: once you pick a style reference or describe the look, new images follow you instead of the preset.
+- Character turnarounds, icon sets, parallax layers and nine-slice panels come out with a real transparent background, not a painted magenta one.
+- Usage data is off until you choose to share it. If you share, OpenPixo sends anonymous counts to its own server; your prompts, conversations, code, images and game files are never sent. PostHog is no longer used.
+- Fixes: a chat that kept showing "running" after the run had ended, Godot checks failing on the .NET SDK message, the folder picker without a Documents folder, the approval chip running under the send button, and the daemon running out of memory or stopping itself on Windows under heavy load.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- 新游戏的每个阶段可以在新对话里做：批准计划时点「批准，并在新对话中开始」，或者在阶段回复下面的那一行继续下一阶段。新对话带着计划和项目笔记，每轮发送的内容少得多。
+- 在对话里输入 `/compact` 会把长对话总结成一段，之后每轮发送得更少。
+- 图片查看器：滚轮缩放、适合窗口和 1:1、放大后像素保持清晰、像素网格、显示指针下的颜色（点击复制），方向键可以翻看同一文件夹里的图片。
+- 用积分时，AI 一边做一边说明在做什么；一轮最多 50 步，到了会停下来说做到哪里（输入“继续”接着做）；速度也明显更快。
+- 读文件、搜索、运行命令这类常规步骤会折叠成一行，说明一共做了什么。
+- 画风预设只是起点：选了风格参考图或写了画面描述后，新图片按你的要求来，不再套用预设。
+- 角色三视图、图标组、视差背景和九宫格面板现在是真正的透明背景，不再是画上去的品红色。
+- 统计数据在你同意分享前不会发送。分享后，OpenPixo 只把匿名计数发到自己的服务器；你的提示词、对话、代码、图片和游戏文件都不会发送。不再使用 PostHog。
+- 修复：运行已经结束但对话还显示“运行中”、Godot 检查因为 .NET SDK 提示而失败、没有“文档”文件夹时选不了文件夹、批准开关压在发送按钮下面，以及在 Windows 上负载大时 daemon 内存耗尽或把自己停掉。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.6
 
 - 8-direction walk and idle animations: in **Generate**, draw a character's walk sheet (or idle sheet) in all eight directions, check it, then press **8-direction walk animation** (or **8-direction idle animation**) on the result. One short clip animates all eight directions at once, and you get transparent frames and a sprite sheet for your engine, with a looping preview of every direction. Characters with a sword on one side or a bag on the other come out right in every direction. With credits, one animation costs 10 credits.
