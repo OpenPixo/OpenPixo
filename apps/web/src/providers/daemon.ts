@@ -446,6 +446,52 @@ const DAEMON_STREAM_RECONNECT_BACKOFF_MAX_MS = 8_000;
  */
 const DAEMON_STREAM_IDLE_TIMEOUT_MS = 75_000;
 
+/**
+ * How long opening a run's event stream may wait for the response to start.
+ * The daemon flushes the headers at once (`createSseResponse`), so only a request
+ * nobody answers (a hung proxy, a connection the browser parked) reaches this; it
+ * then counts as a dropped connection and goes through the reconnect budget like
+ * any other. The idle deadline above only covers reads after the response began.
+ */
+export const DAEMON_STREAM_CONNECT_TIMEOUT_MS = 30_000;
+
+/** How long `POST /api/runs` may take. Creating a run answers in well under a second. */
+export const DAEMON_RUN_CREATE_TIMEOUT_MS = 60_000;
+
+/**
+ * `fetch` that gives up when the response has not started within `timeoutMs`.
+ * The caller's `signal` still cancels it; the deadline stops counting once the
+ * headers arrive, so a long-lived body is never cut off by it.
+ */
+async function fetchWithConnectDeadline(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const callerSignal = init.signal ?? undefined;
+  const forwardAbort = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) forwardAbort();
+  else callerSignal?.addEventListener('abort', forwardAbort, { once: true });
+  const timer = setTimeout(() => controller.abort(new DaemonConnectDeadlineError()), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (callerSignal?.aborted) throw error;
+    if (controller.signal.reason instanceof DaemonConnectDeadlineError) throw controller.signal.reason;
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+class DaemonConnectDeadlineError extends Error {
+  constructor() {
+    super('The daemon did not answer in time.');
+    this.name = 'DaemonConnectDeadlineError';
+  }
+}
+
 /** 读超时的哨兵,和真正的传输错误分开,免得被当成 AbortError 往外抛。 */
 const DAEMON_STREAM_IDLE_TIMEOUT = Symbol('daemon-stream-idle-timeout');
 
@@ -1007,7 +1053,11 @@ export async function streamViaDaemon({
   const body = JSON.stringify(request);
 
   try {
-    const createResp = await fetch('/api/runs', {
+    // A create that never answers left the chat "starting" until a reload, with
+    // the user's message saved and no run behind it. The deadline turns that into
+    // the ordinary create failure below; a run the daemon created after all is
+    // still pinned to the assistant row and is picked up again on reload.
+    const createResp = await fetchWithConnectDeadline('/api/runs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1018,7 +1068,7 @@ export async function streamViaDaemon({
           'X-Pixo-Client': detectClientType(),
         },
         body,
-      });
+      }, DAEMON_RUN_CREATE_TIMEOUT_MS);
 
     if (!createResp.ok) {
       const text = await createResp.text().catch(() => '');
@@ -1382,11 +1432,10 @@ async function consumeDaemonPhysicalRun({
       const qs = lastEventId ? `?after=${encodeURIComponent(lastEventId)}` : '';
       let resp: Response;
       try {
-        resp = await fetch(`/api/runs/${encodeURIComponent(runId)}/events${qs}`, {
+        resp = await fetchWithConnectDeadline(`/api/runs/${encodeURIComponent(runId)}/events${qs}`, {
           method: 'GET',
-          signal,
-          ...({}),
-        });
+          ...(signal ? { signal } : {}),
+        }, DAEMON_STREAM_CONNECT_TIMEOUT_MS);
       } catch (err) {
         if ((err as Error).name === 'AbortError') throw err;
         reconnects += 1;
