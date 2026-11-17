@@ -2989,6 +2989,10 @@ export interface Dict {
   'filesPanel.kindText': string;
   'chat.emptyConversationHint': string;
   'chat.emptyConversationTitle': string;
+  'chat.emptyPlanningTitle': string;
+  'chat.emptyPlanningHint': string;
+  'chat.emptyPlanningStart': string;
+  'chat.emptyPlanningPrompt': string;
   'filesPanel.kindAudio': string;
   'filesPanel.kindVideo': string;
   'filesPanel.kindModel3d': string;
