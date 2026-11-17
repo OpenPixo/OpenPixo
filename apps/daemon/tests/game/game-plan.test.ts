@@ -21,6 +21,8 @@ import express from 'express';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { approvedPlanText, folderHoldsExistingWork, gameEngineOptions } from '../../src/game/plan.js';
 import { runGamePlanCli } from '../../src/game/plan-cli.js';
+import { recordConversationCompaction } from '../../src/conversation-compaction.js';
+import { insertConversation, insertProject, openDatabase, upsertMessage } from '../../src/db.js';
 import { registerGamePlanRoutes } from '../../src/routes/game-plan.js';
 import { toolTokenRegistry, CHAT_TOOL_ENDPOINTS, CHAT_TOOL_OPERATIONS } from '../../src/tool-tokens.js';
 
@@ -371,6 +373,47 @@ describe('approval during a run', () => {
       expect((await approve()).status).toBe(200);
     } finally {
       await new Promise(resolve => server.close(resolve));
+    }
+  });
+});
+
+describe('approval after /compact', () => {
+  it('records the plan, not a later conversation summary', async () => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), 'openpixo-plan-compact-'));
+    const db = openDatabase(dataDir, { dataDir });
+    const app = express();
+    app.use(express.json());
+    registerGamePlanRoutes(app, {
+      db,
+      http: {
+        sendApiError: (res: express.Response, status: number, code: string, message: string) => res.status(status).json({ error: { code, message } }),
+        requireLocalDaemonRequest: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+        isLocalSameOrigin: () => true,
+        resolvedPortRef: { current: 0 },
+      } as never,
+      paths: { PROJECTS_DIR: '', RUNTIME_DATA_DIR: dataDir } as never,
+      authorizeProjectRequest: (async () => true) as never,
+      authorizeProjectToolRequest: (async () => true) as never,
+      templatesRoot: '',
+      isProjectBusy: () => false,
+      artBudget: {} as never,
+    });
+    insertProject(db, { id: 'p1', name: 'Jump', metadata: { kind: 'other', gamePlan: { status: 'planning', startedAt: 1 } }, createdAt: 1, updatedAt: 1 });
+    insertConversation(db, { id: 'c1', projectId: 'p1', createdAt: 1, updatedAt: 1 });
+    const plan = '第 4 步 / 共 5 步：计划\n\n阶段 1：能跳的小人';
+    upsertMessage(db, 'c1', { id: 'm1', role: 'assistant', content: plan, createdAt: 2 });
+    upsertMessage(db, 'c1', { id: 'm2', role: 'assistant', content: 'Summary of the conversation so far', createdAt: 3 });
+    expect(recordConversationCompaction(db, { conversationId: 'c1', assistantMessageId: 'm2', status: 'succeeded' })).toBe(true);
+    const server = app.listen(0);
+    try {
+      const { port } = server.address() as { port: number };
+      const response = await fetch(`http://127.0.0.1:${port}/api/projects/p1/game-plan/approve`, { method: 'POST' });
+      expect(response.status, await response.clone().text()).toBe(200);
+      expect((await response.json() as ApproveGamePlanResponse).plan.approvedPlan).toBe(plan);
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+      db.close();
+      await rm(dataDir, { recursive: true, force: true });
     }
   });
 });
