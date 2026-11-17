@@ -26,7 +26,7 @@ import { toolTokenRegistry } from '../../src/tool-tokens.js';
 // The machine's real tools (a signed-in Codex among them) must stay out of reach.
 const ownTools = vi.hoisted(() => ({ providers: {} as Record<string, { configured: boolean; available?: boolean }> }));
 vi.mock('../../src/media/config.js', () => ({ readMaskedConfig: async () => ({ providers: ownTools.providers }) }));
-vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: async () => null }));
+vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: async () => null, projectUsesPixelGrid: () => false }));
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(120, 7)]);
 const PNG_SHA = createHash('sha256').update(PNG).digest('hex');

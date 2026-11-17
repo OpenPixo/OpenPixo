@@ -14,8 +14,8 @@
  * already on the pane's ResizeObserver list, so opening and closing here keeps
  * the chat following. Always mounted so the collapse animates.
  */
-import { useState } from 'react';
-import { Button, Input } from '@openpixo/components';
+import { useId, useState } from 'react';
+import { Button, Input, VisuallyHidden } from '@openpixo/components';
 import { gamePlanIsPending, type GamePlanState } from '@openpixo/contracts';
 import { useT } from '../../i18n';
 import { budgetDraft, imagesForCredits } from '../../runtime/chat/art-budget';
@@ -32,6 +32,7 @@ export function GamePlanBar({
   streaming,
   viewerOnly,
   onApproved,
+  onApprovedInNewConversation,
 }: {
   projectId: string | null | undefined;
   plan: GamePlanState | null | undefined;
@@ -40,6 +41,8 @@ export function GamePlanBar({
   streaming: boolean;
   viewerOnly?: boolean | undefined;
   onApproved: (project: Project) => void;
+  /** Approve and build stage 1 in a fresh conversation, leaving planning's long transcript behind. */
+  onApprovedInNewConversation?: ((project: Project) => void | Promise<void>) | undefined;
 }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
@@ -49,6 +52,7 @@ export function GamePlanBar({
   const { state, setState } = useArtBudget(projectId, { enabled: open, streaming: false });
   const [saved, setSaved] = useState(false);
   const [budgetFailed, setBudgetFailed] = useState(false);
+  const hintId = useId();
   const account = state?.account;
   const maxCredits = account?.maxCredits ?? null;
   // With no balance to show there is nothing to choose from, so no budget is sent either.
@@ -74,12 +78,14 @@ export function GamePlanBar({
     }
   }
 
-  async function approve() {
+  async function approve(inNewConversation = false) {
     if (!projectId || busy) return;
     setBusy(true);
     setFailed(false);
     try {
-      onApproved(await approveGamePlan(projectId, offersBudget ? credits : undefined));
+      const project = await approveGamePlan(projectId, offersBudget ? credits : undefined);
+      if (inNewConversation && onApprovedInNewConversation) await onApprovedInNewConversation(project);
+      else onApproved(project);
     } catch (error) {
       console.warn('Failed to approve the game plan', error);
       setFailed(true);
@@ -146,6 +152,20 @@ export function GamePlanBar({
           >
             {t('chat.gamePlan.approve')}
           </Button>
+          {onApprovedInNewConversation ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              tabIndex={open ? 0 : -1}
+              aria-describedby={hintId}
+              data-testid="game-plan-approve-new-conversation"
+              onClick={() => { void approve(true); }}
+            >
+              {t('chat.nextStage.approve')}
+            </Button>
+          ) : null}
+          {onApprovedInNewConversation ? <VisuallyHidden id={hintId}>{t('chat.nextStage.approveHint')}</VisuallyHidden> : null}
         </div>
       </div>
     </div>

@@ -209,10 +209,16 @@ function writeHomeComposerPluginDraft(draft: HomeComposerPluginDraft | null): vo
 }
 
 // Drop the persisted draft once a run is actually created, so the just-sent
-// prompt and pick don't resurrect the next time the Home tab mounts.
+// prompt and pick don't resurrect the next time the Home tab mounts. Home also
+// stays mounted in its tab, so its composer is emptied through the seed event:
+// otherwise the next idea pasted there is added after the one just sent, and the
+// next game's first message carries both.
 export function clearHomeComposerDraft(): void {
   writeHomeComposerDraft(HOME_COMPOSER_PROMPT_KEY, null);
   writeHomeComposerPluginDraft(null);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(HOME_COMPOSER_SEED_EVENT, { detail: { prompt: '' } }));
+  }
 }
 
 /** Seed the Home composer from another surface. */

@@ -286,7 +286,9 @@ describe('after approval, and for games that already exist', () => {
   it('labels each stage, builds only it, says how to try it and waits for the user', () => {
     const block = blockOf(composeOpenPixoGamePrompt({ gamePlan: { status: 'approved' }, engineProfile: phaser }), GAME_PLAN_BLOCK_HEADING);
     expect(block).toContain('"阶段 1 / 共 4：能玩的最小版本" / "Stage 1 of 4: the smallest playable version"');
-    expect(block).toMatch(/Take the current stage from your last stage label in this conversation; the first build turn is stage 1/);
+    expect(block).toMatch(/Take the current stage from your last stage label in this conversation\./);
+    expect(block).toMatch(/A conversation the user opened for the next stage starts with their message naming it: build that stage/);
+    expect(block).toMatch(/Otherwise the first build turn is stage 1/);
     expect(block).toMatch(/Build only the current stage\. Then run it and playtest its loop with real input until it is playable as Verification defines it \(move, win, lose\), and say what you tried and what happened/);
     expect(block).toMatch(/exactly how to try it/);
     expect(block).toMatch(/End the turn with a <question-form>: go on to the next stage \(name it\), or what to change first/);

@@ -23,7 +23,7 @@ import { toolTokenRegistry } from '../../src/tool-tokens.js';
 
 const ownTools = vi.hoisted(() => ({ providers: {} as Record<string, { configured: boolean; available?: boolean }> }));
 vi.mock('../../src/media/config.js', () => ({ readMaskedConfig: async () => ({ providers: ownTools.providers }) }));
-vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: async () => null }));
+vi.mock('../../src/styles/service.js', () => ({ resolveArtStyleForGeneration: async () => null, projectUsesPixelGrid: () => false }));
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(120, 7)]);
 const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');

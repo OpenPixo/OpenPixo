@@ -32,6 +32,7 @@ export * from './api/project-assets.js';
 export * from './api/game-project.js';
 export * from './api/game-setup.js';
 export * from './api/game-plan.js';
+export * from './api/game-stage.js';
 export * from './api/game-export.js';
 export * from './api/art-budget.js';
 export * from './api/art-request.js';

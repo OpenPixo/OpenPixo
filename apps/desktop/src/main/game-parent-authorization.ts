@@ -17,6 +17,24 @@ async function prospectiveDirectory(value: string): Promise<string> {
   }
 }
 
+/**
+ * The default parent for new games, `<Documents>/OpenPixo Games`, matching the
+ * daemon's `defaultGameParentDir`. Electron's `app.getPath('documents')` throws
+ * ("Failed to get 'documents' path") on a Windows profile without a Documents
+ * folder, and that made every folder pick fail. Like the daemon, fall back to
+ * `<home>/Documents` instead of failing.
+ */
+export function defaultGamesRoot(documentsPath: () => string, homeDir: string): string {
+  let documents: string;
+  try {
+    documents = documentsPath();
+    if (!documents || !path.isAbsolute(documents)) throw new Error('documents path is not absolute');
+  } catch {
+    documents = path.join(homeDir, 'Documents');
+  }
+  return path.join(documents, 'OpenPixo Games');
+}
+
 /** A renderer may create exactly the default root or one child of an authorized parent. */
 export class GameParentAuthorization {
   private readonly picked = new Set<string>();

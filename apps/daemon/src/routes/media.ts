@@ -55,7 +55,7 @@ import { mediaTaskErrorFromFailure } from '../media/task-error.js';
 import { resolveSheetRequest } from '../media/sheet-request.js';
 import type { ImageSheetPlan } from '../media/image-sheet.js';
 import { mergeImageArtStyle } from '../media/art-style.js';
-import { resolveArtStyleForGeneration } from '../styles/service.js';
+import { projectUsesPixelGrid, resolveArtStyleForGeneration } from '../styles/service.js';
 
 
 const LONG_MEDIA_PROXY_TIMEOUT_MS = 10 * 60 * 1000;
@@ -455,6 +455,11 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
     const artStyle = surface === 'image'
       ? await resolveArtStyleForGeneration(db, PROJECT_ROOT, projectId, body?.styleId)
       : null;
+    // A request that names no style keeps a pixel game's nearest-neighbour scaling even after
+    // the user set the look and the style stopped being merged into the prompt.
+    const pixelArt = artStyle
+      ? artStyle.constraints?.pixelSize !== undefined
+      : surface === 'image' && body?.styleId === undefined && projectUsesPixelGrid(db, projectId);
     const imageRequest = surface === 'image'
       ? mergeImageArtStyle({
           prompt: typeof body?.prompt === 'string' ? body.prompt : undefined,
@@ -467,7 +472,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
       const decision = await prepareAgentHostedRequest({
         ledger: ctx.media.artBudget, hosted: ctx.media.openpixoHosted, grant: options.grant, projectId, metadata: project.metadata,
         projectDir: resolveProjectDir(PROJECTS_DIR, projectId, project.metadata), service: model, surface, prompt: imageRequest?.prompt ?? body?.prompt,
-        pixelArt: artStyle?.constraints?.pixelSize !== undefined, body: body,
+        pixelArt, body: body,
       });
       if (!decision.ok) return sendApiError(res, decision.status, decision.code, decision.message);
       // The hosted module writes the finished file itself too, so its notes travel with the request.
@@ -574,8 +579,8 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
         resolution: imageRequest?.resolution ?? (typeof body?.resolution === 'string' ? body.resolution : undefined),
         width: typeof body?.width === 'number' ? body.width : undefined,
         height: typeof body?.height === 'number' ? body.height : undefined,
-        pixelArt: artStyle?.constraints?.pixelSize !== undefined,
-        sheet: sheetPlan ? { ...sheetPlan, pixelArt: artStyle?.constraints?.pixelSize !== undefined } : null,
+        pixelArt,
+        sheet: sheetPlan ? { ...sheetPlan, pixelArt } : null,
         length:
           typeof body?.length === 'number' ? body.length : undefined,
         duration:

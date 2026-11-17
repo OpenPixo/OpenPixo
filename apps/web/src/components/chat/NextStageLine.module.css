@@ -1,0 +1,23 @@
+.collapsible {
+  flex: none;
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 0 8px 6px;
+  padding: 2px 4px 2px 12px;
+  /* The composer slot lets clicks through to the chat log behind it. */
+  pointer-events: auto;
+}
+
+.hint {
+  flex: 1 1 160px;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--chat-t-mini);
+  color: var(--chat-text-muted);
+}

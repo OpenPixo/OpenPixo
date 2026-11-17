@@ -5,13 +5,13 @@ import path from 'node:path';
 import express from 'express';
 import type { PluginManifest, StylesResponse } from '@openpixo/contracts';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { closeDatabase, getProject, insertProject, openDatabase } from '../../src/db.js';
+import { closeDatabase, getProject, insertProject, openDatabase, updateProject } from '../../src/db.js';
 import { upsertInstalledPlugin } from '../../src/plugins/registry.js';
 import { ensureMarketplaceManifest } from '../../src/plugins/marketplaces.js';
 import { registerStyleRoutes, type RegisterStyleRoutesDeps } from '../../src/routes/styles.js';
 import { registerStoreRoutes } from '../../src/routes/store.js';
 import { storeCatalog, storeItemDetail } from '../../src/store/catalog.js';
-import { getArtStyle, getProjectArtStyle, resolveArtStyleForGeneration, resolveArtStylePreview } from '../../src/styles/service.js';
+import { getArtStyle, getProjectArtStyle, projectUsesPixelGrid, resolveArtStyleForGeneration, resolveArtStylePreview } from '../../src/styles/service.js';
 import { toolTokenRegistry } from '../../src/tool-tokens.js';
 
 let root: string;
@@ -125,6 +125,22 @@ it('resolves explicit style, project default and explicit none without provider 
   expect((await resolveArtStyleForGeneration(db, root, undefined, 'pixel-test'))?.prompt).toBe('Crisp pixel art.');
   expect(await resolveArtStyleForGeneration(db, root, 'game', null)).toBeNull();
   await expect(resolveArtStyleForGeneration(db, root, 'game', 'missing')).rejects.toMatchObject({ code: 'STYLE_NOT_FOUND', status: 400 });
+});
+
+it('stops adding the project style to image requests once the user set the look', async () => {
+  await request('/api/projects/game/art-style', 'pixel-test');
+  const metadata = getProject(db, 'game')!.metadata;
+  // Picked style sample: the preset no longer rides along, unless a request names it.
+  updateProject(db, 'game', { metadata: { ...metadata, styleReference: 'concept/style-2.png' } });
+  expect(await resolveArtStyleForGeneration(db, root, 'game')).toBeNull();
+  expect((await resolveArtStyleForGeneration(db, root, 'game', 'pixel-test'))?.id).toBe('pixel-test');
+  // Written direction in Game setup counts the same.
+  updateProject(db, 'game', { metadata: { ...metadata, gameSetup: { art: { styleId: 'pixel-test', direction: 'bold black contour, flat vivid colours' } } } });
+  expect(await resolveArtStyleForGeneration(db, root, 'game')).toBeNull();
+  // A pixel game still scales with nearest-neighbour.
+  expect(projectUsesPixelGrid(db, 'game')).toBe(true);
+  updateProject(db, 'game', { metadata: { ...metadata } });
+  expect((await resolveArtStyleForGeneration(db, root, 'game'))?.id).toBe('pixel-test');
 });
 
 it('authorizes run-scoped style CLI calls and prevents project and operation overrides', async () => {

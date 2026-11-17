@@ -1,14 +1,14 @@
 import { classifyProcessExit } from "@openpixo/contracts/analytics";
 import { PRODUCT_NAME, PRODUCT_ISSUES_URL, PRODUCT_SUPPORT_EMAIL } from "@openpixo/contracts";
 import type { GameWebCaptureResult } from "@openpixo/contracts";
-import { GameParentAuthorization } from "./game-parent-authorization.js";
+import { defaultGamesRoot, GameParentAuthorization } from "./game-parent-authorization.js";
 import { captureGamePage, type GameCaptureInput } from "./game-capture.js";
 import { reportDesktopObservabilityEvent } from "./observability.js";
 import { resolveProjectFileForReveal } from "./reveal-file.js";
 import { execFile } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { appendFile, mkdir, realpath, stat, writeFile } from "node:fs/promises";
-import { release } from "node:os";
+import { homedir, release } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -2130,7 +2130,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   function gameParents(sender: Electron.WebContents): GameParentAuthorization {
     let authorization = gameParentAuthorizations.get(sender.id);
     if (!authorization) {
-      authorization = new GameParentAuthorization(join(app.getPath('documents'), 'OpenPixo Games'));
+      authorization = new GameParentAuthorization(defaultGamesRoot(() => app.getPath('documents'), homedir()));
       gameParentAuthorizations.set(sender.id, authorization);
       sender.once('destroyed', () => gameParentAuthorizations.delete(sender.id));
     }

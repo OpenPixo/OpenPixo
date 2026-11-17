@@ -173,6 +173,7 @@ import type {
   ProjectFile,
   SkillSummary,
 } from '../types';
+import { startNextStageConversation } from '../state/game-plan';
 import { historyWithApiAttachmentContext } from '../api-attachment-context';
 import { InlineModelSwitcher } from './InlineModelSwitcher';
 import { AgentImageModelChip } from './agent-image-model/AgentImageModelPicker';
@@ -5702,7 +5703,10 @@ export function ProjectView({
       // round-trip through the agent.
       if (isFirstTurn) {
         const title = fallbackFirstTurnTitle;
-        if (title) {
+        // A conversation created with a title keeps it: one opened for the next build
+        // stage is "阶段 3 / 共 3", not the opening words of its first message.
+        const existingTitle = conversationsRef.current.find((c) => c.id === runConversationId)?.title?.trim();
+        if (title && !existingTitle) {
           setConversations((curr) =>
             curr.map((c) =>
               c.id === runConversationId ? { ...c, title } : c,
@@ -7719,6 +7723,48 @@ export function ProjectView({
     [activeConversationId, appendConversationMessage, currentConversationActionDisabled, pluginWorkflowAgentName, project.id, null, replaceConversationMessage],
   );
 
+  // Show a conversation just created for this project and make it the active one.
+  const adoptFreshConversation = useCallback((fresh: Conversation) => {
+    // Eagerly clear messages and update ref so rapid clicks don't create
+    // duplicate empty conversations before the effect resolves.
+    setMessages([]);
+    setArtifact(null);
+    savedArtifactRef.current = null;
+    setStreaming(false);
+    streamingConversationIdRef.current = null;
+    setStreamingConversationId(null);
+    setMessagesInitialized(true);
+    setMessagesConversationId(fresh.id);
+    messagesConversationIdRef.current = fresh.id;
+    messagesAuthorityKeyRef.current = projectRunAuthorityKey;
+    createdEmptyTranscriptRef.current = {
+      projectId: project.id,
+      conversationId: fresh.id,
+      authorityKey: projectRunAuthorityKey,
+    };
+    loadedTranscriptRef.current = {
+      projectId: project.id,
+      conversationId: fresh.id,
+      principalKey: 'local',
+    };
+    setConversations((curr) => [fresh, ...curr]);
+    setActiveConversationId(fresh.id);
+    // Push the new conversation id into the URL synchronously so the
+    // route-sync effect sees a matching `routeConversationId` before
+    // it can revert `activeConversationId`. Without this, the route-sync
+    // effect can fight the conversation switch, preventing users from
+    // switching back to older conversations after creating a new one.
+    navigate(
+      {
+        kind: 'project',
+        projectId: project.id,
+        conversationId: fresh.id,
+        fileName: openTabsState.active ?? null,
+      },
+      { replace: true },
+    );
+  }, [project.id, navigate, openTabsState.active, projectRunAuthorityKey]);
+
   const handleNewConversation = useCallback(async () => {
     if (projectReadsHeld) return;
     if (creatingConversationRef.current) return;
@@ -7738,44 +7784,7 @@ export function ProjectView({
 
       });
       if (!fresh) throw new Error('Could not create a conversation for this project.');
-      // Eagerly clear messages and update ref so rapid clicks don't create
-      // duplicate empty conversations before the effect resolves.
-      setMessages([]);
-      setArtifact(null);
-      savedArtifactRef.current = null;
-      setStreaming(false);
-      streamingConversationIdRef.current = null;
-      setStreamingConversationId(null);
-      setMessagesInitialized(true);
-      setMessagesConversationId(fresh.id);
-      messagesConversationIdRef.current = fresh.id;
-      messagesAuthorityKeyRef.current = projectRunAuthorityKey;
-      createdEmptyTranscriptRef.current = {
-        projectId: project.id,
-        conversationId: fresh.id,
-        authorityKey: projectRunAuthorityKey,
-      };
-      loadedTranscriptRef.current = {
-        projectId: project.id,
-        conversationId: fresh.id,
-        principalKey: 'local',
-      };
-      setConversations((curr) => [fresh, ...curr]);
-      setActiveConversationId(fresh.id);
-      // Push the new conversation id into the URL synchronously so the
-      // route-sync effect sees a matching `routeConversationId` before
-      // it can revert `activeConversationId`. Without this, the route-sync
-      // effect can fight the conversation switch, preventing users from
-      // switching back to older conversations after creating a new one.
-      navigate(
-        {
-          kind: 'project',
-          projectId: project.id,
-          conversationId: fresh.id,
-          fileName: openTabsState.active ?? null,
-        },
-        { replace: true },
-      );
+      adoptFreshConversation(fresh);
       setError(null);
     } catch (err) {
       console.warn('Could not create a conversation for this project', err);
@@ -7786,7 +7795,32 @@ export function ProjectView({
       creatingConversationRef.current = false;
       setCreatingConversation(false);
     }
-  }, [project.id, activeConversationId, messages.length, navigate, openTabsState.active, null, projectRunAuthorityKey, false]);
+  }, [project.id, activeConversationId, messages.length, adoptFreshConversation, projectReadsHeld, t]);
+
+  // A new game's next stage in a fresh conversation of this project: the daemon creates it
+  // (plan and notes reach it on their own) and returns the message naming the stage, which
+  // is sent once that conversation is shown and empty (see the effect below).
+  const pendingStageKickoffRef = useRef<{ conversationId: string; text: string } | null>(null);
+  const [pendingStageKickoff, setPendingStageKickoff] = useState<string | null>(null);
+  const handleStartNextStageConversation = useCallback(async (): Promise<boolean> => {
+    if (projectReadsHeld || creatingConversationRef.current || !activeConversationId) return false;
+    creatingConversationRef.current = true;
+    setCreatingConversation(true);
+    try {
+      const started = await startNextStageConversation(project.id, activeConversationId, locale);
+      pendingStageKickoffRef.current = { conversationId: started.conversation.id, text: started.firstMessage };
+      setPendingStageKickoff(started.conversation.id);
+      adoptFreshConversation(started.conversation);
+      setError(null);
+      return true;
+    } catch (err) {
+      console.warn('Could not start the next stage in a new conversation', err);
+      return false;
+    } finally {
+      creatingConversationRef.current = false;
+      setCreatingConversation(false);
+    }
+  }, [project.id, activeConversationId, adoptFreshConversation, projectReadsHeld, locale]);
 
   const handleSelectConversation = useCallback((id: string, measureNavigation = true) => {
     if (id === activeConversationId && failedMessagesConversationId !== id) return;
@@ -8692,6 +8726,19 @@ export function ProjectView({
     setOptimisticFirstTurn(null);
   }, [creationHandoff, homeAttachmentUploads.length, optimisticFirstTurn, project.id]);
 
+  // The first message of a conversation opened for the next stage, sent once it is the
+  // shown, loaded and still empty conversation (`handleStartNextStageConversation`).
+  useEffect(() => {
+    const pending = pendingStageKickoffRef.current;
+    if (!pending || pendingStageKickoff !== pending.conversationId) return;
+    if (activeConversationId !== pending.conversationId) return;
+    if (messagesConversationIdRef.current !== pending.conversationId || !messagesInitialized) return;
+    if (streaming || messages.length > 0) return;
+    pendingStageKickoffRef.current = null;
+    setPendingStageKickoff(null);
+    void handleSend(pending.text, []);
+  }, [pendingStageKickoff, activeConversationId, messagesInitialized, streaming, messages.length, handleSend]);
+
   // PluginLoopHome auto-send: when the user submits on Home, app.tsx
   // sets `sessionStorage['pixo:auto-send-first:<projectId>']` and routes
   // through createProject. Once the conversation id resolves and the
@@ -9110,6 +9157,7 @@ export function ProjectView({
               }
               forkingMessageId={forkingMessageId}
               onNewConversation={handleNewConversation}
+              onStartNextStageConversation={projectReadsHeld ? undefined : handleStartNextStageConversation}
               composerSlashActions={composerSlashActions}
               newConversationDisabled={newConversationDisabled}
               conversations={conversations}

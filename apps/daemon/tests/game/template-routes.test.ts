@@ -251,6 +251,33 @@ it('mounts template listing and creation on the daemon', async () => {
   }
 });
 
+// An unzipped Godot is not on PATH; the user sets its path in Settings, which is app config in the
+// daemon data root. The setup dialog read the media config instead and called Godot missing.
+it('offers an engine whose path is set in Settings to the setup dialog', async () => {
+  const { startServer } = await import('../../src/server.js');
+  const tools = await mkdtemp(path.join(tmpdir(), 'openpixo-engine-path-'));
+  const godot = path.join(tools, process.platform === 'win32' ? 'Godot_v4.7.1-stable_win64.exe' : 'godot-unzipped');
+  await writeFile(godot, '', { mode: 0o755 });
+  const previousPath = process.env.PATH;
+  let server: Server | undefined;
+  try {
+    const started = await startServer({ port: 0, returnServer: true }) as { url: string; server: Server };
+    server = started.server;
+    const saved = await fetch(started.url + '/api/app-config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Origin: started.url },
+      body: JSON.stringify({ gameEnginePaths: { godot } }),
+    });
+    expect(saved.status).toBe(200);
+    process.env.PATH = tools;
+    const listed = await (await fetch(started.url + '/api/game-templates')).json() as GameTemplatesResponse;
+    expect(listed.engines?.find(option => option.engine === 'godot')).toMatchObject({ available: true, missingTools: [] });
+  } finally {
+    process.env.PATH = previousPath;
+    if (server) await new Promise<void>((resolve, reject) => server!.close(error => error ? reject(error) : resolve()));
+    await rm(tools, { recursive: true, force: true });
+  }
+});
+
 // Phaser centres its canvas with a margin that collapses through unstyled parents, so
 // the page overflows its frame and shows both scrollbars. A game page never scrolls.
 it.each(['phaser3-sample-platformer', 'phaser3-vite', 'threejs-vite'])('%s fills its page without overflowing', async (id) => {

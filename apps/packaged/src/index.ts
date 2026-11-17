@@ -467,16 +467,17 @@ async function main(): Promise<void> {
     async discoverDaemonUrl() {
       return sidecars.daemon.url;
     },
-    registerDesktopAuth: async (secret) => {
+    registerDesktopAuth: async (secret, timeoutMs = 800) => {
       try {
         const result = await client.invoke<{ accepted: true }>(
           APP_KEYS.DAEMON,
           "register-desktop-auth",
           { secret: secret.toString("base64") },
-          { timeoutMs: 800 },
+          { timeoutMs },
         );
         return result.accepted === true;
-      } catch {
+      } catch (error) {
+        console.warn(`[openpixo packaged] desktop auth registration failed after ${timeoutMs} ms: ${error instanceof Error ? error.message : String(error)}`);
         return false;
       }
     },

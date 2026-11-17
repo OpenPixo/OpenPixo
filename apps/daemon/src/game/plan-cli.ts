@@ -13,6 +13,8 @@ import {
   type SetArtBudgetRequest,
   type GamePlanResponse,
   type GameScaffoldResponse,
+  type StartNextStageConversationRequest,
+  type StartNextStageConversationResponse,
 } from '@openpixo/contracts';
 import { resolveDaemonUrl } from '../daemon-url.js';
 
@@ -20,6 +22,8 @@ export const GAME_PLAN_USAGE = `${PRODUCT_CLI_NAME} game plan [approve [--art-bu
   Show a new game's plan state, or approve the plan as the user, with the credits the agent may spend on images. An agent cannot approve.
 ${PRODUCT_CLI_NAME} game plan budget [--credits <n>] [--mode ask|auto] [--project <id>] [--json]
   Show the art budget, or set it as the user: 0 means the agent will not spend credits. With ask, the agent spends only what you approve on an art card; with auto, anything within the budget. An agent can read it but not change it, and changes wait while a run is active.
+${PRODUCT_CLI_NAME} game plan next-stage --from <conversationId> [--locale <locale>] [--project <id>] [--json]
+  Open a new conversation for the next build stage, after the newest stage label in <conversationId>, and print the message to send there first. The plan and project notes reach it on their own. An agent cannot do this.
 ${PRODUCT_CLI_NAME} game plan approve-art --credits <n> [--project <id>] [--json]
   Approve the agent's art card as the user: its next turn may spend up to <n> credits, within the budget. An agent cannot approve.
 ${PRODUCT_CLI_NAME} game scaffold --template <id> [--project <id>] [--json]
@@ -69,6 +73,7 @@ export async function runGamePlanCli(args: string[]): Promise<void> {
       project: { type: 'string' }, template: { type: 'string' }, json: { type: 'boolean' },
       'art-budget': { type: 'string' }, credits: { type: 'string' }, mode: { type: 'string' },
       help: { type: 'boolean', short: 'h' }, 'daemon-url': { type: 'string' },
+      from: { type: 'string' }, locale: { type: 'string' },
     } });
     json = values.json === true;
     if (values.help) { console.log(GAME_PLAN_USAGE); return; }
@@ -80,7 +85,7 @@ export async function runGamePlanCli(args: string[]): Promise<void> {
     const agentToken = process.env.PIXO_TOOL_TOKEN;
     if (agentToken) headers.authorization = `Bearer ${agentToken}`;
 
-    let result: GamePlanResponse | ApproveGamePlanResponse | GameScaffoldResponse | ArtBudgetResponse;
+    let result: GamePlanResponse | ApproveGamePlanResponse | GameScaffoldResponse | ArtBudgetResponse | StartNextStageConversationResponse;
     let line: string;
     if (command === 'scaffold') {
       if (!values.template) throw new Error(`--template required.\n${GAME_PLAN_USAGE}`);
@@ -107,6 +112,13 @@ export async function runGamePlanCli(args: string[]): Promise<void> {
       const body = await call<ArtBudgetResponse>(base, `${project}/art-budget`, change ? { method: 'POST', headers, body: JSON.stringify(update) } : { headers });
       result = body;
       line = artBudgetLines(body);
+    } else if (positionals[0] === 'next-stage') {
+      if (agentToken) throw Object.assign(new Error('Only the user can start a new conversation for the next stage.'), { code: 'FORBIDDEN' });
+      if (!values.from) throw new Error(`--from required.\n${GAME_PLAN_USAGE}`);
+      const request: StartNextStageConversationRequest = { fromConversationId: values.from, ...(values.locale ? { locale: values.locale } : {}) };
+      const body = await call<StartNextStageConversationResponse>(base, `${project}/game-plan/next-stage-conversation`, { method: 'POST', headers, body: JSON.stringify(request) });
+      result = body;
+      line = `Conversation ${body.conversation.id} for stage ${body.stage}${body.total ? ` of ${body.total}` : ''}. Send this first:\n${body.firstMessage}`;
     } else if (positionals[0] === 'approve-art') {
       if (agentToken) throw Object.assign(new Error('Only the user can approve art. Ask them to press Approve on the art card.'), { code: 'FORBIDDEN' });
       if (values.credits === undefined) throw new Error(`--credits required.\n${GAME_PLAN_USAGE}`);

@@ -22,7 +22,7 @@ vi.mock('../../src/components/home-hero/PlaceholderCarousel', () => ({
 import { HomeView } from '../../src/components/HomeView';
 import { I18nProvider } from '../../src/i18n';
 import { ProjectCreateError } from '../../src/state/projects';
-import { setHomeHeroPrompt } from '../helpers/home-hero-lexical';
+import { homeHeroPromptText, setHomeHeroPrompt } from '../helpers/home-hero-lexical';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -122,9 +122,11 @@ describe('home composer sending state', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
 
     // Flush the resolution so the trailing state update lands inside the test.
+    // A created run empties the composer: Home stays mounted in its tab, and the
+    // sent text must not be there for the next idea to be added to.
     resolveSubmit(true);
     await waitFor(() => {
-      expect(submit.disabled).toBe(false);
+      expect(homeHeroPromptText().trim()).toBe('');
     });
   });
 

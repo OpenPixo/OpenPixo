@@ -166,7 +166,7 @@ it.skipIf(process.platform !== 'win32' || !OPENCODE)('opens turn 2 with exactly 
   expect(JSON.stringify(reseeded.messages[1])).toContain('## assistant');
 }, 240_000);
 
-it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with every request, as they were when the turn started', async () => {
+it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with every request, as they were when the conversation started', async () => {
   sandbox = await mkdtemp(path.join(os.tmpdir(), 'openpixo-project-notes-'));
   for (const [key, leaf] of [['XDG_DATA_HOME', 'data'], ['XDG_CONFIG_HOME', 'config'], ['XDG_STATE_HOME', 'state'], ['XDG_CACHE_HOME', 'cache'], ['OPENCODE_TEST_HOME', 'home']] as const) {
     process.env[key] = path.join(sandbox, leaf);
@@ -175,7 +175,7 @@ it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with 
   cloud = await fakeSupabase();
   let projectDir = '';
   const bodies: Wire[] = [];
-  const script = [TOOL_TURN, ANSWER('first answer'), ANSWER('second answer')];
+  const script = [TOOL_TURN, ANSWER('first answer'), ANSWER('second answer'), ANSWER('third answer')];
   cloud.handlers.set('POST /functions/v1/agent-chat/chat/completions', (request) => {
     bodies.push(request.body as unknown as Wire);
     // The agent rewrites its notes in the middle of turn 1.
@@ -212,9 +212,18 @@ it.skipIf(process.platform !== 'win32' || !OPENCODE)('sends the game notes with 
   expect(system(bodies[0]!)).toContain('Notes v1');
   // Same notes for the rest of the turn, so the provider's cache still matches.
   expect(system(bodies[1]!)).toBe(system(bodies[0]!));
+  // The edit does not reach the next turn's system prompt: that would make its first request
+  // miss the cache for the whole conversation. The turn opens with exactly what turn 1 sent last
+  // and is told after that prefix that the file is newer.
   await turn('Again.', '## user\nSay hello.\n\n## assistant\nfirst answer\n\n## user\nAgain.');
-  expect(system(bodies[2]!)).toContain('Notes v2');
-  expect(system(bodies[2]!)).not.toContain('Notes v1');
+  expect(system(bodies[2]!)).toBe(system(bodies[0]!));
+  expect(opening(bodies[1]!, bodies[2]!)).toBe(bodies[1]!.messages.length);
+  const lastUser = (body: Wire) => JSON.stringify(body.messages.filter((message) => message.role === 'user').at(-1));
+  expect(lastUser(bodies[2]!)).toContain('changed since this conversation started');
+  // Nothing new since: the next turn's prefix still matches.
+  await turn('Once more.', '## user\nSay hello.\n\n## assistant\nfirst answer\n\n## user\nAgain.\n\n## assistant\nsecond answer\n\n## user\nOnce more.');
+  expect(system(bodies[3]!)).toBe(system(bodies[0]!));
+  expect(opening(bodies[2]!, bodies[3]!)).toBe(bodies[2]!.messages.length);
 }, 240_000);
 
 it.skipIf(process.platform !== 'win32' || !OPENCODE)('Flash is told to keep the user posted, and the step limit makes a long turn stop and report', async () => {

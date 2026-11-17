@@ -137,11 +137,18 @@ composer performs no catalogue lookup, filesystem access or data-path inference.
 An absent or null style omits the block.
 
 The `Project art style` block follows the engine profile and precedes the game
-media contract. It keeps new image assets consistent with the style's positive
-and negative descriptions, palette, pixel size, outline, background and resolution.
-Tool-capable runs are told to pass `--style <id>` to `pixo media generate` and use
-the same style for image recipe runs. Text-only runs receive the visual facts
-without tool-command instructions. Code-only recipes ignore art styles.
+media contract. Owner decision (2026-11-16): a style is a starting point, never a
+limit on the look. Until the user sets the look, the block states the style's
+positive and negative descriptions, palette, pixel size, outline, background and
+resolution, says the style samples are made with it, and tells tool-capable runs
+that the host adds it to image requests on its own (no `--style`). Once
+`projectHasUserArtDirection` (`api/styles.ts`) holds, meaning a picked style reference
+(`metadata.styleReference`) or written direction or reference images in Game setup,
+the daemon passes the style with `advisory: true` and the block names it as the
+starting style: its notes are offered where they fit the user's direction, the user's
+direction and the chosen reference win, and `--style <id>` is only for when the user
+asks for that look. Text-only runs receive the visual facts without tool-command
+instructions. Code-only recipes ignore art styles.
 
 Style selection and style content are stable prompt inputs. Changing either
 changes the composed stable prefix and its fingerprint. Completion, follow-up
@@ -253,6 +260,17 @@ something, and never start the next stage before the user says so. Before genera
 what it will make (and the credits, when budget-paid) and waits for the user's OK. The starters
 follow while no engine exists. The status and the recorded plan are stable inputs attributed to
 the `project` section, so approval resends the instructions to a resumed session.
+
+A build conversation grows to 160-230k tokens by the later stages and every request re-sends it, so
+the user can carry on in a fresh conversation of the same project (2026-11-16): the approve bar's
+"approve and start in a new conversation" button, or the line under a build reply whose stage label
+is not the last (`components/chat/NextStageLine.tsx`, `runtime/chat/next-stage.ts`). Both call
+`POST /api/projects/:id/game-plan/next-stage-conversation` (`pixo game plan next-stage --from <id>`),
+which refuses an agent's token and an active run, reads the newest stage label of the conversation
+the user came from (`parseGameStageLabel` in `api/game-stage.ts`) and creates the conversation. Its
+first message, from `renderNextStageKickoff`, names the stage and says the earlier ones are built and
+confirmed; the approved-plan block tells the agent to take the stage from that message. The plan and
+the project notes reach the new conversation as they reach every run, and no stage state is stored.
 
 `renderGamePlanTurnNote` restates the step or stage label and the user's language in the
 per-turn slice beside the art budget note. It is static per status, but a resumed session is not
@@ -397,8 +415,13 @@ the same shape.
 ## Image generation style merge
 
 Image generation and image recipe runs accept an optional `styleId`. Omitting it
-uses the project's default art style; an explicit null requests no style. Other
-media types and code-only recipes do not apply image styles.
+uses the project's default art style until the user has set the look
+(`projectHasUserArtDirection`); from then on omitting it adds no style, so a preset's
+brushwork, palette, outline and resolution never override what the agent asked for
+(`resolveArtStyleForGeneration` in `styles/service.ts`). A pixel game keeps
+nearest-neighbour scaling either way (`projectUsesPixelGrid`). An explicit id always
+applies; an explicit null requests no style. Other media types and code-only recipes
+do not apply image styles.
 
 With a style selected, the effective image prompt is composed in this deterministic order:
 
@@ -446,7 +469,7 @@ The "Small art in one image" and "Characters that move" sections teach only thes
 | Runtime planning | `runtimes/plan-tool-note.ts` names Codex update_plan, Claude TodoWrite/TaskCreate/TaskUpdate and OpenCode todowrite. Parser recordings remain the evidence for those names. |
 | Completion/follow-up/focus | `packages/contracts/src/prompts/chat-turn-host-protocol.ts` renders keyed per-turn markers outside the cached prefix. |
 | Resume/cache | `runtimes/stable-prompt-sections.ts` attributes input drift. The full stable-prompt fingerprint remains the sole decision for resending instructions. The hosted agent resumes its OpenCode session like the `opencode` agent, because GPT-6 reuses a cache only when a request opens with exactly what an earlier one sent, and it charges to write it; `apps/daemon/tests/openpixo-agent-prompt-cache.test.ts` holds that with the real binary. Switching in or out of Plan mode changes the tool list and the stable prompt, so that one turn misses the cache and resends the instructions. |
-| Project notes | `renderProjectNotesRule` (base rules) names `AGENTS.md` in the game folder as notes for the next conversation: read first, written only as the last step of a turn that can edit. `OPENCODE_DISABLE_PROJECT_CONFIG` also turns off OpenCode's own `AGENTS.md`/`CLAUDE.md`/`CONTEXT.md` lookup, so `runtimes/opencode-project-notes.ts` copies the first one present in the project folder (never its parents) to one path per project under the daemon data root at run start and passes it as config `instructions`. OpenCode rereads that file on every request, and a copy fixed for the turn keeps a mid-turn edit from breaking the cache; the real-binary test in `openpixo-agent-prompt-cache.test.ts` holds it. Codex loads `AGENTS.md` itself. |
+| Project notes | `renderProjectNotesRule` (base rules) names `AGENTS.md` in the game folder as notes for the next conversation: read first, written only as the last step of a turn that can edit. `OPENCODE_DISABLE_PROJECT_CONFIG` also turns off OpenCode's own `AGENTS.md`/`CLAUDE.md`/`CONTEXT.md` lookup, so `runtimes/opencode-project-notes.ts` copies the first one present in the project folder (never its parents) to one path per project and conversation under the daemon data root and passes it as config `instructions`. OpenCode rereads that file on every request and puts it at the top of the system prompt, so the copy is a snapshot per agent session: taken when a session starts, kept while it is resumed, so the agent's end-of-turn edit does not make the next turn's first request miss the cache for the whole conversation (2026-11-16: it cost 124k-161k uncached tokens a turn). A resumed turn whose file differs from the snapshot gets `renderProjectNotesTurnNote` in the per-turn slice, saying the file is newer. The real-binary test in `openpixo-agent-prompt-cache.test.ts` holds the system prompt byte-identical across that edit. Codex loads `AGENTS.md` itself when its session starts. |
 | `/compact` | `prompts/conversation-compaction.ts` owns the summary request and the transcript cut (`splitAtCompaction`). A `purpose: 'compact'` run sends the request in the per-turn body, so it resumes the cached session with the same tools and stable prompt. A succeeded reply is recorded in `conversation_compactions` (`apps/daemon/src/conversation-compaction.ts`), the resume guard refuses the session that wrote it (`conversation_compacted`), and the web and `pixo conversation compact` send the summary plus later messages. Plan approval skips summaries; Auto does not count them as plan turns. |
 | MCP and research | Authenticated MCP guidance lives in `mcp/connected-directive.ts`; the research CLI contract lives in `research/prompt-contract.ts`. They remain tool instructions, independent of design workflows. |
 
@@ -459,7 +482,7 @@ are absent. Do not duplicate that text in another composer.
 
 The verification block teaches `pixo game playtest --script <file|-> --duration <seconds> --json` for gameplay and interaction changes. The shared `GamePlaytestRequest` accepts bounded wait/key/click/move/mouseDown/mouseUp/drag/capture steps, a duration of at most 30 seconds, and a capture interval; at most 24 frames are retained. Pointer coordinates use a 1280×720 viewport. `move` hovers or aims, paired `mouseDown`/`mouseUp` steps hold and release the left button, and `drag` specifies `from`, `to` and optional `durationMs` for a smooth left-button gesture.
 
-`pixo game playtest --list-presets --json` lists observe, runJump, wasd, clickGrid, drag, random and monkey. `pixo game playtest --preset <id> [--seed <n>] --json` expands a shared preset instead of reading `--script`. Random and monkey accept a seed from 0 to 4294967295; the report records even an automatically chosen seed so the same preset and seed replay the same inputs. Agents select or customize inputs to exercise the changed behavior, then inspect frames, console/page errors and measured rAF min/average FPS before reporting results. Godot movie capture has no input replay and reports no measured FPS.
+`pixo game playtest --list-presets --json` lists observe, runJump, wasd, clickGrid, drag, random and monkey. `pixo game playtest --preset <id> [--seed <n>] --json` expands a shared preset instead of reading `--script`. Random and monkey accept a seed from 0 to 4294967295; the report records even an automatically chosen seed so the same preset and seed replay the same inputs. Agents select or customize inputs to exercise the changed behavior, then inspect frames, console/page errors and measured rAF min/average FPS before reporting results. Godot movie capture has no input replay and reports no measured FPS. The engine profile says so up front (`ENGINE_PLAYTEST_FACTS` in `openpixo-game.ts`, a `- Playtest:` line for Godot, Unity, Unreal and Bevy), so the agent does not learn it from `SCRIPT_UNSUPPORTED`: for Godot it adds an autotest autoload that acts only under `OS.has_feature("movie")`, presses input actions from code and reports a miss with `push_error`, which the host's Godot error scan turns into a failed playtest. That scan ignores the .NET build's own `.NET` startup errors (a missing .NET SDK) for a project without C# (`playtest-diagnostics.ts`), in `game verify` and `game playtest` alike.
 
 Playtesting reuses verification artifacts. The desktop host only drives a loopback page; agent project commands stay in the CLI child and use the existing verification context/capture/register endpoints. UI and normal CLI callers use `POST /api/projects/:id/game/playtest`. An unavailable renderer or engine is reported explicitly, and does not count as a passing check.
 

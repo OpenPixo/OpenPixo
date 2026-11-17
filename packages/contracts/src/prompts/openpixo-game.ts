@@ -170,14 +170,26 @@ function renderGameBaseRules(input: GameProjectPromptInput): string[] {
 /**
  * Project notes: `AGENTS.md` in the game folder, so a new conversation does not
  * rediscover the project. Most runtimes load it into the instructions (OpenCode
- * through `opencode-project-notes.ts`, Codex natively); it is written only at the
- * end of a turn, because the hosted runtime reads it again on every request and a
- * mid-turn edit would make the rest of the turn miss the prompt cache.
+ * through `opencode-project-notes.ts`, Codex natively). It is written only at the
+ * end of a turn so the turn works from one version; the daemon keeps the copy in
+ * OpenCode's instructions fixed for the whole conversation, so the edit does not
+ * change the cached prompt either (see `renderProjectNotesTurnNote`).
  */
 export function renderProjectNotesRule(canWrite: boolean): string {
   const read = 'Project notes: `AGENTS.md` in the project folder holds short notes for whoever works on this game next. When it exists, its text is usually already in your instructions; if it is not, read the file before exploring. Trust it, check only what the task touches, and do not list or search the whole project to rediscover what it says.';
   if (!canWrite) return read;
   return `${read} When a turn taught you something lasting about the project, update the notes as the last step of the turn, never in the middle: which files hold the main scenes, the player, animations and asset manifests; how assets are made and loaded; how to check, run and playtest the game, including playtest inputs that get past menus into play; and traps you hit. The notes describe the game and how to work on it; they are not a checklist every later turn must run, a record of this turn's evidence or screenshots, or a history of changes. Keep the file under about 60 lines, replace what is out of date instead of appending a log of this turn, keep anything the user wrote there, and leave it unchanged when nothing lasting changed.`;
+}
+
+/**
+ * Per-turn note for a resumed conversation whose project notes changed since it
+ * started. The instructions keep the version the conversation began with, so
+ * editing the notes never changes the cached prompt prefix; this line, sent after
+ * that prefix, says the file is newer. Empty when nothing changed.
+ */
+export function renderProjectNotesTurnNote(changedFile: string | null | undefined): string {
+  if (!changedFile) return '';
+  return `Project notes: \`${changedFile}\` in the project folder changed since this conversation started. Your instructions still show the version from the start of the conversation; the file is current, so read it when you need what changed.`;
 }
 
 function renderEngineCommand(command: EngineCommand): string {
@@ -216,6 +228,8 @@ export function renderEngineProfileBlock(profile?: EngineProfile | null | undefi
   lines.push(commands.length > 0
     ? `- Commands \`${PRODUCT_CLI_NAME} game verify\` runs (the first word is a tool id the host resolves):\n${commands.join('\n')}`
     : '- Commands: none known for this engine. Verification will be limited; use the project\'s own scripts where they exist.');
+  const playtest = ENGINE_PLAYTEST_FACTS[profile.engine];
+  if (playtest) lines.push(`- Playtest: ${playtest}`);
   const missing = missingEngineTools(profile).map((id) => `\`${id}\``);
   if (missing.length > 0) {
     lines.push(`- Not found on this machine: ${missing.join(', ')}. Steps that need them come back \`unavailable\` until the user installs them or sets the path in Settings.`);
@@ -223,6 +237,19 @@ export function renderEngineProfileBlock(profile?: EngineProfile | null | undefi
   }
   return `${GAME_ENGINE_BLOCK_HEADING}\n\n${lines.join('\n')}`;
 }
+
+/**
+ * What `pixo game playtest` can do for an engine, stated with its profile so the
+ * agent does not learn it by trying. A Godot build agent found out only from
+ * `SCRIPT_UNSUPPORTED` and then spent about 18 requests on a real window, system
+ * key presses and screen capture (2026-11-16). The host side is `game/playtest.ts`.
+ */
+const ENGINE_PLAYTEST_FACTS: Partial<Record<GameEngineId, string>> = {
+  godot: `\`${PRODUCT_CLI_NAME} game playtest\` cannot send input to Godot: it records the game in Godot's movie mode for \`--duration\` seconds, and \`--script\` or \`--preset\` come back \`SCRIPT_UNSUPPORTED\`. Do not try them, and do not work around it with a real window, system key presses or screen capture. To check the core loop, add a small autotest autoload that does nothing unless \`OS.has_feature("movie")\` is true (only during this capture): on a timer it presses the game's input actions from code (\`Input.action_press\` / \`Input.action_release\`) so the player moves, reaches the goal and loses, and calls \`push_error("AUTOTEST: <what did not happen>")\` when the game does not answer, which fails the playtest with that line in \`playtest.pageErrors\`. Then run \`${PRODUCT_CLI_NAME} game playtest --duration <seconds> --json\` and read the frames. Report it as an autotest driven from code, and tell the user what to try by hand.`,
+  unity: `\`${PRODUCT_CLI_NAME} game playtest\` is not available for Unity (\`UNSUPPORTED_ENGINE\`); do not try it or work around it with screen capture. Use \`game verify\` and tell the user what to try in the editor.`,
+  unreal: `\`${PRODUCT_CLI_NAME} game playtest\` is not available for Unreal Engine (\`UNSUPPORTED_ENGINE\`); do not try it or work around it with screen capture. Use \`game verify\` and tell the user what to try in the editor.`,
+  bevy: `\`${PRODUCT_CLI_NAME} game playtest\` is not available for Bevy (\`UNSUPPORTED_ENGINE\`); do not try it or work around it with screen capture. Use \`game verify\` and the project's own tests, and tell the user what to try.`,
+};
 
 /** The engine tools this machine lacks, as the daemon resolved them for this run. */
 function missingEngineTools(profile: EngineProfile | null | undefined): string[] {
@@ -326,6 +353,7 @@ export function renderGameArtStyleBlock(
   canRunTools = true,
 ): string {
   if (!artStyle) return '';
+  if (artStyle.advisory) return renderAdvisoryArtStyleBlock(artStyle, canRunTools);
 
   const lines = [
     GAME_ART_STYLE_BLOCK_HEADING,
@@ -339,10 +367,29 @@ export function renderGameArtStyleBlock(
   if (constraints?.outline) lines.push(`Outline: ${constraints.outline}.`);
   if (constraints?.background) lines.push(`Default background: ${constraints.background}.`);
   if (constraints?.recommendedResolution) lines.push(`Recommended resolution: ${constraints.recommendedResolution}.`);
-  lines.push('Keep newly generated assets consistent with this project art style. Art styles apply to image assets; code-only recipes ignore them. Explicit background and resolution choices override the style defaults.');
+  lines.push('This style is a starting point the user picked in setup: make the style samples with it. Once the user picks a sample or describes the look, their direction and the chosen reference decide the look, not this style. Art styles apply to image assets; code-only recipes ignore them. Explicit background and resolution choices override the style defaults.');
   if (canRunTools) {
-    lines.push(`For image generation, use \`${PRODUCT_CLI_NAME} media generate --style ${artStyle.id}\` and pass the same style to image recipe runs.`);
+    lines.push(`Until then the host adds this style to every image request and image recipe run on its own; do not pass \`--style\`.`);
   }
+  return lines.join('\n');
+}
+
+/**
+ * The style once the user set the look (`projectHasUserArtDirection`): named as
+ * where the game started, with its notes offered, never imposed. The host no
+ * longer adds it to image requests, so the agent writes the look into each prompt.
+ */
+function renderAdvisoryArtStyleBlock(artStyle: ProjectArtStylePromptInput, canRunTools: boolean): string {
+  const lines = [
+    GAME_ART_STYLE_BLOCK_HEADING,
+    `Starting style: ${artStyle.title} (${artStyle.id}). It seeded the first style samples. The look is now the user's: their direction in this conversation and Game setup and the chosen style reference win over it wherever they differ.`,
+    `Style notes, to use only where they fit the user's direction: ${artStyle.prompt}`,
+    `The style avoids, unless the user asked for it: ${artStyle.negativePrompt}`,
+  ];
+  if (artStyle.palette?.length) lines.push(`Style palette, a suggestion and never a requirement (only a palette the user set is one): ${artStyle.palette.join(', ')}.`);
+  lines.push(canRunTools
+    ? `The host no longer adds this style to image requests. Write the look the user chose into each image prompt and pass the style reference image; pass \`--style ${artStyle.id}\` only when the user asks for this style's look.`
+    : 'Describe the look the user chose in every image request.');
   return lines.join('\n');
 }
 
@@ -686,7 +733,7 @@ function renderApprovedPlanBlock(
     ...(recorded ? ['', '<approved-plan>', recorded, '</approved-plan>'] : []),
     '',
     `Build it in stages (阶段), one stage per turn${quick ? ', keeping each one short' : ''}:`,
-    `- Start every build reply with the stage label in the user's language, for example ${STAGE_LABEL_EXAMPLE}. Take the current stage from your last stage label in this conversation; the first build turn is stage 1. If the plan has no stages, open the first build turn by listing ${quick ? '3' : '3 to 6'} in a few lines (stage 1 is the smallest playable version of the core loop), then build stage 1.`,
+    `- Start every build reply with the stage label in the user's language, for example ${STAGE_LABEL_EXAMPLE}. Take the current stage from your last stage label in this conversation. A conversation the user opened for the next stage starts with their message naming it: build that stage, treat the earlier ones as built and confirmed, and read the project notes and files for what they hold. Otherwise the first build turn is stage 1. If the plan has no stages, open the first build turn by listing ${quick ? '3' : '3 to 6'} in a few lines (stage 1 is the smallest playable version of the core loop), then build stage 1.`,
     '- Your to-do or plan tool holds only this stage\'s own steps, never the later stages: the host shows anything left open there as unfinished work and offers to continue it, and the next stage waits for the user.',
     `- Build only the current stage. Then ${canRunTools ? 'run it and playtest its loop with real input until it is playable as Verification defines it (move, win, lose), and say what you tried and what happened' : 'check it as well as you can and say it has not been playtested'}, and tell the user in plain words what is done and exactly how to try it: what to open or press, and which keys or clicks do what.`,
     '- End the turn with a <question-form>: go on to the next stage (name it), or what to change first. Never start the next stage until the user says so. Apply the changes they ask for before moving on, and ask again.',

@@ -3603,6 +3603,12 @@ export interface Dict {
   /* 输入框上方那一行「现在整体在干什么」(`chat/RunStatusLine`,判据在 `runtime/chat/run-status.ts`) */
   'chat.gamePlan.notice': string;
   'chat.gamePlan.approve': string;
+  'chat.nextStage.hint': string;
+  'chat.nextStage.start': string;
+  'chat.nextStage.startFirst': string;
+  'chat.nextStage.failed': string;
+  'chat.nextStage.approve': string;
+  'chat.nextStage.approveHint': string;
   'chat.gamePlan.failed': string;
   'chat.gamePlan.startMessage': string;
   'chat.artBudget.label': string;

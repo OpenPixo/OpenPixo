@@ -9,7 +9,7 @@ import { executeGameProcess, GameCommandTimeout, VERIFY_LOG_LIMIT } from './veri
 import { saveGameFrame, saveGamePlaytestOverview } from './frame-store.js';
 import { godotMovieArgs } from './playtest-godot.js';
 export { godotMovieArgs } from './playtest-godot.js';
-import { createGodotErrorCollector } from './playtest-diagnostics.js';
+import { createGodotErrorCollector, godotProjectUsesCSharp } from './playtest-diagnostics.js';
 
 /** A request that names a preset (and seed) must be replayable: its script has to be exactly that
  * preset's output, otherwise the report's provenance would describe a run that never happened. */
@@ -43,7 +43,7 @@ export async function playtestGame(options: {
   const step: GameVerifyStep = { name: 'run', argv: [...command.argv], status: 'failed', exitCode: null, durationMs: 0, logRef, timedOut: false };
   result.steps.push(step);
   let log = Buffer.alloc(0), movieDir: string | undefined;
-  const godotErrors = createGodotErrorCollector();
+  const godotErrors = createGodotErrorCollector({ projectUsesCSharp: web || await godotProjectUsesCSharp(options.projectDir) });
   const append = (chunk: Buffer | string) => { godotErrors.append(chunk); if (log.length < VERIFY_LOG_LIMIT) log = Buffer.concat([log, Buffer.from(chunk).subarray(0, VERIFY_LOG_LIMIT - log.length)]); };
   const saveFrames = async (capture: GameWebPlaytestCapture) => {
     if (!capture.frames.length || capture.frames.length > GAME_PLAYTEST_LIMITS.frames || !Number.isFinite(capture.durationMs)

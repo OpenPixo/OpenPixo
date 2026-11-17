@@ -1,7 +1,7 @@
 import { PRODUCT_CLI_NAME } from '../src/product.js';
 import { describe, expect, it } from 'vitest';
 import type { EngineProfile } from '../src/api/game-project.js';
-import type { ProjectArtStylePromptInput } from '../src/api/styles.js';
+import { projectHasUserArtDirection, type ProjectArtStylePromptInput } from '../src/api/styles.js';
 import { GAME_ART_DECISION_HEADING, renderArtBudgetTurnNote, renderGameMediaGenerationContract } from '../src/prompts/media-contract.js';
 import { IMAGE_OUTPUT_MAX_EDGE } from '../src/api/media.js';
 import {
@@ -66,15 +66,41 @@ describe('OpenPixo imported game project prompt', () => {
       'Outline: One-pixel dark outline',
       'Default background: transparent',
       'Recommended resolution: 1024x1024',
-      'Keep newly generated assets consistent',
+      'This style is a starting point the user picked in setup',
+      'their direction and the chosen reference decide the look, not this style',
       'code-only recipes ignore them',
-      `${PRODUCT_CLI_NAME} media generate --style 16-bit-pixel`,
-      'pass the same style to image recipe runs',
+      'the host adds this style to every image request and image recipe run on its own; do not pass `--style`',
     ]) expect(prompt).toContain(text);
+    expect(prompt).not.toContain('Keep newly generated assets consistent');
     const order = [GAME_ENGINE_BLOCK_HEADING, GAME_ART_STYLE_BLOCK_HEADING, GAME_MEDIA_CONTRACT_HEADING]
       .map((heading) => prompt.indexOf(heading));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it('makes the style advisory once the user has set the look', () => {
+    const prompt = composeOpenPixoGamePrompt({ engineProfile: PHASER_PROFILE, artStyle: { ...PIXEL_STYLE, advisory: true } });
+    const block = prompt.slice(prompt.indexOf(GAME_ART_STYLE_BLOCK_HEADING), prompt.indexOf('\n## ', prompt.indexOf(GAME_ART_STYLE_BLOCK_HEADING) + 1));
+    expect(block).toContain('Starting style: 16-bit pixel (16-bit-pixel)');
+    expect(block).toContain('win over it wherever they differ');
+    expect(block).toContain(`Style notes, to use only where they fit the user's direction: ${PIXEL_STYLE.prompt}`);
+    expect(block).toContain('The host no longer adds this style to image requests');
+    expect(block).toContain('pass `--style 16-bit-pixel` only when the user asks');
+    // Its rules are not stated as rules any more.
+    expect(block).not.toContain('Positive style:');
+    expect(block).not.toContain('Outline: One-pixel dark outline');
+    expect(block).not.toContain('Recommended resolution');
+    expect(block).not.toContain('starting point the user picked in setup');
+  });
+
+  it('counts a picked reference, written direction or reference images as the user setting the look', () => {
+    expect(projectHasUserArtDirection(undefined)).toBe(false);
+    expect(projectHasUserArtDirection({ artStyleId: 'painted-fantasy' })).toBe(false);
+    expect(projectHasUserArtDirection({ gameSetup: { art: { styleId: 'painted-fantasy', palette: ['#112233'] } } })).toBe(false);
+    expect(projectHasUserArtDirection({ styleReference: 'concept/style-2.png' })).toBe(true);
+    expect(projectHasUserArtDirection({ gameSetup: { art: { direction: 'bold black contours, flat vivid colours' } } })).toBe(true);
+    expect(projectHasUserArtDirection({ gameSetup: { art: { direction: '   ' } } })).toBe(false);
+    expect(projectHasUserArtDirection({ gameSetup: { art: { references: ['refs/a.png'] } } })).toBe(true);
   });
 
   it('gives a text-only provider style facts without image tool instructions', () => {
@@ -183,6 +209,19 @@ describe('OpenPixo imported game project prompt', () => {
     expect(prompt).toContain("has not identified this project's engine");
     expect(prompt).toContain('No asset root is known');
     expect(prompt).toContain('media models --json');
+  });
+
+  it('says with the Godot profile that playtests cannot send input, and what to do instead', () => {
+    const godot = composeOpenPixoGamePrompt({ baseDir: '/g', engineProfile: { ...PHASER_PROFILE, engine: 'godot', importMetadata: 'godot-import' } });
+    const engineBlock = godot.slice(godot.indexOf(GAME_ENGINE_BLOCK_HEADING), godot.indexOf('\n## ', godot.indexOf(GAME_ENGINE_BLOCK_HEADING) + 1));
+    expect(engineBlock).toContain('game playtest` cannot send input to Godot');
+    expect(engineBlock).toContain('SCRIPT_UNSUPPORTED');
+    expect(engineBlock).toContain('do not work around it with a real window, system key presses or screen capture');
+    expect(engineBlock).toContain('OS.has_feature("movie")');
+    expect(engineBlock).toContain('push_error("AUTOTEST:');
+    // Web engines can send input, so their profile carries no such line.
+    const phaser = composeOpenPixoGamePrompt({ baseDir: '/g', engineProfile: PHASER_PROFILE });
+    expect(phaser).not.toContain('- Playtest:');
   });
 
   it('states import sidecar rules per engine', () => {

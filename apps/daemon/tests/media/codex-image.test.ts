@@ -52,13 +52,13 @@ describe('Codex image CLI adapter (fake executable only)', () => {
     const ref = path.join(root, 'reference with spaces.png');
     await writeFile(ref, 'reference');
     expect(await generateCodexImages(options({ count: 3, images: [ref], background: 'transparent',
-      aspect: '16:9', resolution: '1024x1536', negativePrompt: 'no text' }))).toHaveLength(3);
+      aspect: '16:9', resolution: '1920x1080', negativePrompt: 'no text' }))).toHaveLength(3);
     const invocation = await record();
     expect(invocation.args).toContain('--image=' + ref);
     expect(invocation.input).toContain('exactly 3 image');
     expect(invocation.input).toContain('transparent background');
     expect(invocation.input).toContain('16:9');
-    expect(invocation.input).toContain('1024x1536');
+    expect(invocation.input).toContain('Size hint: 1920x1080.');
     expect(invocation.input).toContain('Avoid:\nno text');
   });
   it.each(['none', 'foreign'])('reports no output for %s and never steals another thread image', async value => {

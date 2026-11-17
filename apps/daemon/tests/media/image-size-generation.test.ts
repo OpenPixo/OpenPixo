@@ -113,4 +113,17 @@ describe('Codex image_gen instruction', () => {
     expect(text).toContain('If you cannot return alpha: Background: the host removes it');
     expect(text).toContain('Final asset size: 96x96 px (the host resizes it). It is shown small');
   });
+
+  it('never gives a size hint that contradicts the aspect or the final size', () => {
+    // A style's recommended 1024x1024 on a 16:9 request (owner run, 2026-11-16).
+    const wide = codexImageInstruction({ dataRoot: '.', prompt: 'A battlefield', aspect: '16:9', resolution: '1024x1024',
+      finalSize: { width: 1536, height: 864, aspect: '16:9', warnings: [] } });
+    expect(wide).toContain('Aspect ratio: 16:9.');
+    expect(wide).toContain('Final asset size: 1536x864');
+    expect(wide).not.toContain('1024x1024');
+    expect(codexImageInstruction({ dataRoot: '.', prompt: 'x', aspect: '16:9', resolution: '1024x1024' })).not.toContain('Size hint');
+    // A hint of the same shape, or with nothing to contradict, stays.
+    expect(codexImageInstruction({ dataRoot: '.', prompt: 'x', aspect: '16:9', resolution: '1920x1080' })).toContain('Size hint: 1920x1080.');
+    expect(codexImageInstruction({ dataRoot: '.', prompt: 'x', resolution: '1024x1024' })).toContain('Size hint: 1024x1024.');
+  });
 });

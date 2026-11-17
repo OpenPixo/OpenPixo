@@ -120,7 +120,7 @@ export function GameSetupWizard(props: GameSetupWizardProps) {
   // A retired style the setup already had when the dialog opened stays on offer, even after picking another.
   const dimension = perspectiveDimension(draft.perspective);
   const [openedStyleId] = useState(draft.styleId);
-  const orderedStyles = useMemo(() => wizardStyleList(styleList, dimension, openedStyleId), [dimension, styleList, openedStyleId]);
+  const orderedStyles = useMemo(() => wizardStyleList(styleList, dimension, openedStyleId, draft.genre), [dimension, styleList, openedStyleId, draft.genre]);
 
   // Every step edit is the user's own; suggestions arrive through `withSuggestedSetup` instead.
   const update = (patch: Partial<WizardDraft>) => props.onDraftChange(markEdited(draft, patch));
