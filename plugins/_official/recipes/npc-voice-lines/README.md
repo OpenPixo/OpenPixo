@@ -7,7 +7,7 @@ Two or more takes of one line, with leading and trailing silence trimmed and lou
 ## Inputs
 
 - `line` (text, required): Line to speak (spoken verbatim)
-- `voice` (string, required): Voice id (from your TTS provider)
+- `voice` (string, required): Voice (name or id)
 - `language` (string): Language hint (optional)
 - `lufs` (select, default `-18`): Loudness target (LUFS)
 - `format` (select, default `ogg`): Format

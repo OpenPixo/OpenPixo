@@ -9,10 +9,10 @@
   },
   "version": "0.1.0",
   "publishedAt": "2026-10-27T18:47:39+09:00",
-  "description": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine. Needs a music provider.",
+  "description": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine.",
   "description_i18n": {
-    "en": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine. Needs a music provider.",
-    "zh-CN": "为循环播放而写的器乐曲，生成交叉淡化的循环点并转换格式。需要音乐供应商。"
+    "en": "An instrumental track written to loop, given a crossfaded loop point and converted for the engine.",
+    "zh-CN": "为循环播放而写的器乐曲，生成交叉淡化的循环点并转换格式。"
   },
   "license": "Apache-2.0",
   "author": {

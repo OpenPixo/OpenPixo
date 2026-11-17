@@ -49,9 +49,9 @@
         },
         {
           "name": "voice",
-          "label": "Voice id (from your TTS provider)",
+          "label": "Voice (name or id)",
           "label_i18n": {
-            "zh-CN": "声音 ID（来自你的 TTS 服务商）"
+            "zh-CN": "声音（名称或 ID）"
           },
           "type": "string",
           "required": true

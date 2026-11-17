@@ -9,10 +9,10 @@
   },
   "version": "0.1.0",
   "publishedAt": "2026-10-27T18:47:39+09:00",
-  "description": "Turns one reference image of a prop or character into a textured 3D model (GLB). Needs a provider with image-to-3D support.",
+  "description": "Turns one reference image of a prop or character into a textured 3D model (GLB).",
   "description_i18n": {
-    "en": "Turns one reference image of a prop or character into a textured 3D model (GLB). Needs a provider with image-to-3D support.",
-    "zh-CN": "把一张道具或角色参考图转成带贴图的 3D 模型（GLB），需要支持图生 3D 的供应商。"
+    "en": "Turns one reference image of a prop or character into a textured 3D model (GLB).",
+    "zh-CN": "把一张道具或角色参考图转成带贴图的 3D 模型（GLB）。"
   },
   "license": "Apache-2.0",
   "author": {
