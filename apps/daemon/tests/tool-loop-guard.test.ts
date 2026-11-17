@@ -33,6 +33,17 @@ describe('computeToolSignature', () => {
     expect(a).toContain('/a.html');
   });
 
+  it('signs a read by its window, so two pages of one file differ', () => {
+    expect(computeToolSignature('read', { filePath: 'a.gd', offset: 1, limit: 200 })).not.toBe(
+      computeToolSignature('read', { filePath: 'a.gd', offset: 201, limit: 200 }),
+    );
+    expect(computeToolSignature('Read', { file_path: 'a.pdf', pages: '1-5' })).not.toBe(
+      computeToolSignature('Read', { file_path: 'a.pdf', pages: '6-10' }),
+    );
+    // A whole-file read keeps the plain path signature.
+    expect(computeToolSignature('Read', { file_path: 'a.gd' })).toBe('Read a.gd');
+  });
+
   it('collapses whitespace so trivially reformatted actions match', () => {
     expect(computeToolSignature('Bash', { command: 'ls   -la\n' })).toBe(
       computeToolSignature('Bash', { command: 'ls -la' }),
@@ -394,6 +405,38 @@ describe('createToolLoopGuard — repeated-call trigger', () => {
     const guard = createToolLoopGuard({ mode: 'warn' });
     for (let index = 0; index < 20; index++) expect(ok(guard, `c${index}`, 'bash', bash('curl localhost'))).toBeNull();
     expect(guard.halted).toBe(false);
+  });
+
+  // 2026-11-17: a credits run read a 1,000+ line game/hud.gd in pages with
+  // OpenCode's `read` tool and was halted after six reads, each of which
+  // returned new lines.
+  it('lets a paged read of one long file through, each page a different window', () => {
+    const guard = createToolLoopGuard({ mode: 'halt' });
+    for (let page = 0; page < 8; page++) {
+      expect(ok(guard, `r${page}`, 'read', { filePath: 'game/hud.gd', offset: page * 200 + 1, limit: 200 })).toBeNull();
+    }
+    expect(guard.halted).toBe(false);
+  });
+
+  it('lets Claude Code page through a file or a PDF', () => {
+    const guard = createToolLoopGuard({ mode: 'halt' });
+    for (let page = 0; page < 6; page++) {
+      expect(ok(guard, `r${page}`, 'Read', { file_path: '/g/hud.gd', offset: page * 100, limit: 100 })).toBeNull();
+    }
+    for (let page = 0; page < 6; page++) {
+      expect(ok(guard, `p${page}`, 'Read', { file_path: '/g/design.pdf', pages: `${page * 5 + 1}-${page * 5 + 5}` })).toBeNull();
+    }
+    expect(guard.halted).toBe(false);
+  });
+
+  it('still halts six reads of the same window', () => {
+    const guard = createToolLoopGuard({ mode: 'halt' });
+    for (let index = 1; index <= 5; index++) {
+      expect(ok(guard, `r${index}`, 'read', { filePath: 'game/hud.gd', offset: 401, limit: 200 })).toBeNull();
+    }
+    expect(ok(guard, 'r6', 'read', { filePath: 'game/hud.gd', offset: 401, limit: 200 })).toMatchObject({
+      reason: 'repeated-call', action: 'halt', toolName: 'read', count: 6,
+    });
   });
 
   it('catches the loop in a real OpenCode recording, where its own doom_loop check does not', () => {
