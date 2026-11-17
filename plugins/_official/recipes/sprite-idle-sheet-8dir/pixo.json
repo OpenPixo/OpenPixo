@@ -7,7 +7,7 @@
     "en": "8-direction idle sheet",
     "zh-CN": "8 方向待机姿势图"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishedAt": "2026-11-15T12:00:00+09:00",
   "description": "Step 1 of an idle animation: one character drawn standing at rest in all eight directions on a green screen, ready to animate with the 8-direction idle.",
   "description_i18n": {
@@ -49,29 +49,18 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "clean cartoon with bold outlines",
-            "hand-painted 2D",
-            "chibi 2D with bold outlines",
-            "pixel-art look with chunky pixels"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "clean cartoon with bold outlines": "粗描边的简洁卡通",
-              "hand-painted 2D": "2D 手绘",
-              "chibi 2D with bold outlines": "粗描边的 Q 版 2D",
-              "pixel-art look with chunky pixels": "粗像素的像素风"
-            }
-          },
-          "default": "clean cartoon with bold outlines"
+          "type": "string",
+          "placeholder": "e.g. clean cartoon with bold outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：粗描边的简洁卡通"
+          }
         }
       ],
-      "prompt": "Game character pose sheet for an idle animation: {{character.name}}, {{character.description}}. Eight copies of the same character in a strict grid of 4 columns by 2 rows of equal cells on a 16:9 canvas, with no visible grid lines. Every copy stands at rest in a relaxed idle pose: both feet planted about hip-width apart, weight even, knees straight but not locked, arms hanging relaxed at the sides, hands loose. Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left. Every copy keeps its body facing its own direction. Identical design, colours, proportions and size in every copy; where reference images are provided, follow them exactly, and keep one-sided details such as a weapon, a bag, a scarf end or a hair parting on the same side of the body in every view. Three-quarter top-down game camera, identical in every cell. Each copy is centred in its cell with its whole body visible, about 70 percent of the cell height, feet on the same baseline within a row, with clear empty space around it; nothing crosses into another cell. Style: {{style}}, crisp clean outlines, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
+      "prompt": "Game character pose sheet for an idle animation: {{character.name}}, {{character.description}}. Eight copies of the same character in a strict grid of 4 columns by 2 rows of equal cells on a 16:9 canvas, with no visible grid lines. Every copy stands at rest in a relaxed idle pose: both feet planted about hip-width apart, weight even, knees straight but not locked, arms hanging relaxed at the sides, hands loose. Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left. Every copy keeps its body facing its own direction. Identical design, colours, proportions and size in every copy; where reference images are provided, follow them exactly, and keep one-sided details such as a weapon, a bag, a scarf end or a hair parting on the same side of the body in every view. Three-quarter top-down game camera, identical in every cell. Each copy is centred in its cell with its whole body visible, about 70 percent of the cell height, feet on the same baseline within a row, with clear empty space around it; nothing crosses into another cell. Style: {{style}}, crisp clean edges, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
       "negative": "text, letters, numbers, labels, captions, watermark, logo, border, frame, grid lines, gradient background, floor, cast shadow, scenery, vignette, walking, mid-stride, running, action pose, crossed legs, motion blur, speed lines, extra characters, cropped, cut off at the edge, overlapping cells, inconsistent character between cells, changing size, bright green clothing, weapons or props not in the reference",
       "models": {
         "requires": [

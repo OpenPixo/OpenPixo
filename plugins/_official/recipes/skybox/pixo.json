@@ -7,7 +7,7 @@
     "en": "Equirectangular skybox",
     "zh-CN": "全景天空盒"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A 360-degree equirectangular sky panorama resized to 2048x1024 for a sky sphere or panorama sky material.",
   "description_i18n": {
@@ -72,24 +72,15 @@
         },
         {
           "name": "style",
-          "label": "Style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "realistic",
-            "stylized painterly",
-            "low-poly"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "realistic": "写实",
-              "stylized painterly": "风格化绘画",
-              "low-poly": "低多边形"
-            }
-          },
-          "default": "stylized painterly"
+          "type": "string",
+          "placeholder": "e.g. stylized painterly",
+          "placeholder_i18n": {
+            "zh-CN": "例如：风格化绘画"
+          }
         },
         {
           "name": "name",
@@ -162,7 +153,6 @@
       "inputs": {
         "scene": "floating islands above a sea of clouds",
         "timeOfDay": "sunset",
-        "style": "stylized painterly",
         "name": "islands"
       },
       "after": "examples/islands-after.webp"

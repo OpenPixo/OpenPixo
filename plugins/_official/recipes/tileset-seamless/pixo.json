@@ -7,7 +7,7 @@
     "en": "Seamless tile texture",
     "zh-CN": "无缝地砖贴图"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishedAt": "2026-10-27T18:47:39+09:00",
   "description": "A tileable ground or wall texture (grass, stone, sand, floorboards) that wraps on all four edges, resized to tile size and checked for seams.",
   "description_i18n": {
@@ -68,24 +68,15 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "pixel art",
-            "hand-painted",
-            "stylized realistic"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "pixel art": "像素风",
-              "hand-painted": "手绘",
-              "stylized realistic": "风格化写实"
-            }
-          },
-          "default": "pixel art"
+          "type": "string",
+          "placeholder": "e.g. hand-painted, muted colours",
+          "placeholder_i18n": {
+            "zh-CN": "例如：手绘，低饱和色"
+          }
         },
         {
           "name": "tileSize",
@@ -180,7 +171,6 @@
       "inputs": {
         "material": "grass with small white flowers",
         "view": "top-down",
-        "style": "pixel art",
         "tileSize": "64",
         "name": "grass"
       },

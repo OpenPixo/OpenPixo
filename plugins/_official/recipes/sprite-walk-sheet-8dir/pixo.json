@@ -7,7 +7,7 @@
     "en": "8-direction walk sheet",
     "zh-CN": "8 方向行走姿势图"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishedAt": "2026-11-15T12:00:00+09:00",
   "description": "Step 1 of a walk animation: one character drawn mid-stride in all eight directions on a green screen, ready to animate with the 8-direction walk.",
   "description_i18n": {
@@ -49,29 +49,18 @@
         },
         {
           "name": "style",
-          "label": "Art style",
+          "label": "Art style (empty: match the game)",
           "label_i18n": {
-            "zh-CN": "美术风格"
+            "zh-CN": "美术风格（留空则跟随游戏）"
           },
-          "type": "select",
-          "options": [
-            "clean cartoon with bold outlines",
-            "hand-painted 2D",
-            "chibi 2D with bold outlines",
-            "pixel-art look with chunky pixels"
-          ],
-          "optionLabels_i18n": {
-            "zh-CN": {
-              "clean cartoon with bold outlines": "粗描边的简洁卡通",
-              "hand-painted 2D": "2D 手绘",
-              "chibi 2D with bold outlines": "粗描边的 Q 版 2D",
-              "pixel-art look with chunky pixels": "粗像素的像素风"
-            }
-          },
-          "default": "clean cartoon with bold outlines"
+          "type": "string",
+          "placeholder": "e.g. clean cartoon with bold outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：粗描边的简洁卡通"
+          }
         }
       ],
-      "prompt": "Game character pose sheet for a walk animation: {{character.name}}, {{character.description}}. Eight copies of the same character in a strict grid of 4 columns by 2 rows of equal cells on a 16:9 canvas, with no visible grid lines. Every copy is caught mid-stride at the contact pose of a walk: its own left foot forward with the heel just touching down, its right foot behind with the toe pushing off, its right arm swung forward and its left arm back. No copy stands with its feet together. Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left. The stride runs along each copy's own facing: facing the viewer, the forward foot is lower on screen and slightly larger and the knees stay under the hips, never spread sideways; with the back to the viewer, the forward foot is higher on screen and the back foot shows the sole of its boot as it lifts; on each diagonal the forward foot reaches toward that diagonal's corner and the back foot trails toward the opposite one; in profile the feet are forward and back. Every copy keeps its body facing its own direction. Identical design, colours, proportions and size in every copy; where reference images are provided, follow them exactly, and keep one-sided details such as a weapon, a bag, a scarf end or a hair parting on the same side of the body in every view. Three-quarter top-down game camera, identical in every cell. Each copy is centred in its cell with its whole body visible, about 70 percent of the cell height, feet on the same baseline within a row, with clear empty space around it; nothing crosses into another cell. Style: {{style}}, crisp clean outlines, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
+      "prompt": "Game character pose sheet for a walk animation: {{character.name}}, {{character.description}}. Eight copies of the same character in a strict grid of 4 columns by 2 rows of equal cells on a 16:9 canvas, with no visible grid lines. Every copy is caught mid-stride at the contact pose of a walk: its own left foot forward with the heel just touching down, its right foot behind with the toe pushing off, its right arm swung forward and its left arm back. No copy stands with its feet together. Top row, left to right: facing the viewer, facing down-right, facing right in side profile, facing up-right seen from behind. Bottom row, left to right: back to the viewer, facing up-left seen from behind, facing left in side profile, facing down-left. The stride runs along each copy's own facing: facing the viewer, the forward foot is lower on screen and slightly larger and the knees stay under the hips, never spread sideways; with the back to the viewer, the forward foot is higher on screen and the back foot shows the sole of its boot as it lifts; on each diagonal the forward foot reaches toward that diagonal's corner and the back foot trails toward the opposite one; in profile the feet are forward and back. Every copy keeps its body facing its own direction. Identical design, colours, proportions and size in every copy; where reference images are provided, follow them exactly, and keep one-sided details such as a weapon, a bag, a scarf end or a hair parting on the same side of the body in every view. Three-quarter top-down game camera, identical in every cell. Each copy is centred in its cell with its whole body visible, about 70 percent of the cell height, feet on the same baseline within a row, with clear empty space around it; nothing crosses into another cell. Style: {{style}}, crisp clean edges, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
       "negative": "text, letters, numbers, labels, captions, watermark, logo, border, frame, grid lines, gradient background, floor, cast shadow, scenery, vignette, standing pose, feet together, motion blur, speed lines, extra characters, cropped, cut off at the edge, overlapping cells, inconsistent character between cells, changing size, bright green clothing, weapons or props not in the reference",
       "models": {
         "requires": [
@@ -129,8 +118,7 @@
         "zh-CN": "右腰挂剑、左边背包的冒险者"
       },
       "inputs": {
-        "character": "hero",
-        "style": "clean cartoon with bold outlines"
+        "character": "hero"
       },
       "before": "examples/adventurer-before.webp",
       "after": "examples/adventurer-after.webp"

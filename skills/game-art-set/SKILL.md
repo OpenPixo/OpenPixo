@@ -40,7 +40,7 @@ The media section of the system prompt owns how to call the tools: sizes, `--she
 
 1. **Find the anchor.** `pixo style get "$PIXO_PROJECT_ID"` shows the project's style reference; otherwise use the path named in the approved plan (usually under `concept/`). If there is none, ask the user to pick one existing image or to make style samples first; do not invent a style. Record the one they pick with `pixo style reference "$PIXO_PROJECT_ID" <path>`.
 2. **Write or reuse `art/style-sheet.md`** (format below). Write it once per game; later stages read it and add only new families.
-3. **Write the asset list:** one row per image or sheet with id, family, concrete features and output path. Show it the way the system prompt says (art list or art card, with credits) and wait.
+3. **Write the asset list:** one row per image or sheet with id, family, concrete features and output path. Show and confirm it exactly as the build rules in the system prompt say (art list, or the art card when it spends credits); this skill adds no approval step of its own.
 4. **Make the first image of each family, check it, then the rest.** A wrong first image is cheaper to fix than a wrong set.
 5. **Check every result** against the review list. Regenerate a failure with one change to the prompt; after two failed retries, stop and tell the user what is wrong.
 6. **Wire the art in and see it in the game** next to the existing art (`pixo game verify --steps check,build,run --screenshot --json`, and a playtest for anything that moves).
@@ -102,12 +102,12 @@ pixo media generate --surface image --model <id> --prompt-file art/prompts/slime
 
 - Use the image model the user selected (`image-models`) and always pass the anchor with `--image`. Once the game has a style reference, a request with no `--image` is refused unless it says `--no-reference`; use that only for art meant to look different. On the art budget the host sends a request with `--image` to `openpixo-image-edit`, which takes up to 4 references (the anchor plus 3 approved images), whichever hosted model you named. If the model takes no `--image`, say consistency will be weaker, keep the style line and the design's description word for word, and review harder.
 - Put each prompt in `art/prompts/<id>.txt`, so a retry or a later variant starts from the exact text.
-- The project's installed art style is applied automatically; never pass `--style none` to get around it.
+- Until the user sets the look, the host adds the project's installed style to image requests; never pass `--style none` to get around it. Once the game has a style reference the host adds nothing, so the style line carries the look: do not pass `--style` unless the user asks for that style's look.
 - A slow model returns a `taskId`: wait with `pixo media wait` instead of generating the same image again.
 
 ## Recipes and character cards
 
-Some families have a recipe that already handles seams or layers: `tileset-seamless`, `parallax-layers`, `character-turnaround`, `model-from-image`, `pbr-texture`, `skybox`. Read `pixo recipe show <id> --json` for its inputs, then `pixo recipe run <id> --input <name>=<value> --wait --json`. A style input is often a fixed list: pick the option closest to the style sheet and put the features in the subject input. A recipe only stages candidates: review them below, then `pixo recipe adopt <runId> --candidate <id>`. Without a reference-image input a recipe cannot see the anchor, so compare harder.
+Some families have a recipe that already handles seams or layers: `tileset-seamless`, `parallax-layers`, `character-turnaround`, `model-from-image`, `pbr-texture`, `skybox`. Read `pixo recipe show <id> --json` for its inputs, then `pixo recipe run <id> --input <name>=<value> --wait --json`. Pass the style line word for word as the recipe's `style` input (`--input "style=<style line>"`) and put the features in the subject input. Left empty, `style` takes the game's look from Game setup, which is vaguer than the style line; never pass a look the game does not have. A recipe only stages candidates: review them below, then `pixo recipe adopt <runId> --candidate <id>`. Without a reference-image input a recipe cannot see the anchor, so compare harder.
 
 Once a character is approved, save it as a card so later turns describe it the same way: `pixo character create <slug> --name "<name>" --description "<features>" --reference <approved image>`.
 
