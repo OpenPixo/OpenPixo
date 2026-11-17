@@ -1137,6 +1137,12 @@ export function FileWorkspace({
     [downloadRequest],
   );
   const stableOpenFileReplacing = useStableHandler(openFileReplacing);
+  const stableOpenFile = useStableHandler(openFile);
+  // Only image viewers read this; a stable list keeps other viewers' memo intact.
+  const imageFileNames = useMemo(
+    () => files.filter((entry) => entry.kind === 'image').map((entry) => entry.name),
+    [files],
+  );
   const renderFileViewer = (file: ProjectFile, workspaceActive: boolean) => (
     <FileViewer
       projectId={projectId}
@@ -1151,6 +1157,8 @@ export function FileWorkspace({
 
 
       onOpenFileReplacing={stableOpenFileReplacing}
+      onOpenFile={stableOpenFile}
+      imageFileNames={file.kind === 'image' ? imageFileNames : undefined}
       downloadRequest={
         viewerOnly || activeFileDownloadRequest?.name !== file.name
           ? null
