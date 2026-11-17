@@ -10,6 +10,7 @@ import {
   isCompactionMessage,
   recordConversationCompaction,
 } from '../src/conversation-compaction.js';
+import { latestPlanMessage } from '../src/routes/game-plan.js';
 import { closeDatabase, insertConversation, insertProject, listMessages, openDatabase, upsertAgentSession, upsertMessage } from '../src/db.js';
 
 let dir: string;
@@ -75,5 +76,13 @@ describe('the /compact turn', () => {
       currentPrompt: request,
     });
     expect(compactionTurnPrompt('/compact')).toEqual({ message: request, currentPrompt: request });
+  });
+});
+
+describe('plan approval after /compact', () => {
+  it('records the agent\'s last real reply, not the summary', () => {
+    expect(latestPlanMessage(db, 'p1')).toBe('## Goal\nA game.');
+    recordConversationCompaction(db, { conversationId: CONVERSATION, assistantMessageId: 'a2', status: 'succeeded' });
+    expect(latestPlanMessage(db, 'p1')).toBe('made it');
   });
 });
