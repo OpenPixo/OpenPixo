@@ -11,8 +11,8 @@ const CJK = /\p{Script=Han}/u;
 
 /** File names and folder names: the field asks for lowercase with no spaces, so an example stays one. */
 const isIdentifier = (text: string) => /^[a-z0-9_]+$/.test(text);
-/** Numbers, grids and file formats read the same in every language. */
-const isNeutralOption = (text: string) => /^-?\d+(?:x\d+)?$/.test(text) || text === 'ogg' || text === 'wav';
+/** Numbers, grids, resolutions (1k, 2k) and file formats read the same in every language. */
+const isNeutralOption = (text: string) => /^-?\d+(?:x\d+|k)?$/i.test(text) || text === 'ogg' || text === 'wav';
 /** A list of language codes the recipe reads literally. */
 const CODE_DEFAULTS = new Set(['feature-localization.languages']);
 
