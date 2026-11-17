@@ -35,9 +35,9 @@ Keep the user's behavior rules and the project's engine and version, combat and 
 2. Note the relevant transition's condition, entry and exit effects and interruption rule; use a table for new behavior.
 3. Give each enemy its own state, timers and one transition owner. Choose one authority for the strike instant.
 4. Add temporary state and timer logging where it resolves uncertainty; test one enemy, then two and a restart.
-5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser; inspect logs and play the transition cases.
+5. Run `pixo game verify --steps check --json` for Godot, `--steps check,build` for Unity or `--steps build` for Phaser; inspect logs. Then play the transition cases: in Phaser with `pixo game playtest --script - --json`, reading the logged transitions; in Godot with input only from code, as its playtest note says; on Unity, list the cases for the user to try in the Editor.
 
-Add `--project <id>` to verify outside a run with `PIXO_PROJECT_ID`. `pixo game run <projectId> --json` starts supported interactive gameplay; on Unity, play in the Editor or a player build.
+Add `--project <id>` to verify outside a run with `PIXO_PROJECT_ID`.
 
 ## Transition decisions
 

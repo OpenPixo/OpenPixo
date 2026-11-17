@@ -35,7 +35,7 @@ class MatchScene extends Phaser.Scene {
       else if (from === room.host) this.state = data as State;
     });
     room.on('closed', ({ message }) => this.scene.start('Lobby', { notice: message }));
-    this.add.text(8, 8, `Invite: ${room.inviteUrl()}`);
+    this.add.text(16, 16, `Invite: ${room.inviteUrl()}`, { fontSize: '20px' });
   }
 
   // Input comes from other players' browsers, so the host checks it before using it.
@@ -87,12 +87,12 @@ export async function enterMatch(scene: Phaser.Scene, open: () => Promise<Room |
     const room = await open();
     if (room) scene.scene.start('Match', { room });
   } catch (error) {
-    scene.add.text(8, 40, error instanceof RoomError ? error.message : 'Could not connect.');
+    scene.add.text(16, 48, error instanceof RoomError ? error.message : 'Could not connect.', { fontSize: '20px' });
   }
 }
 // enterMatch(this, joinFromUrl);
 // enterMatch(this, () => createRoom());
-// enterMatch(this, () => joinRoom(codeBox.value));
+// enterMatch(this, () => joinRoom(typedCode)); // typedCode: entered in the Lobby scene by keys or an on-screen pad
 ```
 
 Send state 10 to 30 times a second and keep each message under 16 KB, with deltas for large worlds. For a game with moves or turns, send one message per action and let the host answer with the result.

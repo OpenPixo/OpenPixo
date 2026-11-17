@@ -37,7 +37,7 @@ The user's choices and existing project conventions, architecture and engine ver
 2. Make the requested change within the existing owner; use the pitfalls table for Godot 3 habits.
 3. Add only necessary actions and resources. Preserve tracked references and import metadata.
 4. Run `pixo game verify --steps check --json`; inspect parse, script and resource errors in logs even if the process exits zero.
-5. Play the changed path. For visible changes, `pixo game playtest --duration 10 --json` can capture supported Godot output, but it does not inject player input.
+5. For visible changes, `pixo game playtest --duration 10 --json` records Godot's movie mode, with no player input from the host. To check a loop, use the movie-only autotest autoload the host's Godot playtest note describes, call it an autotest driven from code, and end with what to try by hand.
 
 Commands inherit `PIXO_PROJECT_ID`; otherwise add `--project <id>`. In a host that exposes executable paths, PowerShell invokes the CLI with `& $env:PIXO_NODE_BIN $env:PIXO_BIN` in place of `pixo`.
 
@@ -142,7 +142,7 @@ For pixel art, keep the window large and let Godot scale the world, so UI text s
 
 ```ini
 [display]
-window/size/viewport_width=480       ; the pixel resolution: how much world fits on screen
+window/size/viewport_width=480       ; the pixel resolution from Game setup: how much world fits on screen
 window/size/viewport_height=270
 window/stretch/mode="canvas_items"    ; not "viewport", which renders text at 480x270 and blows it up
 window/stretch/scale_mode="integer"   ; Godot 4.2+
@@ -151,7 +151,7 @@ textures/canvas_textures/default_texture_filter=0   ; Nearest
 2d/snap/snap_2d_transforms_to_pixel=true
 ```
 
-Put HUD and menus in a `CanvasLayer` of Control nodes. If text looks jagged, set that layer's `texture_filter` to Linear. As the player sees it in a 1280x720 window, text is at least 16 px tall (18 px for Chinese, Japanese and Korean); check a screenshot.
+The Godot starters lay out their title, settings and pause screens at 1280x720; a smaller viewport size changes their layout and font scale, so recheck them. Put HUD and menus in a `CanvasLayer` of Control nodes. If text looks jagged, set that layer's `texture_filter` to Linear. As the player sees it in a 1280x720 window, text is at least 16 px tall (18 px for Chinese, Japanese and Korean); check a screenshot.
 
 ## Done when
 

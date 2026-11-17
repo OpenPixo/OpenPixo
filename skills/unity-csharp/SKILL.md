@@ -34,7 +34,7 @@ A component fix does not require new assemblies, data assets, tests or build ent
 2. Choose the relevant owner below; preserve serialized references and asset GUIDs.
 3. Patch the smallest affected behavior using installed types, with symmetric event cleanup.
 4. Run `pixo game verify --steps check,build --json`; inspect actual commands, licensing logs, compile logs and unavailable steps.
-5. Run existing focused tests when they expose the changed rule; test the affected flow in the Editor or player where OpenPixo capture is unsupported.
+5. Run existing focused tests when they expose the changed rule. Unity games are not run or playtested from OpenPixo: verify with the project's focused tests, and end with what to try in the Editor or player.
 
 Commands assume `PIXO_PROJECT_ID`; otherwise add `--project <id>`.
 Configure the installed editor through OpenPixo engine settings; `unity` in a detected command is a tool identifier, not a guessed executable path.
@@ -167,6 +167,6 @@ Verify switches against the installed [Test Framework CLI](https://docs.unity3d.
 ## Done when
 
 - [ ] Affected prefabs and scenes compile with valid references and preserved GUIDs.
-- [ ] Relevant input, physics, pause, focus and restart behavior pass in the Editor or player.
+- [ ] Relevant input, physics, pause, focus and restart behavior is covered by tests, or listed for the user to try in the Editor or player; never call it playable untested.
 - [ ] Applicable focused tests have real XML results; missing modules, missing licenses or Editor locks are stated.
 - [ ] Inspect `pixo game verify --steps check,build --json`; report unavailable build or capture separately from tests.

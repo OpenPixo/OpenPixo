@@ -2,8 +2,8 @@
 name: save-load-and-settings
 en_name: Save evolution and persistent settings
 zh_name: 存档演进与持久化设置
-description: Extend an existing Godot 4, Unity 6 or Phaser 3 save system with migrations, recovery and independent settings; not for initial save-slot setup or cloud integration.
-zh_description: 为 Godot 4、Unity 6 或 Phaser 3 的现有存档系统加入迁移、恢复和独立设置；不用于初始存档槽搭建或云存档接入。
+description: Extend an existing Godot 4, Unity 6 or web-game (Phaser 3, Three.js) save system with migrations, recovery and independent settings; not for initial save-slot setup or cloud integration.
+zh_description: 为 Godot 4、Unity 6 或网页游戏（Phaser 3、Three.js）的现有存档系统加入迁移、恢复和独立设置；不用于初始存档槽搭建或云存档接入。
 triggers:
   - migrate game save
   - corrupt save recovery
@@ -19,6 +19,8 @@ pixo:
     - godot
     - unity
     - phaser
+    - threejs
+    - web-generic
   category: game-development
   example_prompt: Upgrade the existing save format without losing old progress, keep volume settings when starting a new game, and add migration fixtures.
   example_prompt_i18n:
@@ -27,7 +29,7 @@ pixo:
 
 # Save evolution and persistent settings
 
-Extend an existing Godot 4, Unity 6 or Phaser 3 save owner for migration, recovery or settings persistence.
+Extend an existing Godot 4, Unity 6 or web-game (Phaser 3, Three.js, plain canvas) save owner for migration, recovery or settings persistence.
 Project conventions, installed versions, architecture and explicit user choices take precedence.
 For initial slots or checkpoints, reuse the project's existing recipe or manager rather than adding a competing owner.
 A small schema fix needs the affected fixtures, not a new persistence framework.
@@ -39,7 +41,7 @@ A small schema fix needs the affected fixtures, not a new persistence framework.
 3. Define the needed load outcomes below and make migrations pure, ordered data transformations.
 4. Validate before touching live state; preserve old bytes before replacing a migrated save.
 5. Run focused codec and storage fixtures, then `pixo game verify --steps check,build --json`; inspect logs and skipped steps.
-6. Use `pixo game run <projectId> --json` for save → quit or reload → Continue and settings-retention checks. `pixo game run` does not support Unity: quit and relaunch a player build instead.
+6. Use `pixo game run <projectId> --json` for save → quit or reload → Continue and settings-retention checks. `pixo game run` does not support Unity: rely on the EditMode codec fixtures and list the round trip for the user to try in a player build.
 
 Commands assume `PIXO_PROJECT_ID`; otherwise add `--project <id>`.
 These are game save paths; follow the project's storage convention rather than OpenPixo daemon data paths.
@@ -58,9 +60,9 @@ These are game save paths; follow the project's storage convention rather than O
 Separate progression from settings. New Game resets progression; Reset Settings and Delete Save are separate operations.
 Use a stable slot key across versions; the payload version drives migration so old progress remains discoverable.
 
-## Phaser 3 with TypeScript: a strict pure codec
+## Web games (Phaser 3, Three.js) with TypeScript: a strict pure codec
 
-This canvas-independent example migrates v1 into v2. Substitute the game's checkpoint registry and bounds.
+This engine-independent example migrates v1 into v2. Substitute the game's checkpoint registry and bounds.
 
 ```ts
 type Save = { version: 2; progress: { checkpoint_id: string; coins: number } };
@@ -225,5 +227,5 @@ Queue one write at a time and snapshot immutable data so an older completion can
 - [ ] Applicable fixtures for old, current, missing, corrupt, future and unavailable saves behave as specified.
 - [ ] Original bytes survive failed loads; migrated data is validated before live-state changes.
 - [ ] Saving, reloading, Continue, New Game and settings retention work with honest failure feedback.
-- [ ] Use `pixo game run <projectId> --json` for the persistence round trip, or a relaunched player build on Unity; report actual results and unresolved storage limitations.
+- [ ] Use `pixo game run <projectId> --json` for the persistence round trip (on Unity, say it is for the user to try in a player build); report actual results and unresolved storage limitations.
 - [ ] Inspect `pixo game verify --steps check,build --json`; name skipped checks separately from fixture coverage.

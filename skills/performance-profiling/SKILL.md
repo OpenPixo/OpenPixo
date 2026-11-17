@@ -2,9 +2,9 @@
 name: performance-profiling
 en_name: Game performance profiling
 zh_name: 游戏性能分析
-description: Investigate measured slowdown, stutter, memory growth or build weight in Godot 4, Unity 6 or Phaser 3; use for performance evidence, not general refactoring.
-en_description: Measure Godot 4, Unity 6 or Phaser 3 performance problems and compare a targeted optimization; not a general refactoring workflow.
-zh_description: 针对 Godot 4、Unity 6 或 Phaser 3 的实测卡顿、内存增长或构建体积问题定位瓶颈并对比优化结果；不用于一般重构。
+description: Investigate measured slowdown, stutter, memory growth or build weight in Godot 4, Unity 6 or a web game (Phaser 3, Three.js); use for performance evidence, not general refactoring.
+en_description: Measure Godot 4, Unity 6 or web-game (Phaser 3, Three.js) performance problems and compare a targeted optimization; not a general refactoring workflow.
+zh_description: 针对 Godot 4、Unity 6 或网页游戏（Phaser 3、Three.js）的实测卡顿、内存增长或构建体积问题定位瓶颈并对比优化结果；不用于一般重构。
 triggers:
   - game performance
   - frame time spike
@@ -23,12 +23,14 @@ pixo:
     - godot
     - unity
     - phaser
+    - threejs
+    - web-generic
   category: game-development
 ---
 
 # Game performance profiling
 
-Measure a slowdown, memory growth or build-weight problem in Godot 4, Unity 6 or Phaser 3.
+Measure a slowdown, memory growth or build-weight problem in Godot 4, Unity 6 or a web game (Phaser 3, Three.js).
 The project's conventions, installed version, architecture and explicit user choices take precedence.
 Use only the branches needed for the symptom; a small fix can keep its measurements in the handoff instead of creating a report or stress scene.
 
@@ -135,7 +137,7 @@ Common attributed causes:
 - Physics cost: an all-layers collision matrix. Narrow the matrix before simplifying shapes.
 - Lost batching: per-renderer `MaterialPropertyBlock` values on sprites, or many material instances. Confirm in the Frame Debugger.
 
-## Phaser 3 and browser anchors
+## Phaser 3, Three.js and browser anchors
 
 Use the browser Performance trace to attribute scripting, rendering, long tasks and GC.
 Heap snapshots after identical restart cycles help identify retained scenes, timers and external listeners.
@@ -159,6 +161,8 @@ private sampleFrame(): void {
 Sort a copy numerically; p95 is element `Math.ceil(count * 0.95) - 1`.
 Intervals include the wait between updates; they are not the CPU duration of `update()`.
 Exclude tab suspension and intentional pauses, while retaining genuine workload hitches.
+Print the summary (count, median, p95, worst) once with `console.log` so the playtest logs of `pixo game playtest --script - --json` carry it; the same script before and after gives a like-for-like comparison.
+Three.js: the same sampler works in the `setAnimationLoop` callback. Read `renderer.info.render.calls` and `.triangles` for draw cost, and `renderer.info.memory.geometries` and `.textures` across restarts: GPU memory stays until `geometry.dispose()`, `material.dispose()` and `texture.dispose()`, so removing a mesh from the scene does not free it. Capping `renderer.setPixelRatio` (the starter uses at most 2) is the first lever for fill-rate cost.
 A restart leak often comes from a persistent emitter: remove the exact scene handler on `Phaser.Scenes.Events.SHUTDOWN`.
 Repeat the same restart count; retained scenes and listeners should plateau and one input should trigger once.
 

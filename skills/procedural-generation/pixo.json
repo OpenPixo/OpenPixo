@@ -29,7 +29,9 @@
   "engines": [
     "godot",
     "unity",
-    "phaser"
+    "phaser",
+    "threejs",
+    "web-generic"
   ],
   "compat": {
     "agentSkills": [
