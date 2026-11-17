@@ -17,7 +17,7 @@
 
 export type { CommandInvocation, CommandInvocationRequest } from "./command.js";
 export { createCommandInvocation, createPackageManagerInvocation } from "./command.js";
-export { forceStopWindowsProcessTree } from "./process-tree.js";
+export { forceStopWindowsProcessTree, parseWindowsTreeSnapshot, selectWindowsTreeToStop, type WindowsTreeProcess } from "./process-tree.js";
 
 export type { ResolveSystemProxyEnvAsyncOptions, ResolveSystemProxyEnvOptions, SystemProxyCommandRunner } from "./proxy-env.js";
 export {

@@ -191,10 +191,18 @@ export class ProjectCheckpoints {
     }
   }
 
+  /**
+   * One operation per project at a time. Work whose signal fired while it waited is dropped before
+   * it touches Git: a read on a large game takes seconds, and a caller that gave up (a closed
+   * request, a timed-out run hook) must not keep the queue, and the daemon's heap, growing behind it.
+   */
   private async exclusive<T>(work: () => Promise<T>): Promise<T> {
     const key = projectKey(await realpath(this.folder));
     const previous = locks.get(key) ?? Promise.resolve();
-    const pending = previous.catch(() => {}).then(work);
+    const pending = previous.catch(() => {}).then(() => {
+      this.signal?.throwIfAborted();
+      return work();
+    });
     locks.set(key, pending);
     try { return await pending; }
     finally { if (locks.get(key) === pending) locks.delete(key); }
@@ -239,10 +247,7 @@ export class ProjectCheckpoints {
     const gitDir = (await this.git(['rev-parse', '--absolute-git-dir'])).trim();
     const index = path.join(gitDir, `openpixo-index-${randomUUID()}`);
     try { return await work(index); }
-    finally {
-      await rm(index, { force: true });
-      await rm(`${index}.lock`, { force: true });
-    }
+    finally { await removeDisposableIndex(index); }
   }
 
   private async workingTree(index: string): Promise<string> {
@@ -549,6 +554,19 @@ export class ProjectCheckpoints {
       await initializeProjectGit((args, input) => this.git(args, undefined, input), 'OpenPixo: enable version protection');
       return this.list();
     });
+  }
+}
+
+/**
+ * Removing the disposable index is housekeeping, never part of the operation's result. On Windows a
+ * Git process that was just stopped, or a virus scanner, can still hold `<index>.lock`, and `unlink`
+ * then fails with EBUSY or EPERM. A finished snapshot must not be reported as failed for that: the
+ * leftover file has a unique name, so it blocks nothing.
+ */
+async function removeDisposableIndex(index: string): Promise<void> {
+  for (const file of [index, `${index}.lock`]) {
+    try { await rm(file, { force: true, maxRetries: 3, retryDelay: 100 }); }
+    catch { /* Best effort, see above. */ }
   }
 }
 

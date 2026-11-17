@@ -1,6 +1,7 @@
 import { getProject } from '../db.js';
 import { ensureProject } from '../projects.js';
 import type { RunAnalyticsFacts } from '../services/run-analytics-lifecycle.js';
+import { checkpointFailureForLog } from './checkpoint-failure-log.js';
 import type { CheckpointStore } from './checkpoint-store.js';
 import { markCheckpointRunActive, ProjectCheckpoints } from './checkpoints.js';
 
@@ -61,14 +62,14 @@ export function createRunCheckpointHook(deps: RunCheckpointDependencies) {
         });
         checkpointId = checkpoint?.id ?? null;
       }
-    } catch (error) { warn('[checkpoints] automatic snapshot failed; continuing agent run', { runId: run.id, error }); }
+    } catch (error) { warn('[checkpoints] automatic snapshot failed; continuing agent run', { runId: run.id, error: checkpointFailureForLog(error) }); }
 
     let completion: Promise<void> | undefined;
     const finish = (): Promise<void> => {
       completion ??= (async () => {
         try {
           if (folder && checkpointId) await new ProjectCheckpoints(folder, AbortSignal.timeout(20_000), store).finish(checkpointId);
-        } catch (error) { warn('[checkpoints] could not record completed run changes', { runId: run.id, error }); }
+        } catch (error) { warn('[checkpoints] could not record completed run changes', { runId: run.id, error: checkpointFailureForLog(error) }); }
         finally { release?.(); }
       })();
       return completion;

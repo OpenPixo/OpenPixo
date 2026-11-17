@@ -112,6 +112,7 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
         if (event.item?.type === 'agent_message' && typeof event.item.text === 'string') appendDiagnostic(event.item.text);
       } catch { /* Non-JSON CLI diagnostics are not output paths. */ }
     };
+    const spawnedAtMs = Date.now();
     const child = spawn(invocation.command, invocation.args, {
       cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
       windowsVerbatimArguments: invocation.windowsVerbatimArguments,
@@ -122,7 +123,7 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
       stopReason = reason;
       stopping = (async () => {
         if (!child.pid) return;
-        if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid);
+        if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid, { spawnedAtMs });
         else { try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; } }
       })().catch(() => { child.kill('SIGKILL'); });
     };
