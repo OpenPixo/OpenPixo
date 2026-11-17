@@ -454,7 +454,7 @@ describe('ProjectsPanel select mode', () => {
 
     expect(screen.getByText('54m ago')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Your projects' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Your games' }));
 
     expect(screen.getByText('54m ago')).toBeTruthy();
     expect(screen.queryByText('1h ago')).toBeNull();

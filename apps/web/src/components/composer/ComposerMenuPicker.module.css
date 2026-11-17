@@ -48,6 +48,20 @@
   color: var(--text-muted);
 }
 
+/* A chat column narrower than the full chip row (a 1280px window with the
+   sidebar open, or any narrower one) used to squeeze every label to one
+   character plus an ellipsis ("默…", "自…"). Chips that carry an icon drop
+   their value text instead and keep the icon; the title tooltip and the
+   aria-label still say what they are, and the model name gets the room. */
+@container composer-row (max-width: 500px) {
+  .chip:has(> .leading) {
+    padding-inline: 7px;
+  }
+  .chip:has(> .leading) > .value {
+    display: none;
+  }
+}
+
 .menu {
   z-index: var(--z-menu);
   box-sizing: border-box;

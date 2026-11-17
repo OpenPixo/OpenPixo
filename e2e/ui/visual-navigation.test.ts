@@ -18,7 +18,7 @@ test('[P2] captures the projects page surface', async ({ page }) => {
     await legacyProjectsNav.click();
     await expect(page).toHaveURL(/\/projects$/);
     const projects = page.getByTestId('entry-view-projects');
-    await expect(projects.getByRole('heading', { name: 'Projects' })).toBeVisible();
+    await expect(projects.getByRole('heading', { name: 'My games' })).toBeVisible();
     await expect(projects.getByText('Launchpad dashboard').first()).toBeVisible();
   } else {
     // The 全部项目 destination (OPEND-3108): one page in every workspace,

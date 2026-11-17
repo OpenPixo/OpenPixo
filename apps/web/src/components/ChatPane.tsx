@@ -1,4 +1,6 @@
-import { PRODUCT_NAME } from '@openpixo/contracts';
+import { PRODUCT_NAME, gamePlanIsPending } from '@openpixo/contracts';
+import { Button } from '@openpixo/components';
+import { genreValue, kickoffPrompt, setupToDraft } from './new-game/wizard-state';
 import { conversationMetaLabel } from '../runtime/chat/conversation-time';
 export { conversationMetaLabel } from '../runtime/chat/conversation-time';
 import { QuoteBar } from './chat/QuoteBar';
@@ -198,16 +200,52 @@ function chatRailDashWidth(distance: number): number {
   );
 }
 
-function EmptyConversation({ t, children }: { t: TranslateFn; children?: ReactNode }) {
+function EmptyConversation({ t, children, onStartPlanning }: {
+  t: TranslateFn;
+  children?: ReactNode;
+  /**
+   * Set while the game still needs a plan. A creator who unticked 「创建后立即开始规划」
+   * lands here with nothing said yet, so the empty chat says planning comes first and
+   * offers the first message the setup dialog would have sent.
+   */
+  onStartPlanning?: (() => void) | undefined;
+}) {
   return (
     <div className="chat-empty" data-testid="chat-empty-conversation">
       <div className="chat-empty-title" role="heading" aria-level={3}>
-        {t('chat.emptyConversationTitle')}
+        {t(onStartPlanning ? 'chat.emptyPlanningTitle' : 'chat.emptyConversationTitle')}
       </div>
-      <div className="chat-empty-hint">{t('chat.emptyConversationHint')}</div>
+      <div className="chat-empty-hint">{t(onStartPlanning ? 'chat.emptyPlanningHint' : 'chat.emptyConversationHint')}</div>
+      {onStartPlanning ? (
+        <Button variant="primary" size="sm" className="chat-empty-action" onClick={onStartPlanning}>
+          {t('chat.emptyPlanningStart')}
+        </Button>
+      ) : null}
       {children}
     </div>
   );
+}
+
+/**
+ * What the empty composer rotates through, and sends when the user presses send
+ * without typing. While the game still needs a plan that is the planning message,
+ * not the build tasks (run it, fix it, tune the controls) the examples suggest later.
+ */
+export function blankComposerScenarios(t: TranslateFn, metadata: ProjectMetadata | undefined): PlaceholderScenario[] {
+  if (gamePlanIsPending(metadata)) {
+    return [{ id: 'game-plan-kickoff', text: planningKickoffPrompt(t, metadata), chipId: 'project' }];
+  }
+  return GAME_STARTER_PROMPT_KEYS.map((promptKey, index) => ({
+    id: `game-starter-${index}`,
+    text: t(promptKey),
+    chipId: 'project',
+  }));
+}
+
+/** The first planning message for a game that has a stored setup, else a general one. */
+function planningKickoffPrompt(t: TranslateFn, metadata: ProjectMetadata | undefined): string {
+  const draft = setupToDraft(metadata?.gameSetup);
+  return draft.title.trim() && genreValue(draft) ? kickoffPrompt(t, draft) : t('chat.emptyPlanningPrompt');
 }
 
 interface Props {
@@ -1103,12 +1141,8 @@ export function ChatPane({
     ? 'plan'
     : 'default';
   const blankProjectComposerScenarios = useMemo<PlaceholderScenario[]>(
-    () => GAME_STARTER_PROMPT_KEYS.map((promptKey, index) => ({
-      id: `game-starter-${index}`,
-      text: t(promptKey),
-      chipId: 'project',
-    })),
-    [t],
+    () => blankComposerScenarios(t, projectMetadata),
+    [t, projectMetadata],
   );
   const followUpComposerScenarios = useMemo<PlaceholderScenario[]>(() => {
 {}
@@ -3505,7 +3539,14 @@ export function ChatPane({
                 {loading ? <ChatConversationLoading t={t} /> : null}
                 {displayMessages.length === 0 && !loading ? (
                   <div className="chat-empty-wrap">
-                    {projectId ? <EmptyConversation t={t} /> : null}
+                    {projectId ? (
+                      <EmptyConversation
+                        t={t}
+                        onStartPlanning={gamePlanIsPending(projectMetadata) && !viewerOnly && !streaming
+                          ? () => { void onSend(planningKickoffPrompt(t, projectMetadata), []); }
+                          : undefined}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
                 {!loading && olderTurns.hiddenTurns > 0 ? (

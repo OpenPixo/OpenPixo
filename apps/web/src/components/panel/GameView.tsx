@@ -139,7 +139,8 @@ export function GameView({
           {runEnabled ? <GameRunNotice controller={run} onOpenSettings={onOpenEngineSettings} /> : null}
           {verifyEnabled ? <GameVerifyNotice verify={verify} onOpenSettings={onOpenEngineSettings} /> : null}
           {verifyEnabled ? <GamePlaytestNotice playtest={playtest} onOpenSettings={onOpenEngineSettings} /> : null}
-          <GameStage content={stage} onRun={runEnabled ? run.start : undefined} runDisabled={run.installing || !!run.busy} reloadKey={stageReload} />
+          <GameStage content={stage} onRun={runEnabled ? run.start : undefined} runDisabled={run.installing || !!run.busy} reloadKey={stageReload}
+            startingLabel={runEnabled && (run.installing || run.run.status === 'starting') ? run.statusLabel : undefined} />
         </div>
         {splitOpen ? (
           <GameSplitHandle host={split.bodyRef} height={split.height} available={split.available} measure={split.measure}

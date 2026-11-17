@@ -395,6 +395,20 @@ describe('wizard answers', () => {
     expect(kickoffPrompt(translate(zhCN), { ...filled(), scope: 'quick' })).toContain('小游戏');
   });
 
+  // The message is shown as the user's own words; "a {genre}" made it read
+  // "a Action RPG game" and "a Interactive story game".
+  it('writes no "a" before a genre that starts with a vowel', () => {
+    const translate = (dict: typeof en) => (key: keyof typeof en, vars?: Record<string, string>) =>
+      dict[key].replace(/\{(\w+)\}/g, (_, name: string) => vars?.[name] ?? '');
+    for (const genre of ['action-rpg', 'idle', 'visual-novel', 'auto-battler'] as const) {
+      for (const scope of ['quick', 'crafted'] as const) {
+        const message = kickoffPrompt(translate(en), { ...filled(), genre, scope });
+        expect(message).not.toMatch(/\ba [AEIOUaeiou]/);
+        expect(message).not.toMatch(/[a-z]\.[A-Z]/);
+      }
+    }
+  });
+
   it('stores no palette unless the user added colours, and still loads an older setup that has one', () => {
     const noColours = draftToSetup({ ...filled(), palette: [] });
     expect(noColours.art).toEqual({ styleId: 'pixel-16-bit', pixelSize: 16 });

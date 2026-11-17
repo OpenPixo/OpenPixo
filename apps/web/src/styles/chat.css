@@ -1221,6 +1221,9 @@ body:has(.manual-edit-workspace) .chat-composer-fixed-layer {
   /* Query container so the mode pill can drop its text label when the row is
      too narrow to comfortably fit it alongside the model chip + run button. */
   container-type: inline-size;
+  /* Named so chip modules (ComposerMenuPicker) can collapse to icons inside
+     this row only, not wherever else they are mounted. */
+  container-name: composer-row;
   /* Center the divider between the input above (8px composer gap) and the
      controls below (8px padding) so the toolbar isn't cramped against the
      border. */

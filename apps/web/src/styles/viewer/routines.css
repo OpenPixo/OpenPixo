@@ -1786,6 +1786,10 @@
   font-size: 14px;
   line-height: 1.45;
 }
+/* 「开始规划」 on the empty chat of a game that still needs a plan (ChatPane EmptyConversation). */
+.app .chat-empty-action {
+  margin-top: 8px;
+}
 .app .chat-example-title {
   font-size: 14px;
 }

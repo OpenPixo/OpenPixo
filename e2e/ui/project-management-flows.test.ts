@@ -2128,7 +2128,7 @@ test('[P2] projects sub tabs switch between Recent and Your projects ordering', 
     'Sort Beta',
   );
 
-  await page.getByRole('button', { name: 'Your projects' }).click();
+  await page.getByRole('button', { name: 'Your games' }).click();
   await expect(page.locator('.design-grid .design-card .design-card-name').nth(0)).toContainText(
     'Sort Beta',
   );
