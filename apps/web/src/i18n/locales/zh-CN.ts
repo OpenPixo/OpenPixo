@@ -901,7 +901,7 @@ export const zhCN: Dict = {
     "未检测到 AI CLI。请安装 Codex、Claude Code 或 OpenCode 后继续。",
   "settings.agentInstalledGroup": "你的 CLI（{count}）",
   "settings.agentInstallGroup": "可安装（{count}）",
-  "settings.agentAuthRequired": "需要认证",
+  "settings.agentAuthRequired": "需要登录",
   "settings.agentAuthUnknown": "认证状态未知",
   "settings.quickFillProvider": "快速填充提供方",
   "settings.providerPreset": "提供商预设",

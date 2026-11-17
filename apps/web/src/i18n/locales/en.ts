@@ -890,7 +890,7 @@ export const en: Dict = {
   'settings.noAgentsDetected': "No agents detected yet. Install Codex, Claude Code, or OpenCode to continue.",
   'settings.agentInstalledGroup': 'Installed CLIs ({count})',
   'settings.agentInstallGroup': 'Available CLIs ({count})',
-  'settings.agentAuthRequired': 'Authentication required',
+  'settings.agentAuthRequired': 'Needs sign-in',
   'settings.agentAuthUnknown': 'Auth status unknown',
   'settings.quickFillProvider': 'Quick fill provider',
   'settings.providerPreset': 'Provider preset',
