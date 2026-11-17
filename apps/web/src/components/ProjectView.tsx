@@ -66,7 +66,9 @@ import { resolveRecoveryActionBlockReason } from '../runtime/chat/recovery-gatin
 import { listNamesConversation, routedConversationVerdict } from '../runtime/chat/routed-conversation';
 import { loadConversationTranscript } from '../state/load-conversation-transcript';
 import { CONVERSATION_COMPACT_COMMAND, nativeCodexProviderForConfig, type ChatRunPurpose } from '@openpixo/contracts';
-import type { ProjectCheckpoint, RewindConversationResponse } from '@openpixo/contracts';
+import type { ChatRunStatusResponse, ProjectCheckpoint, RewindConversationResponse } from '@openpixo/contracts';
+import { watchedRunId } from '../runtime/chat/stale-run';
+import { useStaleRunWatchdog } from '../hooks/useStaleRunWatchdog';
 import { ConversationRewindError, rewindConversation, type EditUserMessageOutcome } from '../state/conversation-rewind';
 import {
   fetchProjectFiles,
@@ -3864,6 +3866,58 @@ export function ProjectView({
     clearStreamingMarker(conversationId);
     return true;
   }, [clearActiveRunRefs, clearStreamingMarker]);
+
+  /*
+   * The daemon overrules a run the chat still shows as going (`runtime/chat/stale-run.ts`).
+   * Settling detaches whatever local consumer still claims the run, exactly as a
+   * conversation switch does, and stamps the daemon's verdict on the message; the
+   * reattach effect then replays and finalizes the turn from the daemon's record.
+   * Only the local stream listener is aborted: the cancel controllers stay untouched,
+   * because aborting those asks the daemon to cancel.
+   */
+  const latestWatchedRunId = useMemo(() => watchedRunId(messages), [messages]);
+  const latestWatchedRunActive = useMemo(
+    () => messages.some((m) => m.role === 'assistant' && m.runId === latestWatchedRunId && isActiveRunStatus(m.runStatus)),
+    [messages, latestWatchedRunId],
+  );
+  const settleStaleRun = useCallback((runId: string, status: ChatRunStatusResponse) => {
+    const conversationId = activeConversationIdRef.current;
+    if (!conversationId || watchedRunId(messagesRef.current) !== runId) return;
+    const message = messagesRef.current.find((m) => m.role === 'assistant' && m.runId === runId);
+    if (!message) return;
+    const reattachController = reattachControllersRef.current.get(runId);
+    reattachController?.abort();
+    reattachControllersRef.current.delete(runId);
+    reattachCancelControllersRef.current.delete(runId);
+    if (streamingConversationIdRef.current === conversationId) {
+      cancelSendTextBuffer(true);
+      abortRef.current?.abort();
+      abortRef.current = null;
+      cancelRef.current = null;
+      clearStreamingMarker(conversationId);
+    }
+    updateMessageById(
+      message.id,
+      (prev) => (isActiveRunStatus(prev.runStatus)
+        ? {
+            ...prev,
+            runStatus: status.status,
+            endedAt: prev.endedAt ?? status.updatedAt,
+            ...(status.resumable !== undefined ? { resumable: status.resumable } : {}),
+          }
+        : prev),
+      true,
+    );
+    scheduleConversationMessageRefresh(conversationId);
+  }, [cancelSendTextBuffer, clearStreamingMarker, scheduleConversationMessageRefresh, updateMessageById]);
+  useStaleRunWatchdog({
+    runId: latestWatchedRunId,
+    watching: config.mode === 'daemon'
+      && daemonLive
+      && (currentConversationStreaming || latestWatchedRunActive),
+    readStatus: fetchChatRunStatus,
+    onStale: settleStaleRun,
+  });
 
   const handleAssistantFeedback = useCallback(
     (assistantMessage: ChatMessage, change: ChatMessageFeedbackChange) => {

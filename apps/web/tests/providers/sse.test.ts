@@ -1821,10 +1821,14 @@ describe('streamViaDaemon', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/runs', expect.objectContaining({
       method: 'POST',
     }));
+    // The stream request carries a signal linked to the caller's (it also holds the
+    // connect deadline), so the caller's abort reached it.
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/runs/run-1/events', {
       method: 'GET',
-      signal: streamController.signal,
+      signal: expect.any(AbortSignal),
     });
+    const streamInit = (fetchMock.mock.calls[1] as unknown[])[1] as RequestInit;
+    expect(streamInit.signal?.aborted).toBe(true);
     expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/runs/run-1/cancel', { method: 'POST' });
     expect(handlers.onDone).not.toHaveBeenCalled();
     expect(handlers.onError).not.toHaveBeenCalled();
