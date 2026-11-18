@@ -1,1 +1,7 @@
 .godot/
+
+# Caches and logs a package manager or a game run can leave here, and OpenPixo's
+# version history of edited files. None of it is part of the game.
+.pnpm-store/
+logs/
+.file-versions/

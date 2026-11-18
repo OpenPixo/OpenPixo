@@ -110,6 +110,21 @@ it('starts every Vite starter with the native config loader', async () => {
 });
 
 /*
+ * B7, 2026-11-19: a game from phaser3-vite held a 191 MB `.pnpm-store/` after a sandboxed
+ * install, and a `logs/` folder, and its .gitignore named only node_modules/ and dist/,
+ * so both would have been committed and shared with the game. Every starter ignores the
+ * caches a package manager or a run can leave, and OpenPixo's own version history.
+ */
+it('ignores package stores, logs and OpenPixo bookkeeping in every starter', async () => {
+  const templates = await listGameTemplates(templatesRoot);
+  expect(templates.length).toBeGreaterThan(0);
+  for (const { id } of templates) {
+    const ignored = (await readFile(path.join(templatesRoot, id, 'files', '.gitignore'), 'utf8')).split(/\r?\n/u).map(line => line.trim());
+    for (const entry of ['.pnpm-store/', 'logs/', '.file-versions/']) expect(ignored, `${id} ${entry}`).toContain(entry);
+  }
+});
+
+/*
  * Screen rule in the shared game prompt: a browser game renders at 1280x720 or more and
  * the engine scales it to the window, so art and text stay sharp. The plain Phaser starter
  * shipped at 800x600 (found 2026-11-18), so every game begun from it started below that.
