@@ -9,7 +9,14 @@ import { notifyStarterFactsChanged } from '../project-start/events';
 import styles from './GameRun.module.css';
 import { gameRequestError, gameRunErrorKey, readGameResponse } from './GameRun.errors';
 
+/** While the game starts or runs, or an agent turn that may start it is in flight. */
 const POLL_MS = 1_500;
+/**
+ * Nothing running and nobody about to run it: the user's own Run/Stop answers
+ * at once, and an agent turn starting or ending, or the window coming back,
+ * triggers a read, so an idle game is only re-checked as a backstop.
+ */
+const IDLE_POLL_MS = 15_000;
 type Action = 'POST' | 'DELETE';
 interface Session {
   projectId: string;
@@ -17,6 +24,14 @@ interface Session {
   busy: boolean;
   version: number;
   controller: AbortController;
+  /** Read now and restart the timer. */
+  refreshNow: () => void;
+  /** Re-arm the timer for the current state (after a Run or Stop answered). */
+  reschedule: () => void;
+}
+
+function pollDelay(run: GameRunStatus, watchClosely: boolean): number {
+  return watchClosely || run.status === 'starting' || run.status === 'running' ? POLL_MS : IDLE_POLL_MS;
 }
 
 /** Only a credential-free loopback http(s) URL may be framed or opened. */
@@ -32,34 +47,61 @@ export function previewUrl(value?: string): string | null {
 
 const IDLE: GameRunStatus = { status: 'idle' };
 
-function useGameRun(projectId: string, enabled: boolean) {
+function useGameRun(projectId: string, enabled: boolean, watchClosely: boolean) {
   const sessionRef = useRef<Session | null>(null);
+  const watchRef = useRef(watchClosely);
+  watchRef.current = watchClosely;
+  const runRef = useRef<GameRunStatus>(IDLE);
   const [snapshot, setSnapshot] = useState<{
     projectId: string; run: GameRunStatus; busy: Action | null; error: boolean; requestError?: ReturnType<typeof gameRequestError>;
   }>({ projectId, run: IDLE, busy: null, error: false });
   const base = `/api/projects/${encodeURIComponent(projectId)}/game/run`;
   useEffect(() => {
     if (!enabled) { sessionRef.current = null; return; }
-    const session: Session = { projectId, active: true, busy: false, version: 0, controller: new AbortController() };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const session: Session = { projectId, active: true, busy: false, version: 0, controller: new AbortController(), refreshNow: () => {}, reschedule: () => {} };
     sessionRef.current = session;
+    runRef.current = IDLE;
     setSnapshot({ projectId, run: IDLE, busy: null, error: false });
-    let timer: ReturnType<typeof setTimeout>;
     const refresh = async () => {
+      clearTimeout(timer);
+      timer = undefined;
       if (!session.busy) {
         const version = ++session.version;
         try {
           const response = await fetch(base, { signal: session.controller.signal });
           const run = await readGameResponse<GameRunStatus>(response);
-          if (session.active && version === session.version) setSnapshot({ projectId, run, busy: null, error: false });
+          if (session.active && version === session.version) { runRef.current = run; setSnapshot({ projectId, run, busy: null, error: false }); }
         } catch (caught) {
           if (session.active && version === session.version) setSnapshot(previous => ({ ...previous, error: true, requestError: gameRequestError(caught) }));
         }
       }
-      if (session.active) timer = setTimeout(() => void refresh(), POLL_MS);
+      // A newer read (refreshNow) may have armed the timer meanwhile; keep only one.
+      if (session.active && timer === undefined) timer = setTimeout(() => void refresh(), pollDelay(runRef.current, watchRef.current));
     };
+    session.refreshNow = () => { if (session.active) void refresh(); };
+    session.reschedule = () => {
+      if (!session.active) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), pollDelay(runRef.current, watchRef.current));
+    };
+    const onVisible = () => { if (document.visibilityState !== 'hidden') session.refreshNow(); };
+    document.addEventListener('visibilitychange', onVisible);
     void refresh();
-    return () => { session.active = false; session.controller.abort(); clearTimeout(timer); };
+    return () => {
+      session.active = false; session.controller.abort(); clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [projectId, base, enabled]);
+  // An agent turn starting may start the game, and one ending may have left it
+  // running or stopped it: look at once either way. The first render is skipped:
+  // the session's own first read covers it.
+  const previousWatch = useRef(watchClosely);
+  useEffect(() => {
+    if (previousWatch.current === watchClosely) return;
+    previousWatch.current = watchClosely;
+    sessionRef.current?.refreshNow();
+  }, [watchClosely]);
 
   const mutate = async (method: Action) => {
     const session = sessionRef.current;
@@ -71,11 +113,11 @@ function useGameRun(projectId: string, enabled: boolean) {
     try {
       const response = await fetch(base, { method, signal: session.controller.signal });
       const run = await readGameResponse<GameRunStatus>(response);
-      if (session.active && version === session.version) setSnapshot({ projectId, run, busy: null, error: false });
+      if (session.active && version === session.version) { runRef.current = run; setSnapshot({ projectId, run, busy: null, error: false }); }
     } catch (caught) {
       if (session.active && version === session.version) setSnapshot(previous => ({ ...previous,
         run: method === 'POST' ? { status: 'failed', reasonCode: 'START_FAILED' } : previous.run, busy: null, error: true, requestError: gameRequestError(caught) }));
-    } finally { session.busy = false; }
+    } finally { session.busy = false; session.reschedule(); }
   };
   const current = snapshot.projectId === projectId && enabled
     ? snapshot
@@ -93,11 +135,13 @@ export type GameRunController = ReturnType<typeof useGameRunController>;
  * checklist "run the game") starts an inactive game once.
  * Run means run: a start that finds dependencies missing installs them once and runs.
  */
-export function useGameRunController({ projectId, enabled = true, startRequest = 0 }: {
+export function useGameRunController({ projectId, enabled = true, startRequest = 0, agentRunning = false }: {
   projectId: string; enabled?: boolean; startRequest?: number;
+  /** An agent turn is in flight in this project; it may start or stop the game. */
+  agentRunning?: boolean;
 }) {
   const t = useT();
-  const { run, busy, error, requestError, mutate } = useGameRun(projectId, enabled);
+  const { run, busy, error, requestError, mutate } = useGameRun(projectId, enabled, agentRunning);
   const [openFailed, setOpenFailed] = useState(false);
   const [installation, setInstallation] = useState<GameInstallDepsResult | null>(null);
   const [installLogTail, setInstallLogTail] = useState('');
