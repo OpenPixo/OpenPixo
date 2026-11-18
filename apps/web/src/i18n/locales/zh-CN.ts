@@ -3475,6 +3475,7 @@ export const zhCN: Dict = {
   'chat.record.action.verify': "验证游戏",
   'chat.record.action.skill': "使用技能",
   'chat.turnSkills.used': "这一轮用了",
+  'chat.turnSkills.subSkill': "{skill} › {subSkill}",
   'chat.record.action.test': "运行测试",
   'chat.record.listJoin': "、",
   'chat.record.failed': "失败",

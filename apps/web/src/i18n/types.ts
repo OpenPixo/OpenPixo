@@ -3541,6 +3541,7 @@ export interface Dict {
   'chat.record.action.verify': string;
   'chat.record.action.skill': string;
   'chat.turnSkills.used': string;
+  'chat.turnSkills.subSkill': string;
   'chat.record.action.test': string;
   'chat.record.listJoin': string;
   'chat.record.failed': string;

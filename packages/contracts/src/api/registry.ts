@@ -190,6 +190,20 @@ export interface AgentsResponse {
 
 export type SkillSource = 'built-in' | 'user';
 
+/**
+ * A focused job inside a skill, such as health bars inside the HUD skill: a
+ * `references/<id>.md` side file whose frontmatter names it (`en_name`, `zh_name`).
+ * Display data only. The chat labels a read of that file "<skill> › <sub-skill>";
+ * sub-skills never enter the composed prompt. See specs/current/secondary-skills.md.
+ */
+export interface SkillSubSkill {
+  /** File stem: `health-bars` for `references/health-bars.md`. */
+  id: string;
+  /** Path relative to the skill folder. */
+  file: string;
+  displayName: Record<string, string>;
+}
+
 export interface SkillSummary {
   examples?: import('../plugins/manifest.js').PluginExample[];
   id: string;
@@ -228,6 +242,8 @@ export interface SkillSummary {
   speakerNotes?: boolean | null;
   animations?: boolean | null;
   hasBody: boolean;
+  /** Named sub-skills, sorted by id; absent when the skill has none. */
+  subSkills?: SkillSubSkill[];
   examplePrompt: string;
   examplePromptI18n?: Record<string, string>;
   // True when this skill exists only to group derived `<parent>:<child>`

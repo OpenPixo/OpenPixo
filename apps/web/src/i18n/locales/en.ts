@@ -3341,6 +3341,7 @@ export const en: Dict = {
   'chat.record.action.verify': "Verified game",
   'chat.record.action.skill': "Used skill",
   'chat.turnSkills.used': "Skills used",
+  'chat.turnSkills.subSkill': "{skill} › {subSkill}",
   'chat.record.action.test': "Ran test",
   'chat.record.listJoin': ", ",
   'chat.record.failed': "Failed",

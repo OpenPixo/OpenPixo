@@ -20,7 +20,10 @@ export type GameVerifyStep = 'check' | 'build' | 'run';
 export type HostAction =
   /** `pixo game verify`;`steps` 为空 = 没传 `--steps`,CLI 按引擎默认跑 */
   | { kind: 'verify'; steps: GameVerifyStep[] }
-  /** 读 `.pixo-skills/<技能>-<哈希>/SKILL.md`;名字去掉 daemon 加的 10 位哈希 */
+  /**
+   * 读 `.pixo-skills/<技能>-<哈希>/SKILL.md`;名字去掉 daemon 加的 10 位哈希。
+   * 读它的子技能 `references/<子技能>.md` 记作 `<技能>/<子技能>`(见 `parentSkillOf`)。
+   */
   | { kind: 'skill'; names: string[] }
   /** `godot … --script <文件>`:agent 写的无头测试脚本 */
   | { kind: 'test'; script: string };
@@ -32,16 +35,32 @@ const VERIFY_STEPS = new Set<GameVerifyStep>(['check', 'build', 'run']);
  * `$env:PIXO_BIN`(PowerShell)。`npm run game verify` 这类不带这几个记号的不认。
  */
 const PIXO_GAME_VERIFY = /(?:^|[\s&;|('"])(?:pixo(?:\.cmd|\.exe)?|\$\{?PIXO_BIN\}?|\$env:PIXO_BIN)["']?\s+game\s+verify\b([^\n;|]*)/i;
-const SKILL_FILE = /\.pixo-skills[\\/]+([^\\/'"\s]+)[\\/]+SKILL\.md/gi;
+const SKILL_FILE = /\.pixo-skills[\\/]+([^\\/'"\s]+)[\\/]+(?:SKILL\.md|references[\\/]+([A-Za-z0-9._-]+)\.md)/gi;
 /** `cwd-aliases.ts` 的 `${folder}-${sha256.slice(0, 10)}` */
 const SKILL_DIGEST = /-[0-9a-f]{10}$/;
 const GODOT_SCRIPT = /(?:^|[\s&;|('"])(?:[^\s'"]*[\\/])?godot[^\s'"\\/]*\s[^\n;|]*?--script\s+("[^"]+"|'[^']+'|\S+)/i;
 
 const MUTATING = new Set(['write', 'edit', 'delete']);
 
-/** 一段命令或一个路径里提到的 `.pixo-skills/<技能>-<哈希>/SKILL.md`,技能名去掉哈希 */
+/** 子技能 id 里父技能和子技能之间的分隔:`game-ui-hud/health-bars` */
+const SUB_SKILL_SEPARATOR = '/';
+
+/** `game-ui-hud/health-bars` → `game-ui-hud`;不是子技能就原样返回 */
+export function parentSkillOf(id: string): string {
+  const at = id.indexOf(SUB_SKILL_SEPARATOR);
+  return at < 0 ? id : id.slice(0, at);
+}
+
+/**
+ * 一段命令或一个路径里提到的技能文件,技能名去掉哈希:`SKILL.md` 记作技能本身,
+ * `references/<子技能>.md` 记作 `<技能>/<子技能>`。子技能叫什么由技能目录决定,
+ * 这里只看路径,所以直播和恢复的对话得到同样的 id。
+ */
 export function skillNamesIn(text: string): string[] {
-  return [...new Set([...text.matchAll(SKILL_FILE)].map((m) => (m[1] ?? '').replace(SKILL_DIGEST, '')))].filter(Boolean);
+  return [...new Set([...text.matchAll(SKILL_FILE)].map((m) => {
+    const skill = (m[1] ?? '').replace(SKILL_DIGEST, '');
+    return skill && m[2] ? `${skill}${SUB_SKILL_SEPARATOR}${m[2]}` : skill;
+  }))].filter(Boolean);
 }
 
 export function hostActionOf(command: string): HostAction | null {
