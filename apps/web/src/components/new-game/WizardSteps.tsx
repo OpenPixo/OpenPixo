@@ -260,7 +260,7 @@ function GenreArt({ genre }: { genre: GenrePreset }) {
  * the draft already holds one of them; a chip's explanation shows under the
  * chips for the one pointed at or focused, else the chosen one, so it never
  * depends on a tooltip. A first-timer is not asked for a studio or the game's
- * languages (the languages default to the UI's).
+ * languages: their game is made in the UI language alone (`suggestedLanguages`).
  */
 export function ConceptStep({ draft, update, showProblems, isNew, beginner = false }: {
   draft: WizardDraft; update: Update; showProblems: boolean; isNew: boolean; beginner?: boolean;

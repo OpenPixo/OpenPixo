@@ -7,7 +7,6 @@ import {
   type GameEngineOption,
   type GameExperience,
   type GameFolderNameProblem,
-  type GameLanguage,
   type GameTemplateSummary,
 } from '@openpixo/contracts';
 import { Check } from 'lucide-react';
@@ -61,9 +60,11 @@ import {
   setDraftReferences,
   starterEngineMissing,
   startersFor,
+  suggestedLanguages,
   templateDimension,
   templateDraftDefaults,
   wizardSteps,
+  withSuggestedLanguages,
   type WizardDraft,
   type WizardReference,
   type WizardStepId,
@@ -128,16 +129,16 @@ function queueKickoff(projectId: string, prompt: string) {
   } catch { /* Without sessionStorage the project opens and the user starts the first turn. */ }
 }
 
-/** A new draft: the user's languages (the UI's plus English), studio and last game size are already known. */
-function freshDraft(templateId: string, languages: GameLanguage[]): WizardDraft {
-  return { ...emptyDraft(templateId), languages, studio: rememberedStudio(), scope: rememberedScope(), ...templateDraftDefaults(templateId) };
+/** A new draft: the user's studio and last game size are already known; the languages follow `suggestedLanguages`. */
+function freshDraft(templateId: string): WizardDraft {
+  return { ...emptyDraft(templateId), studio: rememberedStudio(), scope: rememberedScope(), ...templateDraftDefaults(templateId) };
 }
 
 /** `step` null: the first screen, whichever that turns out to be once the experience answer is known. */
-function initialDraft(initialTemplateId: string, languages: GameLanguage[], initialPrompt: string): { draft: WizardDraft; step: WizardStepId | null } {
+function initialDraft(initialTemplateId: string, initialPrompt: string): { draft: WizardDraft; step: WizardStepId | null } {
   const pitch = initialPrompt.trim().slice(0, GAME_SETUP_LIMITS.pitch);
   const stored = loadDraft();
-  if (!stored) return { draft: { ...freshDraft(initialTemplateId, languages), ...(pitch ? { pitch } : {}) }, step: null };
+  if (!stored) return { draft: { ...freshDraft(initialTemplateId), ...(pitch ? { pitch } : {}) }, step: null };
   // Starting from Home wins over what was remembered; the other answers are kept.
   if (pitch) return { draft: { ...stored.draft, pitch, ...(initialTemplateId ? { templateId: initialTemplateId } : {}) }, step: null };
   if (initialTemplateId && stored.draft.templateId !== initialTemplateId) {
@@ -150,15 +151,18 @@ export function NewGameDialog({ onClose, onCreated, initialTemplateId = '', init
   const { t, locale } = useI18n();
   const id = useId();
   const hostMode = useMemo(() => isOpenPixoHostAvailable(), []);
-  const defaultLanguages: GameLanguage[] = locale === 'zh-CN' ? ['zh-Hans', 'en'] : ['en'];
   const firstMessage = initialPrompt.trim();
 
-  const [{ draft: startDraft, step: startStep }] = useState(() => initialDraft(initialTemplateId, defaultLanguages, initialPrompt));
-  const [draft, setDraftState] = useState<WizardDraft>(startDraft);
+  const [{ draft: startDraft, step: startStep }] = useState(() => initialDraft(initialTemplateId, initialPrompt));
+  const [ownDraft, setDraftState] = useState<WizardDraft>(startDraft);
   const [storedStep, setStep] = useState<WizardStepId | null>(startStep);
   // The saved answer to "have you made a game before?": undefined while it loads, null when never given.
   const [savedExperience, setSavedExperience] = useState<GameExperience | null | undefined>(undefined);
   const [experienceChoice, setExperienceChoice] = useState<GameExperience | null>(null);
+  const experience = experienceChoice ?? savedExperience ?? null;
+  const beginner = isBeginner({ mode: 'create', experience });
+  // Languages the user never touched follow the UI language and whether they are asked at all.
+  const draft = useMemo(() => withSuggestedLanguages(ownDraft, suggestedLanguages(locale, beginner)), [ownDraft, locale, beginner]);
   // Decided once, when the answer loads, so the screen does not vanish after it is answered.
   const [askExperience, setAskExperience] = useState(false);
   const [confirmingStartOver, setConfirmingStartOver] = useState(false);
@@ -220,8 +224,6 @@ export function NewGameDialog({ onClose, onCreated, initialTemplateId = '', init
     });
     return () => controller.abort();
   }, [initialTemplateId]);
-  const experience = experienceChoice ?? savedExperience ?? null;
-  const beginner = isBeginner({ mode: 'create', experience });
   const steps = useMemo(() => wizardSteps('create', askExperience), [askExperience]);
   const step: WizardStepId = storedStep && steps.includes(storedStep) ? storedStep : steps[0]!;
 
@@ -520,7 +522,7 @@ export function NewGameDialog({ onClose, onCreated, initialTemplateId = '', init
   function startOver() {
     clearDraft();
     setReferencesState([]);
-    setDraftState(freshDraft('', defaultLanguages));
+    setDraftState(freshDraft(''));
     setStep(null);
   }
 

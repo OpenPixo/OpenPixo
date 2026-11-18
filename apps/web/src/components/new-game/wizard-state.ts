@@ -182,6 +182,24 @@ export function emptyDraft(templateId = ''): WizardDraft {
   };
 }
 
+/**
+ * The game's languages until the user picks them: the UI's language, plus English
+ * for anyone who is shown the choice. A first-timer is not asked (`ConceptStep`),
+ * so their game is made in the UI's language alone instead of gaining one they
+ * never saw.
+ */
+export function suggestedLanguages(uiLocale: string, beginner: boolean): GameLanguage[] {
+  const own: GameLanguage = uiLocale === 'zh-CN' ? 'zh-Hans' : 'en';
+  return beginner || own === 'en' ? [own] : [own, 'en'];
+}
+
+/** Languages the user has not changed follow the suggestion; their own choice is kept. */
+export function withSuggestedLanguages(draft: WizardDraft, languages: readonly GameLanguage[]): WizardDraft {
+  if (draft.edited.includes('languages')) return draft;
+  const same = draft.languages.length === languages.length && draft.languages.every((language, index) => language === languages[index]);
+  return same ? draft : { ...draft, languages: [...languages] };
+}
+
 /** A starter that is already a specific game answers its own setup; the user still confirms it. */
 export function templateDraftDefaults(templateId: string): Partial<WizardDraft> {
   // What the sample ships with (its own 16-bit art, an 800x450 FIT canvas, keyboard), so its setup is complete.

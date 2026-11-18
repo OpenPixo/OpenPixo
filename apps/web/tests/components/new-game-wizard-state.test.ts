@@ -32,7 +32,9 @@ import {
   rememberedScope,
   stepComplete,
   stepProblems,
+  suggestedLanguages,
   templateDraftDefaults,
+  withSuggestedLanguages,
   withSuggestedSetup,
   wizardSteps,
   type WizardDraft,
@@ -288,6 +290,18 @@ describe('wizard answers', () => {
     expect(gameSetupMissingSteps(setup)).toEqual([]);
     // A written direction without a catalogue style is stored as direction only.
     expect(draftToSetup({ ...filled(), styleId: 'custom', direction: 'paper' }).art).toEqual({ direction: 'paper', palette: ['#182238'], pixelSize: 16 });
+  });
+
+  /* 2026-11-19: a first-timer is not shown the languages, yet a Chinese UI stored ["zh-Hans","en"]. */
+  it("makes a first-timer's game in the UI language alone, and offers English beside it to everyone else", () => {
+    expect(suggestedLanguages('zh-CN', true)).toEqual(['zh-Hans']);
+    expect(suggestedLanguages('en', true)).toEqual(['en']);
+    expect(suggestedLanguages('zh-CN', false)).toEqual(['zh-Hans', 'en']);
+    expect(suggestedLanguages('en', false)).toEqual(['en']);
+    // Untouched languages follow the suggestion; the user's own choice is kept.
+    expect(withSuggestedLanguages(emptyDraft(), ['zh-Hans']).languages).toEqual(['zh-Hans']);
+    const chosen = markEdited(emptyDraft(), { languages: ['en', 'ja'] });
+    expect(withSuggestedLanguages(chosen, ['zh-Hans'])).toBe(chosen);
   });
 
   /* 2026-11-10 beginner audit: hidden defaults reached the agent as the user's choices. */
