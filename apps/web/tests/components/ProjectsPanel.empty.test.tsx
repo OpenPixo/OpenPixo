@@ -81,7 +81,7 @@ describe('ProjectsPanel empty state', () => {
 
 
     // Verify CTA Button is present
-    const ctaButton = screen.getByRole('button', { name: 'New project' });
+    const ctaButton = screen.getByRole('button', { name: 'New game' });
     expect(ctaButton).toBeTruthy();
 
     // Verify clicking the CTA Button invokes the onNewProject callback
