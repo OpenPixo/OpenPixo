@@ -38,7 +38,7 @@ describe('joining', () => {
   it('makes the first joiner host, and welcomes later ones with the room as it is', () => {
     const roomCode = code();
     const host = join(roomCode);
-    expect(host.messages).toEqual([{ t: 'welcome', v: ROOM_PROTOCOL_VERSION, you: 'p1', host: 'p1', players: ['p1'], code: roomCode, maxPlayers: 8 }]);
+    expect(host.messages).toEqual([{ t: 'welcome', v: ROOM_PROTOCOL_VERSION, you: 'p1', host: 'p1', players: ['p1'], code: roomCode, maxPlayers: LOCAL_RELAY_LIMITS.maxPlayers }]);
     const guest = join(roomCode);
     expect(guest.messages[0]).toMatchObject({ t: 'welcome', you: 'p2', host: 'p1', players: ['p1', 'p2'] });
     expect(last(host)).toEqual({ t: 'join', id: 'p2' });
@@ -133,7 +133,7 @@ describe('messages', () => {
     expect(relay.receive('nobody', '{}')).toBe(false);
   });
 
-  it('allows 60 a second, drops the excess with one warning, and starts again next second', () => {
+  it('allows 40 a second, drops the excess with one warning, and starts again next second', () => {
     for (let index = 0; index < LOCAL_RELAY_LIMITS.messagesPerSecond + 5; index += 1) send(a, 'host', index);
     expect(host.messages.filter(message => message.t === 'msg')).toHaveLength(LOCAL_RELAY_LIMITS.messagesPerSecond);
     expect(a.messages.filter(message => message.t === 'warn')).toEqual([{ t: 'warn', code: 'too-fast' }]);

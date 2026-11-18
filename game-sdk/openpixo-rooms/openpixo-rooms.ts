@@ -76,7 +76,7 @@ const CLOSE_MESSAGES: Record<RoomCloseReason, string> = {
 
 const WARNINGS: Record<string, string> = {
   'too-large': 'A room message was dropped because it is over 16 KB. Send less at once.',
-  'too-fast': 'Room messages were dropped because this player sent more than 60 a second. Send game state 10 to 30 times a second.',
+  'too-fast': 'Room messages were dropped because this player sent more than 40 a second. Send game state 10 to 20 times a second.',
   'not-host': 'Only the host can do that.',
   'bad-message': 'The room could not read a message.',
 };

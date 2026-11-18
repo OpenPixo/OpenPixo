@@ -16,7 +16,7 @@ Shared DTOs and the room wire protocol: `packages/contracts/src/api/publish.ts`.
 | Public means | Anyone with the link. No browsing, listing, comments or profiles. |
 | Games | Web games only (Phaser, Three.js, other Vite/static builds). Godot, Unity and UE get a clear refusal. |
 | Authority | One player hosts. The server only relays messages. Not for ranked or prize play. |
-| Room size | 8 players (config). |
+| Room size | 20 players (config; owner 2026-11-19, was 8). One internet address may hold one room's worth of seats across a game's rooms. |
 | Price | 10 free player-hours per creator per calendar month (UTC), then 5 credits per player-hour from the creator's wallet. Players never sign in or pay. |
 | Spending limit | Per game, per month. Default 500 credits, creator can change it. When reached, new rooms stop opening and open rooms close at the next settlement. |
 | Chat | No chat API in the SDK. Player identity is a server-assigned id (`p1`, `p2`, ...), no display names. |
@@ -72,7 +72,7 @@ Room Durable Object -> Supabase rooms-admit / rooms-settle   (open, every 10 min
 - `POST /__rooms` creates a room with a 6-character code (unambiguous alphabet) after `rooms-admit` approves it. The game id comes from the subdomain, never from the client.
 - `GET /__rooms/<code>` upgrades to a WebSocket handled by the Durable Object **Hibernation API**. Full rooms and unknown codes are refused with a clear reason.
 - First joiner is host. If the host leaves, the room closes with reason `host-left`, unless the room was created with `hostMigration: true`; then the earliest remaining player becomes host.
-- Limits: 16 KB per message, 60 messages per second per player. Excess is dropped with a warning; sustained excess closes that socket.
+- Limits: 16 KB per message, 40 messages per second per player (20 players × 40 stays under the roughly 1,000 requests a second Cloudflare allows one Durable Object). Excess is dropped with a warning; sustained excess closes that socket.
 - Idle rooms (no message from anyone for 10 minutes) close. Rooms close at 4 hours regardless. Both are config. An empty room closes after 60 seconds, so a refreshing host can return only if `hostMigration` is on.
 
 ### Metering and settlement
@@ -104,6 +104,11 @@ The relay accepts only loopback origins and is never billed.
 | Add the SDK | `POST /api/projects/:id/rooms/install` | `pixo rooms add` | Share dialog's "Ask the AI to add multiplayer", because the SDK is useless until the AI also writes the lobby and game code |
 | Usage and limit | `GET` and `PATCH /api/projects/:id/rooms` | `pixo rooms status`, `pixo rooms limit <credits>` | Share dialog |
 | Two-player test | `POST /api/projects/:id/rooms/test` | `pixo rooms test` | Share dialog |
+| Every link on the account | `GET /api/published-games` | `pixo publish list` | 游戏管理 page (left rail, after 工坊) |
+| Remove any link by share id | `DELETE /api/published-games/:shareId` | `pixo publish remove --share <id>` | 游戏管理 page |
+| Limit for any link | `PATCH /api/published-games/:shareId/rooms` | `pixo rooms limit <credits> --share <id>` | 游戏管理 page |
+
+A link outlives its project: deleting the project, or publishing from another computer, leaves it live and counting against the plan. The `/api/published-games` routes work by share id so the creator can still see and remove such links; when a project on this computer has the link, its own project route does the work and forgets the share id. They reach the whole account, so a run's tool token is refused; an agent manages its own game through the project routes.
 
 The first publish on an account needs explicit acceptance of the sharing rules (`acceptTerms`, `--accept-terms` or the dialog's checkbox). The AI only publishes when the creator asks; the skill says so.
 
@@ -117,6 +122,7 @@ Supabase functions use the signed-in user's JWT and the existing `{ error: { cod
 | `PUT {uploadBaseUrl}/{version}/{encoded path}` | Raw file bytes, `Authorization: Bearer <uploadToken>` | `204` |
 | `POST publish-finish` | `{ shareId, version }` | `{ game: PublishedGame }` |
 | `GET share-status?shareId=` (shareId optional) | | `{ game: PublishedGame \| null, usage: RoomsUsage \| null, paused: { publish, rooms }, termsAccepted, termsUrl, limits: { maxPlayers, creditsPerPlayerHour } }` |
+| `GET share-list` | | `ShareListResponse`: `{ games: [{ game, rooms, online }], paused: { publish, rooms, online }, limits, publishPlan, onlineAccount }`. Every link that went live, newest change first, operator removals included with the reason, creator removals left out. Plays and online counts are freshened from the Worker per game, as share-status and online-status do. |
 | `POST share-remove` | `{ shareId }` | `{ ok: true }` |
 | `POST share-limit` | `{ shareId, monthlyCreditLimit }` | `{ usage: RoomsUsage }` |
 

@@ -129,7 +129,7 @@ Every refusal throws an `OnlineError` with a `code` and a `message` written for 
 
 For live multiplayer in a Phaser, Three.js or other web game, with no networking already in place, use OpenPixo rooms. Players open a link and join; nobody signs in, and there is no server to write or host. **Godot, Unity, Unreal and Steam games are not covered by OpenPixo rooms**: use the sections from "Quick path" down. A web game that already has its own backend keeps it.
 
-**One player hosts, and the server only relays messages. A host can cheat, and the room ends or moves when the host leaves. Say so when it matters, and do not use rooms for ranked or prize play.** Rooms hold at most 8 players. Each message is at most 16 KB, and each player can send at most 60 messages a second. There is no chat API, and players are ids like `p1`, not names.
+**One player hosts, and the server only relays messages. A host can cheat, and the room ends or moves when the host leaves. Say so when it matters, and do not use rooms for ranked or prize play.** Rooms hold at most 20 players. Each message is at most 16 KB, and each player can send at most 40 messages a second; send game state 10 to 20 times a second, not every frame. There is no chat API, and players are ids like `p1`, not names.
 
 1. `pixo rooms add --json` puts the SDK in the game, normally at `src/openpixo-rooms.ts`, and prints where. Import from that file and do not edit it: an edited copy stops getting updates.
 2. Build a lobby scene in the game's own canvas (not an HTML form around it): a "Create room" button, a join-by-code entry (typed keys, plus an on-screen letter pad for touch), the invite link shown to the host, and `joinFromUrl()` at startup so that an opened link joins straight away.

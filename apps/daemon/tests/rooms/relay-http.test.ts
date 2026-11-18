@@ -3,6 +3,7 @@ import express from 'express';
 import { ROOM_MAX_MESSAGE_BYTES, ROOM_PROTOCOL_VERSION, type RoomServerMessage } from '@openpixo/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LOCAL_ROOMS_RELAY_PATH, registerLocalRoomsRelay, type LocalRoomsRelayHandle } from '../../src/routes/rooms-local.js';
+import { LOCAL_RELAY_LIMITS } from '../../src/rooms/relay.js';
 
 let server: Server;
 let base: string;
@@ -109,10 +110,10 @@ describe('protocol over POST and SSE', () => {
     await seen(guest, { t: 'host', id: 'p2' });
   });
 
-  it('refuses a ninth player over the stream, and ends it', async () => {
+  it('refuses a player beyond a full room over the stream, and ends it', async () => {
     const code = await roomCode();
     const players: Stream[] = [];
-    for (let index = 0; index < 8; index += 1) {
+    for (let index = 0; index < LOCAL_RELAY_LIMITS.maxPlayers; index += 1) {
       const player = await connect(code);
       await seen(player, { t: 'welcome' });
       players.push(player);
