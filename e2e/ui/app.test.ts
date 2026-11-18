@@ -12,8 +12,7 @@ import {
   ACTIVE_ARTIFACT_PREVIEW_SELECTOR,
   settledActiveArtifactPreview,
 } from '@/playwright/artifact-preview';
-import { openNewProjectModal as openNewProjectModalFromProjects } from '@/playwright/rail';
-import { createProjectViaApi } from '@/playwright/local-project';
+import { createMediaProjectViaApi, createProjectViaApi } from '@/playwright/local-project';
 import {
   applyStandardMocks,
   routeAgents,
@@ -161,16 +160,8 @@ for (const entry of automatedUiScenarios().filter(
       await runHyperframesProjectRoutingFlow(page, entry);
       return;
     }
-    if (entry.flow === 'image-project-routing') {
-      await runImageProjectRoutingFlow(page, entry);
-      return;
-    }
-    if (entry.flow === 'video-project-routing') {
-      await runVideoProjectRoutingFlow(page, entry);
-      return;
-    }
-    if (entry.flow === 'audio-project-routing') {
-      await runAudioProjectRoutingFlow(page, entry);
+    if (entry.flow === 'image-project-routing' || entry.flow === 'video-project-routing' || entry.flow === 'audio-project-routing') {
+      await runMediaProjectRoutingFlow(page, entry);
       return;
     }
     await createProject(page, entry);
@@ -431,19 +422,9 @@ function isCreateRunResponse(resp: Response): boolean {
   return url.pathname === '/api/runs' && resp.request().method() === 'POST';
 }
 
-function isCreateProjectResponse(resp: Response): boolean {
-  const url = new URL(resp.url());
-  return url.pathname === '/api/projects' && resp.request().method() === 'POST';
-}
-
 function isCreateRunRequest(request: Request): boolean {
   const url = new URL(request.url());
   return url.pathname === '/api/runs' && request.method() === 'POST';
-}
-
-function isCreateProjectRequest(request: Request): boolean {
-  const url = new URL(request.url());
-  return url.pathname === '/api/projects' && request.method() === 'POST';
 }
 
 async function runExampleUsePromptFlow(
@@ -468,130 +449,40 @@ async function runExampleUsePromptFlow(
   await expect(page.getByTestId('workspace-tabs-dropdown-trigger')).toContainText('Warm Utility Example');
 }
 
+/**
+ * Media projects (image, video, audio, HyperFrames) have no form in the app any
+ * more; they are created the way `pixo project create` creates them, through
+ * `POST /api/projects`, and then used in the app like any other project.
+ */
+async function createScenarioMediaProject(page: Page, entry: UiScenario): Promise<string> {
+  const metadata = entry.expectedProjectMetadata ?? { kind: entry.create.mediaSurface ?? 'image' };
+  const { projectId } = await createMediaProjectViaApi(page, {
+    name: entry.create.projectName,
+    skillId: entry.flow === 'hyperframes-project-routing' ? 'hyperframes' : null,
+    metadata,
+  });
+  await expectWorkspaceReady(page);
+  return projectId;
+}
+
 async function runHyperframesProjectRoutingFlow(
   page: Page,
   entry: UiScenario,
 ) {
-  await createProjectNameOnly(page, entry);
-
-  const createProjectRequest = page.waitForRequest(isCreateProjectRequest);
-  const createProjectResponse = page.waitForResponse(isCreateProjectResponse);
-  await page.getByTestId('create-project').click();
-
-  const request = await createProjectRequest;
-  const body = request.postDataJSON() as {
-    skillId?: string;
-    metadata?: {
-      kind?: string;
-      videoModel?: string;
-    };
-  };
-  expect(body.skillId).toBe('hyperframes');
-  expect(body.metadata?.kind).toBe('video');
-  expect(body.metadata?.videoModel).toBe('hyperframes-html');
-
-  const response = await createProjectResponse;
-  expect(response.ok(), `${response.status()} ${await response.text()}`).toBeTruthy();
-
-  await expectWorkspaceReady(page);
+  const projectId = await createScenarioMediaProject(page, entry);
   await sendPrompt(page, entry.prompt);
-  const { projectId } = await getCurrentProjectContext(page);
   await selectPanelView(page, 'library');
   await expect(panelFileLabel(page, entry.mockArtifact!.fileName)).toBeVisible();
   await expectProjectFileToContain(page, projectId, entry.mockArtifact!.fileName, entry.mockArtifact!.heading);
   await expectScenarioProjectState(page, entry, projectId);
 }
 
-async function runImageProjectRoutingFlow(
+async function runMediaProjectRoutingFlow(
   page: Page,
   entry: UiScenario,
 ) {
-  await createProjectNameOnly(page, entry);
-
-  const createProjectRequest = page.waitForRequest(isCreateProjectRequest);
-  const createProjectResponse = page.waitForResponse(isCreateProjectResponse);
-  await page.getByTestId('create-project').click();
-
-  const request = await createProjectRequest;
-  const body = request.postDataJSON() as {
-    metadata?: {
-      kind?: string;
-    };
-  };
-  expect(body.metadata?.kind).toBe('image');
-
-  const response = await createProjectResponse;
-  expect(response.ok(), `${response.status()} ${await response.text()}`).toBeTruthy();
-
-  await expectWorkspaceReady(page);
-  const { projectId } = await getCurrentProjectContext(page);
+  const projectId = await createScenarioMediaProject(page, entry);
   await expectScenarioProjectState(page, entry, projectId);
-}
-
-async function runVideoProjectRoutingFlow(
-  page: Page,
-  entry: UiScenario,
-) {
-  await createProjectNameOnly(page, entry);
-
-  const createProjectRequest = page.waitForRequest(isCreateProjectRequest);
-  const createProjectResponse = page.waitForResponse(isCreateProjectResponse);
-  await page.getByTestId('create-project').click();
-
-  const request = await createProjectRequest;
-  const body = request.postDataJSON() as {
-    metadata?: {
-      kind?: string;
-      videoModel?: string;
-      videoAspect?: string;
-      videoLength?: number;
-    };
-  };
-  expect(body.metadata?.kind).toBe('video');
-  expect(body.metadata?.videoModel).toBeTruthy();
-  expect(body.metadata?.videoAspect).toBe('16:9');
-  expect(body.metadata?.videoLength).toBe(5);
-
-  const response = await createProjectResponse;
-  expect(response.ok()).toBeTruthy();
-
-  await expectWorkspaceReady(page);
-  const { projectId } = await getCurrentProjectContext(page);
-  await expectScenarioProjectState(page, entry, projectId);
-}
-
-async function runAudioProjectRoutingFlow(
-  page: Page,
-  entry: UiScenario,
-) {
-  await createProjectNameOnly(page, entry);
-
-  const createProjectRequest = page.waitForRequest(isCreateProjectRequest);
-  const createProjectResponse = page.waitForResponse(isCreateProjectResponse);
-  await page.getByTestId('create-project').click();
-
-  const request = await createProjectRequest;
-  const body = request.postDataJSON() as {
-    metadata?: {
-      kind?: string;
-      audioKind?: string;
-      audioDuration?: number;
-    };
-  };
-  expect(body.metadata?.kind).toBe('audio');
-  expect(body.metadata?.audioKind).toBe('sfx');
-  expect(typeof body.metadata?.audioDuration).toBe('number');
-  expect((body.metadata?.audioDuration ?? 0)).toBeGreaterThan(0);
-
-  const response = await createProjectResponse;
-  expect(response.ok()).toBeTruthy();
-
-  await expectWorkspaceReady(page);
-  const { projectId } = await getCurrentProjectContext(page);
-  const project = await fetchProjectFromApi(page, projectId);
-  await expectScenarioProjectState(page, entry, projectId);
-  const metadata = project.metadata as Record<string, unknown> | undefined;
-  expect(metadata?.audioDuration).toBe(body.metadata?.audioDuration);
 }
 
 async function seedQuestionFormMessage(page: Page): Promise<void> {
@@ -1116,31 +1007,6 @@ async function seedProjectFile(
   expect(response.ok()).toBeTruthy();
 }
 
-async function createProjectNameOnly(
-  page: Page,
-  entry: UiScenario,
-) {
-  await openNewProjectModal(page);
-  await expect(page.getByTestId('new-project-panel')).toBeVisible();
-  if (entry.create.mediaSurface) {
-    await clickVisible(page.getByTestId(`new-project-media-surface-${entry.create.mediaSurface}`));
-    await expect(page.getByTestId(`new-project-media-surface-${entry.create.mediaSurface}`)).toHaveAttribute('aria-selected', 'true');
-  }
-  if (entry.create.mediaSurface === 'video' && entry.create.videoModel) {
-    await page.getByTestId('model-picker-trigger').click();
-    await page.getByTestId(`model-picker-option-${entry.create.videoModel}`).click();
-  }
-  if (entry.create.mediaSurface === 'audio' && entry.create.audioKind === 'sfx') {
-    await page.getByRole('button', { name: 'SFX' }).click();
-  }
-  await page.getByTestId('new-project-name').fill(entry.create.projectName);
-}
-
-async function clickVisible(locator: Locator) {
-  await expect(locator).toBeVisible({ timeout: T.medium });
-  await locator.evaluate((element: HTMLElement) => element.click());
-}
-
 async function gotoEntryHome(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await waitForLoadingToClear(page);
@@ -1151,10 +1017,6 @@ async function gotoEntryHome(page: Page) {
   }
   await expect(page.getByTestId('home-hero')).toBeVisible();
   await expect(page.getByTestId('home-hero-input')).toBeVisible();
-}
-
-async function openNewProjectModal(page: Page) {
-  await openNewProjectModalFromProjects(page);
 }
 
 async function waitForLoadingToClear(page: Page) {

@@ -47,6 +47,7 @@ export function GameView({
   viewerOnly,
   probeHeld,
   refreshKey,
+  agentRunning,
   onOpenEngineSettings,
   onOpenAccount,
   onOpenFileAtLine,
@@ -63,6 +64,8 @@ export function GameView({
   probeHeld?: boolean;
   /** Re-probe tuning when the project's files change. */
   refreshKey?: number;
+  /** An agent turn is in flight in this project: it may start or stop the game, so watch the run closely. */
+  agentRunning?: boolean;
   onOpenEngineSettings?: () => void;
   onOpenAccount?: () => void;
   onOpenFileAtLine: (path: string, line: number) => void;
@@ -73,7 +76,7 @@ export function GameView({
   const runEnabled = Boolean(controls) && !held;
   const verifyEnabled = Boolean(controls?.verifyAvailable) && !held;
   const start = controls?.startRequest ?? null;
-  const run = useGameRunController({ projectId, enabled: runEnabled, startRequest: start?.kind === 'run-game' ? start.nonce : 0 });
+  const run = useGameRunController({ projectId, enabled: runEnabled, startRequest: start?.kind === 'run-game' ? start.nonce : 0, agentRunning: agentRunning === true });
   const verify = useGameVerify({ projectId, enabled: verifyEnabled, startRequest: start?.kind === 'verify' ? start.nonce : 0 });
   const playtest = useGamePlaytest({ projectId, enabled: verifyEnabled });
   const [editorOpen, setEditorOpen] = useState(false);

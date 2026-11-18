@@ -93,7 +93,6 @@ function renderOnboarding(
 
     projects: [],
 
-    promptTemplates: [],
     config: baseConfig(),
     agents: [codexAgent(), cliAgent()],
     daemonLive: true,
@@ -151,7 +150,6 @@ function renderHome(
 
     projects: [],
 
-    promptTemplates: [],
     config: baseConfig({
       agentId: 'claude-code',
       agentModels: { 'claude-code': { model: 'sonnet' } },
@@ -564,11 +562,10 @@ describe('EntryShell new project rail', () => {
   // #5517's rail: `EntryShell` still passes `onNewProject` — with its
   // `new_project_plus` ui_click — to `EntryNavRail`, but the rail never renders
   // a control that calls it, so the button and that analytics event are both
-  // unreachable. The spec that drove it is therefore removed; opening the
-  // new-project modal is still covered by the Projects-view CTA below, which is
-  // the surviving entry point.
+  // unreachable. The spec that drove it is therefore removed; the Projects-view
+  // CTA below opens the game setup, as the rail's New game does.
 
-  it('opens the new project modal from the Projects view new-project button', async () => {
+  it('opens the game setup from the Projects view new button', async () => {
     const fetchMock = vi.fn(
       async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
         const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
@@ -607,7 +604,7 @@ describe('EntryShell new project rail', () => {
             stale: false,
           });
         }
-        return jsonResponse({});
+        return jsonResponse({ templates: [], styles: [], locations: [] });
       });
     globalThis.fetch = fetchMock as typeof fetch;
     // Start directly on the Projects view (/projects). The nav rail no longer
@@ -615,6 +612,7 @@ describe('EntryShell new project rail', () => {
     // reachable via /projects or Home's "view all" — so drive the ProjectsPanel's
     // own new-project CTA rather than a removed rail button.
     const props = renderHome({
+      onImportFolderResponse: vi.fn(async () => {}),
       projects: [
         {
           id: 'project-existing',
@@ -629,10 +627,9 @@ describe('EntryShell new project rail', () => {
 
     fireEvent.click(screen.getByTestId('designs-new-project'));
 
-    await waitFor(() => {
-      expect(screen.getByTestId('new-project-modal')).toBeTruthy();
-    });
-    expect(screen.getByTestId('new-project-panel')).toBeTruthy();
+    // The same game setup the sidebar's New game opens (the media-project form is gone).
+    expect(await screen.findByText(/Step 1 of/)).toBeTruthy();
+    expect(screen.queryByTestId('new-project-modal')).toBeNull();
     expect(props.onOpenProject).not.toHaveBeenCalled();
     expect(props.onCreateProject).not.toHaveBeenCalled();
     const createCall = fetchMock.mock.calls.find(

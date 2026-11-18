@@ -1494,6 +1494,7 @@ export function FileWorkspace({
               onOpenEngineSettings={onOpenEngineSettings}
               onOpenAccount={onOpenAccount}
               refreshKey={filesRefreshKey}
+              agentRunning={runInFlight}
               onOpenFileAtLine={(path, line) => openFileAtLine(path, line)}
               onRefreshFiles={refreshFilesWithoutResult}
             />

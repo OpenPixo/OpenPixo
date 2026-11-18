@@ -134,3 +134,28 @@ export async function seedBrowserConfig(page: Page, value: Record<string, unknow
   await page.addInitScript(({ key, config }) => window.localStorage.setItem(key, JSON.stringify(config)), payload);
   await page.evaluate(({ key, config }) => window.localStorage.setItem(key, JSON.stringify(config)), payload).catch(() => {});
 }
+/**
+ * Creates an image, video or audio project the way `pixo project create` does,
+ * through `POST /api/projects`, and opens it. The app has no form for media
+ * projects any more (生成 makes media without a project).
+ */
+export async function createMediaProjectViaApi(
+  page: Page,
+  input: { name: string; skillId?: string | null; metadata: Record<string, unknown> },
+): Promise<{ projectId: string; conversationId: string }> {
+  const projectId = `media-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const response = await page.request.post('/api/projects', {
+    data: {
+      id: projectId,
+      name: input.name,
+      skillId: input.skillId ?? null,
+      pendingPrompt: null,
+      metadata: input.metadata,
+      skipDiscoveryBrief: true,
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { conversationId } = await response.json() as { conversationId: string };
+  await gotoProject(page, projectId);
+  return { projectId, conversationId };
+}

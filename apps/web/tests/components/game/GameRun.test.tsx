@@ -154,7 +154,8 @@ it('does not auto-install after stopping a pending start', async () => {
   await flush();
   fireEvent.click(runButton('Stop'));
   await flush();
-  await act(async () => vi.advanceTimersByTimeAsync(1_500));
+  // A stopped game is idle, so the next read is the idle one.
+  await act(async () => vi.advanceTimersByTimeAsync(15_000));
   expect(callsTo(fetchMock, '/game/install-deps', 'POST')).toHaveLength(0);
   expect(callsTo(fetchMock, '/game/run', 'POST')).toHaveLength(1);
   expect(screen.getByRole('button', { name: 'Install and run' })).toBeTruthy();
@@ -316,19 +317,60 @@ it('shows dependency fix and tool settings guidance inline', async () => {
   expect(configure).toHaveBeenCalledOnce();
 });
 
-it('polls on the virtual clock and stops polling after unmount', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(result({ status: 'idle' })).mockResolvedValue(result({ status: 'running', engine: 'godot' }));
+it('polls a running game on the virtual clock and stops polling after unmount', async () => {
+  const fetchMock = vi.fn(async () => result({ status: 'running', engine: 'godot' }));
   vi.stubGlobal('fetch', fetchMock);
   const view = renderGameView(runOnly);
   await flush();
+  expect(gameStatus()).toBe('Running in Godot');
   await act(async () => vi.advanceTimersByTimeAsync(1_499));
   expect(fetchMock).toHaveBeenCalledOnce();
   await act(async () => vi.advanceTimersByTimeAsync(1));
   expect(fetchMock).toHaveBeenCalledTimes(2);
-  expect(gameStatus()).toBe('Running in Godot');
   view.unmount();
   await act(async () => vi.advanceTimersByTimeAsync(3_000));
   expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+// 2026-11-18: every open project asked for its run status every 1.5 s, about 40
+// requests a minute, while nothing was running. Idle now costs one read per 15 s.
+it('reads an idle game at most once every 15 seconds', async () => {
+  const fetchMock = vi.fn(async () => result({ status: 'idle' }));
+  vi.stubGlobal('fetch', fetchMock);
+  renderGameView(runOnly);
+  await flush();
+  await act(async () => vi.advanceTimersByTimeAsync(60_000));
+  // The first read on open, then one per 15 s.
+  expect(callsTo(fetchMock, '/game/run')).toHaveLength(5);
+});
+
+it('watches closely while an agent turn runs, so a game the agent starts shows at once', async () => {
+  let status: GameRunStatus = { status: 'idle' };
+  const fetchMock = vi.fn(async () => result(status));
+  vi.stubGlobal('fetch', fetchMock);
+  const view = renderGameView(runOnly);
+  await flush();
+  view.rerenderGame({ agentRunning: true });
+  await flush();
+  // The turn starting is itself a reason to look again.
+  expect(callsTo(fetchMock, '/game/run')).toHaveLength(2);
+  status = { status: 'running', engine: 'phaser', url: 'http://127.0.0.1:5173/' };
+  await act(async () => vi.advanceTimersByTimeAsync(1_500));
+  expect(screen.getByTestId('panel-game-stage').getAttribute('data-stage')).toBe('live');
+});
+
+it('looks again when the agent turn ends and when the window comes back', async () => {
+  const fetchMock = vi.fn(async () => result({ status: 'idle' }));
+  vi.stubGlobal('fetch', fetchMock);
+  const view = renderGameView({ ...runOnly, agentRunning: true });
+  await flush();
+  const before = callsTo(fetchMock, '/game/run').length;
+  view.rerenderGame({ agentRunning: false });
+  await flush();
+  expect(callsTo(fetchMock, '/game/run')).toHaveLength(before + 1);
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+  await flush();
+  expect(callsTo(fetchMock, '/game/run')).toHaveLength(before + 2);
 });
 
 it('reads nothing while the project row is held', async () => {
@@ -428,7 +470,8 @@ it.each(['starting', 'running'] as const)('does not start an active game again f
 });
 
 it('refreshes checklist facts for run transitions without repeating unchanged polls', async () => {
-  const fetchMock = vi.fn().mockResolvedValueOnce(result({ status: 'idle' }))
+  // Starting, so the run is read on the fast cadence.
+  const fetchMock = vi.fn().mockResolvedValueOnce(result({ status: 'starting' }))
     .mockResolvedValueOnce(result({ status: 'running', engine: 'godot' }))
     .mockResolvedValueOnce(result({ status: 'running', engine: 'godot' }))
     .mockResolvedValueOnce(result({ status: 'exited', engine: 'godot' }))

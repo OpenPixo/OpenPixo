@@ -97,7 +97,6 @@ describe('app scrim material (styles/material.css)', () => {
   it('is what every app-owned overlay backdrop reads (no per-component tints left)', () => {
     const overlays = [
       '../../src/components/UpdateDialog.module.css',
-      '../../src/styles/home/new-project-modal.css',
       '../../src/styles/viewer/library.css',
       '../../src/styles/workspace/mention-home.css',
     ];

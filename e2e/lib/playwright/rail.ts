@@ -49,8 +49,7 @@ export async function ensureRailOpen(page: Page): Promise<void> {
     // `click()` inherits Playwright's default of 0 — no limit — and an
     // unclickable toggle does not reject, it hangs until the whole test's
     // budget runs out. Callers that wrap this helper in `.catch(() => {})`
-    // (`openNewProjectModal` below: "never allowed to fail the flow") can only
-    // swallow a rejection, so without a bound their opt-out silently becomes
+    // can only swallow a rejection, so without a bound their opt-out silently becomes
     // the opposite — the flow dies rather than skipping the rail. That is not
     // hypothetical: 8d0b542d0a raised `.backdrop` to `z-index: 1500` over the
     // `z-index: 120` tabs bar, the hit-target check stopped passing, and a UI
@@ -70,36 +69,6 @@ export async function ensureRailOpen(page: Page): Promise<void> {
   }
   await expect(page.locator('.entry')).toHaveClass(/entry--rail-open/);
   await expect(page.locator('.entry-nav-rail')).not.toHaveAttribute('aria-hidden', 'true');
-}
-
-/**
- * Opens the retained media project modal from the Projects view's CTA.
- * Workspace-only tests should create projects through the API instead.
- */
-export async function openNewProjectModal(page: Page): Promise<void> {
-  if (await page.getByTestId('new-project-panel').isVisible().catch(() => false)) return;
-  // Chrome parity only, never a functional step: the rail carries no
-  // new-project affordance, but the rail's docked state persists
-  // (`pixo.entry.railOpen.v2`) and shows around the modal backdrop, so the
-  // `visual-new-project-modal` baseline would churn if this flow stopped
-  // docking it. Skipped outside the entry shell — a project surface has no
-  // pinned-tab toggle at all (`WorkspaceTabsBar` renders it only for
-  // `isPinned && active`) — and never allowed to fail the flow.
-  if ((await page.locator('.entry').count()) > 0) {
-    await ensureRailOpen(page).catch(() => {});
-  }
-  await openProjectsEntryView(page);
-  await dismissWhatsNewPopup(page);
-  const projectsView = page.getByTestId('entry-view-projects');
-  await expect(projectsView).toBeVisible({ timeout: T.long });
-  const createButton = projectsView
-    .getByTestId('designs-new-project')
-    .or(projectsView.getByTestId('designs-empty-new-project'))
-    .first();
-  await expect(createButton).toBeVisible({ timeout: T.long });
-  await createButton.click();
-  await expect(page.getByTestId('new-project-modal')).toBeVisible();
-  await expect(page.getByTestId('new-project-panel')).toBeVisible();
 }
 
 /**
@@ -127,4 +96,23 @@ async function openProjectsEntryView(page: Page): Promise<void> {
     .catch(() => {});
   await expect(page).toHaveURL(/\/projects\/?$/, { timeout: T.long });
   await expect(page.getByTestId('entry-view-projects')).toBeVisible({ timeout: T.long });
+}
+
+/**
+ * Clicks 我的游戏's New game button and waits for the game setup dialog, the same
+ * one the rail's New game opens. (It used to open a media-project form, removed
+ * 2026-11-18; tests that need a media project create it through the API.)
+ */
+export async function openNewGameFromProjectsView(page: Page): Promise<void> {
+  await openProjectsEntryView(page);
+  await dismissWhatsNewPopup(page);
+  const projectsView = page.getByTestId('entry-view-projects');
+  const createButton = projectsView
+    .getByTestId('designs-new-project')
+    .or(projectsView.getByTestId('designs-empty-new-project'))
+    .first();
+  await expect(createButton).toBeVisible({ timeout: T.long });
+  await createButton.click();
+  await expect(page.getByRole('dialog').filter({ hasText: /Step 1 of/ })).toBeVisible({ timeout: T.long });
+  await expect(page.getByTestId('new-project-modal')).toHaveCount(0);
 }

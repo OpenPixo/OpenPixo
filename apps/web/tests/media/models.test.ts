@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MEDIA_MODEL_SUCCESSORS } from '@openpixo/contracts';
 import { AUDIO_MODELS_BY_KIND, DEFAULT_AUDIO_MODEL, DEFAULT_IMAGE_MODEL, DEFAULT_VIDEO_MODEL, IMAGE_MODELS, MEDIA_PROVIDERS, MODEL3D_MODELS, VIDEO_MODELS,
-  canonicalMediaModelId, findMediaModel, imageModelIdForPromptTemplate, modelIdsBySurface } from '../../src/media/models';
+  canonicalMediaModelId, findMediaModel, modelIdsBySurface } from '../../src/media/models';
 
 const catalogue = [...IMAGE_MODELS, ...VIDEO_MODELS, ...Object.values(AUDIO_MODELS_BY_KIND).flat()];
 
@@ -34,8 +34,8 @@ describe('media catalogue successor compatibility', () => {
     expect(catalogue.some(model => model.id === successor)).toBe(true);
   });
 
-  it('resolves old prompt-template recommendations and preserves custom models', () => {
-    expect(imageModelIdForPromptTemplate(' gpt-image-1 ')).toBe('gpt-image-2');
+  it('resolves old model ids and preserves custom models', () => {
+    expect(canonicalMediaModelId('gpt-image-1')).toBe('gpt-image-2');
     expect(canonicalMediaModelId('custom-deployment')).toBe('custom-deployment');
     expect(canonicalMediaModelId('constructor')).toBe('constructor');
   });

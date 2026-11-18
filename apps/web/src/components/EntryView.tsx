@@ -14,7 +14,6 @@ import type {
   AppConfig,
   ExecMode,
   Project,
-  PromptTemplateSummary,
   ProviderModelOption,
   SkillSummary,
 } from '../types';
@@ -29,7 +28,7 @@ import {
 } from './EntryShell';
 
 import type { IntegrationTab } from './IntegrationsView';
-import type { CreateInput } from './NewProjectPanel';
+import type { CreateInput } from './create-project-input';
 import type {
   PluginShareAction,
   PluginShareProjectOutcome,
@@ -54,7 +53,6 @@ interface Props {
   // Shared resource catalog supports project chips and media skill routing.
   skills: SkillSummary[];
   projects: Project[];
-  promptTemplates: PromptTemplateSummary[];
   agents: AgentInfo[];
   // Keep local CLI onboarding in its detecting state during the agent scan.
   agentsLoading?: boolean;
@@ -129,7 +127,6 @@ function normalizedSearchValue(value: string | undefined): string {
 export function EntryView({
   skills,
   projects,
-  promptTemplates,
   agents,
   agentsLoading,
 
@@ -177,7 +174,6 @@ export function EntryView({
     <EntryShell
       skills={skills}
       projects={projects}
-      promptTemplates={promptTemplates}
       {...(integrationInitialTab ? { integrationInitialTab } : {})}
       skillsLoading={skillsLoading}
       projectsLoading={projectsLoading}

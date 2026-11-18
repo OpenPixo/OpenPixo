@@ -30,7 +30,7 @@ import type {
 import type { IntegrationTab } from './components/IntegrationsView';
 import { MarketplaceView } from './components/MarketplaceView';
 import { PluginDetailView } from './components/PluginDetailView';
-import type { CreateInput } from './components/NewProjectPanel';
+import type { CreateInput } from './components/create-project-input';
 import { Toast } from './components/Toast';
 
 
@@ -3320,7 +3320,6 @@ function AppInner() {
 
         skills={enabledSkills}
         projects={projects}
-        promptTemplates={promptTemplates}
         agents={agents}
         agentsLoading={agentsLoading}
 

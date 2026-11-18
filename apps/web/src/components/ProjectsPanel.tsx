@@ -538,7 +538,7 @@ export function ProjectsPanel({
 							}}
 						>
 							<Icon name="plus" size={13} />
-							<span>{t("entry.navNewProject")}</span>
+							<span>{t("entry.navNewGame")}</span>
 						</button>
 					) : null}
 					<div className={`toolbar-search ${styles.search}`}>
@@ -691,7 +691,7 @@ export function ProjectsPanel({
 										onNewProject();
 									}}
 								>
-									<span>{t("entry.navNewProject")}</span>
+									<span>{t("entry.navNewGame")}</span>
 								</button>
 							) : null}
 						</div>

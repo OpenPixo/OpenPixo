@@ -1,5 +1,5 @@
 import { expect, test } from '@/playwright/suite';
-import { ensureRailOpen, openNewProjectModal } from '@/playwright/rail';
+import { ensureRailOpen } from '@/playwright/rail';
 import { T } from '@/timeouts';
 import {
   captureVisual,
@@ -224,18 +224,6 @@ test('[P2] captures the home plugin use with query surface', async ({ page }) =>
   await expect(page.getByTestId('home-hero-input')).toBeVisible();
 
   await captureVisual(page, 'visual-home-plugin-use-with-query');
-});
-
-test('[P2] captures the new project modal surface', async ({ page }) => {
-  test.setTimeout(T.xlong);
-
-  await configureVisualPage(page);
-  await gotoVisualHome(page);
-
-  await openNewProjectModal(page);
-  await expect(page.getByTestId('new-project-name')).toBeVisible();
-
-  await captureVisual(page, 'visual-new-project-modal');
 });
 
 async function openVisualPluginsCatalog(page: import('@playwright/test').Page) {
