@@ -10,7 +10,8 @@ class MainScene extends Phaser.Scene {
     graphics.fillStyle(0x6ee7b7).fillRoundedRect(0, 0, 32, 32, 6);
     graphics.generateTexture('player', 32, 32);
     graphics.destroy();
-    this.player = this.add.sprite(400, 300, 'player');
+    const { width, height } = this.scale;
+    this.player = this.add.sprite(width / 2, height / 2, 'player');
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.add.text(24, 24, 'Move with the arrow keys', { fontSize: '20px', color: '#ffffff' });
   }
@@ -21,16 +22,18 @@ class MainScene extends Phaser.Scene {
       Number(this.cursors.down.isDown) - Number(this.cursors.up.isDown),
     ).normalize();
     const distance = tuning.playerSpeed * Math.min(delta, 50) / 1000;
-    this.player.x = Phaser.Math.Clamp(this.player.x + direction.x * distance, 16, 784);
-    this.player.y = Phaser.Math.Clamp(this.player.y + direction.y * distance, 16, 584);
+    const { width, height } = this.scale;
+    this.player.x = Phaser.Math.Clamp(this.player.x + direction.x * distance, 16, width - 16);
+    this.player.y = Phaser.Math.Clamp(this.player.y + direction.y * distance, 16, height - 16);
   }
 }
 
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: 800,
-  height: 600,
+  // 1280x720 or more, scaled to the window, so art and text stay sharp at any size.
+  width: 1280,
+  height: 720,
   backgroundColor: '#182230',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: MainScene,

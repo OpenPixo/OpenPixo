@@ -17,6 +17,12 @@ triggers:
 license: Apache-2.0
 pixo:
   mode: utility
+  engines:
+    - godot
+    - unity
+    - unreal
+    - bevy
+    - rpg-maker
   category: game-development
 ---
 

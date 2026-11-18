@@ -108,3 +108,17 @@ it('starts every Vite starter with the native config loader', async () => {
     }
   }
 });
+
+/*
+ * Screen rule in the shared game prompt: a browser game renders at 1280x720 or more and
+ * the engine scales it to the window, so art and text stay sharp. The plain Phaser starter
+ * shipped at 800x600 (found 2026-11-18), so every game begun from it started below that.
+ */
+it('starts the plain Phaser starter at 1280x720 or more, scaled to the window', async () => {
+  const source = await readFile(path.join(templatesRoot, 'phaser3-vite', 'files', 'src', 'main.ts'), 'utf8');
+  expect(Number(/\bwidth:\s*(\d+)/.exec(source)?.[1]), 'width').toBeGreaterThanOrEqual(1280);
+  expect(Number(/\bheight:\s*(\d+)/.exec(source)?.[1]), 'height').toBeGreaterThanOrEqual(720);
+  expect(source).toMatch(/Phaser\.Scale\.(?:FIT|RESIZE)/);
+  // Spawn and movement bounds follow the game size instead of the old 800x600 numbers.
+  expect(source).not.toMatch(/\b(?:784|584)\b/);
+});
