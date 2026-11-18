@@ -56,7 +56,7 @@ function home() {
 function onboarding() {
   window.history.replaceState(null, '', '/onboarding');
   const onCreated = vi.fn();
-  render(<I18nProvider initial="en"><EntryShell config={DEFAULT_CONFIG} agents={[]} daemonLive skills={[]} projects={[]} promptTemplates={[]}
+  render(<I18nProvider initial="en"><EntryShell config={DEFAULT_CONFIG} agents={[]} daemonLive skills={[]} projects={[]}
     onModeChange={vi.fn()} onAgentChange={vi.fn()} onAgentModelChange={vi.fn()} onApiProtocolChange={vi.fn()} onApiModelChange={vi.fn()}
     onConfigPersist={vi.fn()} onRefreshAgents={vi.fn(() => [])} onCreateProject={vi.fn()}
     onBeginProjectCreation={() => ({ projectId: 'unused', rollback: () => {} })} onCreatePluginShareProject={vi.fn()}

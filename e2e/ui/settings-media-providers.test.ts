@@ -1,5 +1,4 @@
 import { expect, test } from '@/playwright/suite';
-import { openNewProjectModal } from '@/playwright/rail';
 import type { Page, Route } from '@playwright/test';
 import { openSettingsDialog } from '../lib/playwright/local-project.js';
 
@@ -218,16 +217,12 @@ async function selectMediaProvider(dialog: import('@playwright/test').Locator, n
   await dialog.getByRole('tab', { name: new RegExp(`^${name}\\b`) }).click();
 }
 
-async function openNewProjectImageModelPicker(page: Page) {
-  await openNewProjectModal(page);
-  await page.getByTestId('new-project-media-surface-image').click();
-  await page.getByTestId('model-picker-trigger').click();
-  return page.locator('.ds-picker-group').filter({ has: page.getByText('OpenAI', { exact: true }) });
-}
-
 test.describe('Settings media providers flows', () => {
-  const pickerSyncGap =
-    'Media provider credentials persist in Settings but are not propagated to the New Project picker after returning to Projects.';
+  // Seen 2026-11-18: these four stop in openMediaSettings, before the project is
+  // opened, because Settings no longer shows a "Media providers" heading. They were
+  // already expected to fail (then for the removed New Project picker).
+  const mediaSettingsGap =
+    'Settings has no "Media providers" section heading any more, so the flow stops before the project opens.';
   test('[P1] autosaves media provider edits and restores them after closing and reopening settings', async ({ page }) => {
     await seedSettingsBase(page);
 
@@ -305,100 +300,8 @@ test.describe('Settings media providers flows', () => {
     await expect(dialog.getByLabel('OpenAI Base URL')).toHaveValue('https://daemon.example/v1');
   });
 
-  test('[P1] saved media provider config is consumed by the new-project media picker across pages', async ({ page }) => {
-    test.fail(true, pickerSyncGap);
-    await seedSettingsBase(page);
-    await routeBootstrapApis(page);
-
-    const dialog = await openMediaSettings(page);
-    await selectMediaProvider(dialog, 'OpenAI');
-    await dialog.getByLabel('OpenAI API key').fill('sk-openai-cross-page');
-
-    await page.waitForFunction(
-      ({ key }) => {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        return parsed.mediaProviders?.openai?.apiKey === 'sk-openai-cross-page';
-      },
-      { key: STORAGE_KEY },
-    );
-    await expect(dialog.getByText('All changes saved')).toBeVisible();
-    await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
-
-    const openaiGroup = await openNewProjectImageModelPicker(page);
-    await expect(openaiGroup).toContainText('Configured', { timeout: 2_000 });
-    await expect(openaiGroup).not.toContainText('Integrated');
-  });
-
-  test('[P1] configured media provider model is written into image project metadata', async ({ page }) => {
-    test.fail(true, pickerSyncGap);
-    test.setTimeout(60_000);
-
-    await seedSettingsBase(page);
-
-    const createBodies: Array<Record<string, unknown>> = [];
-    await routeBootstrapApis(page, {
-      projectCreate: async (route) => {
-        const body = route.request().postDataJSON() as Record<string, unknown>;
-        createBodies.push(body);
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            project: {
-              id: 'configured-image-project',
-              name: body.name ?? 'Configured image generation',
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-              metadata: body.metadata ?? {},
-            },
-            conversationId: 'configured-image-conversation',
-          }),
-        });
-      },
-    });
-
-    const dialog = await openMediaSettings(page);
-    await selectMediaProvider(dialog, 'OpenAI');
-    await dialog.getByLabel('OpenAI API key').fill('sk-openai-image-project');
-    await page.waitForFunction(
-      ({ key }) => {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        return parsed.mediaProviders?.openai?.apiKey === 'sk-openai-image-project';
-      },
-      { key: STORAGE_KEY },
-    );
-    await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
-    await expect(dialog).toHaveCount(0);
-
-    await openNewProjectModal(page);
-    await page.getByTestId('new-project-media-surface-image').click();
-    await page.getByTestId('new-project-name').fill('Configured image generation');
-
-    await page.getByTestId('model-picker-trigger').click();
-    const openaiGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('OpenAI', { exact: true }) });
-    await expect(openaiGroup).toContainText('Configured', { timeout: 2_000 });
-    await openaiGroup.getByTestId('model-picker-option-gpt-image-2').click();
-
-    await page.getByTestId('create-project').click();
-    await expect
-      .poll(() => createBodies.length, { timeout: 10_000 })
-      .toBe(1);
-
-    expect(createBodies[0]).toMatchObject({
-      name: 'Configured image generation',
-      metadata: {
-        kind: 'image',
-        imageModel: 'gpt-image-2',
-      },
-    });
-  });
-
   test('[P1] configured image media model is carried into the first daemon run without leaking provider keys', async ({ page }) => {
-    test.fail(true, pickerSyncGap);
+    test.fail(true, mediaSettingsGap);
     test.setTimeout(60_000);
 
     await seedSettingsBase(page);
@@ -448,14 +351,8 @@ test.describe('Settings media providers flows', () => {
     await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    await openNewProjectModal(page);
-    await page.getByTestId('new-project-media-surface-image').click();
-    await page.getByTestId('new-project-name').fill('Configured image run');
-    await page.getByTestId('model-picker-trigger').click();
-    const openaiGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('OpenAI', { exact: true }) });
-    await expect(openaiGroup).toBeVisible({ timeout: 2_000 });
-    await openaiGroup.getByTestId('model-picker-option-gpt-image-2').click();
-    await page.getByTestId('create-project').click();
+    // The project already exists (created the way `pixo project create` does); open it.
+    await page.goto(`/projects/${projectId}/conversations/${conversationId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
     await page.getByTestId('chat-composer-input').fill('Generate a launch poster using the configured image provider.');
@@ -475,7 +372,7 @@ test.describe('Settings media providers flows', () => {
   });
 
   test('[P1] MiniMax image-01 is carried into the first daemon run without leaking provider keys', async ({ page }) => {
-    test.fail(true, pickerSyncGap);
+    test.fail(true, mediaSettingsGap);
     test.setTimeout(60_000);
 
     await seedSettingsBase(page);
@@ -525,14 +422,8 @@ test.describe('Settings media providers flows', () => {
     await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    await openNewProjectModal(page);
-    await page.getByTestId('new-project-media-surface-image').click();
-    await page.getByTestId('new-project-name').fill('Configured MiniMax image run');
-    await page.getByTestId('model-picker-trigger').click();
-    const minimaxGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('MiniMax', { exact: true }) });
-    await expect(minimaxGroup).toContainText('Configured', { timeout: 2_000 });
-    await minimaxGroup.getByTestId('model-picker-option-minimax-image-01').click();
-    await page.getByTestId('create-project').click();
+    // The project already exists (created the way `pixo project create` does); open it.
+    await page.goto(`/projects/${projectId}/conversations/${conversationId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
     await page.getByTestId('chat-composer-input').fill('Generate a launch poster using MiniMax image-01.');
@@ -552,7 +443,7 @@ test.describe('Settings media providers flows', () => {
   });
 
   test('[P1] configured video media model is carried into the first daemon run without leaking provider keys', async ({ page }) => {
-    test.fail(true, pickerSyncGap);
+    test.fail(true, mediaSettingsGap);
     test.setTimeout(60_000);
 
     await seedSettingsBase(page);
@@ -602,14 +493,8 @@ test.describe('Settings media providers flows', () => {
     await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    await openNewProjectModal(page);
-    await page.getByTestId('new-project-media-surface-video').click();
-    await page.getByTestId('new-project-name').fill('Configured video run');
-    await page.getByTestId('model-picker-trigger').click();
-    const volcengineGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('Volcengine Ark (Doubao)', { exact: true }) });
-    await expect(volcengineGroup).toContainText('Configured', { timeout: 2_000 });
-    await volcengineGroup.getByTestId('model-picker-option-doubao-seedance-2-0-fast-260128').click();
-    await page.getByTestId('create-project').click();
+    // The project already exists (created the way `pixo project create` does); open it.
+    await page.goto(`/projects/${projectId}/conversations/${conversationId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
     await page.getByTestId('chat-composer-input').fill('Generate a launch film using the configured video provider.');
@@ -629,7 +514,7 @@ test.describe('Settings media providers flows', () => {
   });
 
   test('[P1] configured audio media model is carried into the first daemon run without leaking provider keys', async ({ page }) => {
-    test.fail(true, pickerSyncGap);
+    test.fail(true, mediaSettingsGap);
     test.setTimeout(60_000);
 
     await seedSettingsBase(page);
@@ -679,14 +564,8 @@ test.describe('Settings media providers flows', () => {
     await dialog.getByRole('button', { name: 'Back to home', exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    await openNewProjectModal(page);
-    await page.getByTestId('new-project-media-surface-audio').click();
-    await page.getByTestId('new-project-name').fill('Configured audio run');
-    await page.getByTestId('model-picker-trigger').click();
-    const fishAudioGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('FishAudio', { exact: true }) });
-    await expect(fishAudioGroup).toContainText('Configured', { timeout: 2_000 });
-    await fishAudioGroup.getByTestId('model-picker-option-fish-speech-2').click();
-    await page.getByTestId('create-project').click();
+    // The project already exists (created the way `pixo project create` does); open it.
+    await page.goto(`/projects/${projectId}/conversations/${conversationId}`, { waitUntil: 'domcontentloaded' });
 
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
     await page.getByTestId('chat-composer-input').fill('Generate narration using the configured audio provider.');

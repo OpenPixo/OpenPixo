@@ -59,7 +59,6 @@ Appearance 和旧宠物设置不再作为当前设置能力列入矩阵；删除
 | SET-028 | Media providers 的 reload 成功会展示短暂 `Reloaded` flash，失败时展示 sticky error，且 reload 不会覆盖 saved-marker 行上的本地 pending edit | `SettingsDialog.media.test.tsx`, `config.test.ts` |
 | SET-029 | Media providers 支持 marker-only saved state：replace placeholder、saved tail badge、clear，以及 custom-model provider 清理时连同 `model` 一起移除 | `SettingsDialog.media.test.tsx` |
 | SET-030 | 真实 settings media flow 支持 provider 输入自动保存，并在关闭后重新打开设置时稳定回显 | `settings-media-providers.test.ts` |
-| SET-090 | Settings 中保存的 media provider 配置会被 New Project 的 Media model picker 跨页面消费：provider badge 从 `Integrated` 升级为 `Configured` | `settings-media-providers.test.ts`, `NewProjectPanel.media.test.tsx` |
 | SET-038 | MCP server 页面在 daemon 返回 install info 后，会默认渲染 Claude Code 的安装命令、重启提示和能力说明 | `SettingsDialog.execution.test.tsx` |
 | SET-039 | MCP server 页面切换不同 client 后，会联动更新安装方式说明和 snippet 内容 | `SettingsDialog.execution.test.tsx` |
 | SET-040 | MCP server 页面支持复制当前 snippet 到剪贴板，并展示 `Copied` 反馈 | `SettingsDialog.execution.test.tsx` |

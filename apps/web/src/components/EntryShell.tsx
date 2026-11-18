@@ -8,7 +8,7 @@
 import { GeneratePage } from './generate/GeneratePage';
 import { StoreProjectActions } from './StoreProjectActions';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { defaultScenarioPluginIdForProjectMetadata, type ChatSessionMode, type CreateProjectExampleReference, type RunContextSelection } from '@openpixo/contracts';
+import { type ChatSessionMode, type CreateProjectExampleReference, type RunContextSelection } from '@openpixo/contracts';
 import type { OpenPixoHostProjectImportSuccess } from '@openpixo/host';
 import { useAnalytics } from '../analytics/provider';
 import { trackHomeNavClick, trackPageView } from '../analytics/events';
@@ -21,7 +21,6 @@ import type {
   ExecMode,
   Project,
   ProjectMetadata,
-  PromptTemplateSummary,
   SkillSummary,
 } from '../types';
 import { CenteredLoader } from './Loading';
@@ -47,8 +46,7 @@ import styles from './EntryShell.module.css';
 import { IntegrationsView, type IntegrationTab } from './IntegrationsView';
 import { InlineModelSwitcher } from './InlineModelSwitcher';
 import { type EntrySettingsSection } from './EntrySettingsMenu';
-import { NewProjectModal } from './NewProjectModal';
-import type { CreateInput } from './NewProjectPanel';
+import type { CreateInput } from './create-project-input';
 import type { PluginShareAction, PluginShareProjectOutcome } from '../state/projects';
 import { OnboardingView } from './onboarding/OnboardingView';
 import { SignInDialog } from './account/SignInDialog';
@@ -118,44 +116,6 @@ export interface OptimisticProjectCreationHandoff {
   rollback: (options?: { notice?: string }) => void;
 }
 
-function defaultPluginIdForMetadata(metadata: ProjectMetadata): string | null {
-  return defaultScenarioPluginIdForProjectMetadata(metadata);
-}
-
-function defaultPluginInputsForCreate(
-  input: CreateInput,
-  pluginId: string | null,
-): Record<string, unknown> | null {
-  const kind = input.metadata.kind;
-  const projectName = input.name.trim();
-
-  if (pluginId !== 'pixo-media-generation') return null;
-  if (kind !== 'image' && kind !== 'video' && kind !== 'audio') return null;
-
-  const promptTemplate = input.metadata.promptTemplate;
-  const subject =
-    promptTemplate?.prompt?.trim()
-    || projectName
-    || promptTemplate?.title?.trim()
-    || `${kind} concept`;
-  const style =
-    promptTemplate?.summary?.trim()
-    || 'cinematic, high-quality, game-ready';
-  const aspect =
-    kind === 'image'
-      ? input.metadata.imageAspect
-      : kind === 'video'
-        ? input.metadata.videoAspect
-        : undefined;
-
-  return {
-    mediaKind: kind,
-    subject,
-    style,
-    ...(aspect ? { aspect } : {}),
-  };
-}
-
 export interface ProjectTitleHint {
   name: string;
 }
@@ -163,7 +123,6 @@ export interface ProjectTitleHint {
 interface Props {
   skills: SkillSummary[];
   projects: Project[];
-  promptTemplates: PromptTemplateSummary[];
   integrationInitialTab?: IntegrationTab;
   skillsLoading?: boolean;
   projectsLoading?: boolean;
@@ -265,7 +224,6 @@ function inactiveViewProps(active: boolean) {
 export function EntryShell({
   skills,
   projects,
-  promptTemplates,
   integrationInitialTab = 'mcp',
   skillsLoading = false,
   projectsLoading = false,
@@ -328,7 +286,6 @@ export function EntryShell({
     return (await onOpenProject(id)) !== false;
   }
 
-  const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [homeSetup, setHomeSetup] = useState<{ prompt: string; files: File[] } | null>(null);
   const onboardingSample = useQuickSample(onImportFolderResponse);
   const [signInOpen, setSignInOpen] = useState(false);
@@ -493,24 +450,6 @@ export function EntryShell({
   function openIntegrationTab(tab: IntegrationTab) {
     setIntegrationTab(tab);
     changeView('integrations');
-  }
-
-  function openNewProject() {
-    setNewProjectOpen(true);
-  }
-
-  function handleCreate(input: CreateInput) {
-    // Resolve optional scenario inputs through the shared defaults so media
-    // projects use the same retained scenario as the daemon's create path.
-    const pluginId = defaultPluginIdForMetadata(input.metadata);
-    const pluginInputs = defaultPluginInputsForCreate(input, pluginId);
-    const { skillSelectionProvenance, ...projectInput } = input;
-    return onCreateProject({
-      ...projectInput,
-      ...(pluginInputs
-          ? { pluginInputs }
-          : {}),
-    });
   }
 
   // Plan §3.F5 — the home prompt-loop submit path. The user picks a
@@ -807,7 +746,9 @@ export function EntryShell({
                     onRefresh={onProjectsRefresh}
                     isActive={view === 'projects'}
                     onNewProject={() => {
-                      openNewProject();
+                      // The same game setup the sidebar's 新建游戏 opens.
+                      requestEntryNewGame();
+                      changeView('home');
                     }}
                   />
                 </div>
@@ -921,17 +862,6 @@ export function EntryShell({
         />
       )}
       <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
-      <NewProjectModal
-        open={newProjectOpen}
-        skills={skills}
-        promptTemplates={promptTemplates}
-        mediaProviders={config.mediaProviders}
-        loading={skillsLoading}
-        onCreate={handleCreate}
-        {...(onImportFolder ? { onImportFolder } : {})}
-        {...(onImportFolderResponse ? { onImportFolderResponse } : {})}
-        onClose={() => setNewProjectOpen(false)}
-      />
     </div>
   );
 }

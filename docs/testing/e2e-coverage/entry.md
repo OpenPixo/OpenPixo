@@ -13,7 +13,7 @@
 - `e2e/ui/entry-configuration-flows.test.ts`
 - `e2e/ui/entry-chrome-flows.test.ts`
 - `e2e/ui/app.test.ts`
-- `apps/web/tests/components/NewProjectPanel.test.tsx`（组件级参数覆盖）
+- `apps/web/tests/components/EntryShell.my-games-new.test.tsx`（我的游戏的新建游戏打开游戏设置）
 
 ## 已自动化
 
@@ -21,10 +21,6 @@
 
 | ID | 场景 | 来源 |
 | --- | --- | --- |
-| ENTRY-001 | 提示词模板加载失败后重试，编辑后的模板正文会写入项目 metadata | `entry-configuration-flows.test.ts` |
-| ENTRY-011 | 创建图片项目时，默认图片模型与所选 `aspect` 会正确写入创建 payload | `NewProjectPanel.test.tsx` |
-| ENTRY-012 | 创建视频项目时，所选 `aspect` 与 `duration` 会正确写入创建 payload | `NewProjectPanel.test.tsx` |
-| ENTRY-013 | 创建音频项目时，所选 `duration` 与修剪后的 `voice` 会正确写入创建 payload | `NewProjectPanel.test.tsx` |
 | ENTRY-014 | 入口页不再渲染旧 pet rail，Settings 也不再暴露 pet picker 的显示/隐藏开关 | `entry-chrome-flows.test.ts` |
 | ENTRY-015 | 紧凑桌面宽度下，入口页 composer 与整页不会出现明显横向溢出 | `entry-chrome-flows.test.ts` |
 
@@ -47,5 +43,5 @@
 ## 说明
 
 - `app.test.ts` 的部分场景来自 `e2e/resources/playwright.ts`。新增资源驱动用例时，需要同时更新资源文件和这份文档。
-- 编号保留原值。按 [ADR 0012](../../adr/0012-slim-core.md) 已退役的连接器、设计体系、幻灯片和实时制品入口，以及 Batch 9 移除的原型设计创建表单，不计入当前覆盖；旧测试或资源中的残留声明不能证明当前入口可达。游戏模板创建由 `NewGameDialog` 承担，媒体项目仍由 `NewProjectPanel` 承担。
+- 编号保留原值。按 [ADR 0012](../../adr/0012-slim-core.md) 已退役的连接器、设计体系、幻灯片和实时制品入口，以及 Batch 9 移除的原型设计创建表单，不计入当前覆盖；旧测试或资源中的残留声明不能证明当前入口可达。游戏模板创建由 `NewGameDialog` 承担。媒体项目表单（`NewProjectPanel`）已于 2026-11-18 移除，ENTRY-001、ENTRY-011～013 随之退役；媒体项目改由 `POST /api/projects` / `pixo project create` 创建。
 - 依赖 mocked SSE 的入口流程应尽量保持稳定、可重复、执行快。

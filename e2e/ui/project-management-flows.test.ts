@@ -93,57 +93,11 @@ const DESIGN_SYSTEMS = [
   },
 ];
 
-async function stubEmptyProjectsNewProjectData(page: Page): Promise<void> {
-  await page.route('**/api/skills', async (route) => {
-    await route.fulfill({ json: { skills: TAB_SKILLS } });
-  });
-  await page.route('**/api/connectors', async (route) => {
-    await route.fulfill({ json: { connectors: [] } });
-  });
-  await page.route('**/api/connectors/status', async (route) => {
-    await route.fulfill({ json: { statuses: {} } });
-  });
-  await page.route('**/api/projects', async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({ json: { projects: [] } });
-      return;
-    }
-    await route.fallback();
-  });
-  await page.route('**/api/design-systems', async (route) => {
-    await route.fulfill({ json: { } });
-  });
-}
-
 async function openNewProjectFromEmptyProjects(page: Page): Promise<void> {
   await page.goto('/projects', { waitUntil: 'domcontentloaded' });
   await expect(page.getByText('Loading OpenPixo…')).toHaveCount(0, { timeout: 15_000 });
   await expect(page.locator('.designs-empty-state')).toBeVisible();
   await page.getByTestId('designs-empty-new-project').click();
-
-  await expect(page.getByTestId('new-project-modal')).toBeVisible();
-  await expect(page.getByTestId('new-project-panel')).toBeVisible();
-}
-
-// #5517's rail has no "+ New project" button any more, so the Projects view's
-// own CTA is the entry this flow starts from.
-async function openNewProjectFromProjectsView(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    window.localStorage.setItem('pixo.entry.railOpen.v2', 'true');
-  });
-  await page.goto('/projects', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('.entry')).toHaveClass(/entry--rail-open/);
-  const projectsView = page.getByTestId('entry-view-projects');
-  await expect(projectsView).toBeVisible();
-  const createButton = projectsView
-    .getByTestId('designs-new-project')
-    .or(projectsView.getByTestId('designs-empty-new-project'))
-    .first();
-  await expect(createButton).toBeVisible();
-  await createButton.click();
-
-  await expect(page.getByTestId('new-project-modal')).toBeVisible();
-  await expect(page.getByTestId('new-project-panel')).toBeVisible();
 }
 
 const TAB_SKILLS = [
@@ -242,31 +196,7 @@ function artifactPreviewFrame(page: Page) {
   return page.frameLocator(ACTIVE_ARTIFACT_PREVIEW_SELECTOR);
 }
 
-test.describe('new project media modal', () => {
-  test.describe.configure({ timeout: 60_000 });
-
-  test('[P1] new project media modal switches media surfaces', async ({ page }) => {
-    await stubEmptyProjectsNewProjectData(page);
-    await openNewProjectFromProjectsView(page);
-
-    await page.getByTestId('new-project-media-surface-image').click();
-    await expect(page.getByTestId('new-project-media-surface-image')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.newproj-title')).toContainText('New image');
-    await expect(page.getByTestId('design-system-picker')).toHaveCount(0);
-    await expect(page.getByText('Model', { exact: true })).toBeVisible();
-    await expect(page.getByText('Aspect', { exact: true })).toBeVisible();
-
-    await page.getByTestId('new-project-media-surface-video').click();
-    await expect(page.getByTestId('new-project-media-surface-video')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.newproj-title')).toContainText('New video');
-
-    await page.getByTestId('new-project-media-surface-audio').click();
-    await expect(page.getByTestId('new-project-media-surface-audio')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.newproj-title')).toContainText('New audio');
-  });
-});
-
-test('[P0] projects empty state create action opens the new project flow', async ({ page }) => {
+test('[P0] projects empty state create action opens the game setup', async ({ page }) => {
   await page.route('**/api/skills', async (route) => {
     await route.fulfill({ json: { skills: TAB_SKILLS } });
   });
@@ -287,10 +217,9 @@ test('[P0] projects empty state create action opens the new project flow', async
   await stubCatalogsEmpty(page);
   await openNewProjectFromEmptyProjects(page);
 
-  await expect(page.getByTestId('new-project-modal')).toBeVisible();
-  await expect(page.getByTestId('new-project-panel')).toBeVisible();
-  await expect(page.getByTestId('new-project-media-surface-image')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.newproj-title')).toContainText('New image');
+  // The same game setup the rail's New game opens; the media-project form is gone.
+  await expect(page.getByRole('dialog').filter({ hasText: /Step 1 of/ })).toBeVisible();
+  await expect(page.getByTestId('new-project-modal')).toHaveCount(0);
 });
 
 test('[P1] project detail composer working directory picker opens without leaving chat', async ({ page }) => {

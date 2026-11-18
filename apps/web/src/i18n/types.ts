@@ -1574,7 +1574,6 @@ export interface Dict {
   'entry.navCollapse': string;
   'entry.railResize': string;
   'entry.railResizeHint': string;
-  'entry.navNewProject': string;
   'entry.navNewGame': string;
   'entry.navHelp': string;
   'entry.navHome': string;
@@ -1646,10 +1645,6 @@ export interface Dict {
   'homeWorkingDir.hint': string;
   'homeWorkingDir.missing': string;
   'homeWorkingDir.applyFailed': string;
-  'workingDirPicker.homeTitle': string;
-  'workingDirPicker.processing': string;
-  'workingDirPicker.select': string;
-  'workingDirPicker.clearAria': string;
   'handoff.openInTarget': string;
   'handoff.action': string;
   'handoff.fallbackTitle': string;
@@ -1980,48 +1975,11 @@ export interface Dict {
   'common.unavailable': string;
 
   // New project panel
-  'newproj.tabMedia': string;
-  'newproj.titleImage': string;
-  'newproj.titleVideo': string;
-  'newproj.titleAudio': string;
-  'newproj.namePlaceholder': string;
-  'newproj.create': string;
   'newproj.locationDefault': string;
-  'newproj.openFolder': string;
-  'newproj.openingFolder': string;
-  'newproj.privacyFooter': string;
-  'newproj.surfaceImage': string;
-  'newproj.surfaceVideo': string;
-  'newproj.surfaceAudio': string;
   'newproj.modelLabel': string;
   'newproj.modelSearch': string;
-  'newproj.modelEmpty': string;
-  'newproj.modelRecommended': string;
-  'newproj.modelMissingTitle': string;
-  'newproj.modelMissingSub': string;
-  'newproj.aspectLabel': string;
-  'newproj.videoLengthLabel': string;
-  'newproj.videoLengthSeconds': string;
-  'newproj.audioKindLabel': string;
-  'newproj.audioKindSpeech': string;
-  'newproj.audioKindSfx': string;
-  'newproj.audioDurationLabel': string;
-  'newproj.audioDurationSeconds': string;
-  'newproj.voiceLabel': string;
-  'newproj.voicePlaceholder': string;
-  'newproj.promptTemplateLabel': string;
-  'newproj.promptTemplateNoneTitle': string;
-  'newproj.promptTemplateNoneSub': string;
-  'newproj.promptTemplateRefSub': string;
-  'newproj.promptTemplateSearch': string;
-  'newproj.promptTemplateEmpty': string;
-  'newproj.promptTemplateBodyLabel': string;
-  'newproj.promptTemplateOptimizeHint': string;
-  'newproj.promptTemplateBodyEmpty': string;
 
   // Prompt templates
-  'promptTemplates.emptyNoMatch': string;
-  'promptTemplates.fetchError': string;
   'promptTemplates.promptLabel': string;
   'promptTemplates.copyPrompt': string;
   'promptTemplates.copyDone': string;
@@ -2381,7 +2339,6 @@ export interface Dict {
   'chat.mentionUseMcpTitle': string;
   'chat.mentionPluginOfficial': string;
   'chat.mentionPluginMine': string;
-  'chat.linkedFolderPickError': string;
   'chat.queuedEditQueuedTaskAria': string;
   'chat.queuedSave': string;
   'chat.queuedCancel': string;
@@ -2796,17 +2753,6 @@ export interface Dict {
   'settings.mediaCapability.audio': string;
   'settings.mediaCapability.research': string;
   'settings.mediaCapability.custom': string;
-  'newproj.creating': string;
-  'newproj.createFailed': string;
-  'newproj.folderPickerFailed': string;
-  'newproj.aspect.square': string;
-  'newproj.aspect.landscape': string;
-  'newproj.aspect.portrait': string;
-  'newproj.aspect.wide': string;
-  'newproj.aspect.tall': string;
-  'newproj.providerStatus.configured': string;
-  'newproj.providerStatus.integrated': string;
-  'newproj.providerStatus.unsupported': string;
   'pluginPreview.eyebrow': string;
   'pluginPreview.examplesAria': string;
   'pluginPreview.openTitle': string;

@@ -1,5 +1,5 @@
 import { expect, test } from '@/playwright/suite';
-import { ensureRailOpen, openNewProjectModal } from '@/playwright/rail';
+import { ensureRailOpen } from '@/playwright/rail';
 import { settingsSurface } from '@/playwright/local-project';
 import { expectStableCount } from '@/playwright/assertions';
 import type { Page, Request } from '@playwright/test';

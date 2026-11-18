@@ -3,8 +3,7 @@
 /**
  * Single source of truth for the media-generation model registry.
  *
- * Both the frontend (NewProjectPanel model pickers, Settings dialog
- * provider list) and the daemon (pixo media generate dispatcher) consume
+ * Both the frontend (model pickers, Settings dialog provider list) and the daemon (pixo media generate dispatcher) consume
  * this registry. When you add a model entry here, the picker shows it,
  * the daemon can dispatch to it, and the Settings dialog knows which
  * API keys are needed.
@@ -594,11 +593,6 @@ export const AUDIO_MODELS_BY_KIND: Record<AudioKind, MediaModel[]> = {
   ],
 };
 
-export const MEDIA_ASPECTS: MediaAspect[] = ['1:1', '16:9', '9:16', '4:3', '3:4'];
-
-export const VIDEO_LENGTHS_SEC: number[] = [3, 5, 8, 10, 15, 30];
-export const AUDIO_DURATIONS_SEC: number[] = [5, 10, 15, 30, 60, 120];
-
 export const DEFAULT_IMAGE_MODEL =
   IMAGE_MODELS.find((m) => m.default)?.id ?? IMAGE_MODELS[0]!.id;
 export const DEFAULT_VIDEO_MODEL =
@@ -633,12 +627,6 @@ export const DEFAULT_AUDIO_MODEL: Record<AudioKind, string> = {
 /**
  * Resolve a prompt-template recommendation through the shared successor map.
  */
-export function imageModelIdForPromptTemplate(id: string): string {
-  const normalized = id.trim();
-
-  return canonicalMediaModelId(normalized);
-}
-
 export function findMediaModel(id: string): MediaModel | null {
   const all: MediaModel[] = [
     ...IMAGE_MODELS,

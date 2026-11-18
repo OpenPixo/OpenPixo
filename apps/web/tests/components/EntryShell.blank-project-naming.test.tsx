@@ -121,7 +121,6 @@ function renderAt(path: string, overrides: Partial<React.ComponentProps<typeof E
 
     projects: [],
 
-    promptTemplates: [],
     config: baseConfig(),
     agents: [cliAgent()],
     daemonLive: true,

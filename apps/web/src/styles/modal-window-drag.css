@@ -3,7 +3,6 @@
    backdrop band behaves like the app chrome drag area. */
 :where(
   .modal-backdrop,
-  .new-project-modal-backdrop,
   .plugin-details-modal-backdrop,
   .plugins-import-modal__backdrop,
   .ds-modal-backdrop,
@@ -15,7 +14,6 @@
 
 :where(
   .modal-backdrop,
-  .new-project-modal-backdrop,
   .plugin-details-modal-backdrop,
   .plugins-import-modal__backdrop,
   .ds-modal-backdrop,

@@ -127,7 +127,6 @@ describe('Onboarding welcome (theme toggle removed)', () => {
 
           projects={[]}
 
-          promptTemplates={[]}
           config={baseConfig()}
           agents={AGENTS}
           daemonLive

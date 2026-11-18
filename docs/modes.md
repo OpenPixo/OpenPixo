@@ -14,9 +14,10 @@ They are intentionally not one-to-one. Creation surfaces describe the workflow a
 starts; skill modes describe how the daemon indexes and routes an instruction
 bundle. Game creation lives in
 [`NewGameDialog.tsx`](../apps/web/src/components/NewGameDialog.tsx), folder import in
-[`useOpenFolderImport.ts`](../apps/web/src/components/useOpenFolderImport.ts), and
-media creation in
-[`NewProjectPanel.tsx`](../apps/web/src/components/NewProjectPanel.tsx). The
+[`useOpenFolderImport.ts`](../apps/web/src/components/useOpenFolderImport.ts). Image,
+video and audio projects have no form in the app since 2026-11-18 (生成 makes media
+without a project); they are created through `POST /api/projects` or
+`pixo project create`. The
 daemon parser and normalization rules live in
 [`skills.ts`](../apps/daemon/src/skills.ts).
 
@@ -59,7 +60,7 @@ Media skill selection matches either the skill's mode or surface.
 ## Related implementation
 
 - UI creation model:
-  [`apps/web/src/components/NewProjectPanel.tsx`](../apps/web/src/components/NewProjectPanel.tsx)
+  [`apps/web/src/components/NewGameDialog.tsx`](../apps/web/src/components/NewGameDialog.tsx)
 - Skill registry and mode normalization:
   [`apps/daemon/src/skills.ts`](../apps/daemon/src/skills.ts)
 - Shared project API contracts:
