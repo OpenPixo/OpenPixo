@@ -22,6 +22,27 @@ export interface CodexImageRuntime {
   status: MediaProviderAvailability;
   executable?: string;
   env?: NodeJS.ProcessEnv;
+  /**
+   * The Codex model the user picked in OpenPixo (app config
+   * `agentModels.codex.model`). Absent for 「CLI 默认设置」 (stored as
+   * `default`) or no pick, and then the CLI keeps its own config.toml model.
+   * Without it a job ran on that default even when the user picked another,
+   * and a default a ChatGPT login is not offered (`gpt-6.2-sol` →
+   * `model_not_found`) failed every image.
+   */
+  model?: string;
+}
+
+// The same id shape app config accepts for a model. Anything else is not
+// passed to the CLI, which then keeps its own default.
+const CODEX_MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+
+/** The picked Codex model id, or undefined for the CLI default. */
+export function pickedCodexImageModel(agentModels: Record<string, { model?: unknown } | undefined> | undefined): string | undefined {
+  const picked = agentModels?.codex?.model;
+  if (typeof picked !== 'string') return undefined;
+  const id = picked.trim();
+  return id && id !== 'default' && CODEX_MODEL_ID_RE.test(id) ? id : undefined;
 }
 
 /**
@@ -37,7 +58,9 @@ export interface CodexImageRuntime {
  */
 export async function resolveCodexImageRuntime(dataRoot?: string, options: { cached?: boolean; generating?: boolean } = {}): Promise<CodexImageRuntime> {
   const root = dataRoot ?? runtimeDataRoot;
-  const configuredEnv = root ? agentCliEnvForAgent((await readAppConfig(root)).agentCliEnv, 'codex') : {};
+  const appConfig = root ? await readAppConfig(root) : undefined;
+  const configuredEnv = appConfig ? agentCliEnvForAgent(appConfig.agentCliEnv, 'codex') : {};
+  const model = pickedCodexImageModel(appConfig?.agentModels);
   const agent = await (options.cached ? cachedAgent : detectAgent)(codexAgentDef, configuredEnv);
   if (!agent.path || (!agent.available && agent.authStatus !== 'missing')) {
     return { status: { available: false, keyless: true, reasonCode: 'CODEX_CLI_NOT_FOUND',
@@ -56,7 +79,7 @@ export async function resolveCodexImageRuntime(dataRoot?: string, options: { cac
   const env = await applyAgentLaunchEnvAsync(
     await spawnEnvForAgentAsync('codex', process.env, configuredEnv, undefined, { resolvedBin: executable }), launch,
   );
-  return { status: { available: true, keyless: true }, executable, env };
+  return { status: { available: true, keyless: true }, executable, env, ...(model ? { model } : {}) };
 }
 
 export async function codexImageProviderStatus(dataRoot?: string, options: { cached?: boolean } = {}): Promise<MediaProviderAvailability> {

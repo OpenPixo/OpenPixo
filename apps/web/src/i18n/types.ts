@@ -1320,6 +1320,7 @@ export interface Dict {
   'settings.codexImageTimeout': string;
   'settings.codexImageCancelled': string;
   'settings.codexImageFailed': string;
+  'settings.codexImageModelUnsupported': string;
   'settings.privacy': string;
   'settings.privacyHint': string;
   'settings.privacyConsentKicker': string;

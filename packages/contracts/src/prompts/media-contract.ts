@@ -443,7 +443,8 @@ in one sentence. For Simplified Chinese use these sentences exactly:
 - \`revise-request\` with \`error.subject: "input_image"\`: "The reference image didn't pass content review. Try a different one." / 参考图没通过内容审核 —— 换一张参考图再试。
 - \`revise-request\` with no subject: "The request didn't pass content review. Reword it or use a different reference image." / 这次请求没通过内容审核 —— 换个说法,或者换一张参考图再试。
 - \`switch-model\`: "This image model can't take the request. Pick a different image model and try again." / 这个图片模型用不了 —— 换一个图片模型再试。
-- \`open-settings\`: "The image model still needs its API key. Add it in Settings." / 图片模型的 API key 还没填 —— 在设置里填好就能用。
+- \`open-settings\` with \`error.code: "CODEX_IMAGE_MODEL_UNSUPPORTED"\`: "Codex can't use the selected model with your sign-in. Pick a different Codex model and try again." / Codex 用你的登录用不了当前选的模型 —— 换一个 Codex 模型再试。
+- \`open-settings\` otherwise: "The image model still needs its API key. Add it in Settings." / 图片模型的 API key 还没填 —— 在设置里填好就能用。
 - \`sign-in\`: "The sign-in expired before the image was made. Sign in again and retry." / 登录已过期,图片没生成 —— 重新登录后再试一次。
 - \`add-credit\`: "The image model is out of credit. Top up or switch to another image model." / 图片模型的额度用完了 —— 去充值或换一个图片模型。
 - \`confirm-in-app\`: "This image would spend ${PRODUCT_NAME} credits, and only you can approve that. Set an art budget for this project once this turn ends, make it in Library > Generate, or connect Codex or an image API key in Settings, then ask me again." / 这张图要花 ${PRODUCT_NAME} 积分,只有你本人能确认 —— 这一轮结束后给项目设一个美术预算,或到「资源库 → 生成」里做,或在设置里连接 Codex 或图片 API key,再叫我继续。

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { generateCodexImages, generateCodexImageFiles, type CodexImageOptions } from '../../src/media/codex-image.js';
+import { generateCodexImages, generateCodexImageFiles, type CodexImageError, type CodexImageOptions } from '../../src/media/codex-image.js';
 import { mediaTaskErrorFromFailure } from '../../src/media/task-error.js';
 
 const fixture = fileURLToPath(new URL('../fixtures/codex-image-cli.ts', import.meta.url));
@@ -42,11 +42,37 @@ describe('Codex image CLI adapter (fake executable only)', () => {
     const invocation = await record();
     expect(invocation.args).toEqual(['exec', '--skip-git-repo-check', '-s', 'read-only', '--json', '--color', 'never',
       '-c', 'project_doc_max_bytes=0', '-c', 'skills.include_instructions=false', '-c', 'agents.enabled=false',
-      '--disable', 'plugins', '--disable', 'apps', '-C', invocation.cwd, '-']);
+      '--disable', 'plugins', '--disable', 'apps', '-c', 'model_reasoning_effort="low"', '-C', invocation.cwd, '-']);
     expect(invocation.cwd.startsWith(path.join(root, 'data', 'tmp', 'codex-image') + path.sep)).toBe(true);
     expect(invocation.entries).toEqual([]);
     expect(invocation.dataRoot).toBe(path.join(root, 'data'));
     expect(await readdir(path.dirname(invocation.cwd))).toEqual([]);
+  });
+  // 2026-11-19: image jobs ran on config.toml's default model, not the one picked in OpenPixo.
+  it('runs on the Codex model picked in OpenPixo, at low reasoning', async () => {
+    const base = options();
+    await generateCodexImages({ ...base, resolveRuntime: async (dataRoot, opts) => ({
+      ...(await base.resolveRuntime!(dataRoot, opts)), model: 'gpt-5.5' }) });
+    const { args } = await record();
+    expect(args.slice(args.indexOf('-m'), args.indexOf('-m') + 2)).toEqual(['-m', 'gpt-5.5']);
+    expect(args.filter((arg: string) => arg.startsWith('model_reasoning_effort='))).toEqual(['model_reasoning_effort="low"']);
+    expect(args.indexOf('-m')).toBeLessThan(args.indexOf('-C'));
+  });
+  it('keeps low reasoning inside what the picked model accepts', async () => {
+    const base = options();
+    await generateCodexImages({ ...base, resolveRuntime: async (dataRoot, opts) => ({
+      ...(await base.resolveRuntime!(dataRoot, opts)), model: 'gpt-5.1-codex-mini' }) });
+    expect((await record()).args).toContain('model_reasoning_effort="medium"');
+  });
+  it('reports a model the sign-in cannot use as a settings fix, not a retry, and keeps the reason for the log only', async () => {
+    mode = 'model';
+    const failure = await generateCodexImages(options()).catch((error: unknown) => error) as CodexImageError;
+    expect(failure).toMatchObject({ code: 'CODEX_IMAGE_MODEL_UNSUPPORTED', retryable: false });
+    expect(failure.message).toMatch(/Codex model/);
+    expect(failure.logDetail).toBe("The 'gpt-6.2-sol' model is not supported when using Codex with a ChatGPT account. (model_not_found)");
+    const taskError = mediaTaskErrorFromFailure(failure, { model: 'codex-image' });
+    expect(taskError).toMatchObject({ code: 'CODEX_IMAGE_MODEL_UNSUPPORTED', retryable: false, nextStep: 'open-settings' });
+    expect(JSON.stringify(taskError)).not.toContain('gpt-6.2-sol');
   });
   it('supports multiple images, attachments, transparency, size, and a negative prompt', async () => {
     const ref = path.join(root, 'reference with spaces.png');

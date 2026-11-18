@@ -3187,6 +3187,7 @@ export const en: Dict = {
   'settings.codexImageTimeout': 'Codex image generation timed out. Try again or choose another provider.',
   'settings.codexImageCancelled': 'Codex image generation was cancelled.',
   'settings.codexImageFailed': 'Codex image generation failed. Check the CLI or choose another provider.',
+  'settings.codexImageModelUnsupported': "Codex can't use the selected model with your sign-in. Pick a different Codex model, then try again.",
   'pluginsView.createKindPlugin': 'Plugin',
   'pluginsView.createKindSkill': 'Skill',
   'pluginsView.importUrlLabel': 'URL',

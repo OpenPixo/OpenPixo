@@ -11,7 +11,7 @@ import type {
 } from '@openpixo/contracts';
 import type { AnalyticsContext } from '../analytics.js';
 import { defaultMediaExecutionPolicy, mediaPolicyDenial } from '../media/policy.js';
-import { formatMediaTaskDiagnostic } from '../media/diagnostics.js';
+import { formatMediaTaskDiagnostic, mediaFailureLogDetail } from '../media/diagnostics.js';
 import { findMediaModel, hostedAudioKind, hostedAudioParams, hostedModelSurface, type MediaModel } from '../media/models.js';
 import { ImageOutputSizeError, OPENPIXO_MEDIA_PROVIDER_ID, hostedResolution, resolveImageOutputSize } from '@openpixo/contracts';
 import { AccountError } from '../account/errors.js';
@@ -692,6 +692,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
             code: task.error.code,
             elapsedMs: task.endedAt - task.startedAt,
             error: task.error.message,
+            detail: mediaFailureLogDetail(err),
           }));
           // Last, and only after the waiters have been told: the run that asked
           // for this generation must not be able to report itself complete when
@@ -725,6 +726,7 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
           code: task.error.code,
           elapsedMs: task.endedAt - task.startedAt,
           error: task.error.message,
+          detail: mediaFailureLogDetail(err),
         }));
         // Same invariant as the async rejection above: a dispatch that threw
         // before the provider was ever reached is still a generation this run

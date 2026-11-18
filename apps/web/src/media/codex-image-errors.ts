@@ -11,6 +11,7 @@ const reasonKeys = {
   CODEX_IMAGE_CANCELLED: 'settings.codexImageCancelled',
   CODEX_IMAGE_FAILED: 'settings.codexImageFailed',
   CODEX_IMAGE_CONTENT_BLOCKED: 'settings.codexImageContentBlocked',
+  CODEX_IMAGE_MODEL_UNSUPPORTED: 'settings.codexImageModelUnsupported',
 } satisfies Record<CodexImageReasonCode, keyof Dict>;
 /** Never display a Codex diagnostic sentence as translated UI copy. */
 export function codexImageReasonKey(code: unknown): keyof Dict {
