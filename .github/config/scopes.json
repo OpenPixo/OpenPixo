@@ -30,7 +30,7 @@
     },
     "certain-exempt": {
       "prefixes": [".vscode/", ".idea/", "docs/", ".github/ISSUE_TEMPLATE/"],
-      "exact": ["LICENSE"],
+      "exact": ["LICENSE", "LICENSE-APACHE"],
       "exclude": ["match://daemon-doc"]
     },
     "daemon-doc": { "exact": ["docs/agent-adapters.md"] },

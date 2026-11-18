@@ -49,8 +49,8 @@ Date: 2026-10-25 (Asia/Tokyo). Read-only source audit; no application changes, i
 
 ## License and provenance
 
-- Root `LICENSE` is Apache-2.0. Retain upstream notices and record fixed commit plus changed paths.
-- README explicitly retains individual bundled licenses, including MIT for `design-templates/guizang-ppt`, `design-templates/html-ppt`, and `skills/web-clone`.
+- Root `LICENSE` is FSL-1.1-ALv2 since [ADR 0013](../adr/0013-fsl-license.md); the upstream Apache-2.0 text is `LICENSE-APACHE`. Retain upstream notices and record fixed commit plus changed paths.
+- README explicitly retains individual bundled licenses.
 - Preserve all bundled `LICENSE`/attribution files when reusing packages/templates. Root Apache does not grant separate rights to third-party brand assets or all example images; prefer shipping only needed catalogs or retaining their provenance.
 
 ## Not yet verified

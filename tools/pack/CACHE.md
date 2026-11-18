@@ -60,8 +60,8 @@ The build-graph cache is almost entirely Windows-specific.
 
 `mac` and `linux` have `<platform>.workspace-build` only.
 
-The Windows resource-tree node also carries the root `LICENSE` and `NOTICE`
-contents in its key and copies both into the bundled resource root. Its
+The Windows resource-tree node also carries the root `LICENSE`, `LICENSE-APACHE` and
+`NOTICE` contents in its key and copies all three into the bundled resource root. Its
 notice-input witness mutates each file and confirms that unrelated `dist/`
 output does not invalidate the node.
 

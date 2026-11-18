@@ -6,7 +6,7 @@
   "packageManager": "pnpm@10.33.2",
   "type": "module",
   "description": "A local coding-agent workbench for independent game developers.",
-  "license": "Apache-2.0",
+  "license": "FSL-1.1-ALv2",
   "bin": {
     "pixo": "./apps/daemon/bin/pixo.mjs"
   },

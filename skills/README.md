@@ -49,4 +49,4 @@ For a rendering template, follow [`docs/skills-contributing.md`](../docs/skills-
 
 ## License
 
-Skills in this directory are Apache-2.0 unless their own `LICENSE` says otherwise. [`web-clone/`](web-clone/) is adapted from [Jane-xiaoer/claude-skill-web-clone](https://github.com/Jane-xiaoer/claude-skill-web-clone). The MIT-licensed `guizang-ppt` rendering template lives under [`design-templates/guizang-ppt/`](../design-templates/guizang-ppt/).
+Skills in this directory are Apache-2.0 ([`LICENSE-APACHE`](../LICENSE-APACHE)) unless their own `LICENSE` says otherwise. They stay outside the app's FSL license (see [`NOTICE`](../NOTICE)) because what they produce goes into users' games.

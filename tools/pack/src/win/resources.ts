@@ -17,7 +17,7 @@ import {
 import type { WinPaths, ResourceTreeCacheMetadata } from "./types.js";
 
 const RESOURCE_TREE_CACHE_SCHEMA_VERSION = 14;
-const BUNDLED_NOTICES = ["LICENSE", "NOTICE"] as const;
+const BUNDLED_NOTICES = ["LICENSE", "LICENSE-APACHE", "NOTICE"] as const;
 
 function resolveWinBundledNode(config: ToolPackConfig): Promise<BundledNodeDistribution> {
   return resolveBundledNodeDistribution({

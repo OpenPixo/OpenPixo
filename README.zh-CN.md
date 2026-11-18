@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://openpixo.com/download.zh"><img alt="下载 Windows 版" src="https://img.shields.io/badge/download-Windows%2010%20%7C%2011-c4f542?labelColor=141128"></a>
-  <a href="LICENSE"><img alt="许可证：Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-7c5cff?labelColor=141128"></a>
+  <a href="LICENSE"><img alt="许可证：FSL-1.1-ALv2" src="https://img.shields.io/badge/license-FSL--1.1--ALv2-7c5cff?labelColor=141128"></a>
   <img alt="Node 24" src="https://img.shields.io/badge/node-24-7c5cff?labelColor=141128">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-7c5cff?labelColor=141128">
 </p>
@@ -202,4 +202,4 @@ pnpm tools-pack win build --to nsis     # 构建 Windows 安装包
 
 ## 许可证
 
-[Apache-2.0](LICENSE)。OpenPixo 最初是另一个 Apache-2.0 项目的硬分叉，现已不再跟进上游（[ADR 0006](docs/adr/0006-full-hard-fork.md)）；署名见 [NOTICE](NOTICE) 与[引用记录](docs/references.md)。内置的技能和组件保留各自的许可证。
+[FSL-1.1-ALv2](LICENSE)（Functional Source License，见 [ADR 0013](docs/adr/0013-fsl-license.md)）。除了用它做与 OpenPixo 竞争的商业产品或服务，你可以出于任何目的使用、修改和分享 OpenPixo；每个版本发布满两年后转为 [Apache-2.0](LICENSE-APACHE)。1.0.8 及更早的版本仍是 Apache-2.0。会进入你所做游戏的内容（`skills/`、`plugins/`、`prompt-templates/`、`design-templates/`、`game-templates/`、`game-sdk/`）仍是 Apache-2.0，用 OpenPixo 做出的游戏可以自由发布。OpenPixo 最初是一个 Apache-2.0 项目的硬分叉，现已不再跟进上游（[ADR 0006](docs/adr/0006-full-hard-fork.md)）；署名见 [NOTICE](NOTICE) 与[引用记录](docs/references.md)。内置的第三方组件保留各自的许可证。

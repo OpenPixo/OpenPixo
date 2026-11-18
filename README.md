@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://openpixo.com/download"><img alt="Download for Windows" src="https://img.shields.io/badge/download-Windows%2010%20%7C%2011-c4f542?labelColor=141128"></a>
-  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-7c5cff?labelColor=141128"></a>
+  <a href="LICENSE"><img alt="License: FSL-1.1-ALv2" src="https://img.shields.io/badge/license-FSL--1.1--ALv2-7c5cff?labelColor=141128"></a>
   <img alt="Node 24" src="https://img.shields.io/badge/node-24-7c5cff?labelColor=141128">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-7c5cff?labelColor=141128">
 </p>
@@ -202,4 +202,4 @@ Bug reports, ideas and pull requests are welcome in [issues](https://github.com/
 
 ## License
 
-[Apache-2.0](LICENSE). OpenPixo began as a hard fork of another Apache-2.0 project and no longer tracks it ([ADR 0006](docs/adr/0006-full-hard-fork.md)); [NOTICE](NOTICE) and [references](docs/references.md) carry the attribution. Bundled skills and components keep their own licenses.
+[FSL-1.1-ALv2](LICENSE) (Functional Source License, [ADR 0013](docs/adr/0013-fsl-license.md)). You can use, change and share OpenPixo for anything except offering a competing commercial product or service, and every version becomes [Apache-2.0](LICENSE-APACHE) two years after its release. Versions up to 1.0.8 are Apache-2.0. Content that goes into the games you make (`skills/`, `plugins/`, `prompt-templates/`, `design-templates/`, `game-templates/`, `game-sdk/`) stays Apache-2.0, so games built with OpenPixo are yours to ship. OpenPixo began as a hard fork of an Apache-2.0 project and no longer tracks it ([ADR 0006](docs/adr/0006-full-hard-fork.md)); [NOTICE](NOTICE) and [references](docs/references.md) carry the attribution. Bundled third-party components keep their own licenses.

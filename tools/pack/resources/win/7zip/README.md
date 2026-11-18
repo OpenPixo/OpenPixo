@@ -17,5 +17,5 @@ The installer embeds `7z.exe` and `7z.dll` temporarily to extract the packaged
 OpenPixo `.7z` payload during installation.
 
 These files remain subject to the upstream 7-Zip license and are not relicensed
-under this repository's Apache-2.0 license. In particular, see `License.txt` for
+under this repository's own licenses. In particular, see `License.txt` for
 the GNU LGPL, BSD, and unRAR restriction notices.

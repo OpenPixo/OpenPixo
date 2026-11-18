@@ -85,8 +85,8 @@ See [phase 1](../coordination/PHASE1-REMOVAL.md),
 
 ## Required retained material
 
-Keep LICENSE and NOTICE unchanged, including Apache-2.0 attribution and the
-pinned upstream lineage. Preserve bundled third-party licenses/copyright and
+Keep the Apache-2.0 attribution (now `LICENSE-APACHE`, see ADR 0013) and the
+pinned upstream lineage in NOTICE. Preserve bundled third-party licenses/copyright and
 imported author/source attribution, including the HyperFrames templates from
 `nexu-io/html-video`. These identify separate imported components; they are not
 OpenPixo service defaults or aliases.

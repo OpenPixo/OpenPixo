@@ -81,7 +81,7 @@
     "reason": "Recorded event projection; payload lengths and timing are replay evidence."
   },
   {
-    "path": "LICENSE",
+    "path": "LICENSE-APACHE",
     "reason": "Required original Apache license and copyright; unchanged."
   },
   {
@@ -90,7 +90,7 @@
   },
   {
     "path": "NOTICE",
-    "reason": "Required upstream attribution and pinned fork lineage; unchanged."
+    "reason": "Required upstream attribution and pinned fork lineage."
   },
   {
     "path": "packages/contracts/src/upstream-policy.ts",

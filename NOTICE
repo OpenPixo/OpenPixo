@@ -1,6 +1,26 @@
 OpenPixo
 Copyright 2026 OpenPixo contributors.
 
+LICENSE
+-------
+
+OpenPixo is licensed under the Functional Source License, Version 1.1,
+ALv2 Future License (FSL-1.1-ALv2); see LICENSE. Each version becomes
+available under the Apache License, Version 2.0 two years after it is
+released. Versions up to and including 1.0.8 were released under the
+Apache License, Version 2.0 and remain available under it.
+
+These directories are not covered by the FSL and stay under the Apache
+License, Version 2.0 (see LICENSE-APACHE), unless a file or a component's
+own LICENSE says otherwise, because their contents are copied into or used
+to build the games people make with OpenPixo:
+
+  skills/, plugins/, prompt-templates/, design-templates/,
+  game-templates/, game-sdk/
+
+UPSTREAM
+--------
+
 This product contains software developed by the OpenDesign project and its
 contributors: https://github.com/nexu-io/open-design
 
@@ -9,11 +29,17 @@ OpenPixo is derived from OpenDesign commit
 OpenPixo contributors modified the application identity, local game-project
 workflow, asset selection, project extensions and native Codex integration.
 
-The repository root LICENSE is Apache-2.0. Bundled skills, templates, assets
-and dependencies retain their own licenses and copyright notices. In
-particular, design-templates/guizang-ppt, design-templates/html-ppt, and
-skills/web-clone retain their bundled MIT licenses. See docs/references.md
-for upstream provenance and each bundled component's LICENSE file.
+The OpenDesign code remains licensed under the Apache License, Version 2.0;
+its license text and copyright notice are kept in LICENSE-APACHE. OpenPixo's
+modifications, and OpenPixo as a whole, are offered under the FSL as
+section 4 of the Apache License allows.
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+Bundled skills, templates, assets and dependencies retain their own licenses
+and copyright notices. See docs/references.md for upstream provenance and each
+bundled component's LICENSE file.
 
 OpenDesign's trademarks, hosted services, update infrastructure and accounts
 are not operated by OpenPixo. OpenPixo is an independent downstream fork.

@@ -37,7 +37,8 @@ afterEach(async () => {
 
 async function createWorkspaceFixture(workspaceRoot: string): Promise<void> {
   await mkdir(join(workspaceRoot, "skills", "sample"), { recursive: true });
-  await writeFile(join(workspaceRoot, "LICENSE"), "Apache-2.0\n", "utf8");
+  await writeFile(join(workspaceRoot, "LICENSE"), "FSL-1.1-ALv2\n", "utf8");
+  await writeFile(join(workspaceRoot, "LICENSE-APACHE"), "Apache-2.0\n", "utf8");
   await writeFile(join(workspaceRoot, "NOTICE"), "OpenPixo attribution\n", "utf8");
   await mkdir(join(workspaceRoot, "design-templates", "orbit-general"), {
     recursive: true,
@@ -169,7 +170,7 @@ describe("prepareResourceTree", () => {
     try {
       await createWorkspaceFixture(workspaceRoot);
       let previous = await prepare();
-      for (const name of ["LICENSE", "NOTICE"]) {
+      for (const name of ["LICENSE", "LICENSE-APACHE", "NOTICE"]) {
         const content = `updated ${name}\n`;
         await writeFile(join(workspaceRoot, name), content, "utf8");
         const next = await prepare();

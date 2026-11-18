@@ -284,4 +284,4 @@ Pick the closest one to your idea and read its `SKILL.md` body before writing yo
 
 ## License
 
-By contributing a design template, you agree your contribution is licensed under the [Apache-2.0 License](../LICENSE) of this repository. Preserve any separately licensed assets and their authorship notices.
+By contributing a design template, you agree your contribution is licensed under the [Apache-2.0 License](../LICENSE-APACHE), which covers this repository's content directories (see [NOTICE](../NOTICE)). Preserve any separately licensed assets and their authorship notices.

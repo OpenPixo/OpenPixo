@@ -28,4 +28,4 @@ pnpm tools-dev --help
 
 提交和 PR 标题使用 Conventional Commits，不添加共同作者元数据。完整填写 [PR 模板](../../.github/pull_request_template.md)，说明用户问题、实际行为、界面/CLI/API/内容影响与验证；界面改动附入口截图。审查标准见[代码审查指南](../code-review-guidelines.md)。
 
-保留第三方许可证和作者署名。功能技能、渲染模板和插件分别遵循 [skills](../../skills/AGENTS.md)、[design-templates](../../design-templates/AGENTS.md)、[plugins](../../plugins/AGENTS.md) 的约定。已删除上游投稿与社区提交入口；仍可将插件发布到作者自己的仓库，详见[插件发布](../publishing-a-plugin.zh-CN.md)。
+应用本身的贡献按其 [FSL-1.1-ALv2 许可证](../../LICENSE) 接受；`skills/`、`plugins/`、`prompt-templates/`、`design-templates/`、`game-templates/` 和 `game-sdk/` 的贡献按 [Apache-2.0](../../LICENSE-APACHE) 接受（见 [NOTICE](../../NOTICE)）。保留第三方许可证和作者署名。功能技能、渲染模板和插件分别遵循 [skills](../../skills/AGENTS.md)、[design-templates](../../design-templates/AGENTS.md)、[plugins](../../plugins/AGENTS.md) 的约定。已删除上游投稿与社区提交入口；仍可将插件发布到作者自己的仓库，详见[插件发布](../publishing-a-plugin.zh-CN.md)。
