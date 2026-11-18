@@ -69,6 +69,10 @@
     "reason": "Owner-required closing migration decision and original-to-current naming table."
   },
   {
+    "path": "docs/adr/0013-fsl-license.md",
+    "reason": "License decision; must name the Apache-2.0 upstream the inherited code stays licensed under."
+  },
+  {
     "path": "docs/coordination/**",
     "reason": "Historical coordination/handoff records and classified migration/verification evidence."
   },
