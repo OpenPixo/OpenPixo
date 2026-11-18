@@ -1,9 +1,9 @@
 import type Database from 'better-sqlite3';
-import type { PublishJob, PublishRequest, PublishStatusResponse, RoomsUsage } from '@openpixo/contracts';
+import type { PublishedGamesResponse, PublishJob, PublishRequest, PublishStatusResponse, RoomsUsage } from '@openpixo/contracts';
 import { AccountError, PublishCloudError } from '../account/errors.js';
 import type { ShareStatusResult } from '../account/publish-cloud.js';
 import { readAppConfig } from '../app-config.js';
-import { getProject, updateProject } from '../db.js';
+import { getProject, listProjects, updateProject } from '../db.js';
 import { detectEngineProfile } from '../game/engine-detect.js';
 import { gameToolResolver } from '../game/verify.js';
 import { resolveProjectDir } from '../projects.js';
@@ -145,6 +145,47 @@ export class PublishService {
   async setRoomsLimit(projectId: string, monthlyCreditLimit: number): Promise<RoomsUsage> {
     const { shareId } = await this.context(projectId);
     if (!shareId) throw new PublishRequestError(409, 'CONFLICT', 'Publish the game first. The spending limit belongs to its public link.');
+    return this.account().shareLimit(shareId, monthlyCreditLimit);
+  }
+
+  // --- The whole account, for the game hub page and `pixo publish list`. A link outlives its project, so
+  // these work by share id; when a project on this computer has the link, its own path does the work.
+
+  /** The project on this computer published to `shareId`, if any. */
+  private projectForShare(shareId: string): { id: string; name: string } | null {
+    const project = listProjects(this.deps.db).find(item => item.metadata?.publishShareId === shareId);
+    return project ? { id: project.id, name: project.name } : null;
+  }
+
+  async list(): Promise<PublishedGamesResponse> {
+    if (!this.deps.account) return { available: false, unavailableReason: 'no_cloud', games: [] };
+    try { this.deps.account.assertConfigured(); }
+    catch { return { available: false, unavailableReason: 'no_cloud', games: [] }; }
+    if (!await this.deps.account.hasSession()) return { available: false, unavailableReason: 'signed_out', games: [] };
+    let listed;
+    try { listed = await this.deps.account.shareList(); }
+    catch (error) {
+      if (error instanceof AccountError && error.code === 'ACCOUNT_SIGNED_OUT') return { available: false, unavailableReason: 'signed_out', games: [] };
+      throw error;
+    }
+    const byShare = new Map<string, { id: string; name: string }>();
+    for (const project of listProjects(this.deps.db)) {
+      const shareId = project.metadata?.publishShareId;
+      if (shareId && !byShare.has(shareId)) byShare.set(shareId, { id: project.id, name: project.name });
+    }
+    const { games, ...account } = listed;
+    return { available: true, games: games.map(item => ({ ...item, project: byShare.get(item.game.shareId) ?? null })), account };
+  }
+
+  async removeShare(shareId: string): Promise<void> {
+    const project = this.projectForShare(shareId);
+    if (project) { await this.remove(project.id); return; }
+    await this.account().shareRemove(shareId);
+  }
+
+  async setShareRoomsLimit(shareId: string, monthlyCreditLimit: number): Promise<RoomsUsage> {
+    const project = this.projectForShare(shareId);
+    if (project) this.cached.delete(project.id);
     return this.account().shareLimit(shareId, monthlyCreditLimit);
   }
 

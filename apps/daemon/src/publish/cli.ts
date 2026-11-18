@@ -1,4 +1,4 @@
-import { PRODUCT_CLI_NAME, type GameVerifyContext, type PublishJob, type PublishRequest, type PublishStartResponse, type PublishStatusResponse } from '@openpixo/contracts';
+import { PRODUCT_CLI_NAME, type GameVerifyContext, type PublishedGamesResponse, type PublishJob, type PublishRequest, type PublishStartResponse, type PublishStatusResponse } from '@openpixo/contracts';
 import { parseArgs } from 'node:util';
 import { resolveDaemonUrl } from '../daemon-url.js';
 import { gameToolResolver } from '../game/verify.js';
@@ -12,7 +12,11 @@ const USAGE = `${PRODUCT_CLI_NAME} publish [--project <id>] [--title <text>] [--
     --pay-extra-game agrees to the one-time credit charge for a game beyond your plan's game count.
       Updates to that game stay free. Only the creator can give it, never an agent.
 ${PRODUCT_CLI_NAME} publish status [--project <id>] [--json]
-${PRODUCT_CLI_NAME} publish remove [--project <id>] [--json]`;
+${PRODUCT_CLI_NAME} publish remove [--project <id> | --share <share id>] [--json]
+    --share removes any link on your account by its id, also one whose project is gone.
+${PRODUCT_CLI_NAME} publish list [--json]
+    Every public link on your account, with plays, online features and room usage. Only the creator
+    can run it, as on the 游戏管理 page.`;
 
 export interface PublishCliOptions {
   /** Test seam for the wait between status polls. */
@@ -25,13 +29,22 @@ export class CliApiError extends Error {
 
 /** Calls a project route on the local daemon. Shared with `pixo rooms`. */
 export async function projectApi(flagUrl: string | undefined, projectId: string) {
+  return daemonApi(flagUrl, `/api/projects/${encodeURIComponent(projectId)}`);
+}
+
+/** Calls an account route of the game hub, `/api/published-games...`. Shared with `pixo rooms limit --share`. */
+export async function publishedGamesApi(flagUrl: string | undefined) {
+  return daemonApi(flagUrl, '/api/published-games');
+}
+
+async function daemonApi(flagUrl: string | undefined, prefix: string) {
   const base = (await resolveDaemonUrl({ flagUrl: flagUrl ?? null })).replace(/\/$/u, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Origin: new URL(base).origin };
   if (process.env.PIXO_TOOL_TOKEN) headers.authorization = `Bearer ${process.env.PIXO_TOOL_TOKEN}`;
   return async <T>(suffix: string, method = 'GET', body?: unknown): Promise<T> => {
     let response: Response;
     try {
-      response = await fetch(`${base}/api/projects/${encodeURIComponent(projectId)}${suffix}`, { method, headers,
+      response = await fetch(`${base}${prefix}${suffix}`, { method, headers,
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     } catch { throw new CliApiError('OpenPixo could not be reached. Open the app and try again.'); }
     const data = await response.json().catch(() => null) as (T & { error?: { message?: string } }) | null;
@@ -94,6 +107,29 @@ function printStatus(status: PublishStatusResponse): void {
   if (!status.termsAccepted && status.termsUrl) console.log(`Sharing rules: ${status.termsUrl}`);
 }
 
+const STATE_TEXT: Record<PublishedGamesResponse['games'][number]['game']['state'], string> = { live: 'live', under_review: 'under review', removed: 'removed by OpenPixo' };
+
+function printList(list: PublishedGamesResponse): void {
+  if (!list.available) {
+    console.log(list.unavailableReason === 'signed_out' ? `Sign in first: ${PRODUCT_CLI_NAME} account login` : 'This build has no OpenPixo cloud.');
+    return;
+  }
+  const plan = list.account?.publishPlan;
+  if (plan?.planRequired) console.log(`No subscription: existing links keep working, new ones need a plan. See ${PRODUCT_CLI_NAME} credits catalog`);
+  else if (plan) console.log(`Live games: ${plan.liveGames} of ${plan.maxLiveGames}${plan.extraGames ? `, plus ${plan.extraGames} extra` : ''}`);
+  const online = list.account?.onlineAccount;
+  if (online) console.log(`Online features this month: ${online.requests} of ${online.maxRequests} requests, ${Math.ceil(online.bytes / 1_048_576)} of ${Math.floor(online.maxBytes / 1_048_576)} MB${online.state === 'ok' ? '' : ` (${online.state})`}`);
+  if (!list.games.length) { console.log(`No public links yet. Publish a web game with ${PRODUCT_CLI_NAME} publish.`); return; }
+  for (const { game, rooms, online: usage, project } of list.games) {
+    console.log(`\n${game.title}  [${STATE_TEXT[game.state]}]  ${game.url}`);
+    console.log(`  Share id: ${game.shareId}   Project: ${project ? `${project.name} (${project.id})` : 'none on this computer'}`);
+    console.log(`  Version ${game.version}, updated ${game.updatedAt.slice(0, 10)}, ${game.playsThisMonth} plays this month`);
+    if (game.removedReason) console.log(`  Removed because: ${game.removedReason}`);
+    if (usage && usage.gameRequests + usage.players > 0) console.log(`  Online: ${usage.players} players, ${usage.gameRequests} requests this month`);
+    if (rooms.playerMinutes || rooms.openRooms) console.log(`  Rooms: ${rooms.openRooms} open, ${rooms.playerMinutes} player-minutes, ${rooms.creditsCharged} of ${rooms.monthlyCreditLimit} credits`);
+  }
+}
+
 /** Builds in this process for an agent: its token may not make the daemon run project commands. */
 async function buildInsideAgentSandbox(api: Awaited<ReturnType<typeof projectApi>>): Promise<void> {
   const prepared = await api<GameVerifyContext>('/game/verify/context');
@@ -106,12 +142,24 @@ export async function runPublishCli(args: string[], options: PublishCliOptions =
   try {
     if (args.includes('--help') || args.includes('-h')) { console.log(USAGE); return; }
     const { values, positionals } = parseArgs({ args, allowPositionals: true, options: {
-      json: { type: 'boolean' }, project: { type: 'string' }, title: { type: 'string' }, 'accept-terms': { type: 'boolean' },
+      json: { type: 'boolean' }, project: { type: 'string' }, share: { type: 'string' }, title: { type: 'string' }, 'accept-terms': { type: 'boolean' },
       'pay-extra-game': { type: 'boolean' }, 'no-build': { type: 'boolean' }, 'daemon-url': { type: 'string' },
     } });
     json = values.json === true;
     const command = positionals[0] ?? 'publish';
-    if (positionals.length > 1 || !['publish', 'status', 'remove'].includes(command)) throw new Error(`Usage: ${USAGE}`);
+    if (positionals.length > 1 || !['publish', 'status', 'remove', 'list'].includes(command)) throw new Error(`Usage: ${USAGE}`);
+    if (command === 'list' || (command === 'remove' && values.share !== undefined)) {
+      if (command === 'remove' && values.project !== undefined) throw new Error(`Pass --project or --share, not both.\n${USAGE}`);
+      const account = await publishedGamesApi(values['daemon-url']);
+      if (command === 'list') {
+        const list = await account<PublishedGamesResponse>('');
+        if (json) console.log(JSON.stringify(list, null, 2)); else printList(list);
+        return;
+      }
+      const result = await account<{ ok: true }>(`/${encodeURIComponent(values.share!)}`, 'DELETE');
+      if (json) console.log(JSON.stringify(result)); else console.log('Removed the public link. It stops working within a minute.');
+      return;
+    }
     const projectId = values.project ?? process.env.PIXO_PROJECT_ID;
     if (!projectId) throw new Error(`Project id required: pass --project <id>.\n${USAGE}`);
     const api = await projectApi(values['daemon-url'], projectId);

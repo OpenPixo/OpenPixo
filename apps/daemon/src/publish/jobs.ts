@@ -9,7 +9,7 @@ import { PublishUploadError, uploadBundle, type UploadInput } from './upload.js'
 import { webProjectCwd } from './web-project.js';
 
 /** The cloud account surface publishing needs. */
-export type PublishAccount = Pick<OpenPixoAccountService, 'assertConfigured' | 'hasSession' | 'publishBegin' | 'publishFinish' | 'shareStatus' | 'shareRemove' | 'shareLimit'>;
+export type PublishAccount = Pick<OpenPixoAccountService, 'assertConfigured' | 'hasSession' | 'publishBegin' | 'publishFinish' | 'shareStatus' | 'shareList' | 'shareRemove' | 'shareLimit'>;
 
 export interface PublishProjectContext {
   projectDir: string;

@@ -291,6 +291,7 @@ function reviveTab(value: unknown): WorkspaceChromeTab | null {
       || view === 'plugins'
       || view === 'community'
       || view === 'store'
+      || view === 'game-hub'
       || view === 'generate'
       || view === 'integrations'
     ) {
@@ -2135,6 +2136,7 @@ function displayTabFor(
     onboarding: t('settings.welcomeTitle'),
     projects: t('entry.navProjects'),
     store: t('store.title'),
+    'game-hub': t('gameHub.navLabel'),
     generate: t('generate.pageTitle'),
     integrations: t('entry.navIntegrations'),
     drafts: t('entry.navDrafts'),
@@ -2147,6 +2149,7 @@ function displayTabFor(
     onboarding: 'sparkles',
     projects: 'folder',
     store: 'blocks',
+    'game-hub': 'globe',
     generate: 'sparkles',
     integrations: 'link',
     drafts: 'file',

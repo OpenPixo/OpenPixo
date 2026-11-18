@@ -72,6 +72,10 @@ export function fakeAccount(baseUrl: string) {
     shareStatus: vi.fn<PublishAccount['shareStatus']>(async () => shareStatus()),
     publishBegin: vi.fn<PublishAccount['publishBegin']>(async input => ({ shareId: input.shareId ?? 'share-1', version: 2, uploadBaseUrl: baseUrl, uploadToken: 'upload-token', url: GAME.url })),
     publishFinish: vi.fn<PublishAccount['publishFinish']>(async () => GAME),
+    shareList: vi.fn<PublishAccount['shareList']>(async () => ({ games: [], paused: { publish: false, rooms: false, online: false },
+      limits: { maxPlayers: 8, creditsPerPlayerHour: 5 },
+      publishPlan: { planRequired: false, sku: 'plan_starter', maxLiveGames: 10, maxGameBytes: 100 * 1_048_576, liveGames: 0 }, onlineAccount: null,
+      roomsAccount: { month: '2026-11', freeMinutesTotal: 600, freeMinutesUsed: 0, creditsCharged: 0, openRooms: 0 } })),
     shareRemove: vi.fn<PublishAccount['shareRemove']>(async () => {}),
     shareLimit: vi.fn<PublishAccount['shareLimit']>(async () => USAGE),
   };

@@ -1,4 +1,5 @@
-import type { PublishedGame, PublishedGameState, PublishPlan, RoomsUsage } from '@openpixo/contracts';
+import type { OnlineAccountUsage, PublishedGame, PublishedGameState, PublishPlan, RoomsUsage, ShareListResponse } from '@openpixo/contracts';
+import { onlineUsage } from './online-cloud.js';
 import { cloudServiceError } from './errors.js';
 import { record } from './supabase.js';
 
@@ -118,4 +119,43 @@ export function shareStatusResponse(value: unknown): ShareStatusResult {
 
 export function shareLimitResponse(value: unknown): RoomsUsage {
   return roomsUsage(record(value).usage);
+}
+
+const ONLINE_STATES = ['ok', 'read-only', 'paused'] as const;
+const ONLINE_REASONS = ['no-plan', 'requests-cap', 'storage-cap', 'paused'] as const;
+
+function onlineAccount(value: unknown): OnlineAccountUsage {
+  const item = record(value);
+  const month = typeof item.month === 'string' && /^\d{4}-\d{2}$/u.test(item.month) ? item.month : invalid();
+  const state = ONLINE_STATES.includes(item.state as typeof ONLINE_STATES[number]) ? item.state as OnlineAccountUsage['state'] : invalid();
+  const reason = item.stateReason == null ? undefined
+    : ONLINE_REASONS.includes(item.stateReason as typeof ONLINE_REASONS[number]) ? item.stateReason as NonNullable<OnlineAccountUsage['stateReason']> : invalid();
+  return { month, state, ...(reason ? { stateReason: reason } : {}), requests: count(item.requests), bytes: count(item.bytes),
+    maxRequests: count(item.maxRequests), maxBytes: count(item.maxBytes) };
+}
+
+function roomsAccount(value: unknown): ShareListResponse['roomsAccount'] {
+  const item = record(value);
+  return { month: typeof item.month === 'string' && /^\d{4}-\d{2}$/u.test(item.month) ? item.month : invalid(),
+    freeMinutesTotal: count(item.freeMinutesTotal), freeMinutesUsed: count(item.freeMinutesUsed),
+    creditsCharged: count(item.creditsCharged), openRooms: count(item.openRooms) };
+}
+
+/** `GET share-list`: every link on the account. A cloud answer of more than 1,000 games is not believed. */
+export function shareListResponse(value: unknown): ShareListResponse {
+  const item = record(value);
+  const paused = record(item.paused);
+  const limits = record(item.limits);
+  const games = Array.isArray(item.games) && item.games.length <= 1000 ? item.games : invalid();
+  return {
+    games: games.map(entry => {
+      const row = record(entry);
+      return { game: publishedGame(row.game), rooms: roomsUsage(row.rooms), online: row.online == null ? null : onlineUsage(row.online) };
+    }),
+    paused: { publish: bool(paused.publish), rooms: bool(paused.rooms), online: bool(paused.online) },
+    limits: { maxPlayers: count(limits.maxPlayers), creditsPerPlayerHour: count(limits.creditsPerPlayerHour) },
+    publishPlan: publishPlan(item.publishPlan),
+    onlineAccount: item.onlineAccount == null ? null : onlineAccount(item.onlineAccount),
+    roomsAccount: roomsAccount(item.roomsAccount),
+  };
 }
