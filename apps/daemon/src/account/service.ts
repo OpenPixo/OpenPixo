@@ -11,7 +11,7 @@ import {
 import { checkoutResponse, creditsCatalog, creditsLedger, creditsSummary, entitlementsResponse, planChangeQuote, planChangeResponse, portalResponse, storeDownloadResponse, storePurchaseResponse } from './credits.js';
 import { AccountError, accountError } from './errors.js';
 import { onlineResetResponse, onlineStatusResponse } from './online-cloud.js';
-import { publishBeginResponse, publishFinishResponse, shareLimitResponse, shareStatusResponse, type PublishBeginInput } from './publish-cloud.js';
+import { publishBeginResponse, publishFinishResponse, shareLimitResponse, shareListResponse, shareStatusResponse, type PublishBeginInput } from './publish-cloud.js';
 import { DpapiSecretStore, type SecretStore } from './secret-store.js';
 import { record, SupabaseAuthError, SupabaseClient } from './supabase.js';
 
@@ -498,6 +498,12 @@ export class OpenPixoAccountService {
   async shareStatus(shareId?: string) {
     this.assertConfigured();
     return shareStatusResponse(await this.edge('share-status', 'GET', undefined, shareId ? `?shareId=${encodeURIComponent(shareId)}` : ''));
+  }
+
+  /** Every link on the account, including ones no project on this computer knows (the game hub page). */
+  async shareList() {
+    this.assertConfigured();
+    return shareListResponse(await this.edge('share-list', 'GET'));
   }
 
   async shareRemove(shareId: string): Promise<void> {

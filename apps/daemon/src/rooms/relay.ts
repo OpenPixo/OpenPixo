@@ -8,9 +8,10 @@ import { ROOM_MAX_MESSAGE_BYTES, ROOM_PROTOCOL_VERSION, type RoomClientMessage, 
  */
 export const LOCAL_RELAY_LIMITS = {
   maxRooms: 32,
-  maxPlayers: 8,
+  maxPlayers: 20,
   maxMessageBytes: ROOM_MAX_MESSAGE_BYTES,
-  messagesPerSecond: 60,
+  // 20 players at 40 each stays under the ~1,000 a second one hosted room can take.
+  messagesPerSecond: 40,
   /** Whole seconds over the rate limit in a row before that player's connection closes. */
   sustainedOverLimitSeconds: 5,
   idleMs: 10 * 60 * 1000,

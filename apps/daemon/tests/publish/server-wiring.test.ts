@@ -43,7 +43,7 @@ it('answers a game page on a dev-server origin at the relay and nowhere else', a
   const created = await request('/api/rooms/local/rooms', 'POST', { v: 1 }, devServer);
   expect(created.status).toBe(200);
   expect(created.headers.get('access-control-allow-origin')).toBe(devServer);
-  expect(await created.json()).toMatchObject({ ok: true, maxPlayers: 8 });
+  expect(await created.json()).toMatchObject({ ok: true, maxPlayers: 20 });
   expect((await request('/api/projects', 'GET', undefined, 'https://evil.example')).status).toBe(403);
   expect((await request('/api/rooms/local/rooms', 'POST', { v: 1 }, 'https://evil.example')).status).toBe(403);
 });

@@ -1,6 +1,7 @@
 import type {
   GameEngineId,
   ProjectNextStepsResponse,
+  PublishedGamesResponse,
   PublishRequest,
   PublishStartResponse,
   PublishStatusResponse,
@@ -96,4 +97,20 @@ export function startRoomsTest(projectId: string): Promise<RoomsTestResponse> {
 export async function fetchProjectEngine(projectId: string, signal?: AbortSignal): Promise<GameEngineId> {
   const body = await read<ProjectNextStepsResponse>(`${projectBase(projectId)}/next-steps`, { signal }, value => typeof value.engine === 'string');
   return body.engine;
+}
+
+// The game hub page: every link on the account, by share id (GET/DELETE/PATCH /api/published-games).
+
+const shareBase = (shareId: string) => `/api/published-games/${encodeURIComponent(shareId)}`;
+
+export function fetchPublishedGames(signal?: AbortSignal): Promise<PublishedGamesResponse> {
+  return read<PublishedGamesResponse>('/api/published-games', { signal }, body => typeof body.available === 'boolean' && Array.isArray(body.games));
+}
+
+export async function removeShare(shareId: string): Promise<void> {
+  await send(shareBase(shareId), { method: 'DELETE' });
+}
+
+export async function updateShareRoomsLimit(shareId: string, monthlyCreditLimit: number): Promise<void> {
+  await send(`${shareBase(shareId)}/rooms`, json('PATCH', { monthlyCreditLimit }));
 }

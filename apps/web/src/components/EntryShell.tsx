@@ -26,6 +26,7 @@ import type {
 import { CenteredLoader } from './Loading';
 import { ProjectsPanel } from './ProjectsPanel';
 import { EntryNavRail, type EntryView as EntryViewKind } from './EntryNavRail';
+import { GameHubView } from './game-hub/GameHubView';
 import {
   buildProjectSearchCatalog,
   ProjectSearchModal,
@@ -757,6 +758,7 @@ export function EntryShell({
 
             {view === 'generate' ? <GeneratePage routeProjectId={route.kind === 'home' ? route.generateProjectId : undefined} games={projects}
               onOpenAccount={() => onOpenSettings('account')} onOpenExtensions={() => changeView('store')} /> : null}
+            {view === 'game-hub' ? <GameHubView onOpenProject={onOpenProject} onOpenAccount={() => onOpenSettings('account')} /> : null}
             {view === 'store' ? <StoreProjectActions itemName={route.kind === 'home' ? route.storeItemName : undefined} initialTab={route.kind === 'home' ? route.storeTab : undefined} projects={projects} onOpenProject={onOpenProject} onOpenAccount={() => onOpenSettings('account')} /> : null}
             {null}
             {null}

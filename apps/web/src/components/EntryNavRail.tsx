@@ -607,6 +607,8 @@ export function EntryNavRail({
             onClick={() => selectView('generate')} testId="entry-nav-generate"><Icon name="sparkles" size={16} /></NavButton>
           <NavButton active={view === 'store'} ariaLabel={t('store.title')} label={t('store.title')}
             onClick={() => selectView('store')} testId="entry-nav-store"><Icon name="blocks" size={16} /></NavButton>
+          <NavButton active={view === 'game-hub'} ariaLabel={t('gameHub.navLabel')} label={t('gameHub.navLabel')}
+            onClick={() => selectView('game-hub')} testId="entry-nav-game-hub"><Icon name="globe" size={16} /></NavButton>
         </div>
         {/* 最近 takes every pixel the rail has left and scrolls inside itself.
             The catalog EntryShell hands over IS the local project list, so the

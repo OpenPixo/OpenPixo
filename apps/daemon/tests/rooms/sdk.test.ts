@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { LOCAL_RELAY_LIMITS } from '../../src/rooms/relay.js';
 import type { Server } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -179,7 +180,7 @@ describe('rooms over the local relay', () => {
     const host = track(await sdk.createRoom());
     const guest = track(await sdk.joinRoom(host.code));
     for (let index = 0; index < 70; index += 1) guest.sendToHost(index);
-    await eventually(() => { expect(warn.mock.calls.flat().join()).toContain('more than 60 a second'); });
+    await eventually(() => { expect(warn.mock.calls.flat().join()).toContain('more than 40 a second'); });
   });
 
   it('keeps early events for listeners attached right after the await', async () => {
@@ -223,7 +224,7 @@ describe('refusals', () => {
 
   it('explains a full room', async () => {
     const host = track(await sdk.createRoom());
-    for (let index = 0; index < 7; index += 1) track(await sdk.joinRoom(host.code));
+    for (let index = 1; index < LOCAL_RELAY_LIMITS.maxPlayers; index += 1) track(await sdk.joinRoom(host.code));
     await expect(sdk.joinRoom(host.code)).rejects.toMatchObject({ code: 'room-full', message: 'That room is full.' });
   });
 

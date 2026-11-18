@@ -19,6 +19,8 @@ export type EntryHomeView =
   // Persisted workspace tabs resolve these destinations to current views.
   | 'plugins'
   | 'store'
+  // 游戏管理: every public link on the account, single-player and multiplayer.
+  | 'game-hub'
   // 生成: the one generator for images, audio and 3D, with or without a game.
   | 'generate'
   | 'integrations'
@@ -63,6 +65,7 @@ export function parseRoute(pathname: string): Route {
     return { kind: 'home', view: 'store', storeTab: movedStoreTabs[parts[1] as keyof typeof movedStoreTabs] };
   }
   if (parts[0] === 'store') return { kind: 'home', view: 'store', ...(parts[1] ? { storeItemName: decodeURIComponent(parts.slice(1).join('/')) } : {}) };
+  if (parts[0] === 'game-hub' && !parts[1]) return { kind: 'home', view: 'game-hub' };
   if (parts[0] === 'generate') {
     return { kind: 'home', view: 'generate', ...(parts[1] ? { generateProjectId: decodeURIComponent(parts[1]) } : {}) };
   }
@@ -141,6 +144,7 @@ export function buildPath(route: Route): string {
       if (route.storeItemName) return `/store/${encodeURIComponent(route.storeItemName)}`;
       return route.storeTab ? `/store/${{ style: 'styles', recipe: 'recipes', 'character-card': 'character-cards' }[route.storeTab]}` : '/store';
     }
+    if (route.view === 'game-hub') return '/game-hub';
     if (route.view === 'generate') return route.generateProjectId ? `/generate/${encodeURIComponent(route.generateProjectId)}` : '/generate';
     if (route.view === 'integrations') return '/integrations';
     if (route.view === 'community') return '/';

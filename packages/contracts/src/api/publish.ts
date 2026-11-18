@@ -1,4 +1,5 @@
 /** Public game links (`pixo publish`) and live rooms (`pixo rooms`). See specs/current/publish-and-rooms.md. */
+import type { OnlineUsage } from './online.js';
 
 export type PublishedGameState = 'live' | 'under_review' | 'removed';
 
@@ -185,3 +186,67 @@ export type RoomCreateRefusal = 'paused' | 'game-unavailable' | 'out-of-credits'
 export type RoomCreateResponse =
   | { ok: true; code: string; maxPlayers: number }
   | { ok: false; reason: RoomCreateRefusal };
+
+// The creator's whole account: every public link, for the game hub page (`share-list`).
+
+/** What every one of the account's games shares this month, against the plan. */
+export interface OnlineAccountUsage {
+  /** Calendar month, UTC, `YYYY-MM`. */
+  month: string;
+  state: 'ok' | 'read-only' | 'paused';
+  stateReason?: 'no-plan' | 'requests-cap' | 'storage-cap' | 'paused';
+  requests: number;
+  bytes: number;
+  maxRequests: number;
+  maxBytes: number;
+}
+
+/** One link on the account. `online` is null for a link whose online usage the cloud could not read. */
+export interface SharedGameListItem {
+  game: PublishedGame;
+  rooms: RoomsUsage;
+  online: OnlineUsage | null;
+}
+
+/**
+ * GET share-list: every link that ever went live, newest change first, including links the operator
+ * removed (with the reason) but not links the creator removed. A link outlives its project, so this is
+ * the only list that has them all.
+ */
+export interface ShareListResponse {
+  games: SharedGameListItem[];
+  paused: { publish: boolean; rooms: boolean; online: boolean };
+  limits: { maxPlayers: number; creditsPerPlayerHour: number };
+  publishPlan: PublishPlan;
+  /** Null until the account has a game the online totals can be read from. */
+  onlineAccount: OnlineAccountUsage | null;
+  /** This month's rooms on the whole account, including games removed since. */
+  roomsAccount: RoomsAccountUsage;
+}
+
+export interface RoomsAccountUsage {
+  /** Calendar month, UTC, `YYYY-MM`. */
+  month: string;
+  freeMinutesTotal: number;
+  freeMinutesUsed: number;
+  creditsCharged: number;
+  openRooms: number;
+}
+
+// The daemon's game hub routes: GET /api/published-games, DELETE /api/published-games/:shareId,
+// PATCH /api/published-games/:shareId/rooms. The creator's own requests only, never an agent token.
+
+export type PublishedGamesUnavailableReason = 'no_cloud' | 'signed_out';
+
+export interface PublishedGameEntry extends SharedGameListItem {
+  /** The project on this computer published to this link; null when none is (deleted, or published elsewhere). */
+  project: { id: string; name: string } | null;
+}
+
+export interface PublishedGamesResponse {
+  available: boolean;
+  unavailableReason?: PublishedGamesUnavailableReason;
+  games: PublishedGameEntry[];
+  /** Plan, switches, limits and online totals; present when available. */
+  account?: Omit<ShareListResponse, 'games'>;
+}

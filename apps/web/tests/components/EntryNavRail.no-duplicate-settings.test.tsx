@@ -47,11 +47,11 @@ describe('EntryNavRail structure', () => {
     expect(screen.getByTestId('entry-nav-new-game').hasAttribute('disabled')).toBe(true);
   });
 
-  it('lists only destinations, in the order 首页 / 我的游戏 / 工坊', () => {
+  it('lists only destinations, in the order 首页 / 我的游戏 / 生成 / 工坊 / 游戏管理', () => {
     renderRail();
     const group = screen.getByTestId('entry-nav-destinations');
     expect(Array.from(group.querySelectorAll('[data-testid]')).map((el) => el.getAttribute('data-testid')))
-      .toEqual(['entry-nav-home', 'entry-nav-drafts', 'entry-nav-store']);
+      .toEqual(['entry-nav-home', 'entry-nav-drafts', 'entry-nav-generate', 'entry-nav-store', 'entry-nav-game-hub']);
     expect(within(group).queryByTestId('entry-settings-button')).toBeNull();
     expect(within(group).queryByRole('button', { name: 'Keyboard shortcuts' })).toBeNull();
   });

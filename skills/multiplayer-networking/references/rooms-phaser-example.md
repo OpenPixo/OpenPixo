@@ -8,7 +8,7 @@ import { createRoom, joinFromUrl, joinRoom, RoomError, type Room } from './openp
 
 type Input = { dx: number; dy: number };
 type State = { players: Record<string, { x: number; y: number }> };
-const SPEED = 180, SEND_EVERY_MS = 66, INPUT_EVERY_MS = 33;
+const SPEED = 180, SEND_EVERY_MS = 66, INPUT_EVERY_MS = 50;
 
 class MatchScene extends Phaser.Scene {
   private room!: Room;
@@ -49,7 +49,8 @@ class MatchScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     const { room, keys } = this;
-    // Not every frame: a 144 Hz display would go over 60 messages a second and be disconnected.
+    // Not every frame: a 60 Hz or faster display would go over 40 messages a second and be disconnected.
+    // Input 20 times and state 15 times a second keeps even the host, which sends both, at 35.
     this.sinceInput += delta;
     if (this.sinceInput >= INPUT_EVERY_MS) {
       this.sinceInput = 0;
