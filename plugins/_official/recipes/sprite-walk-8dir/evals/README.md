@@ -2,6 +2,8 @@
 
 Status: passed (0.3.0), 2026-11-15, on `media-gateway` / `h3-max-turbo-gateway` (own key).
 
+**Not yet re-run (2026-11-18):** the prompt no longer says "cartoon character", only "character", so the source picture alone sets the look (a recipe should not bring a style of its own). Nothing else changed. Re-run one clip from an accepted sheet and judge every direction by eye before recording this version as passed.
+
 ## Recipe run (2026-11-15)
 
 - **Source:** candidate `3be36acb` of `sprite-walk-sheet-8dir` run `23727d4a` (see that recipe's evals), passed with `--source-run` before adoption.
