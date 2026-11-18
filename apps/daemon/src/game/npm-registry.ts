@@ -26,7 +26,8 @@ function systemTimeZone(): string | undefined {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return undefined; }
 }
 
-function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+/** A non-empty environment value, whatever case the variable was set in. */
+export function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
   const key = Object.keys(env).find(candidate => candidate.toLowerCase() === name);
   const value = key == null ? undefined : env[key]?.trim();
   return value ? value : undefined;
