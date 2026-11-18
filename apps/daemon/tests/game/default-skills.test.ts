@@ -55,11 +55,15 @@ describe('the shipped catalogue', () => {
     expect(phaser).not.toContain('godot-gdscript');
     expect(phaser).not.toContain('unity-csharp');
     expect(phaser).not.toContain('character-controller-3d');
+    // Steam work is for desktop builds; a web game is shared as a link (publish-game).
+    expect(phaser).not.toContain('steam-release');
+    expect(ids(selectDefaultProjectSkills({ catalog, engine: 'threejs' }))).not.toContain('steam-release');
 
     const godot = ids(selectDefaultProjectSkills({ catalog, engine: 'godot' }));
     expect(godot).toContain('godot-gdscript');
     expect(godot).not.toContain('phaser-game-dev');
     expect(godot).not.toContain('publish-game');
+    expect(godot).toContain('steam-release');
 
     const unity = ids(selectDefaultProjectSkills({ catalog, engine: 'unity' }));
     expect(unity).toContain('unity-csharp');
@@ -70,6 +74,7 @@ describe('the shipped catalogue', () => {
     expect(unity).not.toContain('phaser-game-dev');
     expect(unity).not.toContain('publish-game');
     expect(unity).not.toContain('web-export-and-itch');
+    expect(unity).toContain('steam-release');
   });
 
   it('never offers the skill that depends on an external browser CLI', async () => {
