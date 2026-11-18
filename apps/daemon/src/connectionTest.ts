@@ -892,6 +892,19 @@ function isLikelyModelErrorText(text: string): boolean {
   );
 }
 
+/**
+ * Codex signed in with a ChatGPT account refuses a model the plan does not
+ * include: "The 'gpt-6.2-sol' model is not supported when using Codex with a
+ * ChatGPT account." The model exists and another listed one works, so this is
+ * its own kind (`agent_model_not_on_plan`), naming the refused model, rather
+ * than a missing model.
+ */
+export function modelRefusedOnChatGptPlan(agentId: string, text: string): string | null {
+  if (agentId !== 'codex') return null;
+  const match = /\bthe '([^']+)' model is not supported when using codex with a chatgpt account/i.exec(text);
+  return match?.[1]?.trim() || null;
+}
+
 function isLikelyAuthErrorText(text: string): boolean {
   return /(?:api[_ -]?key|x-goog-api-key|unauthorized|unauthenticated|permission denied|invalid credentials|authentication credentials|access denied|invalid key)/i.test(
     text,
@@ -2318,6 +2331,29 @@ async function testAgentConnectionInternal(
     };
   };
 
+  const resultFromPlanRefusal = (
+    text: string,
+    exit?: { code: number | null; signal: NodeJS.Signals | null },
+  ): ConnectionTestResponse | null => {
+    const refused = modelRefusedOnChatGptPlan(input.agentId, text);
+    if (!refused) return null;
+    const detail = redactSecrets(text.trim());
+    console.warn(`[test:agent] ${def.name} → model_not_on_plan: ${detail}`);
+    return {
+      ok: false,
+      kind: 'agent_model_not_on_plan',
+      latencyMs: Date.now() - start,
+      model,
+      resolvedModel: redactSecrets(refused),
+      agentName: def.name,
+      detail,
+      diagnostics: buildDiagnostics({
+        phase: 'output_parse',
+        ...(exit ? { exitCode: exit.code, signal: exit.signal } : {}),
+      }),
+    };
+  };
+
   const resultFromAgentText = (
     text: string,
     exit?: { code: number | null; signal: NodeJS.Signals | null },
@@ -2326,6 +2362,8 @@ async function testAgentConnectionInternal(
     const rawSample = truncateSample(text);
     const sample = redactSecrets(rawSample);
     const resolvedModel = sink.getResolvedModel();
+    const planRefusal = resultFromPlanRefusal(text, exit);
+    if (planRefusal) return planRefusal;
     if (rawSample && isLikelyModelErrorText(rawSample)) {
       const detail = redactSecrets(smokeFailureDetail(rawSample));
       console.warn(
@@ -2384,6 +2422,8 @@ async function testAgentConnectionInternal(
         diagnostics: buildDiagnostics(),
       };
     }
+    const planRefusal = resultFromPlanRefusal(detail);
+    if (planRefusal) return planRefusal;
     if (detail && isLikelyModelErrorText(detail)) {
       console.warn(
         `[test:agent] ${def.name} → not_found_model: ${detail}`,

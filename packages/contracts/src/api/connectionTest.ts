@@ -207,6 +207,9 @@ export type ConnectionTestKind =
   | 'agent_not_installed'
   | 'agent_auth_required'
   | 'agent_spawn_failed'
+  // The CLI's account plan does not include the model (Codex signed in with
+  // ChatGPT); `resolvedModel` names the refused model. Another model works.
+  | 'agent_model_not_on_plan'
   | 'unknown';
 
 // Phase markers describing how far the local agent connection test
