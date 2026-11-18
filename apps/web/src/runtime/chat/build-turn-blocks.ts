@@ -69,6 +69,7 @@ import {
   type MediaJobOutcome,
 } from './host-calls';
 import { IN_FLIGHT_TOOL_OUTPUT_KEY } from '../tool-events';
+import { assignMediaTaskOwners, mediaGenerateCount, readMediaSurface } from './media-task-owners';
 import {
   THINKING_TOKENS_STALL_ENTER_MS,
   thinkingTokenReadingIsStale,
@@ -728,13 +729,22 @@ export function buildTurnBlocks(input: BuildTurnInput): TurnBlock[] {
     if (queue) queue.push(task);
     else mediaQueues.set(surface, [task]);
   }
-  const mediaCursors = new Map<MediaSurface, number>();
+  /**
+   * 每条任务是哪一次调用做的(B6)。不只看命令里写没写 `media generate`:agent 自己写的
+   * 批量脚本里才去调 `pixo media generate`,事件里一次都没有。判据见 `media-task-owners.ts`。
+   */
+  const mediaOwners = assignMediaTaskOwners(events, results, retried, mediaQueues);
   /**
    * 每一行生图批次自己的**起点** —— S19 会把连续几次生图调用合并成一行,
    * 实时耗时得从合并进来的最早那次算起,不能用最后一次的时刻。
    * 记在行外面,免得为一件记账用的事给渲染契约 `ImageRow` 多加一个字段。
    */
   const imageRowStartedAt = new Map<ImageRow, number>();
+  /**
+   * 跟在一条命令行后面、替那条命令报图的生图行(B6)。它说的是那一次调用的图,
+   * 紧接着的一次 `media generate` 不许并进来(S19 的合并只合连续的生图调用)。
+   */
+  const companionImageRows = new WeakSet<ImageRow>();
 
   const activeShell = (): ExecutionShell | null => todoCard ?? top;
   /** 内容落点:进行中的 todo → 它的 items;有清单卡但 todo 都关了 → 卡片层;否则 → 第一张壳 */
@@ -1193,26 +1203,10 @@ export function buildTurnBlocks(input: BuildTurnInput): TurnBlock[] {
 
     const command = isCommandTool(event.name) ? commandOf(event.input) : '';
     /*
-     * **判据必须和 `readImageCall` 是同一条**。这里原来只数 `media generate` 出现几次,
-     * `pixo media generate --help` 也算一次,于是游标往前推了一格;而 `readImageCall`
-     * 又把 `--help` 拒掉 —— 那一格任务被静默吃掉,真正那次调用拿到空 slice,
-     * 组件 12 整行画不出来。查用法不是生图,不许动游标。
+     * 这次调用名下的媒体任务(`assignMediaTaskOwners` 事先分好)。被重试盖过的那次调用
+     * 虽然不落行,它的任务也已经用掉了 —— 那里照样给它记上,免得成功的那次拿到它。
      */
-    const mediaCallCount = isMediaGenerateCommand(command) ? mediaGenerateCount(command) : 0;
-    /*
-     * 这次调用去**哪一条队列**取任务:命令行上的 `--surface`(必填,`cli.ts:1838`)。
-     * 认不出来时落到图片那条 —— 与分桶之前逐字相同的那一条。
-     */
-    const callSurface = readMediaSurface([], command);
-    const callQueue = mediaQueues.get(callSurface) ?? [];
-    /*
-     * **排在「不落行」之前**:被重试盖过的那次调用虽然不落行,它的任务也已经用掉了。
-     * 否则游标停在那条失败的任务上,成功的那次拿到的是它 —— 一张做出来的图被画成失败,
-     * 而真正的那条任务再也没有人取。
-     */
-    const { slice: taskSlice, next: nextMediaCursor } =
-      takeMediaBatch(callQueue, mediaCursors.get(callSurface) ?? 0, mediaCallCount);
-    if (mediaCallCount > 0) mediaCursors.set(callSurface, nextMediaCursor);
+    const taskSlice = mediaOwners.byCall.get(event.id) ?? [];
     const waitTask = command ? mediaWaitCall(command)?.taskId : null;
     /*
      * 不落行,但时间照记:这次调用占掉的墙钟不能算到相邻那段思考头上,
@@ -1223,7 +1217,7 @@ export function buildTurnBlocks(input: BuildTurnInput): TurnBlock[] {
       stamp(results.get(event.id)?.completedAt);
       continue;
     }
-    const shot = readImageCall(event, results.get(event.id), taskSlice, waitOutcomes, turnIsLive);
+    const shot = readImageCall(event, results.get(event.id), taskSlice, waitOutcomes, turnIsLive, mediaTasks);
     if (shot) {
       ensureShell();
       stamp(event.startedAt);
@@ -1239,7 +1233,7 @@ export function buildTurnBlocks(input: BuildTurnInput): TurnBlock[] {
       // (先来的那类赢,后来的那类被吞掉,连同它的文案、图标和格子渲染)。
       // 判据用行自己的 `surface`,和落行用的是同一个证人。
       let target: ImageRow;
-      if (last && last.kind === 'image' && last.surface === shot.surface) {
+      if (last && last.kind === 'image' && last.surface === shot.surface && !companionImageRows.has(last)) {
         last.total += shot.total;
         last.done += shot.done;
         last.failed += shot.failed;
@@ -1261,7 +1255,7 @@ export function buildTurnBlocks(input: BuildTurnInput): TurnBlock[] {
       if (origin != null && (known == null || origin < known)) imageRowStartedAt.set(target, origin);
       /*
        * 还没出完的那一行也报耗时(产品 2026-09-03 把 2026-09-02 的裁决补到这一档,
-       * 理由见 `pendingMediaBatchRow`)。**必须排在合并之后**:合并那一句把各次调用
+       * 理由见 `mediaTaskRow`)。**必须排在合并之后**:合并那一句把各次调用
        * 的结算值相加,而实时值的终点是全轮共用的 `liveEndMs`,相加会把同一段墙钟
        * 时间数好几遍。行还没结算时,实时值直接顶掉那个和。
        *
@@ -1288,44 +1282,54 @@ export function buildTurnBlocks(input: BuildTurnInput): TurnBlock[] {
     if (row.pending) row.elapsedMs = spanElapsed(event.startedAt, liveEndMs);
     openText = null;
     sink().push(row);
+    /*
+     * 不写 `media generate` 的命令也会生图:agent 自己写的批量脚本(B6)。命令那一行照常留着
+     * (输出、退出码、失败原因都在那里),它做出来的图在紧跟着的一行生图行里逐格亮起。
+     */
+    if (taskSlice.length > 0) {
+      const companion = mediaTaskRow({
+        id: `${event.id}#media`,
+        tasks: taskSlice,
+        runTasks: mediaTasks,
+        declaredTotal: 0,
+        settled: false,
+        liveEndMs,
+      });
+      companionImageRows.add(companion);
+      sink().push(companion);
+    }
   }
 
-  if (turnIsLive) {
-    /*
-     * ACP emits a terminal-backed media tool_use only after the command has
-     * exited. Until then, media-task polling is the sole witness that image
-     * generation is in progress. Put each unconsumed active task in its own
-     * one-cell row at the current sink (normally the active Todo).
-     *
-     * Once tool_use arrives, the cursor above consumes the same task and this
-     * slice becomes empty, so the provisional row cannot duplicate the
-     * event-backed ImageRow.
-     */
-    /*
-     * 每条队列各自剩下的尾巴,再按全局时刻并回一条 —— 三类任务在同一次运行里
-     * 本来就是交错发出去的,并回来才是用户看到的先后。
-     */
-    const unconsumed = [...mediaQueues].flatMap(([surface, queue]) => queue.slice(mediaCursors.get(surface) ?? 0))
-      .sort((a, b) => (a.startedAt - b.startedAt) || ((a.sequence ?? 0) - (b.sequence ?? 0)));
+  /*
+   * 认不出是哪次调用做的任务:轮询先于事件到达(ACP 的 terminal `tool_use` 要等命令退出
+   * 才发),或者几条命令同时在跑、输出里又没点名。它们落在当前位置(通常是进行中的 todo),
+   * 状态照实画:做完的就是做完了。轮次结束之后也照样画 —— 否则那几张图在执行记录里凭空消失。
+   *
+   * 一旦有证据(事件到了、输出点了名),任务就归那次调用,这里自然取不到,不会画两遍。
+   */
+  if (mediaOwners.unowned.length > 0) {
+    ensureShell();
+    stopThinking(activeShell());
+    openText = null;
     /*
      * 一次「生成配套插图」是**一批**,不是 N 件事(OPEND-2195)。分组是 daemon 给的
      * (`batchId`:同 runId + 同 surface + 生命周期有重叠),前端只照着画。
      * 没有 `batchId` 说明生产方没分组 —— 当成一批一个,**不拿时间去猜**。
      */
-    const activeBatches = groupMediaBatches(unconsumed)
-      .filter((group) => group.some((task) => task.status === 'queued' || task.status === 'running'));
-    if (activeBatches.length > 0) {
-      ensureShell();
-      const shell = activeShell();
-      stopThinking(shell);
-      openText = null;
-      for (const group of activeBatches) {
-        for (const task of group) stamp(task.startedAt);
-        sink().push(pendingMediaBatchRow(group, liveEndMs));
-      }
+    for (const group of groupMediaBatches(mediaOwners.unowned)) {
+      for (const task of group) stamp(task.startedAt);
+      const head = group[0]!;
+      sink().push(mediaTaskRow({
+        id: head.batchId != null ? `media-batch:${head.batchId}` : `media-task:${head.taskId}`,
+        tasks: group,
+        runTasks: mediaTasks,
+        declaredTotal: 0,
+        settled: false,
+        liveEndMs,
+      }));
     }
-    ensureShell();
   }
+  if (turnIsLive) ensureShell();
   finishTurn();
   /*
    * 空壳不留(B47):跑完之后壳里一件东西都没有,那一行孤零零的「已完成」
@@ -1904,70 +1908,10 @@ function relayoutTodoRows(shell: ExecutionShell, order: readonly TodoSegment[]):
 
 /* ── 生图行(组件 12)─────────────────────────────────────────── */
 
-/** 查用法不算生图 */
-function mediaGenerateCount(command: string): number {
-  return (command.match(/media\s+generate/g) ?? []).length;
-}
-
 export { isMediaGenerateCommand };
 
-/**
- * 这一批生成的是哪一类媒体(OPEND-2625)—— **两个证人,按可信度排队**。
- *
- * 1. `task.surface`:daemon 亲自落盘的那一格(`media_tasks`),
- *    `/api/projects/:id/media/tasks` 逐字回传(`routes/media.ts:1278`)。
- *    这是唯一权威 —— 它说的是这次生成**实际**打给了哪条渲染路。
- * 2. 命令行上的 `--surface`:任务还没轮询到时的第二证人。这个 flag 是
- *    **必填**的(`cli.ts:1838-1840` 拒收缺失或非法值),所以一次真正的
- *    `pixo media generate` 一定带着它。
- *
- * 两个都没有才落到 `'image'`。这不是猜:走到这里意味着命令既是
- * `media generate` 又没有 `--surface`,而那样的命令 CLI 根本不会执行 ——
- * 也就没有任务、没有结果、这一行本来就画不出内容。留一个确定值只是为了
- * 不让类型多出一档 `null` 传染到渲染层。
- *
- * ⚠️ **不许从文件后缀反推**:进行中的格子还没有文件,而进行中恰恰是用户最需要
- * 知道「在生成什么」的那一档。
- */
-const MEDIA_SURFACE_FLAG_RE = /--surface[=\s]+(image|video|audio|model3d)\b/;
-
-function readMediaSurface(tasks: readonly ProjectMediaTask[], command: string): MediaSurface {
-  for (const task of tasks) {
-    const declared = task.surface;
-    if (declared === 'image' || declared === 'video' || declared === 'audio' || declared === 'model3d') return declared;
-  }
-  const flagged = MEDIA_SURFACE_FLAG_RE.exec(command)?.[1];
-  if (flagged === 'image' || flagged === 'video' || flagged === 'audio' || flagged === 'model3d') return flagged;
-  return 'image';
-}
-
-/**
- * 这次调用消费掉哪几条任务。
- *
- * 有 `batchId` 时**批就是边界**:一次「生成配套插图」在 daemon 那边已经分好组了,
- * 前端再拿命令行里数出来的次数去切,只会把同一批切成两半(命令写一次 `--count 3`
- * 就是最常见的一种)。没有 `batchId` 才退回按次数切 —— 那是没分组的生产方,
- * 行为和以前逐字一致。
- */
-function takeMediaBatch(
-  tasks: ProjectMediaTask[],
-  cursor: number,
-  count: number,
-): { slice: ProjectMediaTask[]; next: number } {
-  if (count <= 0) return { slice: [], next: cursor };
-  const first = tasks[cursor];
-  if (!first) return { slice: [], next: cursor };
-  const batchId = first.batchId;
-  if (batchId == null) {
-    return { slice: tasks.slice(cursor, cursor + count), next: Math.min(tasks.length, cursor + count) };
-  }
-  let end = cursor;
-  while (end < tasks.length && tasks[end]?.batchId === batchId) end += 1;
-  return { slice: tasks.slice(cursor, end), next: end };
-}
-
 /** 按 `batchId` 归组,保持首次出现的顺序;没有 `batchId` 的各自成组(一批一个) */
-function groupMediaBatches(tasks: ProjectMediaTask[]): ProjectMediaTask[][] {
+function groupMediaBatches(tasks: readonly ProjectMediaTask[]): ProjectMediaTask[][] {
   const groups: ProjectMediaTask[][] = [];
   const byBatch = new Map<string, ProjectMediaTask[]>();
   for (const task of tasks) {
@@ -1987,7 +1931,7 @@ function groupMediaBatches(tasks: ProjectMediaTask[]): ProjectMediaTask[][] {
  * `batchSize` 只涨不退(批关掉就冻结),所以拿它当分母,进度条不会往回走。
  * 生产方没报 `batchSize` 时才退回 `fallback` —— 老数据和不分组的生产方照旧。
  */
-function mediaBatchTotal(tasks: ProjectMediaTask[], fallback: number): number {
+function mediaBatchTotal(tasks: readonly ProjectMediaTask[], fallback: number): number {
   let declared = 0;
   for (const task of tasks) {
     if (typeof task.batchSize === 'number' && task.batchSize > declared) declared = task.batchSize;
@@ -2004,7 +1948,7 @@ function mediaBatchTotal(tasks: ProjectMediaTask[], fallback: number): number {
  * **要么全按 `batchIndex`,要么全按到达顺序**:只有一半任务报了位置时,混着排会把
  * 另一半悄悄挪位。宁可整批退回到达顺序 —— 那是可预期的,错位不是。
  */
-function mediaCellSlots(tasks: ProjectMediaTask[], total: number): number[] {
+function mediaCellSlots(tasks: readonly ProjectMediaTask[], total: number): number[] {
   const slots = tasks.map((task) => {
     const at = task.batchIndex;
     return typeof at === 'number' && Number.isInteger(at) && at >= 1 && at <= total ? at - 1 : -1;
@@ -2014,43 +1958,107 @@ function mediaCellSlots(tasks: ProjectMediaTask[], total: number): number[] {
 }
 
 /**
- * 轮询先于 terminal `tool_use` 到达时的一批 —— 一行,`batchSize` 个格子。
+ * 一行摆几个格子、每条任务落在第几格。
  *
- * 耗时从**这一批最早那个任务**算到轮次的实时终点(`liveEndMs`)。原来这里写死
- * `elapsedMs: null`,于是一批图生成的那几分钟里这一行上一个数字都没有 ——
- * 而生图是最慢的一类动作。产品 2026-09-03 口述:「工具调用最好都有显示的逐渐
- * 增长的计时,**尽可能所有都有**,包括 thinking,这样用户能感受到当前哪里卡住了」,
- * 把 2026-09-02 那次裁决(当时只覆盖思考中 / 工具行 / 步骤行)的范围补到了这一档。
- *
- * 起点取 `min(startedAt)` 而不是 `head.startedAt`:一批是一件事,从第一张开始算。
- * 门槛仍是 `spanElapsed` 里的 `UNKNOWN_ELAPSED_BELOW_MS` —— 不到 100ms 一律当
- * 「不知道」,不显示也不估算(界面上出过「0.0s」,§2.2b)。
+ * 这几条任务**正好是 daemon 的一整批**时,照批的坐标画:总数取 `batchSize`,
+ * 格子按 `batchIndex` 就位。只是一批里的一部分时(B6:两个脚本并行,daemon 把它们的
+ * 任务分进同一批,每个脚本只做了其中几张),批的坐标说的是别人的事 —— 总数就是这几条,
+ * 按创建顺序排。
  */
-function pendingMediaBatchRow(group: ProjectMediaTask[], liveEndMs: number | null): ImageRow {
-  const head = group[0]!;
-  const total = mediaBatchTotal(group, 1);
-  const slots = mediaCellSlots(group, total);
-  const cells: NonNullable<ImageRow['cells']> = Array.from({ length: total }, () => ({ status: 'pending' as const }));
-  group.forEach((task, i) => {
+function mediaCellLayout(
+  tasks: readonly ProjectMediaTask[],
+  runTasks: readonly ProjectMediaTask[],
+  declaredTotal: number,
+): { total: number; slots: number[] } {
+  const batchId = tasks[0]?.batchId;
+  const ids = new Set(tasks.map((task) => task.taskId));
+  const wholeBatch = batchId != null
+    && tasks.every((task) => task.batchId === batchId)
+    && runTasks.every((task) => task.batchId !== batchId || ids.has(task.taskId));
+  if (wholeBatch) {
+    const total = mediaBatchTotal(tasks, declaredTotal);
+    return { total, slots: mediaCellSlots(tasks, total) };
+  }
+  return { total: Math.max(1, declaredTotal, tasks.length), slots: tasks.map((_, i) => i) };
+}
+
+/**
+ * 一组媒体任务画成一行 —— 每一格照任务**自己的状态**画:done 是 done(带它的文件),
+ * failed / interrupted 是失败,其余是进行中。
+ *
+ * ⚠️ 轮询兜底那一行原来把每一格都写死成进行中(`done: 0`),理由是「任务还没被事件认领」。
+ * 可「还没被认领」不等于「还没做完」:agent 自己的批量脚本做的任务永远不会被一条
+ * `media generate` 认领,于是 daemon 报了几十张 done,那一行仍是「0/33」33 格在转(B6)。
+ *
+ * 还没到的格子(`batchSize` 已经涨上来、任务还没轮询到):命令还没回来就先空着;
+ * `settled`(命令都回来了)还空着,说明那几张压根没被创建出来 —— 收敛成失败,不能永远转下去。
+ *
+ * 耗时从**这一组最早那个任务**算起:都结束了是结算值,还在跑就算到实时终点(`liveEndMs`,
+ * 产品 2026-09-03:「工具调用最好都有显示的逐渐增长的计时,尽可能所有都有」)。门槛仍是
+ * `UNKNOWN_ELAPSED_BELOW_MS` —— 不到 100ms 一律当「不知道」(界面上出过「0.0s」,§2.2b)。
+ */
+function mediaTaskRow(args: {
+  id: string;
+  tasks: readonly ProjectMediaTask[];
+  runTasks: readonly ProjectMediaTask[];
+  /** 命令行里数出来的张数;不是生成命令时为 0 */
+  declaredTotal: number;
+  settled: boolean;
+  command?: string;
+  liveEndMs: number | null;
+}): ImageRow {
+  const { tasks } = args;
+  const { total, slots } = mediaCellLayout(tasks, args.runTasks, args.declaredTotal);
+  let done = 0;
+  let failed = 0;
+  const cells: NonNullable<ImageRow['cells']> = new Array(total);
+  tasks.forEach((task, i) => {
     const slot = slots[i];
-    if (slot != null && slot < total) cells[slot] = { taskId: task.taskId, status: 'pending' };
+    if (slot == null || slot >= total) return;
+    const path = task.file?.name?.trim();
+    if (task.status === 'done') {
+      done += 1;
+      cells[slot] = { taskId: task.taskId, status: 'done' as const, ...(path ? { path } : {}) };
+    } else if (task.status === 'failed' || task.status === 'interrupted') {
+      failed += 1;
+      cells[slot] = { taskId: task.taskId, status: 'failed' as const };
+    } else {
+      cells[slot] = { taskId: task.taskId, status: 'pending' as const };
+    }
   });
+  for (let i = 0; i < total; i += 1) {
+    if (cells[i]) continue;
+    if (args.settled) {
+      failed += 1;
+      cells[i] = { status: 'failed' };
+    } else {
+      cells[i] = { status: 'pending' };
+    }
+  }
+  // 缩略图条按**格子顺序**取,和大格形态里那一排指向同一张图
+  const thumbs = cells.flatMap((cell) => (cell.status === 'done' && cell.path ? [cell.path] : []));
+  const pending = cells.some((cell) => cell.status === 'pending');
+  const startedAt = mediaBatchStartedAt(tasks);
+  const ends = tasks.map((task) => task.endedAt).filter((at): at is number => at != null);
+  const elapsedMs = pending
+    ? spanElapsed(startedAt, args.liveEndMs)
+    : spanElapsed(startedAt, ends.length === tasks.length && ends.length > 0 ? Math.max(...ends) : null);
   return {
     kind: 'image',
-    id: head.batchId != null ? `media-batch:${head.batchId}` : `media-task:${head.taskId}`,
-    surface: readMediaSurface(group, ''),
+    id: args.id,
+    surface: readMediaSurface(tasks, args.command ?? ''),
     total,
-    done: 0,
-    failed: 0,
-    thumbs: [],
+    done,
+    failed,
+    thumbs,
     cells,
-    pending: true,
-    elapsedMs: spanElapsed(mediaBatchStartedAt(group), liveEndMs),
+    pending,
+    elapsedMs,
   };
 }
 
 /** 一批生图的起点 —— 最早那个任务开工的时刻;一个都算不出来就是 `null`。 */
-function mediaBatchStartedAt(tasks: ProjectMediaTask[]): number | null {
+function mediaBatchStartedAt(tasks: readonly ProjectMediaTask[]): number | null {
   const starts = tasks
     .map((task) => task.startedAt)
     .filter((at): at is number => typeof at === 'number');
@@ -2068,9 +2076,11 @@ function mediaBatchStartedAt(tasks: ProjectMediaTask[]): number | null {
 function readImageCall(
   event: Extract<PersistedAgentEvent, { kind: 'tool_use' }>,
   result: Extract<PersistedAgentEvent, { kind: 'tool_result' }> | undefined,
-  tasks: ProjectMediaTask[] = [],
+  tasks: readonly ProjectMediaTask[] = [],
   waitOutcomes: ReadonlyMap<string, MediaJobOutcome> = new Map(),
   turnIsLive = false,
+  /** 这一轮全部的媒体任务 —— 判断 `tasks` 是不是 daemon 的一整批(`mediaCellLayout`) */
+  runTasks: readonly ProjectMediaTask[] = tasks,
 ): ImageRow | null {
   if (!isCommandTool(event.name)) return null;
   const command = commandOf(event.input);
@@ -2079,70 +2089,28 @@ function readImageCall(
   if (isArtBudgetStop(result?.content)) return null;
 
   /*
-   * 这一行摆几个格子。
-   *
-   * 权威是这一批自己报的 `batchSize`(N/M 里的 M)—— daemon 按「同 runId + 同 surface
-   * + 生命周期有重叠」分好了组,它知道这一批到底有几张。命令行里数出来的
-   * `media generate` 次数只是**没有分组信息时**的兜底:一条 `--count 3` 只写一次
-   * generate,数命令行会说 1;而三张图确实在跑。
+   * 有任务时任务是真相,格子数与位置由 `mediaCellLayout` 定:这次调用拿的正好是 daemon
+   * 的一整批时,权威是那一批的 `batchSize`(N/M 里的 M)—— 一条 `--count 3` 只写一次
+   * generate,数命令行会说 1,而三张图确实在跑。命令行里数出来的次数只是兜底。
+   * 实时耗时由调用方在合并之后补(见主循环),这里只给结算值。
    */
+  if (tasks.length > 0) {
+    return mediaTaskRow({
+      id: event.id,
+      tasks,
+      runTasks,
+      declaredTotal: mediaGenerateCount(command),
+      settled: result != null,
+      command,
+      liveEndMs: null,
+    });
+  }
+
   const total = mediaBatchTotal(tasks, mediaGenerateCount(command));
   let done = 0;
   let failed = 0;
   const thumbs: string[] = [];
   let replayCells: ImageRow['cells'];
-
-  if (tasks.length > 0) {
-    const slots = mediaCellSlots(tasks, total);
-    const cells: NonNullable<ImageRow['cells']> = new Array(total);
-    tasks.forEach((task, i) => {
-      const slot = slots[i];
-      if (slot == null || slot >= total) return;
-      const path = task.file?.name?.trim();
-      if (task.status === 'done') {
-        done += 1;
-        cells[slot] = { taskId: task.taskId, status: 'done' as const, ...(path ? { path } : {}) };
-        return;
-      }
-      if (task.status === 'failed' || task.status === 'interrupted') {
-        failed += 1;
-        cells[slot] = { taskId: task.taskId, status: 'failed' as const };
-        return;
-      }
-      cells[slot] = { taskId: task.taskId, status: 'pending' as const };
-    });
-    // 批还开着(`batchSize` 已经涨上来但任务还没到)的格子先空着;命令都回来了还空着的,
-    // 说明那几张压根没被创建出来 —— 收敛成失败,不能永远转下去。
-    for (let i = 0; i < total; i += 1) {
-      if (cells[i]) continue;
-      if (result) {
-        failed += 1;
-        cells[i] = { status: 'failed' };
-      } else {
-        cells[i] = { status: 'pending' };
-      }
-    }
-    // 缩略图条按**格子顺序**取,和大格形态里那一排指向同一张图
-    for (const cell of cells) if (cell?.status === 'done' && cell.path) thumbs.push(cell.path);
-
-    const startedAt = Math.min(...tasks.map((task) => task.startedAt));
-    const terminalEnds = tasks.map((task) => task.endedAt).filter((at): at is number => at != null);
-    const elapsedMs = terminalEnds.length === tasks.length
-      ? Math.max(...terminalEnds) - startedAt
-      : null;
-    return {
-      kind: 'image',
-      id: event.id,
-      surface: readMediaSurface(tasks, command),
-      total,
-      done,
-      failed,
-      thumbs,
-      cells,
-      pending: cells.some((cell) => cell.status === 'pending'),
-      elapsedMs: elapsedMs != null && elapsedMs >= UNKNOWN_ELAPSED_BELOW_MS ? elapsedMs : null,
-    };
-  }
 
   let handedOff = false;
   if (result?.content) {

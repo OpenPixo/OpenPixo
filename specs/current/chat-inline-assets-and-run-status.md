@@ -25,8 +25,16 @@
    - 命令工具(`Bash` / `PowerShell` / `shell` …,见 `tool-kind.ts` 的 `isCommandTool`)的 `command`
      含 `media generate`,且不含 `--help`(`isMediaGenerateCommand`,已导出,唯一出处);
    - daemon 媒体任务(`GET /api/projects/:id/media/tasks`,`runId` 等于这一轮)优先:
-     `task.file.name` 是格子的路径,`batchId` / `batchIndex` / `batchSize` 决定格子数和位置,
-     `surface` 决定是不是图片;
+     `task.file.name` 是格子的路径,`task.status` 是格子的状态,`surface` 决定是不是图片;
+     一次调用拿的正好是一整批时 `batchId` / `batchIndex` / `batchSize` 决定格子数和位置,
+     只拿了一批里的几条时格子数就是那几条;
+   - 任务归哪次调用(`media-task-owners.ts`,2026-11-19 B6):① 输出(结算的,或还在跑时那一段)
+     点了任务 id 或已完成任务的文件路径、且任务在它活着时创建;② 按顺序分给写着 `media generate`、
+     输出还没点名的调用(只取不早于它开始的任务);③ 任务创建时**唯一**在跑的那条命令。
+     agent 自己写的批量脚本(脚本里才调 `pixo media generate`)因此也算:命令行照常留着,
+     紧跟一行生图行逐格亮起;
+   - 认不出主人的任务(轮询先于事件,或几条命令同时在跑又没点名)落在当前位置的兜底行,
+     同样按任务状态画,做完的格子也进缩略图;轮次结束后照样在;
    - 没有任务时读工具结果的**逐行 JSON**:`status` 为 `done|succeeded|completed|ok` 的行算一张,
      路径依次取 `file.name`、`path`、`file`、`outputPath`、`url`;
    - 结果是交棒行(`{"taskId":…,"status":"running",…}`)时读这一轮 `media wait` 等到的结局:
