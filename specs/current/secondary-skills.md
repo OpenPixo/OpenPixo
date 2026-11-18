@@ -1,6 +1,6 @@
 # Secondary skills (sub-skills)
 
-Status: option (a) shipped as content (2026-11-18). Option (b-lite) is the recommended next step and is not built.
+Status: option (a) shipped as content (2026-11-18). Option (b-lite), the chat label, shipped the same day; see "Shipped: the chat label" below.
 
 ## Problem
 
@@ -104,6 +104,14 @@ A sub-skill inherits its parent's `pixo.engines`: if the parent is out of a proj
 ## Text-only providers
 
 A `plain` provider receives enabled workflows inline and is told companion files are unavailable. Sub-skills do not reach it. The routing table rides along in the parent's body (about 1 KB per parent within the 32 KiB budget) and names files it cannot read; the existing note tells it to ask for missing instructions. Default skills, where most parents come from, never reach text-only providers.
+
+## Shipped: the chat label
+
+- `listSkills` (`apps/daemon/src/skills.ts`) reads each `references/*.md` whose frontmatter has `en_name` and returns it as `subSkills: [{ id, file, displayName }]` on the skill (`SkillSubSkill` in `packages/contracts/src/api/registry.ts`). Parses share SKILL.md's mtime-keyed cache. Unnamed side files are left out.
+- Nothing in prompt composition reads `subSkills`. A test composes the index and the text-only fallback with and without the field and requires identical bytes, and pins a fixture's index to `renderProjectSkillIndex` of the five index fields alone.
+- `skillNamesIn` (`runtime/chat/host-calls.ts`) maps a read of `.pixo-skills/<skill>-<hash>/references/<topic>.md` to `<skill>/<topic>`, for the Read tool and for shell reads alike. `turnSkillIds` folds the parent into its sub-skills, so the line says "游戏 HUD › 血条" rather than both.
+- `SkillNames.tsx` labels `<skill>/<topic>` with `chat.turnSkills.subSkill` ("{skill} › {subSkill}") in the interface language. A side file the catalogue does not name shows as its parent. The execution record's "Used skill" rows use the same labels.
+- The id comes from the persisted event's path alone, so a restored conversation shows the same label as the live one; a test compares the live in-flight event sequence with its JSON round trip.
 
 ## Verification
 

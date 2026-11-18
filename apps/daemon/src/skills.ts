@@ -11,7 +11,7 @@ import type { Dirent } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type Database from "better-sqlite3";
-import { PluginExampleSchema, renderProjectSkillIndex, type PluginExample, type ProjectSkillIndexEntry } from '@openpixo/contracts';
+import { PluginExampleSchema, renderProjectSkillIndex, type PluginExample, type ProjectSkillIndexEntry, type SkillSubSkill } from '@openpixo/contracts';
 import { parseFrontmatter } from "./services/frontmatter.js";
 import { skillCwdAliasSegment, SKILLS_CWD_ALIAS } from "./cwd-aliases.js";
 
@@ -88,6 +88,9 @@ export interface SkillInfo {
   examplePromptI18n?: Record<string, string>;
   examples?: PluginExample[];
   aggregatesExamples: boolean;
+  // Named `references/*.md` side files, for the chat's "<skill> › <sub-skill>"
+  // label. Display data only: prompt composition never reads it.
+  subSkills?: SkillSubSkill[];
   body: string;
   dir: string;
 }
@@ -251,6 +254,36 @@ async function readSkillDocument(
   return { data: structuredClone(cached.data), body: cached.body };
 }
 
+/**
+ * The sub-skills a skill ships: `references/<id>.md` files whose frontmatter names
+ * them (`en_name`, optional `zh_name`), sorted by id. A side file without a name is
+ * an ordinary companion file and is left out. Parses go through the same
+ * mtime-keyed cache as SKILL.md, so a rescan costs one stat per file.
+ */
+async function readSubSkills(dir: string): Promise<SkillSubSkill[]> {
+  let entries: Dirent[];
+  try {
+    entries = await readdir(path.join(dir, "references"), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const out: SkillSubSkill[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^[A-Za-z0-9._-]+\.md$/.test(entry.name)) continue;
+    const file = path.join(dir, "references", entry.name);
+    try {
+      const { data } = await readSkillDocument(file, await stat(file));
+      const fields = asSkillFrontmatter(data);
+      const displayName = localizedMapFromFields(fields.en_name, fields.zh_name);
+      if (!displayName?.en) continue;
+      out.push({ id: entry.name.slice(0, -3), file: `references/${entry.name}`, displayName });
+    } catch {
+      // An unreadable side file names nothing; the skill itself still lists.
+    }
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+
 // Accept either a single root path or an array. When given multiple roots,
 // the first one wins on id collisions so user-imported skills under
 // USER_SKILLS_DIR can shadow a built-in skill of the same name without
@@ -335,6 +368,7 @@ export async function listSkills(
         // system-prompt composition and id alias lookups.
         const derivedExamples = await collectDerivedExamples(dir);
         const aggregatesExamples = derivedExamples.length > 0;
+        const subSkills = await readSubSkills(dir);
         out.push({
           id: parentId,
           name: parentId,
@@ -364,6 +398,7 @@ export async function listSkills(
           ...(examplePromptI18n ? { examplePromptI18n } : {}),
           ...(examples ? { examples } : {}),
           aggregatesExamples,
+          ...(subSkills.length > 0 ? { subSkills } : {}),
           body: parentBody,
           dir,
         });

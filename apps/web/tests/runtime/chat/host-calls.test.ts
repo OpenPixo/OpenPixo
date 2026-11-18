@@ -126,6 +126,17 @@ describe('hostActionOf · 只认能证明是 OpenPixo CLI 的写法', () => {
     expect(hostActionOf(command)).toEqual({ kind: 'skill', names: ['level-design-tilemap'] });
   });
 
+  it.each([
+    [String.raw`Get-Content -Raw -Encoding utf8 '.pixo-skills\game-ui-hud-0123456789\references\health-bars.md'`],
+    ['cat .pixo-skills/game-ui-hud-0123456789/references/health-bars.md'],
+  ])('读技能的子技能文件也是「使用技能」,名字是「父技能/子技能」:%s', (command) => {
+    expect(hostActionOf(command)).toEqual({ kind: 'skill', names: ['game-ui-hud/health-bars'] });
+  });
+
+  it('技能目录里别的附带文件不算用了技能', () => {
+    expect(hostActionOf('cat .pixo-skills/game-ui-hud-0123456789/assets/frame.png')).toBeNull();
+  });
+
   it('godot 不带 --script 时不是测试', () => {
     expect(hostActionOf('godot --version')).toBeNull();
   });

@@ -45,7 +45,7 @@ import type { HostAction } from '../../../runtime/chat/host-calls';
 import { isPlainSearchTerm, plainCommandWords, plainSearchToolWords } from '../../../runtime/chat/plain-command';
 import { openableRecordFilePath, recordFileDisplayPath, type RecordFileScope } from '../../../runtime/chat/record-file-open';
 import { languageOfPath, previewCopyText, previewLines } from '../../../runtime/chat/tool-preview';
-import { useSkillName } from '../SkillNames';
+import { useSkillNames } from '../SkillNames';
 import { CodeView } from './CodeView';
 import { CommandBody } from './CommandBody';
 import { FileButton } from './FileButton';
@@ -92,7 +92,7 @@ export function ToolRow({
   running = false,
 }: ToolRowProps): ReactElement {
   const t = useT();
-  const skillName = useSkillName();
+  const skillNames = useSkillNames();
   const elapsed = formatElapsed(row.elapsedMs);
   /*
    * 行首那一格。没回来的调用换成状态标记 —— 轮次还在跑是转着的球,轮次停了退成
@@ -190,7 +190,7 @@ export function ToolRow({
   if (row.action && row.command) {
     return (
       <Foldable
-        summary={<>{icon}<span className={styles.name}>{actionLabel(row.action, t, skillName)}</span>{failButton}</>}
+        summary={<>{icon}<span className={styles.name}>{actionLabel(row.action, t, skillNames)}</span>{failButton}</>}
         elapsed={elapsed ?? (row.pending ? '' : undefined)}
         lifecycleOpen={lifecycleOpen}
         deferBody={deferBody}
@@ -458,12 +458,12 @@ function FilePreview({ row, scope, onOpen }: { row: ToolRowData; scope: RecordFi
 type Translate = ReturnType<typeof useT>;
 
 /** 「验证游戏 · 检查、构建」「使用技能 · godot-gdscript」「运行测试 · dash_test.gd」 */
-function actionLabel(action: HostAction, t: Translate, skillName: (id: string) => string): string {
+function actionLabel(action: HostAction, t: Translate, skillNames: (ids: readonly string[]) => string[]): string {
   const join = (parts: string[]): string => parts.join(t('chat.record.listJoin'));
   const [verb, detail] = action.kind === 'verify'
     ? [t('chat.record.action.verify'), join(action.steps.map((step) => t(`gameVerify.step.${step}`)))]
     : action.kind === 'skill'
-      ? [t('chat.record.action.skill'), join(action.names.map(skillName))]
+      ? [t('chat.record.action.skill'), join(skillNames(action.names))]
       : [t('chat.record.action.test'), action.script];
   return detail ? `${verb} · ${detail}` : verb;
 }

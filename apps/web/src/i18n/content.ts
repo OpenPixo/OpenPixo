@@ -1,3 +1,4 @@
+import type { SkillSubSkill } from '@openpixo/contracts';
 import type {
   PromptTemplateSummary,
   SkillSummary,
@@ -54,6 +55,10 @@ function localizedRecordValue(
 
 export function localizeSkillName(locale: Locale, skill: SkillSummary): string {
   return localizedRecordValue(locale, skill.displayName) ?? skill.name;
+}
+
+export function localizeSubSkillName(locale: Locale, subSkill: SkillSubSkill): string {
+  return localizedRecordValue(locale, subSkill.displayName) ?? subSkill.id;
 }
 
 export function localizeSkillPrompt(locale: Locale, skill: SkillSummary): string | undefined {
