@@ -1,5 +1,31 @@
 # Changelog
 
+## OpenPixo 1.0.8
+
+- **Game hub** in the left bar, after the Workshop: every game you shared in one place, how often it was played this month, and who played together. Copy the link, play it, or open the game from its card; the monthly limit for playing together, the link and **Stop sharing** sit under **Settings**. Links whose project you deleted, or that you published from another computer, show here too, so you can free their slot. `pixo publish list` shows the same.
+- Multiplayer rooms hold up to 20 players instead of 8. Testing two windows on your computer with `pixo rooms test` allows 20 as well.
+- **New game** on My games opens the same game setup as the button in the sidebar.
+- The AI picks focused design guides (sub-skills) for jobs like level pacing or enemy design, and the chat names them as "skill › sub-skill".
+- An art style preset never brings its own look into a game that already has one, and walk and idle animations take the character's look from your picture.
+- The Phaser starter game fills a 1280×720 window.
+- A new game that has not been planned yet says in its empty chat that planning comes first, and the game area says the game is starting instead of "not running".
+- Usage counts you agreed to share are now actually sent; 1.0.7 left them off.
+- Fixes: the narrow chat box shows icons instead of one-letter labels, Settings says an AI needs sign-in as the first-run screens do, the first-run model picker names the default in your language, and the app no longer checks the game's run status every 1.5 seconds while nothing runs.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- 左侧栏工坊后面新增「游戏管理」：你分享出去的游戏都在这里，能看到这个月被玩了多少次、有没有人一起玩。在卡片上可以复制链接、去玩一下或打开游戏；联机每月最多花多少积分、游戏链接和「停止分享」放在「设置」里。项目已经删掉、或在另一台电脑上发布的链接也会显示，方便你停止分享、腾出名额。`pixo publish list` 显示同样的内容。
+- 联机房间最多可以 20 人，原来是 8 人。用 `pixo rooms test` 在本机开两个窗口测试时也一样是 20 人。
+- 「我的游戏」里的「新建游戏」现在打开和侧栏按钮一样的游戏设置。
+- AI 会为关卡节奏、敌人设计这类具体工作挑选更聚焦的设计指南（子技能），对话里显示为「技能 › 子技能」。
+- 画风预设不会把自己的画风带进已经定好画风的游戏；行走和待机动画按你的图片里角色的样子来做。
+- Phaser 起步游戏按 1280×720 的窗口来画。
+- 还没规划的新游戏，空对话里会说明要先规划；游戏区域在启动时显示「正在启动」，不再显示「没有运行」。
+- 你同意分享的统计计数现在会真正发送；1.0.7 里它没有打开。
+- 修复：窄的输入框显示图标而不是单个字母，设置里和首次使用一样说明 AI 需要登录，首次使用的模型选择用你的语言写默认项，没有游戏在运行时不再每 1.5 秒查询一次运行状态。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.7
 
 - Build each stage of a new game in a fresh conversation: approve the plan with **Approve and start in a new conversation**, or continue the next stage from the line under a stage reply. The new conversation keeps the plan and the project notes and sends far less each turn.
