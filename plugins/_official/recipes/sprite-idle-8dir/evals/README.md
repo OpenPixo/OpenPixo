@@ -2,6 +2,8 @@
 
 Status: pending (0.1.0). A hand-run trial of the method passed, but no run of this recipe through `pixo recipe run` has been recorded. Record one before marking it passed.
 
+**Not yet re-run (2026-11-18):** the prompt no longer says "cartoon character", only "character", so the source picture alone sets the look (a recipe should not bring a style of its own). Nothing else changed. Re-run one clip from an accepted sheet and judge every direction by eye before recording this version as passed.
+
 ## Trial of the method (2026-11-15, by hand, not through the recipe)
 
 - **Clip:** the walk trial's standing-pose sheet, as both start and end frame. Media gateway `minimax/h3-max-turbo/image-to-video`, 768p, prompt expansion `disabled`, **1.5 s**, with this recipe's prompt.
