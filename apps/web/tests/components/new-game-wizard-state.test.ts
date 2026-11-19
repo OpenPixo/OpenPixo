@@ -186,6 +186,25 @@ describe('starters', () => {
     expect(recommendedStarter({ ...base(), stores: ['steam'] }, templates, ready)).toBe('godot4-2d');
   });
 
+  it('offers a genre kit only for its genre, and recommends it when its engine runs here', () => {
+    const kit: GameTemplateSummary = { ...template('godot4-story', 'Godot 4 story kit · 2D', 'godot'), genres: ['visual-novel'] };
+    const withKit = [...templates, kit];
+    const ready = [engine('godot', true), engine('phaser', true)];
+    const ids = (genre: WizardDraft['genre'], beginner = false) =>
+      startersFor({ perspective: 'side-2d', templateId: '', genre }, withKit, beginner).map(item => item.id);
+    expect(ids('platformer')).toEqual(['godot4-2d', 'phaser3-vite']);
+    expect(ids('')).toEqual(['godot4-2d', 'phaser3-vite']);
+    expect(ids('visual-novel')).toEqual(['godot4-2d', 'phaser3-vite', 'godot4-story']);
+    // A first-timer may start from a 2D Godot kit too.
+    expect(ids('visual-novel', true)).toEqual(['godot4-2d', 'phaser3-vite', 'godot4-story']);
+    // A kit chosen for one genre is not kept after the genre changes.
+    expect(startersFor({ perspective: 'side-2d', templateId: 'godot4-story', genre: 'platformer' }, withKit).map(item => item.id)).not.toContain('godot4-story');
+    expect(recommendedStarter({ ...base(), genre: 'visual-novel' }, withKit, ready)).toBe('godot4-story');
+    expect(recommendedStarter({ ...base(), genre: 'platformer' }, withKit, ready)).toBe('phaser3-vite');
+    // Without Godot here, the web starter that runs wins over the kit.
+    expect(recommendedStarter({ ...base(), genre: 'visual-novel' }, withKit, [engine('godot', false), engine('phaser', true)])).toBe('phaser3-vite');
+  });
+
   it('does not recommend an engine this computer cannot run when another one fits', () => {
     const steam = { ...base(), scope: 'long' as const, steamLater: true };
     expect(recommendedStarter(steam, templates, [engine('godot', false), engine('phaser', true)])).toBe('phaser3-vite');

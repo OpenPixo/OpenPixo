@@ -258,7 +258,9 @@ After approval the block says to build one stage per turn: start with the stage 
 that stage, verify it, say exactly how to try it, end with a `<question-form>` to go on or change
 something, and never start the next stage before the user says so. Before generating art it lists
 what it will make (and the credits, when budget-paid) and waits for the user's OK. The starters
-follow while no engine exists. The status and the recorded plan are stable inputs attributed to
+follow while no engine exists; a starter whose `template.json` lists `genres` is labelled as a kit
+for them, and the agent is told to begin from it when it fits. The block also says to read a root
+`README.md` before the first change, because starters and kits map what they already have there. The status and the recorded plan are stable inputs attributed to
 the `project` section, so approval resends the instructions to a resumed session.
 
 A build conversation grows to 160-230k tokens by the later stages and every request re-sends it, so

@@ -7,6 +7,11 @@ metadata and is not copied. Templates never include dependencies or build output
 Optional `nameZhCN` and `descriptionZhCN` fields provide Simplified Chinese catalog
 copy; `name` and `description` remain the English fallback for API and CLI clients.
 
+An optional `genres` array marks the template as a kit: a starter that already has
+one genre's systems built. Its values are new-game genre preset ids (`visual-novel`);
+the setup dialog offers and recommends the kit only for those genres, and the agent's
+starter list labels it as a kit.
+
 An optional `<id>/cover.webp` (or `cover.png`) is the catalog cover: an original,
 in-game-style screenshot at 2:1, kept under about 250 KB. It sits beside `files/`,
 so it is never copied into projects. When present, `GET /api/game-templates`
@@ -42,6 +47,13 @@ identical in both starters, so change them together. Each starter's `README.md`
 explains how to extend it. `godot --headless --path . --import --quit` validates
 import for either. `--script` runs before autoloads exist, so `--check-only` works
 only on a script that does not name one, such as `game/player.gd`.
+
+`godot4-story` is the story kit, a visual novel built on `godot4-2d`: it shares that
+starter's menus, settings, saves and string table byte for byte and owns
+`project.godot`, `game/`, `story/`, `checks/`, `addons/`, its `README.md`, the
+rebindable actions in `autoload/settings.gd` and the story rows of
+`i18n/strings.csv`. A story is plain `.story` text per language; its README is the
+map, and `checks/story_check.gd` proves every label, translation and ending headless.
 
 Set `PIXO_TEST_GODOT` to a Godot executable to have the daemon's template tests play
 both starters in the real engine with real input events.

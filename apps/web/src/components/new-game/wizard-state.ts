@@ -260,19 +260,26 @@ export function templateDimension(template: GameTemplateSummary): '2d' | '3d' {
 /** Engines a first-timer is offered, each with a one-line plain explanation. */
 export const BEGINNER_ENGINES = ['phaser', 'godot'] as const;
 
+/** Whether a starter is a kit for the chosen genre: one that already has that genre's systems built. */
+export function isKitFor(template: GameTemplateSummary, genre: WizardDraft['genre'] | undefined): boolean {
+  return Boolean(genre && template.genres?.includes(genre));
+}
+
 /**
  * The starters that fit the chosen perspective. The sample is a finished game,
  * not a place to start, so it only appears when it is the current choice. A
- * first-timer sees only the 2D Phaser and Godot starters.
+ * kit (a starter with `genres`) appears only for its genres. A first-timer sees
+ * only the 2D Phaser and Godot starters.
  */
 export function startersFor(
-  draft: Pick<WizardDraft, 'perspective' | 'templateId'>,
+  draft: Pick<WizardDraft, 'perspective' | 'templateId'> & { genre?: WizardDraft['genre'] },
   templates: readonly GameTemplateSummary[],
   beginner = false,
 ): GameTemplateSummary[] {
   const dimension = perspectiveDimension(draft.perspective);
   return templates.filter(template => {
     if (template.id === SAMPLE_TEMPLATE_ID) return template.id === draft.templateId;
+    if (template.genres?.length && !isKitFor(template, draft.genre)) return false;
     if (beginner) return (BEGINNER_ENGINES as readonly string[]).includes(template.engine) && templateDimension(template) === '2d';
     return !dimension || dimension === 'both' || templateDimension(template) === dimension;
   });
@@ -284,20 +291,23 @@ function wantsNativeBuild(draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'sc
 }
 
 /**
- * The starter to recommend. A web engine (Phaser) runs here at once and is
- * the easiest to share as a link, so it comes first, unless a long project
- * means to reach Steam (or an older setup sells on a desktop store), which
- * favours native exports. Either way a starter this machine can run comes
- * before one it cannot.
+ * The starter to recommend. A kit for the chosen genre comes first when this
+ * machine can run it, because its genre's systems are already built. Then a web
+ * engine (Phaser), which runs here at once and is the easiest to share as a
+ * link, unless a long project means to reach Steam (or an older setup sells on
+ * a desktop store), which favours native exports. Either way a starter this
+ * machine can run comes before one it cannot.
  */
 export function recommendedStarter(
-  draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'scope' | 'perspective' | 'templateId'>,
+  draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'scope' | 'perspective' | 'templateId'> & { genre?: WizardDraft['genre'] },
   templates: readonly GameTemplateSummary[],
   engines: readonly GameEngineOption[] | undefined,
   beginner = false,
 ): string {
   const starters = startersFor(draft, templates, beginner).filter(template => template.id !== SAMPLE_TEMPLATE_ID);
   const runnable = (template: GameTemplateSummary) => engines?.find(engine => engine.engine === template.engine)?.available !== false;
+  const kit = starters.find(template => isKitFor(template, draft.genre) && runnable(template));
+  if (kit) return kit.id;
   const native = starters.find(template => template.engine === 'godot' && runnable(template));
   const web = starters.find(template => template.engine !== 'godot' && runnable(template));
   return (wantsNativeBuild(draft) ? native ?? web : web ?? native)?.id ?? starters[0]?.id ?? '';
@@ -336,7 +346,7 @@ export function engineInstallHelp(option: Pick<GameEngineOption, 'missingTools'>
 
 /** The starter to offer instead of one this computer cannot run: the recommended one when it runs here. */
 export function runnableAlternative(
-  draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'scope' | 'perspective' | 'templateId'>,
+  draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'scope' | 'perspective' | 'templateId'> & { genre?: WizardDraft['genre'] },
   templates: readonly GameTemplateSummary[],
   engines: readonly GameEngineOption[] | undefined,
   beginner = false,

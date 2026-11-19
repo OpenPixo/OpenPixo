@@ -281,6 +281,17 @@ describe('after approval, and for games that already exist', () => {
     expect(prompt).not.toMatch(/\*\*Gameplay/);
     // The rule this replaces (owner decision 2026-11-10).
     expect(block).not.toMatch(/Build what it says/);
+    // A starter's README maps what is already built.
+    expect(block).toMatch(/README\.md at its root, read it before your first change/);
+  });
+
+  it('labels a genre kit among the starters and says to begin from it when it fits', () => {
+    const withKit: GameEngineOption[] = [engineOptions[0]!, { ...engineOptions[1]!, available: true, missingTools: [],
+      templates: [{ id: 'godot4-2d', name: 'Godot 4 · 2D' }, { id: 'godot4-story', name: 'Godot 4 story kit · 2D', genres: ['visual-novel'] }] }];
+    const block = blockOf(composeOpenPixoGamePrompt({ gamePlan: { status: 'approved', engineOptions: withKit } }), GAME_PLAN_BLOCK_HEADING);
+    expect(block).toContain('`godot4-story` (Godot 4 story kit · 2D, a kit for visual novel games)');
+    expect(block).toContain('`godot4-2d` (Godot 4 · 2D)');
+    expect(block).toMatch(/When a starter is a kit for the approved game's genre, begin from it/);
   });
 
   it('labels each stage, builds only it, says how to try it and waits for the user', () => {

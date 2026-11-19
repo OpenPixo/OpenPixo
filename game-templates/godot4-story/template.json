@@ -1,0 +1,11 @@
+{
+  "id": "godot4-story",
+  "name": "Godot 4 story kit · 2D",
+  "nameZhCN": "Godot 4 故事套件 · 2D",
+  "engine": "godot",
+  "genres": [
+    "visual-novel"
+  ],
+  "description": "A visual novel that already plays: text, choices, several endings, a story log, auto play, skip and saves. You write the story in plain text files, and a check finds broken links and endings no one can reach.",
+  "descriptionZhCN": "已经能玩的视觉小说：对话、选项、多个结局、剧情回顾、自动播放、快进和存档。故事写在纯文本文件里，检查脚本会找出断开的跳转和走不到的结局。"
+}

@@ -550,7 +550,11 @@ function engineIsKnown(profile: EngineProfile | null | undefined): profile is En
 }
 
 function renderEngineOption(option: GameEngineOption, canRunTools: boolean): string {
-  const templates = option.templates.map(template => canRunTools ? `\`${template.id}\` (${template.name})` : template.name).join(', ');
+  const templates = option.templates.map(template => {
+    const kit = template.genres?.length ? `a kit for ${template.genres.map(genre => genre.replaceAll('-', ' ')).join(' or ')} games` : '';
+    if (canRunTools) return `\`${template.id}\` (${template.name}${kit ? `, ${kit}` : ''})`;
+    return kit ? `${template.name} (${kit})` : template.name;
+  }).join(', ');
   const state = option.available
     ? 'ready on this machine'
     : `not found on this machine${option.missingTools.length ? ` (missing ${option.missingTools.join(', ')})` : ''}, so the user would have to install it first`;
@@ -735,6 +739,7 @@ function renderApprovedPlanBlock(
     '',
     `Build it in stages (阶段), one stage per turn${quick ? ', keeping each one short' : ''}:`,
     `- Start every build reply with the stage label in the user's language, for example ${STAGE_LABEL_EXAMPLE}. Take the current stage from your last stage label in this conversation. A conversation the user opened for the next stage starts with their message naming it: build that stage, treat the earlier ones as built and confirmed, and read the project notes and files for what they hold. Otherwise the first build turn is stage 1. If the plan has no stages, open the first build turn by listing ${quick ? '3' : '3 to 6'} in a few lines (stage 1 is the smallest playable version of the core loop), then build stage 1.`,
+    '- When the project has a README.md at its root, read it before your first change: a starter\'s or kit\'s README maps where things are and what already works. Build on that instead of rewriting it; a kit already has its genre\'s systems, so its stages mostly fill in content.',
     '- Your to-do or plan tool holds only this stage\'s own steps, never the later stages: the host shows anything left open there as unfinished work and offers to continue it, and the next stage waits for the user.',
     `- Build only the current stage. Then ${canRunTools ? 'run it and playtest its loop with real input until it is playable as Verification defines it (move, win, lose), and say what you tried and what happened' : 'check it as well as you can and say it has not been playtested'}, and tell the user in plain words what is done and exactly how to try it: what to open or press, and which keys or clicks do what.`,
     '- End the turn with a <question-form>: go on to the next stage (name it), or what to change first. Never start the next stage until the user says so. Apply the changes they ask for before moving on, and ask again.',
@@ -743,7 +748,7 @@ function renderApprovedPlanBlock(
     '- After the last stage, say what the finished game has and ask what the user wants next.',
   ];
   if (!engineChosen && canRunTools && options.some(option => option.templates.length > 0)) {
-    lines.push('', `This project has no engine yet. Begin from the starter for the chosen engine, not hand-rolled files: \`${HOST_CLI} game scaffold --template <id> --json\` copies it into this folder and records the engine for verification. Then install its dependencies with \`${HOST_CLI} game install-deps --json\`. When the approved engine is not on this machine, do not scaffold or build around it: tell the user plainly and ask them to install it or switch engine first. Starters:`, ...options.map(option => renderEngineOption(option, true).trimStart()));
+    lines.push('', `This project has no engine yet. Begin from the starter for the chosen engine, not hand-rolled files: \`${HOST_CLI} game scaffold --template <id> --json\` copies it into this folder and records the engine for verification. When a starter is a kit for the approved game's genre, begin from it: that genre's systems are already built. Then install its dependencies with \`${HOST_CLI} game install-deps --json\`. When the approved engine is not on this machine, do not scaffold or build around it: tell the user plainly and ask them to install it or switch engine first. Starters:`, ...options.map(option => renderEngineOption(option, true).trimStart()));
   }
   return lines.join('\n');
 }

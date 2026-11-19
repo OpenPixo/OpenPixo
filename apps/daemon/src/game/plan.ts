@@ -108,7 +108,7 @@ export async function gameEngineOptions(
       available,
       missingTools: available || !needs ? [] : [needs.report],
     };
-    option.templates.push({ id: template.id, name: template.name });
+    option.templates.push({ id: template.id, name: template.name, ...(template.genres ? { genres: template.genres } : {}) });
     options.set(template.engine, option);
   }
   for (const { engine, tool } of INSTALLED_ONLY_ENGINES) {

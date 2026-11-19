@@ -558,9 +558,10 @@ export function NewGameDialog({ onClose, onCreated, initialTemplateId = '', init
     return t(native ? 'game.wizard.engineMeans.godot' : 'game.wizard.engineMeans.web');
   }
 
-  /** A first-timer reads what the engine is, not the starter's file list (GDScript, string tables, Vite). */
+  /** A first-timer reads what the engine is, not the starter's file list (GDScript, string tables, Vite); a kit reads what it already has. */
   function engineDescription(template: GameTemplateSummary): string {
-    if (beginner && template.id !== SAMPLE_TEMPLATE_ID && BEGINNER_ENGINE_ABOUT[template.engine]) return t(BEGINNER_ENGINE_ABOUT[template.engine]!);
+    // A kit says what it already has; that matters more to a first-timer than the engine.
+    if (beginner && template.id !== SAMPLE_TEMPLATE_ID && !template.genres?.length && BEGINNER_ENGINE_ABOUT[template.engine]) return t(BEGINNER_ENGINE_ABOUT[template.engine]!);
     return (locale === 'zh-CN' ? template.descriptionZhCN : undefined) ||
       (DESCRIPTIONS[template.id] ? t(DESCRIPTIONS[template.id]!) : template.description);
   }
