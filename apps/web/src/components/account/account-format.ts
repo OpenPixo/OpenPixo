@@ -7,7 +7,8 @@ import { PLAN_TIER_NAMES, planTier } from '../onboarding/setup-readiness';
 export function formatMinorAmount(amountMinor: number, currency: string, locale: string): string {
   const code = currency.toUpperCase();
   try {
-    const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency: code });
+    // A plain symbol ("$19", "¥137"), never a country or ISO prefix such as "US$" or "JPY".
+    const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' });
     const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2;
     return formatter.format(amountMinor / 10 ** digits);
   } catch {

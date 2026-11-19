@@ -464,6 +464,8 @@ import { registerRecipeRoutes } from './recipes/routes.js';
 import { OpenPixoAccountService } from './account/service.js';
 import { OpenPixoHostedMedia, pendingHostedTaskIds } from './media/openpixo-hosted.js';
 import { registerOpenPixoAccountCallback, registerOpenPixoAccountRoutes } from './routes/openpixo-account.js';
+import { registerExchangeRatesRoutes } from './routes/exchange-rates.js';
+import { ExchangeRates } from './exchange-rates/service.js';
 import { registerOpenPixoAgentProxy, registerOpenPixoAgentRoutes } from './routes/openpixo-agent.js';
 import { OPENPIXO_AGENT_TOKEN_ENV, OpenPixoAgentGateway } from './openpixo-agent/gateway.js';
 import {
@@ -2739,6 +2741,7 @@ export async function startServer({
   // External services
   registerDoctorRoutes(app, { http: httpDeps, paths: pathDeps });
   registerOpenPixoAccountRoutes(app, { account: openPixoAccount });
+  registerExchangeRatesRoutes(app, { exchangeRates: new ExchangeRates({ dataDir: RUNTIME_DATA_DIR }) });
   registerOpenPixoAgentRoutes(app, { account: openPixoAccount, gateway: openPixoAgentGateway });
   registerMcpRoutes(app, {
     http: httpDeps,

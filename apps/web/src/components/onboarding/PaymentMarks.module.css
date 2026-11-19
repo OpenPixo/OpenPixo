@@ -1,0 +1,7 @@
+/* Payment acceptance badges, drawn like the marks on a checkout page. */
+.marks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mark { display: inline-flex; align-items: center; justify-content: center; gap: 3px; height: 26px; min-width: 52px; padding: 0 8px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text-strong); font-size: 12px; font-weight: 500; line-height: 1; }
+.mark[data-mark='card'] { gap: 6px; }
+.wordmark { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+/* Alipay's own blue; the badge stays legible on light and dark themes. */
+.alipay { color: #1677ff; font-weight: 600; }

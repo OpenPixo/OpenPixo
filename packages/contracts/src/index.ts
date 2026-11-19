@@ -4,6 +4,7 @@ export * from './runtime/annotated-selector.js';
 export * from './errors.js';
 export * from './api/failure-detail.js';
 export * from './api/openpixo-account.js';
+export * from './api/exchange-rates.js';
 export * from './api/openpixo-cloud-media.js';
 export * from './api/openpixo-agent.js';
 export * from './api/openpixo-agent-models.js';
