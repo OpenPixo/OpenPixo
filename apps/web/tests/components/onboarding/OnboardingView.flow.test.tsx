@@ -56,7 +56,7 @@ const CATALOG = {
   plans: [
     { sku: 'plan_starter_monthly_v3', monthlyCredits: 600, amountMinor: 490, currency: 'usd', interval: 'month', paymentMethods: ['card'] },
     { sku: 'plan_pro_monthly', monthlyCredits: 2500, amountMinor: 1900, currency: 'usd', interval: 'month', paymentMethods: ['card'] },
-    { sku: 'plan_studio_monthly', monthlyCredits: 9000, amountMinor: 5900, currency: 'usd', interval: 'month', paymentMethods: ['card'] },
+    { sku: 'plan_studio_monthly', monthlyCredits: 8500, amountMinor: 5900, currency: 'usd', interval: 'month', paymentMethods: ['card'] },
   ],
   topups: [{ sku: 'topup_1000', credits: 1000, amountMinor: 1000, currency: 'usd', paymentMethods: ['card', 'alipay'] }],
 };
@@ -109,8 +109,11 @@ async function signInWithEmail() {
   fireEvent.change(await screen.findByRole('textbox', { name: 'Verification code' }), { target: { value: '123456' } });
 }
 
+/** Takes the own-tools road, answering its check screen when it is asked. */
 async function chooseOwnTools() {
   fireEvent.click(await screen.findByTestId('onboarding-own-tools'));
+  const confirm = screen.queryByTestId('onboarding-own-tools-confirm');
+  if (confirm) fireEvent.click(confirm);
   await screen.findByRole('heading', { name: 'Set up image generation' });
 }
 
@@ -124,6 +127,7 @@ afterEach(() => {
   resetOpenPixoAccountStoreForTests();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('OnboardingView · welcome', () => {
@@ -134,10 +138,144 @@ describe('OnboardingView · welcome', () => {
     expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Email address' })).toBeTruthy();
     // Each way in says what it costs and what it needs, so a newcomer can tell them apart.
-    expect(screen.getByText(/buy credits to start\. There is nothing else to install/)).toBeTruthy();
-    expect(screen.getByText(/own ChatGPT or Claude subscription.*without paying OpenPixo.*install a command-line tool/)).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Step 1 of 3' })).toBeTruthy();
-    expect(screen.getByTestId('onboarding-own-tools').textContent).toContain('Use my own tools');
+    expect(screen.getByText(/costs a little, and credits pay for all of it/)).toBeTruthy();
+    const credits = screen.getByTestId('onboarding-credits-choice');
+    expect(credits.textContent).toContain('Recommended');
+    expect(credits.textContent).toContain('Nothing to install, no keys');
+    expect(within(credits).getByRole('button', { name: 'Continue with Google' })).toBeTruthy();
+    const ownTools = screen.getByTestId('onboarding-own-tools');
+    expect(ownTools.textContent).toContain('Use my own AI accounts');
+    // Newcomers read "no OpenPixo credits" as "free"; this road says it is not.
+    expect(ownTools.textContent).toMatch(/already pay for ChatGPT, Claude or an AI API\. Not free: those companies bill you instead\. You'll use a terminal\./);
+    // The welcome is a choice between two roads, not step one of either.
+    expect(screen.queryByRole('list', { name: /Step \d of \d/ })).toBeNull();
+  });
+
+  it('shows live prices like a pricing page before sign-in, and starts no checkout', async () => {
+    const fetchMock = routes();
+    renderOnboarding();
+    fireEvent.click(await screen.findByTestId('onboarding-see-prices'));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Choose your plan' });
+    const starter = await within(dialog).findByTestId('onboarding-pricing-plan_starter_monthly_v3');
+    const pro = within(dialog).getByTestId('onboarding-pricing-plan_pro_monthly');
+    const max = within(dialog).getByTestId('onboarding-pricing-plan_studio_monthly');
+    // Each plan says what size of game it is for.
+    expect(starter.textContent).toContain('Make a small game.');
+    expect(pro.textContent).toContain('Make several small games, or one medium-sized game.');
+    expect(max.textContent).toContain('Make a large game, or a long-running project.');
+    expect(pro.textContent).toContain('Popular');
+    // A plain "$", never "US$".
+    expect(within(pro).getByLabelText('$19')).toBeTruthy();
+    expect(pro.textContent).not.toContain('US$');
+    // What the credits buy, at the hosted prices (4 per image, 7 per sound effect, 60 per 3D model).
+    const lines = (card: HTMLElement) => [...card.querySelectorAll('li')].map((li) => li.textContent);
+    // Credits as "base + bonus": $19 buys 1,900 in packs, and the plan gives 2,500.
+    const credits = within(pro).getByTestId('onboarding-pricing-credits');
+    expect(credits.textContent).toBe('1,900 credits every month+600 bonus2,500 credits in total');
+    expect(within(starter).getByTestId('onboarding-pricing-credits').textContent).toContain('490 credits every month+110 bonus');
+    expect(within(max).getByTestId('onboarding-pricing-credits').textContent).toContain('5,900 credits every month+2,600 bonus');
+    expect(lines(pro)).toEqual([
+      'About 625 art images', 'About 357 sound effects', 'About 41 3D models',
+      'Share up to 30 games with a link', 'Multiplayer rooms',
+    ]);
+    // Starter lists no multiplayer rooms.
+    expect(lines(starter)).toEqual([
+      'About 150 art images', 'About 85 sound effects', 'About 10 3D models', 'Share up to 10 games with a link',
+    ]);
+    // Customer-facing: no "cancel anytime" promise.
+    expect(dialog.textContent).not.toMatch(/Cancel anytime/);
+    // The hosted agent models by name; before sign-in the cloud refuses the live list, so the known list shows.
+    const models = within(dialog).getByTestId('onboarding-pricing-models');
+    expect(models.textContent).toContain('Every plan and credit pack includes');
+    expect([...models.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+      'Claude Sonnet 5.5', 'GPT-6.1 Sol', 'GPT-6.1 Terra', 'GPT-6 Luna',
+      'Claude Haiku 5.5', 'DeepSeek V4.1 Flash', 'GLM 5.3 Flash', 'Tencent Hy4',
+    ]);
+    // Every button leads to logging in.
+    for (const card of [starter, pro, max]) expect(within(card).getByRole('button', { name: 'Log in' })).toBeTruthy();
+    // An en-US system shows the dollar price alone.
+    expect(within(pro).getByTestId('onboarding-pricing-local').textContent?.trim()).toBe('');
+    // Max gives 8,500 / $59 = 144 credits per dollar against 100 for packs.
+    expect(within(dialog).getByRole('tab', { name: /Monthly plan.*Up to 44% more credits/ })).toBeTruthy();
+
+    // Card plans also take Apple Pay and Google Pay through Stripe Checkout.
+    const marks = () => [...within(dialog).getByTestId('payment-marks').querySelectorAll('li')].map((li) => li.getAttribute('data-mark'));
+    expect(marks()).toEqual(['card', 'apple-pay', 'google-pay']);
+    expect(within(dialog).getByText('Apple Pay')).toBeTruthy();
+    expect(within(dialog).getByText('Google Pay')).toBeTruthy();
+
+    // Monthly plans take no Alipay here, so Alipay buyers are pointed at packs in one click.
+    const hint = within(dialog).getByTestId('onboarding-pricing-alipay-hint');
+    expect(hint.textContent).toContain('Paying with Alipay? Monthly plans take cards only for now.');
+    fireEvent.click(within(hint).getByRole('button', { name: 'Buy a credit pack' }));
+    expect(within(dialog).getByRole('tab', { name: 'One-time credit pack' }).getAttribute('aria-selected')).toBe('true');
+    expect(within(dialog).queryByTestId('onboarding-pricing-alipay-hint')).toBeNull();
+    const pack = within(dialog).getByTestId('onboarding-pricing-topup_1000');
+    expect(within(pack).getByLabelText('$10')).toBeTruthy();
+    // Packs alone cannot publish games, so they list no share links.
+    expect(lines(pack)).toEqual(['About 250 art images', 'About 142 sound effects', 'About 16 3D models', 'Credits never expire']);
+    expect(marks()).toEqual(['card', 'apple-pay', 'google-pay', 'alipay']);
+
+    // Looking costs nothing: no checkout is started from this window.
+    expect(callsTo(fetchMock, 'POST', '/api/openpixo/credits/checkout')).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose your plan' })).toBeNull());
+  });
+
+  it('lists the live hosted models when the cloud answers, never who serves them', async () => {
+    routes({ 'GET /api/openpixo/agent/models': {
+      signedIn: false,
+      models: [
+        { id: 'openpixo-agent-flash', label: 'DeepSeek V4.1 Flash' },
+        { id: 'openpixo-agent-claude-sonnet-5-5', label: 'Claude Sonnet 5.5' },
+        { id: 'openpixo-agent-new', label: 'Brand New 1' },
+      ],
+    } });
+    renderOnboarding();
+    fireEvent.click(await screen.findByTestId('onboarding-see-prices'));
+
+    const models = await screen.findByTestId('onboarding-pricing-models');
+    await waitFor(() => expect([...models.querySelectorAll('li')].map((li) => li.textContent))
+      .toEqual(['Claude Sonnet 5.5', 'DeepSeek V4.1 Flash', 'Brand New 1']));
+    expect(models.textContent).not.toMatch(/OpenRouter|openrouter|vendor/);
+  });
+
+  it('adds an estimate in the local currency from the daily rates', async () => {
+    vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['zh-CN', 'en-US']);
+    routes({ 'GET /api/exchange-rates': {
+      base: 'USD', date: '2026-11-18', fetchedAt: '2026-11-19T08:00:00.000Z', stale: false,
+      rates: { USD: 1, CNY: 6.6672 },
+    } });
+    renderOnboarding();
+    fireEvent.click(await screen.findByTestId('onboarding-see-prices'));
+
+    const pro = await screen.findByTestId('onboarding-pricing-plan_pro_monthly');
+    await waitFor(() => expect(within(pro).getByTestId('onboarding-pricing-local').textContent).toBe('≈ ¥127 in your currency'));
+    expect(within(pro).getByLabelText('$19')).toBeTruthy();
+    expect(screen.getByText(/Prices in US dollars; local prices are estimates/)).toBeTruthy();
+  });
+
+  it('carries a plan picked from the prices to the plan step after sign-in', async () => {
+    renderOnboarding({ agents: [CODEX] });
+    fireEvent.click(await screen.findByTestId('onboarding-see-prices'));
+    fireEvent.click(await screen.findByTestId('onboarding-pricing-choose-plan_pro_monthly'));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Choose your plan' })).toBeNull());
+
+    await signInWithEmail();
+    await screen.findByRole('heading', { name: 'Choose a plan' });
+    await waitFor(() => expect(screen.getByTestId('onboarding-plan-plan_pro_monthly').getAttribute('aria-checked')).toBe('true'));
+  });
+
+  it('carries a credit pack picked from the prices to the packs list', async () => {
+    renderOnboarding({ agents: [CODEX] });
+    fireEvent.click(await screen.findByTestId('onboarding-see-prices'));
+    fireEvent.click(await screen.findByTestId('onboarding-pricing-tab-packs'));
+    fireEvent.click(await screen.findByTestId('onboarding-pricing-choose-topup_1000'));
+
+    await signInWithEmail();
+    await waitFor(() => expect(screen.getByTestId('onboarding-plan-topup_1000').getAttribute('aria-checked')).toBe('true'));
+    expect(screen.getByTestId('onboarding-plan-kind-packs').getAttribute('aria-selected')).toBe('true');
   });
 
   it('shows the product at a glance as one described picture, on the welcome step only', async () => {
@@ -163,6 +301,52 @@ describe('OnboardingView · welcome', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
     expect(await screen.findByRole('heading', { name: 'Set up image generation' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Continue with Google' })).toBeNull();
+  });
+});
+
+describe('OnboardingView · own tools check', () => {
+  it('asks for a paid AI account and a terminal before the own-tools steps begin', async () => {
+    renderOnboarding();
+    fireEvent.click(await screen.findByTestId('onboarding-own-tools'));
+
+    expect(await screen.findByRole('heading', { name: 'Before you go this way' })).toBeTruthy();
+    expect(screen.getByText(/A free ChatGPT or Claude account isn't enough to build a game/)).toBeTruthy();
+    expect(screen.getByText('Comfort with a terminal')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: /Step \d of \d/ })).toBeNull();
+
+    fireEvent.click(screen.getByTestId('onboarding-own-tools-confirm'));
+    expect(await screen.findByRole('heading', { name: 'Set up image generation' })).toBeTruthy();
+  });
+
+  it('sends someone without them back to credits and sign-in', async () => {
+    renderOnboarding();
+    fireEvent.click(await screen.findByTestId('onboarding-own-tools'));
+    fireEvent.click(await screen.findByTestId('onboarding-use-credits'));
+
+    expect(await screen.findByRole('heading', { name: /Describe a game\.\s+Play it\./ })).toBeTruthy();
+    await signInWithEmail();
+    expect(await screen.findByRole('heading', { name: 'Choose a plan' })).toBeTruthy();
+  });
+
+  it('skips the check when an agent is already signed in on this computer', async () => {
+    renderOnboarding({ agents: [CODEX] });
+
+    expect((await screen.findByTestId('onboarding-own-tools-found')).textContent).toBe('Codex is already set up on this computer');
+    fireEvent.click(screen.getByTestId('onboarding-own-tools'));
+    expect(await screen.findByRole('heading', { name: 'Set up image generation' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Before you go this way' })).toBeNull();
+  });
+
+  it('offers credits to an own-tools user who ends with something missing', async () => {
+    renderOnboarding();
+    await chooseOwnTools();
+    fireEvent.click(screen.getByTestId('onboarding-skip'));
+    await screen.findByRole('heading', { name: 'Set up the AI agent' });
+    fireEvent.click(screen.getByTestId('onboarding-skip'));
+    await screen.findByRole('heading', { name: 'Almost ready' });
+
+    fireEvent.click(screen.getByTestId('onboarding-use-credits'));
+    expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeTruthy();
   });
 });
 
@@ -193,6 +377,10 @@ describe('OnboardingView · subscription path', () => {
     expect(screen.getByTestId('onboarding-plan-plan_starter_monthly_v3').getAttribute('aria-checked')).toBe('true');
     expect(within(screen.getByTestId('onboarding-plan-plan_pro_monthly')).getByText('Popular')).toBeTruthy();
     expect(screen.getByText('Max')).toBeTruthy();
+    // The plan step sends Alipay buyers to packs too.
+    fireEvent.click(within(screen.getByTestId('onboarding-plan-alipay-hint')).getByRole('button', { name: 'Buy a credit pack' }));
+    expect(screen.getByTestId('onboarding-plan-topup_1000').getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('tab', { name: /Monthly plan/ }));
 
     // Monthly plans and one-time packs sit side by side, each saying how it can be paid.
     const monthly = screen.getByRole('tab', { name: /Monthly plan/ });

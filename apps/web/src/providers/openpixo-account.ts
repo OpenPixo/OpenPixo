@@ -1,4 +1,6 @@
 import type {
+  ExchangeRatesResponse,
+  OpenPixoAgentCatalogResponse,
   CreateOpenPixoCheckoutResponse,
   GoogleSignInAttemptResponse,
   OpenPixoAccountErrorCode,
@@ -124,6 +126,16 @@ export function fetchOpenPixoLedger(options: { limit?: number; cursor?: string |
 
 export function fetchOpenPixoCatalog(signal?: AbortSignal) {
   return request<OpenPixoCatalogResponse>('/api/openpixo/credits/catalog', { signal });
+}
+
+/** The hosted agent models and their prices; the cloud may refuse it before sign-in. */
+export function fetchOpenPixoAgentModels(signal?: AbortSignal) {
+  return request<OpenPixoAgentCatalogResponse>('/api/openpixo/agent/models', { signal });
+}
+
+/** Daily reference rates for local price estimates (display only). */
+export function fetchExchangeRates(signal?: AbortSignal) {
+  return request<ExchangeRatesResponse>('/api/exchange-rates', { signal });
 }
 
 export function createOpenPixoCheckout(sku: string) {

@@ -13,6 +13,7 @@ import { createOpenPixoCheckout, fetchOpenPixoCatalog } from '../../providers/op
 import { openExternalUrl } from '../../providers/registry';
 import { accountErrorMessage, formatCredits, formatMinorAmount, paymentMethodsLabel } from '../account/account-format';
 import { Icon } from '../Icon';
+import { alipayOnlyOnPacks } from './PaymentMarks';
 import { PLAN_TIER_NAMES, planTier, type PlanTier } from './setup-readiness';
 import styles from './Onboarding.module.css';
 import setup from './Setup.module.css';
@@ -22,12 +23,12 @@ export const CHECKOUT_POLL_INTERVAL_MS = 4_000;
 /** Stop polling after this long; focus and "Check now" still work. */
 export const CHECKOUT_POLL_LIMIT_MS = 15 * 60_000;
 
-const TIER_BLURBS: Record<PlanTier, keyof Dict> = {
+export const TIER_BLURBS: Record<PlanTier, keyof Dict> = {
   starter: 'onboarding.planStarterBlurb',
   pro: 'onboarding.planProBlurb',
   studio: 'onboarding.planStudioBlurb',
 };
-const POPULAR_TIER: PlanTier = 'pro';
+export const POPULAR_TIER: PlanTier = 'pro';
 
 type Phase =
   | { kind: 'choose' }
@@ -36,9 +37,11 @@ type Phase =
 
 export interface PlanStepProps {
   credits: OpenPixoCreditsSummary | null;
+  /** A plan or pack chosen earlier (in the prices window); selected when it is on sale. */
+  initialSku?: string | null;
 }
 
-export function PlanStep({ credits }: PlanStepProps) {
+export function PlanStep({ credits, initialSku = null }: PlanStepProps) {
   const { t, locale } = useI18n();
   const [catalog, setCatalog] = useState<OpenPixoCatalogResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -56,11 +59,15 @@ export function PlanStep({ credits }: PlanStepProps) {
     fetchOpenPixoCatalog(controller.signal).then((next) => {
       if (controller.signal.aborted) return;
       setCatalog(next);
-      setSelected((current) => current ?? next.plans.find((plan) => planTier(plan.sku) === 'starter')?.sku
+      const wantedPack = initialSku ? next.topups.some((pack) => pack.sku === initialSku) : false;
+      const wantedPlan = initialSku ? next.plans.some((plan) => plan.sku === initialSku) : false;
+      if (wantedPack) setView('packs');
+      setSelected((current) => current ?? (wantedPack || wantedPlan ? initialSku : null)
+        ?? next.plans.find((plan) => planTier(plan.sku) === 'starter')?.sku
         ?? next.plans[0]?.sku ?? null);
     }, () => { if (!controller.signal.aborted) setLoadError(true); });
     return controller;
-  }, []);
+  }, [initialSku]);
   useEffect(() => {
     const controller = load();
     return () => controller.abort();
@@ -223,6 +230,14 @@ export function PlanStep({ credits }: PlanStepProps) {
           </button>
         ))}
       </div>
+      {view === 'plans' && alipayOnlyOnPacks(catalog) ? (
+        <p className={setup.alipayHint} data-testid="onboarding-plan-alipay-hint">
+          <span>{t('onboarding.alipayHint')}</span>
+          <Button variant="ghost" size="sm" className={setup.alipayLink} onClick={() => showView('packs')}>
+            {t('onboarding.alipaySeePacks')}<Icon name="chevron-right" size={13} />
+          </Button>
+        </p>
+      ) : null}
       {error ? <p role="alert" className={setup.error}>{error}</p> : null}
       <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-plan-pay"
         disabled={!current || paused || busy} aria-busy={busy || undefined}

@@ -13,6 +13,7 @@ import { OpenPixoLogo } from '../OpenPixoLogo';
 import { AgentSetup, codexAppWithoutCli, type AgentSetupProps } from './AgentSetup';
 import { ImageSetup } from './ImageSetup';
 import { PlanStep } from './PlanStep';
+import { PricingDialog } from './PricingDialog';
 import {
   cloudCanSpend,
   HOSTED_AGENT_ID,
@@ -39,7 +40,7 @@ export interface OnboardingViewProps extends Omit<AgentSetupProps, 'onFinish'> {
   onOpenAccount?: () => void;
 }
 
-type Stage = 'welcome' | 'plan' | 'image' | 'agent' | 'ready';
+type Stage = 'welcome' | 'own-tools-check' | 'plan' | 'image' | 'agent' | 'ready';
 type Path = 'cloud' | 'byok';
 
 type Step = { stage: Stage; label: keyof Dict; piece?: SetupPiece };
@@ -66,7 +67,12 @@ const MISSING: Record<SetupPiece, keyof Dict> = {
  * First run. The main road is the OpenPixo subscription: sign in, choose a
  * plan, done — the hosted agent and hosted image generation are paid with
  * credits, so there is nothing to install or paste. A clearly visible second
- * road walks a user through their own tools one piece at a time: something
+ * road is for people who already pay for an AI account. The welcome says that
+ * road is not free and needs a terminal, because newcomers read "no OpenPixo
+ * credits" as "free" and then stall on API keys and command lines; unless a
+ * working agent is already on this computer, a check screen asks for both
+ * before the steps begin. That road walks a user through their own tools one
+ * piece at a time: something
  * that makes images (Codex with a ChatGPT login, or an image API key), then an
  * agent (a CLI found on this computer, or an API key). Either road ends on a
  * checklist that says what is missing and what that means; nothing is forced.
@@ -87,6 +93,9 @@ export function OnboardingView(props: OnboardingViewProps) {
   const [agentReturn, setAgentReturn] = useState<Stage>('image');
   const [agentUntested, setAgentUntested] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const [chosenSku, setChosenSku] = useState<string | null>(null);
+  const creditsChoiceRef = useRef<HTMLDivElement>(null);
   const interacted = useRef(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const flowAttempt = useRef(0);
@@ -134,9 +143,27 @@ export function OnboardingView(props: OnboardingViewProps) {
     setStage(next);
   }
 
+  // A signed-in agent CLI or a filled API key already shows the user has a
+  // paid account and a terminal, so only everyone else sees the check.
+  const ownToolsAgent = agent && agent.kind !== 'hosted' ? agent : null;
+
   function chooseOwnTools() {
     setPath('byok');
-    goTo('image');
+    goTo(accountAvailable && !ownToolsAgent ? 'own-tools-check' : 'image');
+  }
+
+  /** A plan or pack picked in the prices window: sign in next, then pay for it. */
+  function choosePrice(sku: string) {
+    setChosenSku(sku);
+    setPricingOpen(false);
+    if (signedIn) { afterSignIn(); return; }
+    // After the window's exit, put the cursor where signing in starts.
+    window.setTimeout(() => creditsChoiceRef.current?.querySelector<HTMLInputElement>('input')?.focus(), 160);
+  }
+
+  function switchToCredits() {
+    setPath('cloud');
+    goTo('welcome');
   }
 
   function afterSignIn() {
@@ -168,8 +195,8 @@ export function OnboardingView(props: OnboardingViewProps) {
     if (sample) props.onStartSample?.();
   }
 
-  // The welcome screen counts as step one wherever signing in is the way forward.
-  const steps = stage === 'welcome' && !accountAvailable ? null : STEPS[path];
+  // The welcome screen is a choice between two roads, so it shows no steps.
+  const steps = stage === 'welcome' ? null : STEPS[path];
   const stepIndex = steps?.findIndex((step) => step.stage === stage) ?? -1;
 
   if (autoFinish || (stage === 'welcome' && returning && !interacted.current && !factsSettled)) {
@@ -187,18 +214,20 @@ export function OnboardingView(props: OnboardingViewProps) {
       <div className={styles.topBar}><OpenPixoLogo compact /></div>
       <section className={styles.flow} aria-labelledby="onboarding-step-title" data-stage={stage}>
         <div className={`${styles.flowContent} ${stage === 'image' || stage === 'agent' || stage === 'plan' ? styles.setupContent : ''}`} key={stage}>
-          {steps && stepIndex >= 0 && !checkingAccount ? <Stepper steps={steps} current={stepIndex} missing={gate.missing} agentUntested={agentUntested} leading={stage === 'welcome'} /> : null}
+          {steps && stepIndex >= 0 && !checkingAccount ? <Stepper steps={steps} current={stepIndex} missing={gate.missing} agentUntested={agentUntested} /> : null}
           {stage === 'ready' && gate.complete && !agentUntested && <span className={styles.readyCheck} aria-hidden="true"><Icon name="check" size={22} /></span>}
           <h1 id="onboarding-step-title" className={styles.flowTitle} ref={titleRef} tabIndex={-1}>{t(stageTitle(stage, gate.complete && !agentUntested))}</h1>
           <p className={styles.flowSubtitle}>{stageSubtitle()}</p>
 
           {stage === 'welcome' && renderWelcome()}
 
+          {stage === 'own-tools-check' && renderOwnToolsCheck()}
+
           {stage === 'plan' && (
             <>
               {creditsState.loading && !credits ? (
                 <p className={styles.aiScanning} role="status"><Icon name="spinner" size={14} className="icon-spin" />{t('account.loading')}</p>
-              ) : <PlanStep credits={credits} />}
+              ) : <PlanStep credits={credits} initialSku={chosenSku} />}
               {renderStepFooter({ onBack: () => goTo('welcome'), onSkip: () => goTo('ready') })}
             </>
           )}
@@ -253,6 +282,7 @@ export function OnboardingView(props: OnboardingViewProps) {
       </section>
       </div>
       {stage === 'welcome' ? <WelcomeHero /> : null}
+      <PricingDialog open={pricingOpen} onClose={() => setPricingOpen(false)} onChoose={choosePrice} />
     </div>
   );
 
@@ -261,6 +291,7 @@ export function OnboardingView(props: OnboardingViewProps) {
       if (signedIn) return t('onboarding.welcomeSignedIn', { email: cloud.status?.user?.email ?? '' });
       return accountAvailable ? t('onboarding.welcomePitch') : t('onboarding.welcomeSubtitle');
     }
+    if (stage === 'own-tools-check') return t('onboarding.ownToolsCheckSubtitle');
     if (stage === 'plan') return t('onboarding.planSubtitle');
     if (stage === 'image') return t('onboarding.imageStepSubtitle');
     if (stage === 'agent') return t('onboarding.agentStepSubtitle');
@@ -268,14 +299,6 @@ export function OnboardingView(props: OnboardingViewProps) {
   }
 
   function renderWelcome() {
-    const ownTools = (
-      <p className={setup.ownTools}>
-        <span>{t('onboarding.orOwnTools')}</span>
-        <Button variant="ghost" size="sm" className={styles.textLink} data-testid="onboarding-own-tools" onClick={chooseOwnTools}>
-          {t('onboarding.ownToolsTitle')}<Icon name="chevron-right" size={12} />
-        </Button>
-      </p>
-    );
     if (checkingAccount) {
       return <p className={styles.altLine} role="status"><Icon name="spinner" size={14} className="icon-spin" /></p>;
     }
@@ -288,17 +311,79 @@ export function OnboardingView(props: OnboardingViewProps) {
         </div>
       );
     }
+    // Two ways in, each saying what it costs and what it needs, so nobody
+    // takes the own-tools road believing it is the free one.
+    const foundAgent = ownToolsAgent?.kind === 'local' ? agentName(ownToolsAgent.agentId) : null;
     return (
-      <div className={styles.signIn}>
-        {!signedIn ? (
-          <SignInPanel key={renderedAttempt} autoFocus={false} onSignedIn={() => {
-            if (renderedAttempt === flowAttempt.current) afterSignIn();
-          }} />
-        ) : (
-          <Button size="lg" variant="primary" className={styles.wide} onClick={afterSignIn}>{t('onboarding.continue')}</Button>
-        )}
-        {ownTools}
+      <div className={setup.choices}>
+        <div className={setup.choice} data-primary="true" data-testid="onboarding-credits-choice" ref={creditsChoiceRef}>
+          <span className={setup.choiceHead}>
+            <strong>{t('onboarding.creditsChoiceTitle')}</strong>
+            <span className={setup.recommended}>{t('onboarding.recommended')}</span>
+          </span>
+          <span className={setup.choiceBody}>
+            {t('onboarding.creditsChoiceBody')}{' '}
+            <Button variant="ghost" size="sm" className={`${styles.textLink} ${setup.pricesLink}`} data-testid="onboarding-see-prices"
+              onClick={() => setPricingOpen(true)}>
+              {t('onboarding.seePrices')}
+            </Button>
+          </span>
+          <div className={`${styles.signIn} ${setup.choiceAction}`}>
+            {!signedIn ? (
+              <SignInPanel key={renderedAttempt} autoFocus={false} onSignedIn={() => {
+                if (renderedAttempt === flowAttempt.current) afterSignIn();
+              }} />
+            ) : (
+              <Button size="lg" variant="primary" className={styles.wide} onClick={afterSignIn}>{t('onboarding.continue')}</Button>
+            )}
+          </div>
+        </div>
+        <button type="button" className={setup.choice} data-testid="onboarding-own-tools" onClick={chooseOwnTools}>
+          <span className={setup.choiceHead}>
+            <Icon name="terminal" size={15} />
+            <strong>{t('onboarding.ownToolsTitle')}</strong>
+            <Icon name="chevron-right" size={14} className={setup.choiceChevron} />
+          </span>
+          <span className={setup.choiceBody}>{t('onboarding.ownToolsBody')}</span>
+          {foundAgent ? (
+            <span className={setup.choiceFound} data-testid="onboarding-own-tools-found">
+              <Icon name="check" size={13} />{t('onboarding.ownToolsFound', { agent: foundAgent })}
+            </span>
+          ) : null}
+        </button>
       </div>
+    );
+  }
+
+  /** What the own-tools road needs, asked before its setup steps begin. */
+  function renderOwnToolsCheck() {
+    return (
+      <>
+        <ul className={setup.needs} aria-label={t('onboarding.ownToolsCheckTitle')}>
+          <li>
+            <span className={setup.needIcon} aria-hidden="true"><Icon name="key" size={15} /></span>
+            <span className={styles.aiCopy}>
+              <strong>{t('onboarding.ownToolsNeedAccountTitle')}</strong>
+              <small>{t('onboarding.ownToolsNeedAccountBody')}</small>
+            </span>
+          </li>
+          <li>
+            <span className={setup.needIcon} aria-hidden="true"><Icon name="terminal" size={15} /></span>
+            <span className={styles.aiCopy}>
+              <strong>{t('onboarding.ownToolsNeedTerminalTitle')}</strong>
+              <small>{t('onboarding.ownToolsNeedTerminalBody')}</small>
+            </span>
+          </li>
+        </ul>
+        <div className={styles.stack}>
+          <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-own-tools-confirm" onClick={() => goTo('image')}>
+            {t('onboarding.ownToolsConfirm')}
+          </Button>
+          <Button size="lg" variant="secondary" className={styles.wide} data-testid="onboarding-use-credits" onClick={switchToCredits}>
+            {t('onboarding.useCreditsInstead')}
+          </Button>
+        </div>
+      </>
     );
   }
 
@@ -342,10 +427,19 @@ export function OnboardingView(props: OnboardingViewProps) {
               </Button>
             </>
           ) : (
-            <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-finish-anyway"
-              onClick={() => void finish(false)} disabled={finishing}>
-              {t('onboarding.finishAnyway')}
-            </Button>
+            <>
+              <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-finish-anyway"
+                onClick={() => void finish(false)} disabled={finishing}>
+                {t('onboarding.finishAnyway')}
+              </Button>
+              {/* Someone stuck on their own tools gets the road with nothing to install. */}
+              {path === 'byok' && accountAvailable ? (
+                <Button size="lg" variant="secondary" className={styles.wide} data-testid="onboarding-use-credits"
+                  onClick={switchToCredits} disabled={finishing}>
+                  {t('onboarding.useCreditsInstead')}
+                </Button>
+              ) : null}
+            </>
           )}
         </div>
       </>
@@ -361,8 +455,11 @@ export function OnboardingView(props: OnboardingViewProps) {
   function agentSourceLabel(source: AgentSource): string {
     if (source.kind === 'hosted') return t('onboarding.sourceHostedAgent');
     if (source.kind === 'api') return t('onboarding.sourceApiAgent', { model: props.config.model });
-    const name = props.agents.find((item) => item.id === source.agentId)?.name ?? source.agentId;
-    return t('onboarding.sourceLocalAgent', { agent: name });
+    return t('onboarding.sourceLocalAgent', { agent: agentName(source.agentId) });
+  }
+
+  function agentName(agentId: string): string {
+    return props.agents.find((item) => item.id === agentId)?.name ?? agentId;
   }
 
   /** Back, then Skip, which needs no second question: the last step lists what is missing. */
@@ -397,6 +494,7 @@ export function OnboardingView(props: OnboardingViewProps) {
 
 function stageTitle(stage: Stage, complete: boolean): keyof Dict {
   if (stage === 'welcome') return 'onboarding.welcomeTitle';
+  if (stage === 'own-tools-check') return 'onboarding.ownToolsCheckTitle';
   if (stage === 'plan') return 'onboarding.planTitle';
   if (stage === 'image') return 'onboarding.imageStepTitle';
   if (stage === 'agent') return 'onboarding.agentStepTitle';
@@ -411,10 +509,10 @@ function agentConfig(agent: AgentSource | null, base: AppConfig): Partial<AppCon
 }
 
 /** A step behind the current one is "done" only if its piece is really ready; a skipped one says so. */
-function Stepper({ steps, current, missing, agentUntested, leading }: { steps: Step[]; current: number; missing: SetupPiece[]; agentUntested: boolean; leading?: boolean }) {
+function Stepper({ steps, current, missing, agentUntested }: { steps: Step[]; current: number; missing: SetupPiece[]; agentUntested: boolean }) {
   const { t } = useI18n();
   return (
-    <ol className={setup.stepper} data-align={leading ? 'start' : undefined} aria-label={t('onboarding.stepOf', { n: current + 1, total: steps.length })}>
+    <ol className={setup.stepper} aria-label={t('onboarding.stepOf', { n: current + 1, total: steps.length })}>
       {steps.map((step, index) => {
         const skipped = index < current && step.piece !== undefined && missing.includes(step.piece);
         const state = index === current ? 'current' : index > current ? 'todo' : skipped ? 'skipped'
