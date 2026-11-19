@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createCommandInvocation, forceStopWindowsProcessTree } from '@openpixo/platform';
 import type { CodexImageReasonCode, GeneratedProjectAssetFile, ImageOutputSize, ProjectMetadata } from '@openpixo/contracts';
 import { kindFor, mimeFor, resolveProjectWritePath } from '../projects.js';
+import { clampCodexReasoning } from '../runtimes/defs/shared.js';
 import { codexImageDataRoot, resolveCodexImageRuntime, type CodexImageRuntime } from './codex-image-runtime.js';
 import { finalSizeInstruction, keyedBackgroundInstruction, type RgbColor, type ShapedImage } from './image-output.js';
 
@@ -43,13 +44,60 @@ export const CODEX_IMAGE_CONTEXT_ARGS: readonly string[] = [
   '--disable', 'apps',
 ];
 
+/**
+ * An image job runs on the Codex model the user picked in OpenPixo, at low
+ * reasoning. The model only turns the request into one image_gen call, so the
+ * user's agent reasoning (often `high`) would think for nothing on each of a
+ * build's 50–160 images. With no picked model the CLI's own default applies.
+ * `low` is clamped the way agent runs clamp it (`gpt-5.1-codex-mini` → `medium`).
+ */
+export function codexImageModelArgs(model: string | undefined): string[] {
+  return [...(model ? ['-m', model] : []), '-c', `model_reasoning_effort="${clampCodexReasoning(model, 'low')}"`];
+}
+
 export class CodexImageError extends Error {
+  /**
+   * Codex's own short reason, for the daemon log only (`[media] … "detail"`).
+   * Never copied into task state, CLI output or the UI.
+   */
+  logDetail?: string;
   constructor(readonly code: CodexImageReasonCode, message: string,
     readonly status = 502, readonly retryable = false) {
     super(message);
     this.name = 'CodexImageError';
   }
 }
+
+const LOG_DETAIL_LIMIT = 300;
+
+/**
+ * The reason inside one Codex `error` / `turn.failed` message. The API's error
+ * body arrives as a JSON string there; its inner message and code are what say
+ * why (`The 'gpt-6.2-sol' model is not supported … (model_not_found)`).
+ */
+export function codexFailureReason(message: string): string | undefined {
+  let reason = message;
+  try {
+    const body = JSON.parse(message);
+    const inner = body?.error && typeof body.error === 'object' ? body.error : body;
+    if (typeof inner?.message === 'string' && inner.message.trim()) {
+      reason = inner.message + (typeof inner.code === 'string' && inner.code ? ` (${inner.code})` : '');
+    }
+  } catch { /* A plain sentence is already the reason. */ }
+  const trimmed = reason.replace(/\s+/g, ' ').trim().slice(0, LOG_DETAIL_LIMIT);
+  return trimmed || undefined;
+}
+
+/** Attach Codex's last reported reason to a failure, for the daemon log. */
+function withLogDetail(error: CodexImageError, reason: string | undefined): CodexImageError {
+  if (reason) error.logDetail = reason;
+  return error;
+}
+
+// Codex's answer when the model it runs on is not offered to this sign-in (a
+// ChatGPT login and a config.toml default it cannot use). Every image fails the
+// same way, so it is not retryable, and the fix is another Codex model.
+const MODEL_UNSUPPORTED_RE = /model_not_found|model is not supported/i;
 
 export interface CodexImageOptions {
   dataRoot: string;
@@ -122,6 +170,10 @@ function failureFromDiagnostic(diagnostic: string): CodexImageError {
   if (SAFETY_BLOCK_RE.test(diagnostic)) {
     return new CodexImageError('CODEX_IMAGE_CONTENT_BLOCKED', 'The image request was blocked by the safety system. Reword it and try again.', 400, false);
   }
+  if (MODEL_UNSUPPORTED_RE.test(diagnostic)) {
+    return new CodexImageError('CODEX_IMAGE_MODEL_UNSUPPORTED',
+      'Codex cannot use its model with this sign-in. Pick a different Codex model in OpenPixo, then try again.', 400, false);
+  }
   if (/not (?:logged|signed) in|not authenticated|login required|please (?:log|sign) in|unauthorized|401|token.{0,30}expired/i.test(diagnostic)) {
     return new CodexImageError('CODEX_CLI_AUTH_REQUIRED', 'Codex sign-in is required. Run codex login with your ChatGPT account.', 401);
   }
@@ -156,10 +208,14 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
   const cwd = await mkdtemp(path.join(tempRoot, 'run-'));
   try {
     const args = ['exec', '--skip-git-repo-check', '-s', 'read-only', '--json', '--color', 'never',
-      ...CODEX_IMAGE_CONTEXT_ARGS, ...(options.images ?? []).map(image => `--image=${path.resolve(image)}`), '-C', cwd, '-'];
+      ...CODEX_IMAGE_CONTEXT_ARGS, ...codexImageModelArgs(runtime.model),
+      ...(options.images ?? []).map(image => `--image=${path.resolve(image)}`), '-C', cwd, '-'];
     const invocation = createCommandInvocation({ command: runtime.executable, args, env });
     let threadId: string | undefined;
     let diagnostic = '';
+    // The last reason Codex's own error events gave, for the daemon log.
+    let failureReason: string | undefined;
+    const failed = (error: CodexImageError) => withLogDetail(error, failureReason);
     let pendingLine = '';
     let stopReason: CodexImageError | undefined;
     let stopping: Promise<void> | undefined;
@@ -172,7 +228,11 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
           threadId = event.thread_id;
           options.onProgress?.('Codex · image_gen');
         }
-        if (event.type === 'error' || event.type === 'turn.failed') appendDiagnostic(line);
+        if (event.type === 'error' || event.type === 'turn.failed') {
+          appendDiagnostic(line);
+          const message = event.type === 'error' ? event.message : event.error?.message;
+          if (typeof message === 'string') failureReason = codexFailureReason(message) ?? failureReason;
+        }
         if (event.item?.type === 'agent_message' && typeof event.item.text === 'string') appendDiagnostic(event.item.text);
       } catch { /* Non-JSON CLI diagnostics are not output paths. */ }
     };
@@ -218,11 +278,11 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
       if (pendingLine) parseLine(pendingLine);
       if (stopping) await stopping;
       if (stopReason) throw stopReason;
-      if (exit !== 0) throw failureFromDiagnostic(diagnostic);
+      if (exit !== 0) throw failed(failureFromDiagnostic(diagnostic));
       if (!threadId || existingThreads.has(threadId)) {
         const failure = failureFromDiagnostic(diagnostic);
-        if (failure.code !== 'CODEX_IMAGE_FAILED') throw failure;
-        throw new CodexImageError('CODEX_IMAGE_NO_OUTPUT', 'Codex did not produce an image. Try another prompt or image provider.');
+        if (failure.code !== 'CODEX_IMAGE_FAILED') throw failed(failure);
+        throw failed(new CodexImageError('CODEX_IMAGE_NO_OUTPUT', 'Codex did not produce an image. Try another prompt or image provider.'));
       }
       const threadRoot = path.join(imageRoot, threadId);
       const names = await directories(threadRoot);
@@ -237,8 +297,8 @@ export async function generateCodexImages(options: CodexImageOptions): Promise<A
       }
       if (!images.length) {
         const failure = failureFromDiagnostic(diagnostic);
-        if (failure.code !== 'CODEX_IMAGE_FAILED') throw failure;
-        throw new CodexImageError('CODEX_IMAGE_NO_OUTPUT', 'Codex did not produce an image. Try another prompt or image provider.');
+        if (failure.code !== 'CODEX_IMAGE_FAILED') throw failed(failure);
+        throw failed(new CodexImageError('CODEX_IMAGE_NO_OUTPUT', 'Codex did not produce an image. Try another prompt or image provider.'));
       }
       return images;
     } finally {

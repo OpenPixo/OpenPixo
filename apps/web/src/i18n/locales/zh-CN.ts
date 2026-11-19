@@ -3320,6 +3320,7 @@ export const zhCN: Dict = {
   'settings.codexImageTimeout': "Codex 图片生成超时，请重试或选择其他提供商。",
   'settings.codexImageCancelled': "已取消 Codex 图片生成。",
   'settings.codexImageFailed': "Codex 图片生成失败，请检查本地 CLI 或选择其他提供商。",
+  'settings.codexImageModelUnsupported': "Codex 用你的登录用不了当前选的模型，请换一个 Codex 模型再试。",
   'pluginsView.createKindPlugin': '插件',
   'pluginsView.createKindSkill': '技能',
   'pluginsView.importUrlLabel': '链接',

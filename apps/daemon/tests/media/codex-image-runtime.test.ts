@@ -29,6 +29,15 @@ describe('Codex image availability reuses runtime readiness', () => {
     expect(runtime).toMatchObject({ status: { available: true, keyless: true }, executable: 'detected-native-codex.exe' });
     expect(await codexImageProviderStatus('resolved-daemon-root')).toEqual({ available: true, keyless: true });
   });
+  it('carries the Codex model picked in OpenPixo, and none for the CLI default', async () => {
+    mocks.readConfig.mockResolvedValue({ agentCliEnv: {}, agentModels: { codex: { model: 'gpt-5.5', reasoning: 'high' } } });
+    expect((await resolveCodexImageRuntime('root', { generating: true })).model).toBe('gpt-5.5');
+    // 「CLI 默认设置」 is stored as `default`; the CLI then keeps its own config.toml model.
+    for (const agentModels of [{ codex: { model: 'default' } }, { codex: {} }, { claude: { model: 'opus' } }, undefined]) {
+      mocks.readConfig.mockResolvedValue({ agentCliEnv: {}, agentModels });
+      expect(await resolveCodexImageRuntime('root', { generating: true })).not.toHaveProperty('model');
+    }
+  });
   it.each([
     [{ available: false }, 'CODEX_CLI_NOT_FOUND'],
     [{ available: true, path: 'codex', authStatus: 'missing' }, 'CODEX_CLI_AUTH_REQUIRED'],

@@ -36,6 +36,11 @@ if (mode === 'hang') {
     : 'Rate limit reached: too many requests (429).';
   process.stdout.write(JSON.stringify({ type: 'turn.failed', error: { message } }) + '\n');
   process.exitCode = 1;
+} else if (mode === 'model') {
+  // Recorded 2026-11-19 (Codex CLI, ChatGPT login, config.toml default `gpt-6.2-sol`): the turn fails
+  // before image_gen runs, with the API's error body as a JSON string inside `error.message`.
+  process.stdout.write(JSON.stringify({ type: 'turn.failed', error: { message: '{"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6.2-sol\' model is not supported when using Codex with a ChatGPT account.","code":"model_not_found"}}' } }) + '\n');
+  process.exitCode = 1;
 } else if (mode === 'safety') {
   // Recorded 2026-11-14 (Codex CLI, ChatGPT Plus): image_gen got `moderation_blocked` at the output
   // stage, the thread exits 0 with no image and says so in its last agent message.

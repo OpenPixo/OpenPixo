@@ -105,6 +105,10 @@ describe('mediaFailureNextStep', () => {
       expect(mediaFailureNextStep({ code: 'STUB_PROVIDER_DISABLED' })).toBe('open-settings');
     });
 
+    it('sends a Codex model the sign-in cannot use to Settings, not to a retry', () => {
+      expect(mediaFailureNextStep({ code: 'CODEX_IMAGE_MODEL_UNSUPPORTED', status: 502, retryable: false })).toBe('open-settings');
+    });
+
     it('sends provider authorization failures to BYOK settings', () => {
       expect(
         mediaFailureNextStep({ message: 'openai image 401: unauthorized', model: 'gpt-image-2' }),
