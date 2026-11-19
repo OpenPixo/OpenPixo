@@ -67,7 +67,7 @@ When the task is one of these, also read the file named here before building. It
 | Job | Read |
 | --- | --- |
 | Health, shield or boss bars, hearts, low-health warning | [references/health-bars.md](references/health-bars.md) |
-| Minimap, full world map, objective markers | [references/minimap-world-map.md](references/minimap-world-map.md) |
+| Minimap, full world map, objective markers, roguelike run map | [references/minimap-world-map.md](references/minimap-world-map.md) |
 | Floating damage or heal numbers | [references/damage-numbers.md](references/damage-numbers.md) |
 | Inventory grid, hotbar, item details | [references/inventory-grids.md](references/inventory-grids.md) |
 | Dialogue box, speech bubbles, choices | [references/dialogue-boxes.md](references/dialogue-boxes.md) |
