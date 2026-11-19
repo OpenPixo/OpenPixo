@@ -55,6 +55,17 @@ rebindable actions in `autoload/settings.gd` and the story rows of
 `i18n/strings.csv`. A story is plain `.story` text per language; its README is the
 map, and `checks/story_check.gd` proves every label, translation and ending headless.
 
+`phaser3-story` is the same kit for the browser: the same story format and the same
+sample story byte for byte, the plain Phaser starter's exact versions, and its own
+title, settings and pause screens. `pnpm run check` typechecks and runs
+`scripts/check-story.ts`, which Node 24 runs without an install, so the story check
+also runs in `pixo game verify`.
+
+Both kits ship an `AGENTS.md`: the project notes Codex and OpenCode load into an
+agent's instructions on their own (see `renderProjectNotesRule`), so an agent starts
+with the kit's map instead of reading the project. Keep it under about 60 lines; the
+agent updates it as the game grows. The README is the full manual.
+
 Set `PIXO_TEST_GODOT` to a Godot executable to have the daemon's template tests play
 both starters in the real engine with real input events.
 

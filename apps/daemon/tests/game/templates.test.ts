@@ -16,13 +16,14 @@ afterEach(async () => {
   for (const dir of scratch.splice(0)) await rm(dir, { recursive: true, force: true });
 });
 
-it('lists the six shipped templates with English and Chinese metadata', async () => {
+it('lists the seven shipped templates with English and Chinese metadata', async () => {
   const templates = await listGameTemplates(templatesRoot);
   expect(templates.map(({ id, engine }) => ({ id, engine }))).toEqual([
     { id: 'godot4-2d', engine: 'godot' },
     { id: 'godot4-3d', engine: 'godot' },
     { id: 'godot4-story', engine: 'godot' },
     { id: 'phaser3-sample-platformer', engine: 'phaser' },
+    { id: 'phaser3-story', engine: 'phaser' },
     { id: 'phaser3-vite', engine: 'phaser' },
     { id: 'threejs-vite', engine: 'threejs' },
   ]);

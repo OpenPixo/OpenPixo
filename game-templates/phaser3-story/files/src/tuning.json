@@ -1,0 +1,10 @@
+{
+  "charactersPerSecond": { "value": 45, "min": 10, "max": 200, "step": 5, "label": "Text speed (characters per second)", "group": "Text",
+    "label_i18n": { "zh-CN": "文字速度（每秒字数）" }, "group_i18n": { "zh-CN": "文字" } },
+  "autoDelay": { "value": 0.9, "min": 0, "max": 5, "step": 0.1, "label": "Auto play pause after a line (seconds)", "group": "Text",
+    "label_i18n": { "zh-CN": "自动播放每句停顿（秒）" }, "group_i18n": { "zh-CN": "文字" } },
+  "autoDelayPerCharacter": { "value": 0.045, "min": 0, "max": 0.2, "step": 0.005, "label": "Auto play extra pause per character (seconds)", "group": "Text",
+    "label_i18n": { "zh-CN": "自动播放每字额外停顿（秒）" }, "group_i18n": { "zh-CN": "文字" } },
+  "skipInterval": { "value": 0.06, "min": 0.01, "max": 0.5, "step": 0.01, "label": "Skip speed (seconds per line)", "group": "Text",
+    "label_i18n": { "zh-CN": "快进速度（每句秒数）" }, "group_i18n": { "zh-CN": "文字" } }
+}

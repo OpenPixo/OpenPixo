@@ -17,7 +17,7 @@ const BASE = 'godot4-2d';
  * Its settings script differs only in the rebindable actions, and its string
  * table only drops the 2D game's rows and adds the story's.
  */
-const OWN_FILES = /^(project\.godot|README\.md|game\/.+|story\/.+|checks\/.+|addons\/.+|autoload\/settings\.gd|i18n\/strings\.csv)$/;
+const OWN_FILES = /^(project\.godot|README\.md|AGENTS\.md|game\/.+|story\/.+|checks\/.+|addons\/.+|autoload\/settings\.gd|i18n\/strings\.csv)$/;
 const exec = promisify(execFile);
 const scratch: string[] = [];
 

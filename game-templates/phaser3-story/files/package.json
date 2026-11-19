@@ -1,0 +1,16 @@
+{
+  "name": "story-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit && node scripts/check-story.ts",
+    "check:story": "node scripts/check-story.ts",
+    "dev": "vite --configLoader native --host 127.0.0.1",
+    "build": "tsc --noEmit && node scripts/check-story.ts && vite build --configLoader native",
+    "preview": "vite preview --configLoader native --host 127.0.0.1"
+  },
+  "dependencies": { "phaser": "3.90.0" },
+  "devDependencies": { "typescript": "5.9.3", "vite": "7.1.12" },
+  "packageManager": "pnpm@10.33.2"
+}

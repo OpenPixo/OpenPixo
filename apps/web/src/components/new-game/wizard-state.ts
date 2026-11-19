@@ -292,11 +292,11 @@ function wantsNativeBuild(draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'sc
 
 /**
  * The starter to recommend. A kit for the chosen genre comes first when this
- * machine can run it, because its genre's systems are already built. Then a web
- * engine (Phaser), which runs here at once and is the easiest to share as a
- * link, unless a long project means to reach Steam (or an older setup sells on
- * a desktop store), which favours native exports. Either way a starter this
- * machine can run comes before one it cannot.
+ * machine can run one, because its genre's systems are already built. Among
+ * kits, as among plain starters, a web engine (Phaser) comes first: it runs here
+ * at once and is the easiest to share as a link, unless a long project means to
+ * reach Steam (or an older setup sells on a desktop store), which favours native
+ * exports. Either way a starter this machine can run comes before one it cannot.
  */
 export function recommendedStarter(
   draft: Pick<WizardDraft, 'stores' | 'steamLater' | 'scope' | 'perspective' | 'templateId'> & { genre?: WizardDraft['genre'] },
@@ -306,11 +306,12 @@ export function recommendedStarter(
 ): string {
   const starters = startersFor(draft, templates, beginner).filter(template => template.id !== SAMPLE_TEMPLATE_ID);
   const runnable = (template: GameTemplateSummary) => engines?.find(engine => engine.engine === template.engine)?.available !== false;
-  const kit = starters.find(template => isKitFor(template, draft.genre) && runnable(template));
-  if (kit) return kit.id;
-  const native = starters.find(template => template.engine === 'godot' && runnable(template));
-  const web = starters.find(template => template.engine !== 'godot' && runnable(template));
-  return (wantsNativeBuild(draft) ? native ?? web : web ?? native)?.id ?? starters[0]?.id ?? '';
+  const pick = (pool: readonly GameTemplateSummary[]) => {
+    const native = pool.find(template => template.engine === 'godot' && runnable(template));
+    const web = pool.find(template => template.engine !== 'godot' && runnable(template));
+    return wantsNativeBuild(draft) ? native ?? web : web ?? native;
+  };
+  return (pick(starters.filter(template => isKitFor(template, draft.genre))) ?? pick(starters))?.id ?? starters[0]?.id ?? '';
 }
 
 /**

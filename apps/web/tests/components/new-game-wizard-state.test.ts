@@ -203,6 +203,11 @@ describe('starters', () => {
     expect(recommendedStarter({ ...base(), genre: 'platformer' }, withKit, ready)).toBe('phaser3-vite');
     // Without Godot here, the web starter that runs wins over the kit.
     expect(recommendedStarter({ ...base(), genre: 'visual-novel' }, withKit, [engine('godot', false), engine('phaser', true)])).toBe('phaser3-vite');
+    // With a kit per engine, the same web-first rule picks between them.
+    const webKit: GameTemplateSummary = { ...template('phaser3-story', 'Phaser 3 story kit · 2D', 'phaser'), genres: ['visual-novel'] };
+    expect(recommendedStarter({ ...base(), genre: 'visual-novel' }, [...withKit, webKit], ready)).toBe('phaser3-story');
+    expect(recommendedStarter({ ...base(), genre: 'visual-novel', scope: 'long', steamLater: true }, [...withKit, webKit], ready)).toBe('godot4-story');
+    expect(recommendedStarter({ ...base(), genre: 'visual-novel' }, [...withKit, webKit], [engine('godot', true), engine('phaser', false)])).toBe('godot4-story');
   });
 
   it('does not recommend an engine this computer cannot run when another one fits', () => {
