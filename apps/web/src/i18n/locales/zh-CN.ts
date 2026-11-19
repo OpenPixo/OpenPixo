@@ -878,6 +878,8 @@ export const zhCN: Dict = {
   "settings.testAuthFailed": "鉴权失败，请检查 API 密钥。",
   "settings.testForbidden": "访问被拒绝。请检查账号、地区或组织。",
   "settings.testNotFoundModel": "未在此端点找到模型 '{model}'。",
+  "settings.testModelNotOnPlanDefault": "{agentName} 的默认模型（{model}）不在你的 ChatGPT 套餐里，暂时用不了。",
+  "settings.testModelNotOnPlan": "{model} 不在你的 ChatGPT 套餐里，暂时用不了。",
   "settings.testInvalidModelId":
     "模型 ID '{model}' 格式无效。自定义 ID 必须以字母或数字开头，且不能包含空格。",
   "settings.testInvalidBaseUrl": "接口地址无效或不可达。",
@@ -1329,6 +1331,9 @@ export const zhCN: Dict = {
   'onboarding.fixSignIn': "请先登录 {agent}：在终端运行下面的命令，然后重新验证。",
   'onboarding.fixInstall': "请先安装 {agent}，然后重新扫描：",
   'onboarding.fixRunOnce': "请在终端运行一次 {agent}，完成登录或首次运行设置，然后重新验证：",
+  "onboarding.fixModelNotOnPlan": "换一个套餐里有的模型就行。{model} 是 {agent} 列出的最新模型。",
+  "onboarding.useModelAndRetest": "改用 {model} 并重新测试",
+  "onboarding.fixPickAnotherModel": "在上面换一个模型，再测试一次。",
   'onboarding.fixByokKey': "请检查 API Key 是否正确、是否属于这个服务商。",
   'onboarding.fixByokModel': "请从列表中选择模型。点“加载此 Key 可用的模型”可以填入列表。",
   'onboarding.fixByokLater': "服务商这次没有响应。可以重试，也可以先继续，稍后再检查。",

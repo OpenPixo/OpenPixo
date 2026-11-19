@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { conversationAgentConfig, latestConversationRun, selectedAssistantIdentity } from '../../src/components/agentModelSelection';
+import { conversationAgentConfig, latestConversationRun, modelNotOnPlanMessage, newestListedAgentModel, selectedAssistantIdentity } from '../../src/components/agentModelSelection';
+import { en } from '../../src/i18n/locales/en';
 import type { AgentInfo, AppConfig, ChatMessage } from '../../src/types';
 
 const codexAgent: AgentInfo = {
@@ -39,4 +40,22 @@ describe('agent model selection', () => {
   });
 
   
+});
+
+describe('a model the plan does not include', () => {
+  const t = (key: keyof typeof en, vars: Record<string, string>) =>
+    Object.entries(vars).reduce((text, [name, value]) => text.replace(`{${name}}`, value), en[key]);
+  const agent = { id: 'codex', models: [{ id: 'default' }, { id: 'gpt-6.2-sol' }, { id: 'gpt-6.1-sol', enabled: false }, { id: 'gpt-5.5' }] };
+
+  it('offers the first listed model that is not the default slot, refused or turned off', () => {
+    expect(newestListedAgentModel(agent, ['default', 'gpt-6.2-sol'])).toBe('gpt-5.5');
+    expect(newestListedAgentModel({ id: 'codex', models: [{ id: 'default' }, { id: 'gpt-6.2-sol' }] }, ['gpt-6.2-sol'])).toBeNull();
+  });
+
+  it('names the CLI default model, or the model the user picked', () => {
+    expect(modelNotOnPlanMessage(t, { model: 'default', resolvedModel: 'gpt-6.2-sol' }, 'Codex CLI'))
+      .toBe("Codex CLI's default model (gpt-6.2-sol) isn't included in your ChatGPT plan.");
+    expect(modelNotOnPlanMessage(t, { model: 'gpt-6.2-sol', resolvedModel: 'gpt-6.2-sol' }, 'Codex CLI'))
+      .toBe("gpt-6.2-sol isn't included in your ChatGPT plan.");
+  });
 });

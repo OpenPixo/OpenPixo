@@ -63,7 +63,7 @@ import type {
 } from '../../types';
 import { isVisibleLocalCliAgent } from '../../utils/visibleAgents';
 import { AgentIcon } from '../AgentIcon';
-import { defaultAgentModelId } from '../agentModelSelection';
+import { defaultAgentModelId, modelNotOnPlanMessage, newestListedAgentModel } from '../agentModelSelection';
 import { resolveByokModelPreference } from '../byok/validation';
 import { Icon } from '../Icon';
 import { providerModelsCacheKey, type ProviderModelsCache } from '../providerModelsCache';
@@ -204,6 +204,8 @@ export function AgentSetup({
   const [agentTestState, setAgentTestState] = useState<OnboardingRuntimeTestState>({
     status: 'idle',
   });
+  // A model picked from a failed check, to test as soon as the config carries it.
+  const [retestAgentModel, setRetestAgentModel] = useState<string | null>(null);
   // True only while a Continue click is itself waiting on validation.
   const [continuePending, setContinuePending] = useState(false);
   const [providerModelsState, setProviderModelsState] = useState<
@@ -310,6 +312,12 @@ export function AgentSetup({
       ? agentTestState
       : { status: 'idle' as const };
   const canTestAgent = Boolean(selectedAgent) && daemonLive;
+  const failedAgentTest = visibleAgentTestState.status === 'done' && !visibleAgentTestState.result.ok
+    ? visibleAgentTestState.result
+    : null;
+  const planSuggestedModel = failedAgentTest?.kind === 'agent_model_not_on_plan'
+    ? newestListedAgentModel(selectedAgent, [failedAgentTest.model, failedAgentTest.resolvedModel, selectedAgentTestModel])
+    : null;
   const localRuntimeConfigured = selectedAgent?.available === true;
   const nativeByokProvider = nativeCodexProviderForConfig({ protocol: apiProtocol, baseUrl: config.baseUrl });
   const nativeByokCodexMissing = nativeByokProvider !== null
@@ -851,6 +859,21 @@ export function AgentSetup({
     });
   }
 
+  /** One click from a plan refusal: switch to the offered model, then check it. */
+  function switchAgentModelAndRetest(model: string) {
+    if (!selectedAgent) return;
+    onAgentModelChange(selectedAgent.id, { model, serviceTier: undefined });
+    setRetestAgentModel(model);
+  }
+
+  useEffect(() => {
+    if (retestAgentModel === null || selectedAgentTestModel !== retestAgentModel) return;
+    setRetestAgentModel(null);
+    void testAgentInline();
+    // testAgentInline reads this render's inputs, which now carry the new model.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retestAgentModel, selectedAgentTestModel]);
+
   function testAgentInline(): Promise<ConnectionTestResponse | null> {
     if (!selectedAgent || !canTestAgent) return Promise.resolve(null);
     const inputKey = agentTestInputKey;
@@ -1073,6 +1096,8 @@ export function AgentSetup({
             agentId={selectedAgent?.id ?? null}
             agentInstallUrl={selectedAgent?.installUrl}
             fallbackModel={config.model}
+            suggestedAgentModel={planSuggestedModel}
+            onUseAgentModel={switchAgentModelAndRetest}
             onCancel={abortRuntimeValidations}
           />
           <div className={styles.actions}>
@@ -1553,6 +1578,8 @@ function VerifyStatus({
   agentId,
   agentInstallUrl,
   fallbackModel,
+  suggestedAgentModel,
+  onUseAgentModel,
   onCancel,
 }: {
   runtime: Runtime;
@@ -1563,6 +1590,8 @@ function VerifyStatus({
   agentId: string | null;
   agentInstallUrl: string | undefined;
   fallbackModel: string;
+  suggestedAgentModel: string | null;
+  onUseAgentModel: (model: string) => void;
   onCancel: () => void;
 }) {
   const t = useT();
@@ -1604,7 +1633,8 @@ function VerifyStatus({
           <p className={styles.verifyTitle}>{t('onboarding.failTitle')}</p>
           <p>{message}</p>
           {runtime === 'local'
-            ? <AgentFailureFix result={result} agentId={agentId} agentName={targetName} installUrl={agentInstallUrl} />
+            ? <AgentFailureFix result={result} agentId={agentId} agentName={targetName} installUrl={agentInstallUrl}
+                suggestedModel={suggestedAgentModel} onUseModel={onUseAgentModel} />
             : <ByokFailureFix result={result} />}
         </div>
       </div>
@@ -1642,15 +1672,33 @@ function AgentFailureFix({
   agentId,
   agentName,
   installUrl,
+  suggestedModel,
+  onUseModel,
 }: {
   result: ConnectionTestResponse;
   agentId: string | null;
   agentName: string;
   installUrl: string | undefined;
+  suggestedModel: string | null;
+  onUseModel: (model: string) => void;
 }) {
   const t = useT();
   const guide = agentSetupGuide(agentId);
   const href = installUrl && /^https:\/\//i.test(installUrl) ? installUrl : null;
+  if (result.kind === 'agent_model_not_on_plan') {
+    return (
+      <div className={styles.fix}>
+        <p>{suggestedModel
+          ? t('onboarding.fixModelNotOnPlan', { model: suggestedModel, agent: agentName })
+          : t('onboarding.fixPickAnotherModel')}</p>
+        {suggestedModel ? (
+          <Button size="sm" variant="primary" onClick={() => onUseModel(suggestedModel)}>
+            {t('onboarding.useModelAndRetest', { model: suggestedModel })}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
   if (result.kind === 'agent_auth_required') {
     return guide ? (
       <div className={styles.fix}>
@@ -1802,6 +1850,8 @@ function renderOnboardingAgentTestMessage(
       return result.detail || t('onboarding.authRequired', { agent: agentName });
     case 'agent_spawn_failed':
       return t('settings.testAgentSpawn', { agentName, detail: result.detail ?? '' });
+    case 'agent_model_not_on_plan':
+      return modelNotOnPlanMessage(t, result, agentName);
     case 'rate_limited':
       return t('settings.testRateLimited');
     case 'timeout':

@@ -1030,6 +1030,23 @@ describe('a first game', () => {
     for (const jargon of ['GodotSteam', 'Electron', 'Steamworks']) expect(text).not.toContain(jargon);
   });
 
+  it("makes a first-timer's game in the UI language alone, since nobody asked them", async () => {
+    localeState.locale = 'zh-CN';
+    vi.mocked(fetchGameExperience).mockResolvedValue('first');
+    vi.mocked(createGameFromTemplate).mockResolvedValue(created);
+    seedReview();
+    await open();
+    fireEvent.change(screen.getByLabelText(zhCN['game.dialog.name']), { target: { value: 'tiny-game' } });
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${zhCN['game.dialog.browse']}`) }));
+    await screen.findByText(zhCN['game.dialog.available']);
+    fireEvent.click(nextButton());
+    await waitFor(() => expect(createGameFromTemplate).toHaveBeenCalled());
+    const setup = vi.mocked(createGameFromTemplate).mock.calls[0]![0].setup;
+    expect(setup?.release?.languages).toEqual(['zh-Hans']);
+    // Still a suggestion: the agent may offer more languages later.
+    expect(setup?.suggested).toContain('languages');
+  });
+
   it('shows everyone else every view and starter', async () => {
     await open();
     fireEvent.click(screen.getByRole('radio', { name: /^Crafted/ }));

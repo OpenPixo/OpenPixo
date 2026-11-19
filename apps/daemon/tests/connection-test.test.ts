@@ -113,13 +113,15 @@ async function withOnlyFakeAgent<T>(
   const oldPath = process.env.PATH;
   const oldAgentHome = process.env.PIXO_AGENT_HOME;
   const oldClaudeBin = process.env.CLAUDE_BIN;
+  const oldCodexBin = process.env.CODEX_BIN;
   try {
     if (process.platform === 'win32') {
       const runner = path.join(dir, `${binName}-test-runner.cjs`);
       await fsp.writeFile(runner, script);
+      // PATH holds only this folder, so the shim names node by its full path.
       await fsp.writeFile(
         path.join(dir, `${binName}.cmd`),
-        `@echo off\r\nnode "${runner}" %*\r\n`,
+        `@echo off\r\n"${process.execPath}" "${runner}" %*\r\n`,
       );
     } else {
       const bin = path.join(dir, binName);
@@ -129,6 +131,7 @@ async function withOnlyFakeAgent<T>(
     process.env.PATH = dir;
     process.env.PIXO_AGENT_HOME = dir;
     delete process.env.CLAUDE_BIN;
+    delete process.env.CODEX_BIN;
     return await run();
   } finally {
     process.env.PATH = oldPath;
@@ -136,6 +139,8 @@ async function withOnlyFakeAgent<T>(
     else process.env.PIXO_AGENT_HOME = oldAgentHome;
     if (oldClaudeBin === undefined) delete process.env.CLAUDE_BIN;
     else process.env.CLAUDE_BIN = oldClaudeBin;
+    if (oldCodexBin === undefined) delete process.env.CODEX_BIN;
+    else process.env.CODEX_BIN = oldCodexBin;
     await fsp.rm(dir, { recursive: true, force: true });
   }
 }
@@ -146,6 +151,10 @@ async function withFakeCodex<T>(script: string, run: () => Promise<T>): Promise<
 
 async function withFakeClaude<T>(script: string, run: () => Promise<T>): Promise<T> {
   return withFakeAgent('claude', script, run);
+}
+
+async function withOnlyFakeCodex<T>(script: string, run: () => Promise<T>): Promise<T> {
+  return withOnlyFakeAgent('codex', script, run);
 }
 
 async function withOnlyFakeOpenClaude<T>(script: string, run: () => Promise<T>): Promise<T> {
@@ -3379,9 +3388,31 @@ process.stdin.on('end', () => {
     }
   });
 
+  /* 2026-11-19: onboarding showed this refusal as raw English with no way forward. */
+  it('says when Codex refuses its default model on the ChatGPT plan, naming the model', async () => {
+    await withOnlyFakeCodex(
+      `console.log(JSON.stringify({ type: 'error', message: "The 'gpt-6.2-sol' model is not supported when using Codex with a ChatGPT account." }));`,
+      async () => {
+        const res = await realFetch(`${baseUrl}/api/test/connection`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: 'agent', agentId: 'codex', model: 'default' }),
+        });
+        expect(res.status).toBe(200);
+        await expect(res.json()).resolves.toMatchObject({
+          ok: false,
+          kind: 'agent_model_not_on_plan',
+          model: 'default',
+          resolvedModel: 'gpt-6.2-sol',
+          agentName: 'Codex CLI',
+        });
+      },
+    );
+  });
+
   it('classifies structured Codex model errors as not_found_model', async () => {
     await withFakeCodex(
-      `console.log(JSON.stringify({ type: 'error', message: "The 'dddd' model is not supported when using Codex with a ChatGPT account." }));`,
+      `console.log(JSON.stringify({ type: 'error', message: "The 'dddd' model does not exist." }));`,
       async () => {
         const res = await realFetch(`${baseUrl}/api/test/connection`, {
           method: 'POST',
@@ -3398,7 +3429,7 @@ process.stdin.on('end', () => {
           kind: 'not_found_model',
           model: 'dddd',
           agentName: 'Codex CLI',
-          detail: "The 'dddd' model is not supported when using Codex with a ChatGPT account.",
+          detail: "The 'dddd' model does not exist.",
         });
       },
     );

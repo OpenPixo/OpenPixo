@@ -803,6 +803,8 @@ export interface Dict {
   'settings.testAuthFailed': string;
   'settings.testForbidden': string;
   'settings.testNotFoundModel': string;
+  'settings.testModelNotOnPlanDefault': string;
+  'settings.testModelNotOnPlan': string;
   'settings.testInvalidModelId': string;
   'settings.testInvalidBaseUrl': string;
   'settings.testRateLimited': string;
@@ -1246,6 +1248,9 @@ export interface Dict {
   'onboarding.fixSignIn': string;
   'onboarding.fixInstall': string;
   'onboarding.fixRunOnce': string;
+  'onboarding.fixModelNotOnPlan': string;
+  'onboarding.useModelAndRetest': string;
+  'onboarding.fixPickAnotherModel': string;
   'onboarding.fixByokKey': string;
   'onboarding.fixByokModel': string;
   'onboarding.fixByokLater': string;

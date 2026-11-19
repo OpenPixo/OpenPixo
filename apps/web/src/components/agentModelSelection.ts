@@ -1,5 +1,5 @@
 import { resolveAvailableAgentId } from '../utils/visibleAgents';
-import type { AgentInfo, AgentModelChoice, AppConfig, ChatMessage } from '../types';
+import type { AgentInfo, AgentModelChoice, AppConfig, ChatMessage, ConnectionTestResponse } from '../types';
 import { agentModelDisplayName } from '../utils/agentLabels';
 import { apiProtocolAgentId, apiProtocolModelLabel } from '../utils/apiProtocol';
 import { nativeCodexProviderForConfig, resolveConversationAgentId } from '@openpixo/contracts';
@@ -40,6 +40,35 @@ export function defaultAgentModelId(agent: AgentModelSource): string | null {
     models.find((model) => model.enabled !== false)?.id ??
     null
   );
+}
+
+/**
+ * The model to offer when the CLI refused one on the user's plan
+ * (`agent_model_not_on_plan`): the first listed model that is neither the CLI
+ * default slot nor a refused one. Codex lists its newest model first, so this
+ * is the newest model it offers.
+ */
+export function newestListedAgentModel(
+  agent: AgentModelSource,
+  refused: ReadonlyArray<string | undefined>,
+): string | null {
+  const skip = new Set(['default', ...refused.filter((id): id is string => Boolean(id))]);
+  return agent?.models?.find((model) => model.enabled !== false && !skip.has(model.id))?.id ?? null;
+}
+
+type ModelNotOnPlanKey = 'settings.testModelNotOnPlanDefault' | 'settings.testModelNotOnPlan';
+
+/** Onboarding and Settings say a plan refusal the same way: the CLI default, or the model the user picked. */
+export function modelNotOnPlanMessage(
+  t: (key: ModelNotOnPlanKey, vars: Record<string, string>) => string,
+  result: Pick<ConnectionTestResponse, 'model' | 'resolvedModel'>,
+  agentName: string,
+): string {
+  const picked = result.model && result.model !== 'default' ? result.model : null;
+  const model = result.resolvedModel ?? picked ?? '';
+  return picked
+    ? t('settings.testModelNotOnPlan', { model })
+    : t('settings.testModelNotOnPlanDefault', { agentName, model });
 }
 
 export function effectiveAgentModelId(

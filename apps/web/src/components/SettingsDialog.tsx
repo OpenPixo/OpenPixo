@@ -37,7 +37,7 @@ import { ExportDiagnosticsRow } from './ExportDiagnosticsButton';
 import { Icon } from './Icon';
 import { AgentImageModelSetting } from './agent-image-model/AgentImageModelPicker';
 import { LabsSection } from './LabsSection';
-import { defaultAgentModelId } from './agentModelSelection';
+import { defaultAgentModelId, modelNotOnPlanMessage } from './agentModelSelection';
 import { CUSTOM_MODEL_SENTINEL, effortOptionLabel, SearchableModelSelect } from './modelOptions';
 import {
   applyApiProtocolConfig,
@@ -2261,6 +2261,8 @@ export function SettingsDialog({
           agentName,
           detail: result.detail ?? '',
         });
+      case 'agent_model_not_on_plan':
+        return modelNotOnPlanMessage(t, result, agentName);
       default:
         return t('settings.testUnknown', { detail: result.detail ?? '' });
     }
