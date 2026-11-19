@@ -189,6 +189,26 @@ describe.each([
     ]);
   });
 
+  /*
+   * B7, 2026-11-19: a sandboxed pnpm install left `.pnpm-store/` in a game whose
+   * .gitignore did not name it, and the turn said 「改了 2861 个文件」. A store made
+   * before this rule has no exclude line for it either, so the rule cannot rely on one.
+   */
+  it('leaves a package store out at any depth, whatever the ignore files say', async () => {
+    const checkpoint = await run('run-1', async () => {
+      const exclude = path.join(store.dir, 'info', 'exclude');
+      if (await exists(exclude)) {
+        await writeFile(exclude, (await readFile(exclude, 'utf8')).split('\n').filter(line => !line.includes('.pnpm-store')).join('\n'));
+      }
+      await write('.pnpm-store/v10/files/00/0a1b2c', 'x');
+      await write('.pnpm-store/v10/index/0a/1b-tiny-dep@1.0.0.json', '{}');
+      await write('packages/client/.pnpm-store/v10/files/01/3d4e', 'x');
+      await write('src/main.ts', 'console.log(1)');
+    });
+    expect(checkpoint.runChanges).toEqual([{ path: 'src/main.ts', status: 'added' }]);
+    expect((await checkpoints().diff(checkpoint.id)).files.map(file => file.path)).toEqual(['src/main.ts']);
+  });
+
   it('undoes a run: the project file goes back and every version stays readable', async () => {
     await runEditingHtml('run-1', '<html>first</html>');
     const second = await runEditingHtml('run-2', '<html>second</html>');
@@ -364,6 +384,12 @@ describe.each([
 describe('the project size limit', () => {
   it('does not count version history', async () => {
     for (const name of ['manifest.json', '0001.html', '0002.html', '0003.html']) await write(`.file-versions/abc/${name}`, 'x');
+    const limited = new ProjectCheckpoints(folder, undefined, { dir: store.dir, limits: { maxFiles: 1, maxBytes: 1024 } });
+    expect((await limited.list()).status).toBe('available');
+  });
+
+  it('does not count a package store', async () => {
+    for (const name of ['00/a', '00/b', '01/c', '01/d']) await write(`.pnpm-store/v10/files/${name}`, 'x');
     const limited = new ProjectCheckpoints(folder, undefined, { dir: store.dir, limits: { maxFiles: 1, maxBytes: 1024 } });
     expect((await limited.list()).status).toBe('available');
   });

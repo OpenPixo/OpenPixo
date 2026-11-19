@@ -1,6 +1,7 @@
 import { readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { RESERVED_PROJECT_FILE_SEGMENTS } from '../project-reserved-paths.js';
+import { PACKAGE_STORE_DIR_NAMES } from '../project-ignored-dirs.js';
 
 /**
  * A project that is not its own Git repository keeps its checkpoints in a
@@ -29,7 +30,7 @@ const MEASURE_TTL_MS = 30_000;
 /** Skipped at any depth: dependencies, tool caches and OpenPixo's own staging. */
 const EXCLUDED_ANYWHERE = [
   '.git', 'node_modules', '__pycache__', '.venv', 'venv', '.next', '.cache', '.tmp', '.gradle',
-  '.godot', '.import', '.pixo', '.pixo-skills', ...RESERVED_PROJECT_FILE_SEGMENTS,
+  '.godot', '.import', '.pixo', '.pixo-skills', ...RESERVED_PROJECT_FILE_SEGMENTS, ...PACKAGE_STORE_DIR_NAMES,
 ];
 /** Skipped only at the project root: engine and build output whose names are common elsewhere. */
 const EXCLUDED_AT_ROOT = [

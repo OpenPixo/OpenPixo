@@ -4349,7 +4349,7 @@ export async function startServer({
         resolveRunArtifactOutcomeBeforeFinish();
       }
     };
-    const toolOutputDirs = await chatToolOutputDirs(ARTIFACTS_DIR, projectId);
+    const toolOutputDirs = await chatToolOutputDirs({ artifactsDir: ARTIFACTS_DIR, runtimeDataDir: RUNTIME_DATA_DIR }, projectId);
     const extraAllowedDirs = [
       ...resolveChatExtraAllowedDirs({
         agentId,

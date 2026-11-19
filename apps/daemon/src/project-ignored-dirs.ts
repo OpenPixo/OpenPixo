@@ -1,11 +1,24 @@
 import { readdirSync } from 'node:fs';
 
+/**
+ * Package-manager stores that an install can leave inside a project: pnpm makes
+ * `.pnpm-store` beside the project when it cannot reach its own store, as in an
+ * agent's sandbox. Thousands of hash-named files, never the user's work.
+ */
+export const PACKAGE_STORE_DIR_NAMES: ReadonlySet<string> = new Set(['.pnpm-store']);
+
+/** A path with a package store folder at any depth (`/` or `\` separators). */
+export function isPackageStorePath(raw: unknown): boolean {
+  return String(raw ?? '').replace(/\\/g, '/').split('/').some((part) => PACKAGE_STORE_DIR_NAMES.has(part.toLowerCase()));
+}
+
 // Directory names that should not be listed or watched for folder-backed
 // projects. These are generated, installed, or cache trees that add file
 // descriptor pressure without adding useful design context.
 export const IGNORED_PROJECT_DIR_NAMES = new Set([
   '.git',
   'node_modules',
+  ...PACKAGE_STORE_DIR_NAMES,
   'vendor',
   '.pixo',
   'debug',

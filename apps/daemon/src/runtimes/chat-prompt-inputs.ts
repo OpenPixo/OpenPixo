@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { renderResearchCommandContract } from '../research/prompt-contract.js';
 import { gameVerifyArtifactDir } from '../game/verify-store.js';
+import { gamePackageCacheRoot } from '../game/package-caches.js';
 import {
   describeChangedStableSections,
   type StableChangedSection,
@@ -131,18 +132,24 @@ export function resolveResearchCommandContract(
 /**
  * Folders a project run's own `pixo` commands write outside the project:
  * `game verify` and `game playtest` keep logs and screenshots under the
- * project's verify folder in daemon data. Created up front, because a sandbox
- * can only grant a folder that exists.
+ * project's verify folder in daemon data, and `game install-deps` keeps the
+ * package manager's store and cache in the shared package cache, so they never
+ * land in the game folder. Created up front, because a sandbox can only grant a
+ * folder that exists; a folder that cannot be created is left out.
  */
-export async function chatToolOutputDirs(artifactsDir: string, projectId: string | null | undefined): Promise<string[]> {
+export async function chatToolOutputDirs(
+  { artifactsDir, runtimeDataDir }: { artifactsDir: string; runtimeDataDir: string },
+  projectId: string | null | undefined,
+): Promise<string[]> {
   if (typeof projectId !== 'string' || !projectId) return [];
-  const dir = gameVerifyArtifactDir(artifactsDir, projectId);
-  try {
-    await fs.promises.mkdir(dir, { recursive: true });
-    return [dir];
-  } catch {
-    return [];
+  const dirs: string[] = [];
+  for (const dir of [gameVerifyArtifactDir(artifactsDir, projectId), gamePackageCacheRoot(runtimeDataDir)]) {
+    try {
+      await fs.promises.mkdir(dir, { recursive: true });
+      dirs.push(dir);
+    } catch { /* not granted; the command falls back on its own */ }
   }
+  return dirs;
 }
 
 /**
@@ -163,7 +170,8 @@ export async function chatToolOutputDirs(artifactsDir: string, projectId: string
  * Codex is excluded from those read-only roots because it treats allowlisted
  * directories as writable, and skill roots are shipped read-only resources
  * (PR #622). `toolOutputDirs` are the opposite case: folders the agent's own
- * `pixo` commands must write (the project's game verify/playtest artifacts),
+ * `pixo` commands must write (the project's game verify/playtest artifacts and
+ * the shared package cache `game install-deps` uses),
  * granted to every agent so Codex's sandbox does not refuse its own checks.
  */
 export function resolveChatExtraAllowedDirs({

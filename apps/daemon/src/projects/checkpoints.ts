@@ -2,6 +2,7 @@ import { initializeProjectGit, runProjectGit, runProjectGitBytes } from './git.j
 import { checkpointRelativePath, literalPathspec, parseUnifiedDiff, splitFileDiffs } from './checkpoint-diff.js';
 import { checkpointStoreExcludes, exceedsCheckpointStoreLimits, type CheckpointStore } from './checkpoint-store.js';
 import { isReservedProjectFilePath, RESERVED_PROJECT_FILE_SEGMENTS } from '../project-reserved-paths.js';
+import { isPackageStorePath, PACKAGE_STORE_DIR_NAMES } from '../project-ignored-dirs.js';
 import { randomUUID } from 'node:crypto';
 import { access, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -39,8 +40,17 @@ const activeRuns = new Map<string, number>();
  * on a store's `info/exclude`, which is written only when the store is created.
  * Checkpoints from before this rule keep those paths in their trees and frozen
  * lists, so everything read back from one is filtered too.
+ *
+ * Package stores (`.pnpm-store`) are left out the same way, at any depth. A
+ * sandboxed pnpm install made one in a game whose .gitignore did not name it,
+ * and the turn then reported 2,861 hash files as changed (B7, 2026-11-19).
  */
-const RESERVED_PATH_EXCLUSIONS = [...RESERVED_PROJECT_FILE_SEGMENTS].flatMap(name => [`:(exclude,glob)**/${name}`, `:(exclude,glob)**/${name}/**`]);
+const UNRECORDED_SEGMENTS = [...RESERVED_PROJECT_FILE_SEGMENTS, ...PACKAGE_STORE_DIR_NAMES];
+const UNRECORDED_PATH_EXCLUSIONS = UNRECORDED_SEGMENTS.flatMap(name => [`:(exclude,glob)**/${name}`, `:(exclude,glob)**/${name}/**`]);
+
+function isUnrecordedPath(raw: unknown): boolean {
+  return isReservedProjectFilePath(raw) || isPackageStorePath(raw);
+}
 
 /**
  * OpenPixo's atomic writes (`publishFiles` in assets/ops/files.ts) stage `<file>.pixo-<uuid>.tmp<ext>`
@@ -58,9 +68,9 @@ function fileChangedWhileRead(error: unknown): boolean {
     && /short read while indexing|failed to insert into database|unable to index file|No such file or directory/u.test(stderr);
 }
 
-/** Drops reserved paths from `ls-files --stage -z` or `ls-tree -r -z` output. */
+/** Drops reserved paths and package stores from `ls-files --stage -z` or `ls-tree -r -z` output. */
 function withoutReservedEntries(listing: string): string {
-  return listing.split('\0').filter(entry => entry && !isReservedProjectFilePath(entry.slice(entry.indexOf('\t') + 1))).map(entry => `${entry}\0`).join('');
+  return listing.split('\0').filter(entry => entry && !isUnrecordedPath(entry.slice(entry.indexOf('\t') + 1))).map(entry => `${entry}\0`).join('');
 }
 
 function projectKey(folder: string): string {
@@ -245,7 +255,7 @@ export class ProjectCheckpoints {
         const { scope, ...checkpoint } = JSON.parse(message.slice(MESSAGE_PREFIX.length)) as ProjectCheckpoint & { scope?: string };
         if (scope !== expectedScope || !checkpoint || typeof checkpoint.id !== 'string' || ref !== `${REF_PREFIX}${checkpoint.id}`
           || typeof checkpoint.createdAt !== 'string' || typeof checkpoint.summary !== 'string') continue;
-        if (Array.isArray(checkpoint.runChanges)) checkpoint.runChanges = checkpoint.runChanges.filter(change => !isReservedProjectFilePath(change.path));
+        if (Array.isArray(checkpoint.runChanges)) checkpoint.runChanges = checkpoint.runChanges.filter(change => !isUnrecordedPath(change.path));
         records.push({ checkpoint, oid, tree, parent: parent ?? '' });
       } catch { /* Unrelated/corrupt refs are never interpreted as restore targets. */ }
     }
@@ -275,7 +285,7 @@ export class ProjectCheckpoints {
     // vanish while Git reads it. That is the moment, not the project: read the folder again.
     for (let attempt = 1; ; attempt++) {
       try {
-        await this.git(['add', '-A', '--', '.', ...RESERVED_PATH_EXCLUSIONS, ...IN_FLIGHT_WRITE_EXCLUSIONS], index);
+        await this.git(['add', '-A', '--', '.', ...UNRECORDED_PATH_EXCLUSIONS, ...IN_FLIGHT_WRITE_EXCLUSIONS], index);
         break;
       } catch (error) {
         if (attempt >= WORKING_TREE_READ_ATTEMPTS || !fileChangedWhileRead(error)) throw error;
@@ -293,7 +303,7 @@ export class ProjectCheckpoints {
     const tokens = (await this.git(['diff-tree', '--no-commit-id', '--name-status', '--no-renames', '-r', '-z', from, to, '--'])).split('\0');
     const changes: CheckpointFileChange[] = [];
     for (let i = 0; i + 1 < tokens.length; i += 2) {
-      if (!tokens[i] || !tokens[i + 1] || isReservedProjectFilePath(tokens[i + 1])) continue;
+      if (!tokens[i] || !tokens[i + 1] || isUnrecordedPath(tokens[i + 1])) continue;
       changes.push({ path: tokens[i + 1]!, status: tokens[i] === 'A' ? 'added' : tokens[i] === 'D' ? 'deleted' : 'modified' });
     }
     return changes;
@@ -378,7 +388,7 @@ export class ProjectCheckpoints {
     for (let i = 0; i + 1 < rawTokens.length; i += 2) {
       const meta = rawTokens[i]!;
       const filePath = rawTokens[i + 1]!;
-      if (!meta.startsWith(':') || !filePath || isReservedProjectFilePath(filePath)) continue;
+      if (!meta.startsWith(':') || !filePath || isUnrecordedPath(filePath)) continue;
       const [, , oldOid = '', newOid = '', letter = ''] = meta.slice(1).split(' ');
       const status = letter.startsWith('A') ? 'added' : letter.startsWith('D') ? 'deleted' : 'modified';
       const existing = entries.find(item => item.path === filePath);

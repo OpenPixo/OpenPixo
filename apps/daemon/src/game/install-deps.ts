@@ -1,5 +1,6 @@
 import { GAME_PACKAGE_LOCKS, gamePackageManager } from './package-manager.js';
 import { npmRegistryEnv } from './npm-registry.js';
+import { gamePackageCacheSetup } from './package-caches.js';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
@@ -82,9 +83,15 @@ async function belongsToForeignPnpmWorkspace(cwd: string): Promise<boolean> {
 type InstallExit = { exitCode: number | null; timedOut: boolean; cancelled?: boolean };
 type ExecuteInstall = (executable: string, argv: string[], cwd: string, output: (chunk: string | Buffer) => void) => Promise<InstallExit>;
 
-async function executeInstall(executable: string, argv: string[], cwd: string, output: (chunk: string | Buffer) => void,
-  node: string, dataDir: string, signal?: AbortSignal): Promise<InstallExit> {
-  const invocation = createCommandInvocation({ command: executable, args: argv });
+/**
+ * `installCommand` stays what a person would type in the game folder; the cache
+ * locations (`gamePackageCacheSetup`) are added only to the process started here.
+ */
+async function executeInstall(packageManager: GamePackageManager, executable: string, argv: string[], cwd: string,
+  output: (chunk: string | Buffer) => void, node: string, dataDir: string, signal?: AbortSignal): Promise<InstallExit> {
+  const caches = await gamePackageCacheSetup(packageManager, dataDir, { cwd });
+  for (const note of caches.notes) output(`${note}\n`);
+  const invocation = createCommandInvocation({ command: executable, args: [...argv, ...caches.argv] });
   const registry = await npmRegistryEnv({ env: process.env, cwd });
   if (registry.npm_config_registry) output(`Using the npm mirror ${registry.npm_config_registry}
 `);
@@ -92,7 +99,7 @@ async function executeInstall(executable: string, argv: string[], cwd: string, o
   const child = spawn(invocation.command, invocation.args, {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
     windowsVerbatimArguments: invocation.windowsVerbatimArguments,
-    env: { ...process.env, ...registry, PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH ?? ''}`, PIXO_DATA_DIR: dataDir },
+    env: { ...process.env, ...registry, ...caches.env, PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH ?? ''}`, PIXO_DATA_DIR: dataDir },
   });
   let timedOut = false;
   let cancelled = false;
@@ -129,7 +136,7 @@ export async function installGameDependencies(cwd: string, dataDir: string, reso
   try {
     const exit = options.execute
       ? await options.execute(executable, argv, cwd, output)
-      : await executeInstall(executable, argv, cwd, output, node, dataDir, options.signal);
+      : await executeInstall(plan.packageManager!, executable, argv, cwd, output, node, dataDir, options.signal);
     const reasonCode = exit.cancelled ? 'INSTALL_CANCELLED' : exit.timedOut ? 'INSTALL_TIMEOUT' : exit.exitCode !== 0 ? 'INSTALL_FAILED' : undefined;
     result = { ...plan, status: reasonCode ? 'failed' : 'installed', exitCode: exit.exitCode, ...(reasonCode ? { reasonCode } : {}) };
   } catch (error) {
