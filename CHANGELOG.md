@@ -1,5 +1,31 @@
 # Changelog
 
+## OpenPixo 1.0.9
+
+- **A clearer first screen.** Two ways in, each saying what it costs: **OpenPixo credits** (recommended, nothing to install, sign in inside) or **your own AI accounts**, which now says plainly it is not free and needs a terminal. Unless Codex or Claude Code is already signed in on your computer, a short check asks for a paid AI account and a terminal before setup starts, with a way back to credits.
+- **See prices before you sign in.** A pricing page shows every plan and credit pack: what size of game each plan is for, the price in dollars with an estimate in your own currency, the bonus credits a plan gives over packs, about how many images, sound effects and 3D models that buys, how many games you can share, and the AI models you can use. Choose one and sign in; the plan screen opens on it.
+- Card, Apple Pay and Google Pay are shown for plans, and Alipay for credit packs. Paying with Alipay? The monthly plans point you to credit packs.
+- Prices show a plain "$" instead of "US$".
+- Codex image jobs run on the Codex model you picked.
+- Installing a game's packages keeps package caches and stores out of the game folder, its version history and the file list.
+- Images made by the AI's batch scripts count in the chat as they finish.
+- A first-time user's new game uses only the app's language, and the first-run screens say plainly when Codex's model is not on your ChatGPT plan.
+- OpenPixo is now licensed under the Functional Source License 1.1, which becomes Apache-2.0 two years after each release. Versions up to 1.0.8 stay Apache-2.0, and skills, plugins and templates stay Apache-2.0 because they go into your games.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- **首屏更清楚。** 两条路，各自写明花费：**OpenPixo 积分**（推荐，不用安装，直接登录）或**使用你自己的 AI 账号**，现在直接说明这条路并不免费，还需要用到终端。除非你的电脑上已经登录了 Codex 或 Claude Code，开始设置前会先简单确认你有付费 AI 账号、会用终端，也可以随时改用积分。
+- **登录前就能看价格。** 价格页列出所有套餐和积分包：每个套餐适合做多大的游戏，美元价格和你所在地货币的估算，套餐比积分包多送的积分，大约能生成多少张图、多少个音效和 3D 模型，能分享多少个游戏，以及可以使用的 AI 模型。选好后登录，套餐页会直接选中它。
+- 套餐显示银行卡、Apple Pay 和 Google Pay，积分包另外支持支付宝。想用支付宝时，按月订阅会提示你改买积分包。
+- 价格显示为 "$"，不再写 "US$"。
+- Codex 生图使用你选择的 Codex 模型。
+- 安装游戏依赖时，包缓存和包仓库不再放进游戏文件夹、版本历史和文件列表。
+- AI 用批量脚本生成的图片，每完成一张就会在对话里计数。
+- 新手的新游戏只使用应用的语言；当 Codex 的模型不在你的 ChatGPT 套餐里时，首次使用页面会直接说明。
+- OpenPixo 改用 Functional Source License 1.1 授权，每个版本发布两年后转为 Apache-2.0。1.0.8 及更早的版本仍是 Apache-2.0；技能、插件和模板仍是 Apache-2.0，因为它们会进到你的游戏里。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.8
 
 - **Game hub** in the left bar, after the Workshop: every game you shared in one place, how often it was played this month, and who played together. Copy the link, play it, or open the game from its card; the monthly limit for playing together, the link and **Stop sharing** sit under **Settings**. Links whose project you deleted, or that you published from another computer, show here too, so you can free their slot. `pixo publish list` shows the same.
