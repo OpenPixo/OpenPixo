@@ -18,8 +18,16 @@
  *        · 结果按**逐行 JSON** 读:`status` 为 done/succeeded/completed/ok 的行算一张,
  *          路径取 `file.name`,其次 `path` / `file` / `outputPath` / `url`;
  *        · daemon 的媒体任务(`/api/projects/:id/media/tasks`,`runId` 对得上)优先于
- *          命令输出:`task.file.name` 是那一格的路径,`batchId/batchIndex/batchSize`
- *          决定格子数与位置;
+ *          命令输出:`task.file.name` 是那一格的路径,`task.status` 是那一格的状态;
+ *          一次调用拿的正好是 daemon 的一整批时,`batchId/batchIndex/batchSize` 决定格子数
+ *          与位置,只拿了一批里的几条时格子数就是那几条;
+ *        · 任务归哪次调用(`media-task-owners.ts`,2026-11-19 B6):输出里点了任务 id 或
+ *          已完成的文件路径、且任务在它活着时创建的那次调用;其次按顺序分给写着
+ *          `media generate` 的调用;再其次是任务创建时**唯一**在跑的那条命令。所以
+ *          agent 自己写的批量脚本(`node scripts/gen.mjs …`,脚本里才调 `pixo media
+ *          generate`)做的图也算:命令行照常留着,紧跟一行生图行逐格亮起;
+ *        · 认不出主人的任务(轮询先于事件、几条命令同时在跑又没点名)落在当前位置的
+ *          兜底行里,同样按任务状态画 —— 做完的格子一样进这里,轮次结束后也不消失;
  *        · 结果是交棒行时读这一轮 `media wait` 等到的结局(`{"file":…}` 算一张);
  *        · 结果被打码、但入参带 `file_path` 的单张生成,用那个 `file_path`。
  *      托管生图(OpenPixo 积分)走同一条 `pixo media generate` / 媒体任务管线,不另立判据。
