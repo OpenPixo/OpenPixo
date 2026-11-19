@@ -30,6 +30,17 @@ You decide size, placement, scale and icon set. Ask first when the map adds a ru
 - **Full map:** centred on the player when opened, with a legend for every icon used, the current objective named, and the same controls as other menus (pan with stick or arrows, Back closes).
 - **Explored state is saved** with progress if fog exists; reopening the game must not reset it.
 
+## Branching run maps
+
+A roguelike or deckbuilder floor map (fights, shops, rests and events up to a boss) is the screen where the player chooses a route, so the "does the game need a map" question does not apply. The style reference decides its frame, icons and background; this decides the layout.
+
+- **2–4 nodes per step, staggered.** Offset each step's nodes sideways and jitter them a little, so it reads as a path through a place. A grid of identical circles reads as a table.
+- **Clear paths, few crossings.** Draw each link as a visible line or trail. Link a node only to the nearest nodes of the next step and reject a link that would cross one already placed.
+- **State at a glance.** Reachable nodes are highlighted; visited nodes and the path taken are dimmed.
+- **Type by icon shape**, with a legend on the screen. The boss or exit node is clearly larger.
+- **Room for the art.** Nodes and lines cover well under half the screen so the background shows; a long map scrolls with the current step in view.
+- **Hover or focus shows a node's detail** (its type and what the game reveals about it); keyboard and controller move between reachable nodes.
+
 ## Build it
 
 Draw the map from level data (tile layers, collision shapes, room bounds), never by screenshotting the world camera at runtime unless the engine makes that cheap and the art already reads simplified.
@@ -54,7 +65,7 @@ After the parent's `pixo game verify` step, capture the map in three places: at 
 ]
 ```
 
-Check that the player marker moved the right amount and direction, the objective arrow points the right way, nothing decorative is drawn, and the map reads at the smallest target resolution. For a full map, check open, pan, legend and Back with keyboard and controller. Godot capture injects no input and Unity has no capture; play those by hand.
+Check that the player marker moved the right amount and direction, the objective arrow points the right way, nothing decorative is drawn, and the map reads at the smallest target resolution. For a full map, check open, pan, legend and Back with keyboard and controller. For a run map, capture before and after one pick: the highlight moved to the next step and the taken path dimmed. Godot capture injects no input and Unity has no capture; play those by hand.
 
 ## Common mistakes
 
@@ -66,3 +77,4 @@ Check that the player marker moved the right amount and direction, the objective
 | Map icons scale with zoom until unreadable | Icons keep their screen size |
 | Fog progress lost on reload | Explored cells saved with progress |
 | A map added to a short linear level | A progress bar, or nothing |
+| A run map as a grid of identical circles | Staggered steps of 2–4 typed nodes, clear paths, a larger boss |
