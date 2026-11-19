@@ -40,7 +40,7 @@ The media section of the system prompt owns how to call the tools: sizes, `--she
 
 1. **Find the anchor.** `pixo style get "$PIXO_PROJECT_ID"` shows the project's style reference; otherwise use the path named in the approved plan (usually under `concept/`). If there is none, ask the user to pick one existing image or to make style samples first; do not invent a style. Record the one they pick with `pixo style reference "$PIXO_PROJECT_ID" <path>`.
 2. **Write or reuse `art/style-sheet.md`** (format below). Write it once per game; later stages read it and add only new families.
-3. **Write the asset list:** one row per image or sheet with id, family, concrete features and output path. Show and confirm it exactly as the build rules in the system prompt say (art list, or the art card when it spends credits); this skill adds no approval step of its own.
+3. **Write the asset list:** one row per image or sheet with id, family, concrete features, final size and output path. Every screen the player sees in the stage (map, shop, event, rest, chest, results) gets a focal picture, such as a merchant portrait or an event illustration, or the note "text only, by design"; a screen with neither reads as a debug menu. A full-screen background is listed at the game's size in Game setup; when that exceeds the 1536 px long-edge cap, note that it renders at the cap and is upscaled with `pixo asset resize`. Show and confirm it exactly as the build rules in the system prompt say (art list, or the art card when it spends credits); this skill adds no approval step of its own.
 4. **Make the first image of each family, check it, then the rest.** A wrong first image is cheaper to fix than a wrong set.
 5. **Check every result** against the review list. Regenerate a failure with one change to the prompt; after two failed retries, stop and tell the user what is wrong.
 6. **Wire the art in and see it in the game** next to the existing art (`pixo game verify --steps check,build,run --screenshot --json`, and a playtest for anything that moves).
@@ -103,7 +103,8 @@ pixo media generate --surface image --model <id> --prompt-file art/prompts/slime
 - Use the image model the user selected (`image-models`) and always pass the anchor with `--image`. Once the game has a style reference, a request with no `--image` is refused unless it says `--no-reference`; use that only for art meant to look different. On the art budget the host sends a request with `--image` to `openpixo-image-edit`, which takes up to 4 references (the anchor plus 3 approved images), whichever hosted model you named. If the model takes no `--image`, say consistency will be weaker, keep the style line and the design's description word for word, and review harder.
 - Put each prompt in `art/prompts/<id>.txt`, so a retry or a later variant starts from the exact text.
 - Until the user sets the look, the host adds the project's installed style to image requests; never pass `--style none` to get around it. Once the game has a style reference the host adds nothing, so the style line carries the look: do not pass `--style` unless the user asks for that style's look.
-- A slow model returns a `taskId`: wait with `pixo media wait` instead of generating the same image again.
+- A slow model returns a `taskId` after about 25 s: wait with `pixo media wait <taskId> --since <nextSince>` instead of generating the same image again.
+- Once a family's first image passed review, keep up to 2 image jobs in flight: start the next `media generate` while one is pending, then `media wait` on each. Never more than 2 on Codex. After `CODEX_IMAGE_RATE_LIMITED` or any rate-limit error, finish what is running and go one at a time.
 
 ## Recipes and character cards
 
