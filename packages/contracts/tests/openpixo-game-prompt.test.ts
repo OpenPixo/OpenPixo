@@ -66,7 +66,7 @@ describe('OpenPixo imported game project prompt', () => {
       'Outline: One-pixel dark outline',
       'Default background: transparent',
       'Recommended resolution: 1024x1024',
-      'This style is a starting point the user picked in setup',
+      'This style is a starting point the user picked in setup: make one style sample with it and the others in different looks',
       'their direction and the chosen reference decide the look, not this style',
       'code-only recipes ignore them',
       'the host adds this style to every image request and image recipe run on its own; do not pass `--style`',

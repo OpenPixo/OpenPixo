@@ -109,10 +109,18 @@ describe('a new game is planned before it is built', () => {
     expect(block).toContain('`pixel-16-bit`');
     expect(block).toContain('16-bit pixel');
     expect(block).toMatch(/Make 2 or 3 small style samples of this game/);
-    expect(block).toMatch(/mock gameplay screen of the confirmed game/);
+    // A sample is a key image of the game in play, made by the game-key-image skill (2026-11-20:
+    // samples asked for as "a mock gameplay screen" came back as posters, and the game copied them).
+    expect(block).toMatch(/Each sample is a key image: a screenshot of the confirmed game in play/);
+    expect(block).toContain('`game-key-image` skill');
     expect(block).toContain('media generate --surface image');
     expect(block).toContain('--output concept/style-<n>.png');
-    expect(block).toContain('--style <id>');
+    // 2026-11-20 agent run: a sample passed --style <id>, the host appended the installed style's
+    // own prompt, palette and "no text" list after the Style DNA, and the 960x540 size shrank the
+    // render; the same prompt without either came out far richer.
+    expect(block).toContain('--size 1536x864');
+    expect(block).toContain('--style none');
+    expect(block).not.toContain('960x540');
     expect(block).toContain(String(GAME_PLAN_CONCEPT_IMAGE_LIMIT));
     expect(block).toMatch(/The picked image is the game's style reference/);
     expect(block).toMatch(/never impose a style's own palette/);

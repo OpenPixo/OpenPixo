@@ -2,8 +2,8 @@
 name: game-art-set
 en_name: Matching game art set
 zh_name: 风格统一的游戏美术
-description: Generate new sprites, animation frames, props, icons, tiles, backgrounds or 3D-model concept images that match the game's style reference, with one style sheet and a fixed prompt template per asset family. Use when a stage needs new art; not for planning's style samples, processing existing files or fixing pixel grids.
-zh_description: 按游戏的风格参考图生成新的角色、动画帧、道具、图标、瓦片、背景或 3D 模型概念图：一份风格说明，每类素材一个固定的提示词模板。适用于某个阶段需要新美术时；不用于规划时的画风样图、处理已有文件或修像素网格。
+description: Generate new sprites, animation frames, props, icons, tiles, backgrounds or 3D-model concept images that match the game's style reference, with one style sheet and a fixed prompt template per asset family. Use when a stage needs new art; not for key images or planning's style samples (game-key-image), processing existing files or fixing pixel grids.
+zh_description: 按游戏的风格参考图生成新的角色、动画帧、道具、图标、瓦片、背景或 3D 模型概念图：一份风格说明，每类素材一个固定的提示词模板。适用于某个阶段需要新美术时；不用于效果图和规划时的画风样图（game-key-image）、处理已有文件或修像素网格。
 triggers:
   - game art
   - matching sprites
@@ -38,9 +38,9 @@ The media section of the system prompt owns how to call the tools: sizes, `--she
 
 ## Quick path
 
-1. **Find the anchor.** `pixo style get "$PIXO_PROJECT_ID"` shows the project's style reference; otherwise use the path named in the approved plan (usually under `concept/`). If there is none, ask the user to pick one existing image or to make style samples first; do not invent a style. Record the one they pick with `pixo style reference "$PIXO_PROJECT_ID" <path>`.
+1. **Find the anchor.** `pixo style get "$PIXO_PROJECT_ID"` shows the project's style reference; otherwise use the path named in the approved plan (usually under `concept/`). If there is none, ask the user to pick one existing image or make key images first with `game-key-image`; do not invent a style. Record the one they pick with `pixo style reference "$PIXO_PROJECT_ID" <path>`.
 2. **Write or reuse `art/style-sheet.md`** (format below). Write it once per game; later stages read it and add only new families.
-3. **Write the asset list:** one row per image or sheet with id, family, concrete features, final size and output path. Every screen the player sees in the stage (map, shop, event, rest, chest, results) gets a focal picture, such as a merchant portrait or an event illustration, or the note "text only, by design"; a screen with neither reads as a debug menu. A full-screen background is listed at the game's size in Game setup; when that exceeds the 1536 px long-edge cap, note that it renders at the cap and is upscaled with `pixo asset resize`. Show and confirm it exactly as the build rules in the system prompt say (art list, or the art card when it spends credits); this skill adds no approval step of its own.
+3. **Write the asset list:** one row per image or sheet with id, family, concrete features, final size and output path. A new area or a changed look starts with its key image (`game-key-image`), listed first and made first; the area's tiles, props and characters are then made to add up to that screen. Every screen the player sees in the stage (map, shop, event, rest, chest, results) gets a focal picture, such as a merchant portrait or an event illustration, or the note "text only, by design"; a screen with neither reads as a debug menu. A full-screen background is listed at the game's size in Game setup; when that exceeds the 1536 px long-edge cap, note that it renders at the cap and is upscaled with `pixo asset resize`. Show and confirm it exactly as the build rules in the system prompt say (art list, or the art card when it spends credits); this skill adds no approval step of its own.
 4. **Make the first image of each family, check it, then the rest.** A wrong first image is cheaper to fix than a wrong set.
 5. **Check every result** against the review list. Regenerate a failure with one change to the prompt; after two failed retries, stop and tell the user what is wrong.
 6. **Wire the art in and see it in the game** next to the existing art (`pixo game verify --steps check,build,run --screenshot --json`, and a playtest for anything that moves).
@@ -59,7 +59,7 @@ Heights: player 1.0, slime 0.6, door 1.6
 Sizes: player 128x128, slime 96x96, pickups 64x64, tiles 64x64
 ```
 
-To write the style line, look at the anchor and describe five things: medium or technique, texture, light direction, outline, shading. Write what you see, not mood words. Never add extra style words to a single prompt; when the style should change, the user changes the sheet. Pick sizes from the media section's size table and keep them in proportion to the heights row.
+When `art/style-bible.md` exists (written by `game-key-image`), the style line is its Style DNA, word for word, and the view and heights come from its camera line. Otherwise, to write the style line, look at the anchor and describe five things: medium or technique, texture, light direction, outline, shading. Write what you see, not mood words. Never add extra style words to a single prompt; when the style should change, the user changes the sheet. Pick sizes from the media section's size table and keep them in proportion to the heights row.
 
 ## Turn vague words into features
 

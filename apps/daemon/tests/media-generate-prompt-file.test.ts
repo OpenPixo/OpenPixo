@@ -127,4 +127,41 @@ describe(`${PRODUCT_CLI_NAME} media generate --prompt-file`, () => {
     expect(gen, 'media/generate was called').toBeTruthy();
     expect(JSON.parse(gen!.body).prompt).toBe(LONG_PROMPT);
   });
+
+  it('drops the byte-order mark Windows PowerShell puts before piped text', async () => {
+    await runCli(
+      ['media', 'generate', '--surface', 'image', '--model', 'test-model', '--prompt-file', '-', '--daemon-url', baseUrl],
+      `﻿${LONG_PROMPT}`,
+    );
+    const gen = seen.find((r) => r.url.includes('/media/generate'));
+    expect(JSON.parse(gen!.body).prompt).toBe(LONG_PROMPT);
+  });
+
+  // Windows PowerShell 5.1 passes a variable holding double quotes to a native
+  // program without escaping them, so `--prompt $p` ends at the first quote and
+  // the rest of the prompt arrives as loose words. Generating from the first
+  // half silently cost two style samples their Avoid and Quality lines.
+  it('refuses loose words after the flags instead of generating from a cut prompt', async () => {
+    const { code, stderr } = await new Promise<{ code: number; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, ['--import', 'tsx', cliEntry,
+        'media', 'generate',
+        '--surface', 'image',
+        '--model', 'test-model',
+        '--output', 'concept/style-1.png',
+        '--prompt', 'Asset type: a game screen\nText (render exactly and only these):', 'SCORE', '420,', 'Avoid:', 'poster',
+        '--daemon-url', baseUrl,
+      ], { cwd: daemonRoot, env: { ...process.env, PIXO_PROJECT_ID: 'p1' }, stdio: ['pipe', 'ignore', 'pipe'] });
+      let err = '';
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (c) => (err += c));
+      child.on('error', reject);
+      child.on('close', (exitCode) => resolve({ code: exitCode ?? -1, stderr: err }));
+      child.stdin.end();
+    });
+
+    expect(code).toBe(2);
+    expect(stderr).toContain('--prompt-file -');
+    expect(stderr).toContain('SCORE');
+    expect(seen.some((r) => r.url.includes('/media/generate'))).toBe(false);
+  });
 });

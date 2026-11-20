@@ -85,7 +85,8 @@ async function readPromptFromFlags(flags) {
         let buf = '';
         process.stdin.setEncoding('utf8');
         process.stdin.on('data', (chunk) => { buf += chunk; });
-        process.stdin.on('end', () => resolve(buf));
+        // Windows PowerShell starts piped UTF-8 text with a byte-order mark.
+        process.stdin.on('end', () => resolve(buf.replace(/^﻿/, '')));
         process.stdin.on('error', reject);
       });
     }
@@ -1037,6 +1038,26 @@ async function runMediaScaffold(rawArgs) {
   process.stdout.write(`${JSON.stringify(await resp.json())}\n`);
 }
 
+/**
+ * `media generate` takes no positional arguments, so any loose word means the
+ * shell split a flag's value — almost always the prompt. Windows PowerShell 5.1
+ * passes `--prompt $p` without escaping the double quotes inside `$p`, so the
+ * prompt ends at its first quote and the rest arrives as separate words.
+ * Generating from the first half would silently drop the prompt's later lines.
+ */
+function refuseSplitMediaPrompt(rawArgs) {
+  const loose = positionalArgs(rawArgs, MEDIA_GENERATE_STRING_FLAGS);
+  if (loose.length === 0) return;
+  const shown = loose.slice(0, 6).join(' ');
+  console.error(
+    `${PRODUCT_CLI_NAME} media generate got ${loose.length} word(s) outside any flag (${shown}${loose.length > 6 ? ' …' : ''}). `
+      + 'The shell split a value, usually the prompt at a quote inside it, and nothing was generated. '
+      + 'Pass the prompt on stdin with --prompt-file - from a quoted here-document '
+      + "(bash: <<'EOF' … EOF; PowerShell: $OutputEncoding = [Text.UTF8Encoding]::new($false); $prompt | & … --prompt-file -).",
+  );
+  process.exit(2);
+}
+
 async function runMediaGenerate(rawArgs) {
   let flags;
   try {
@@ -1053,6 +1074,7 @@ async function runMediaGenerate(rawArgs) {
     printMediaHelp();
     return;
   }
+  refuseSplitMediaPrompt(rawArgs);
 
   const daemonUrl = await cliDaemonUrl(flags);
   const projectId = flags.project || process.env.PIXO_PROJECT_ID;
