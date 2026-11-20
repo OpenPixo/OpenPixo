@@ -341,6 +341,21 @@ describe('game media contract (daemon vs contracts)', () => {
     expect(rule).toMatch(/offset that sprite by\s+a quarter cell toward its facing/);
   });
 
+  // 鸦堡 run (2026-11-21): signed in with an art budget, the prompt listed `video: (none)` and
+  // said "(none) means nothing can make it, do not dispatch it", so Codex told the user the
+  // sprite animation service was not connected and never ran the approved walk recipe.
+  it('offers hosted sprite animation through the recipes when the art budget can pay', () => {
+    const paid = renderGameMediaGenerationContract({ mode: 'enabled', usableProviders: ['codex-cli'], budgetImages: true }, undefined, PHASER_PROFILE);
+    const models = paid.slice(paid.indexOf('### Models'), paid.indexOf('### Models') + 1200);
+    expect(models).toMatch(/- video: \(none\) for `media generate`; looping sprite animation runs inside the animation recipes/);
+    expect(models).toMatch(/paid from the art budget/);
+    // No budget: no such promise.
+    const free = renderGameMediaGenerationContract({ mode: 'enabled', usableProviders: ['codex-cli'], budgetImages: false }, undefined, PHASER_PROFILE);
+    expect(free).not.toMatch(/looping sprite animation runs inside the animation recipes/);
+    expect(gameMediaModelCatalog(['codex-cli'], true).budgetSpriteAnimation).toBe(true);
+    expect(gameMediaModelCatalog(['codex-cli'], false).budgetSpriteAnimation).toBeUndefined();
+  });
+
   // A 64 px icon is billed as the full render, so a set of small art is one sheet, cut by the host.
   it('asks for one --sheet call for a set of small art', () => {
     const block = renderGameMediaGenerationContract(undefined, undefined, PHASER_PROFILE);

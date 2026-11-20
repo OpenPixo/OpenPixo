@@ -30,6 +30,12 @@ export interface GameMediaModelCatalog {
   /** The ids in `model3d` paid from that same budget. Absent otherwise. */
   budgetModel3dModels?: readonly string[] | undefined;
   /**
+   * The art budget can pay for the hosted looping sprite clip, which only the animation
+   * recipes use (never `media generate`). Without saying so, `video: (none)` read as "no
+   * animation is possible" and the agent never ran an approved walk recipe.
+   */
+  budgetSpriteAnimation?: boolean | undefined;
+  /**
    * The user is signed in but has never set an art budget for this project, so credits
    * could pay for art once they do. A budget of 0 is a choice, not this.
    */
@@ -408,7 +414,9 @@ function gameModelSection(input: GameMediaContractInput): string {
     lines.push(
       'Allowed model ids:',
       `- image: ${codeList(catalog.image)}`,
-      `- video: ${codeList(catalog.video)}`,
+      catalog.video.length === 0 && catalog.budgetSpriteAnimation
+        ? '- video: (none) for `media generate`; looping sprite animation runs inside the animation recipes (`sprite-*-8dir`, `sprite-*-side`), on the hosted sprite clip paid from the art budget, so run those recipes as "Characters that move" says'
+        : `- video: ${codeList(catalog.video)}`,
       `- audio · music: ${codeList(catalog.audioMusic)}`,
       `- audio · speech: ${codeList(catalog.audioSpeech)}`,
       `- audio · sfx: ${codeList(catalog.audioSfx)}`,
