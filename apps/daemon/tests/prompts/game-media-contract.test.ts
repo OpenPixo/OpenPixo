@@ -323,6 +323,24 @@ describe('game media contract (daemon vs contracts)', () => {
     expect(rule).toContain('`idle-<direction>`');
   });
 
+  // A side-view brawler needs right and left only (owner, 2026-11-20); the rule used to
+  // offer video walks to top-down games alone and told side views to flip one picture.
+  it('animates a side-view character with the side-view recipes, both facings in one clip', () => {
+    const block = renderGameMediaGenerationContract(undefined, undefined, PHASER_PROFILE);
+    const rule = block.slice(block.indexOf(GAME_ANIMATED_CHARACTER_HEADING), block.indexOf('### Wire it in'));
+    // A brawler with a high camera still shows only right and left (2026-11-20).
+    expect(rule).toMatch(/Pick the walk\s+recipes by the way the sprites face, not by the camera's height/);
+    expect(rule).toMatch(/brawler, even one seen from a high camera/);
+    expect(rule).not.toMatch(/Flipping in the engine covers/);
+    expect(rule).toMatch(/recipe run sprite-walk-sheet-side --input character=<slug> --json --wait/);
+    expect(rule).toMatch(/recipe run sprite-walk-side --source-run <runId> --candidate <id> --json --wait/);
+    expect(rule).toContain('`sprite-idle-sheet-side` then `sprite-idle-side`');
+    expect(rule).toContain('`sprite-attack-sheet-side` then `sprite-attack-side`');
+    expect(rule).toContain('`--input attack=<the strike in a few words>`');
+    expect(rule).toMatch(/turned around rather than mirrored/);
+    expect(rule).toMatch(/offset that sprite by\s+a quarter cell toward its facing/);
+  });
+
   // A 64 px icon is billed as the full render, so a set of small art is one sheet, cut by the host.
   it('asks for one --sheet call for a set of small art', () => {
     const block = renderGameMediaGenerationContract(undefined, undefined, PHASER_PROFILE);

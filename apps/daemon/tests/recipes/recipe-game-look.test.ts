@@ -33,7 +33,7 @@ const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a
 const ENGINE = { detectorVersion: 1, engine: 'phaser', confidence: 'high', evidence: [], languages: [], assetRoots: ['public/assets'], importMetadata: 'none', commands: {} };
 const DIRECTION = 'hand-painted watercolour, soft brown outlines, warm light from the top left';
 const IMAGE_RECIPES_WITH_STYLE = ['item-icon-set', 'parallax-layers', 'tileset-seamless', 'ui-nine-slice', 'vfx-sequence', 'character-turnaround',
-  'sprite-walk-sheet-8dir', 'sprite-idle-sheet-8dir', 'pbr-texture', 'skybox'];
+  'sprite-walk-sheet-8dir', 'sprite-idle-sheet-8dir', 'sprite-walk-sheet-side', 'sprite-idle-sheet-side', 'sprite-attack-sheet-side', 'pbr-texture', 'skybox'];
 
 function fakeCloud() {
   const service = (id: string, min: number) => ({ id, surface: 'image' as const, label: id, credits: 4, priceVersion: 1, maxPromptChars: 12000,

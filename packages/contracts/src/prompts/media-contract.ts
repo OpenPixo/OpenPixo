@@ -148,9 +148,12 @@ A character or enemy the player watches move needs animation frames: one image
 flipped left and right is not an animation. Decide from the gameplay which
 states each one shows on screen (idle, walk or run, jump, attack, hurt, death,
 whatever this game has) and how many frames each needs, usually 4 to 8 for a
-loop and 3 to 6 for a one-shot. Flipping in the engine covers facing the other
-way in a side view; a top-down character needs frames for each direction it
-faces. One still image is right only for what does not move on screen:
+loop and 3 to 6 for a one-shot. A side-view character faces right and left; a
+top-down character needs frames for each direction it faces. Pick the walk
+recipes by the way the sprites face, not by the camera's height: eight
+directions when a character turns to face where it walks, the side-view ones
+when it only ever faces right or left, as in a platformer, a side-scroller or a
+brawler, even one seen from a high camera over a deep floor. One still image is right only for what does not move on screen:
 portraits, card art, icons, props. Make the states this stage needs, not every
 state the character might one day have.
 
@@ -182,6 +185,25 @@ directions:
 draws it standing (check every copy the same way), then
 \`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-idle-8dir --source-run <runId> --candidate <id> --json --wait\`
 makes a slow breathing loop with an \`idle-<direction>\` clip for each direction.
+
+In a side view, make the walk, the idle and each melee attack the same two-step
+way, with both facings in one clip. With the character card made as above, draw
+the sheet, check it, then animate the best candidate:
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-walk-sheet-side --input character=<slug> --json --wait\`
+then
+\`"$PIXO_NODE_BIN" "$PIXO_BIN" recipe run sprite-walk-side --source-run <runId> --candidate <id> --json --wait\`;
+the idle is \`sprite-idle-sheet-side\` then \`sprite-idle-side\`, and an attack is
+\`sprite-attack-sheet-side\` then \`sprite-attack-side\`, with
+\`--input attack=<the strike in a few words>\` on both runs. Each sheet shows the
+character twice on green, the left copy facing right and the right copy facing
+left, turned around rather than mirrored: check that each faces its own way and
+that one-sided details (the sword hand, a shield) stay on the same side of the
+body. Each clip exports a \`right\` and a \`left\` animation; walk and idle loop,
+an attack plays once from its ready stance and back. All side-view sheets draw
+the character at one scale, but the attack's body sits a quarter of a cell
+behind the cell's centre to leave room for the strike, so offset that sprite by
+a quarter cell toward its facing. Each clip costs the same as a walk: make the
+states the stage needs.
 Make the other states with the steps below.
 
 1. Design: one full-body image of the character in its idle pose (facing right

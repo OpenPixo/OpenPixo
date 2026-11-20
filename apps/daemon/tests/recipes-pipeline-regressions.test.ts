@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { discoverRecipes, recipeSummaries, gameRecipePromptEntries } from '../src/recipes/catalog.js';
 import { recipeVariables, renderRecipeParams, renderRecipeTemplate } from '../src/recipes/template.js';
 import { recipeManifest } from './fixtures/recipes.js';
@@ -10,7 +10,7 @@ const bundled = path.resolve(import.meta.dirname, '../../../plugins/_official');
 
 it('keeps every selectable grid divisible with the square cells promised by its prompt', () => {
   const recipes = discoverRecipes(bundled).filter(detail => detail.manifest.pixo!.recipe!.postprocess?.some(step => step.op === 'slice'));
-  expect(recipes.map(recipe => recipe.id).sort()).toEqual(['item-icon-set', 'sprite-idle-8dir', 'sprite-walk-8dir', 'vfx-sequence']);
+  expect(recipes.map(recipe => recipe.id).sort()).toEqual(['item-icon-set', 'sprite-attack-side', 'sprite-idle-8dir', 'sprite-idle-side', 'sprite-walk-8dir', 'sprite-walk-side', 'vfx-sequence']);
   // A video recipe's cells come from its clip, not a square grid it asks a picture model for.
   for (const detail of recipes.filter(detail => detail.manifest.pixo!.recipe!.surface !== 'video')) {
     const recipe = detail.manifest.pixo!.recipe!;
@@ -109,6 +109,55 @@ it('animates the idle sheet the way the walk does, at half speed', () => {
   expect(exported.loopSeconds).toBe(2 * Number(walkSteps.at(-1)!.params!.loopSeconds));
 });
 
+// A side-scroller faces only right and left; the 8-direction sheet spent six of its
+// eight cells on views the game never shows (owner, 2026-11-20).
+describe.each(['walk', 'idle', 'attack'])('side-view %s', (state) => {
+  const recipes = discoverRecipes(bundled);
+  const recipe = (id: string) => recipes.find(entry => entry.id === id)!.manifest.pixo!.recipe!;
+  const sheet = recipe(`sprite-${state}-sheet-side`), clip = recipe(`sprite-${state}-side`);
+  const walkSheet = recipe('sprite-walk-sheet-8dir'), walk = recipe(`sprite-${state === 'idle' ? 'idle' : 'walk'}-8dir`);
+
+  it('draws both facings on the 8-direction canvas, at one scale for every state', () => {
+    expect(sheet.generation?.aspect).toBe(walkSheet.generation?.aspect);
+    expect(sheet.postprocess).toEqual(walkSheet.postprocess);
+    expect(sheet.prompt).toMatch(/2 columns by 1 row/);
+    expect(sheet.prompt).toMatch(/Left cell: facing right\. Right cell: facing left\./);
+    // Turned around, so a sword hand stays the same hand.
+    expect(sheet.prompt).toMatch(/not a mirror image/);
+    expect(sheet.prompt).toMatch(/about 60 percent of the cell height, the same scale as the character's other side-view sheets/);
+    expect(sheet.prompt).not.toMatch(/top-down|\beight\b|4 columns/i);
+  });
+
+  it('cuts its clip into the 2x1 grid, one animation per facing', () => {
+    expect(clip.acts).toEqual({ on: ['image'], recipes: [`openpixo/sprite-${state}-sheet-side`] });
+    // The same hosted clip as the 8-direction walk: one service, one price.
+    expect(clip.generation?.video).toEqual(walk.generation?.video);
+    expect(clip.models).toEqual(walk.models);
+    const steps = clip.postprocess!;
+    expect(steps.map(step => step.op)).toEqual(['video-frames', 'resize', 'remove-bg', 'slice', 'export-spritesheet']);
+    expect(steps[3]!.params!.grid).toBe('2x1');
+    expect(steps.slice(0, 3)).toEqual(walk.postprocess!.slice(0, 3));
+    expect(steps[4]!.params).toMatchObject({ name: state, order: 'by-cell', animations: ['right', 'left'],
+      loopSeconds: walk.postprocess!.at(-1)!.params!.loopSeconds });
+    expect(steps[4]!.params!.loop ?? true).toBe(state !== 'attack');
+  });
+});
+
+it('leaves room in front of a side-view attack and names the strike in both steps', () => {
+  const recipes = discoverRecipes(bundled);
+  const recipe = (id: string) => recipes.find(entry => entry.id === id)!.manifest.pixo!.recipe!;
+  const sheet = recipe('sprite-attack-sheet-side'), clip = recipe('sprite-attack-side');
+  for (const step of [sheet, clip]) {
+    expect(step.inputs.find(input => input.name === 'attack')).toMatchObject({ type: 'string', required: true });
+    expect(step.prompt).toContain('{{attack}}');
+  }
+  expect(sheet.prompt).toMatch(/a quarter of the cell width behind the cell's centre/);
+  expect(sheet.prompt).toMatch(/front half of each cell is empty/);
+  // The 8-direction trial held the extended pose for eight frames before snapping back.
+  expect(clip.prompt).toMatch(/does not hold the extended pose/);
+  expect(clip.prompt).toMatch(/same hand/);
+});
+
 // Accepted only after real-provider runs recorded in the recipe's evals/README.md.
 // Each names the real provider and model it was accepted on.
 const ACCEPTED_RECIPES: Record<string, RegExp> = {
@@ -118,7 +167,7 @@ const ACCEPTED_RECIPES: Record<string, RegExp> = {
 
 it('publishes honest acceptance status for the bundled catalogue and meaningful code categories', async () => {
   const recipes = discoverRecipes(bundled);
-  expect(recipes).toHaveLength(36);
+  expect(recipes).toHaveLength(42);
   for (const recipe of recipes) {
     const evaluation = await readFile(path.join(bundled, 'recipes', recipe.id, 'evals/README.md'), 'utf8');
     if (ACCEPTED_RECIPES[recipe.id]) {
