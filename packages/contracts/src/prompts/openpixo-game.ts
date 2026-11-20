@@ -21,7 +21,7 @@ import type {
   GameSteamFeature,
   GameStore,
 } from '../api/game-setup.js';
-import { GAME_PLAN_APPROVE_LABELS, GAME_PLAN_CONCEPT_IMAGE_LIMIT, type GameEngineOption, type GamePlanPromptInput } from '../api/game-plan.js';
+import { GAME_PLAN_APPROVE_LABELS, type GameEngineOption, type GamePlanPromptInput } from '../api/game-plan.js';
 
 // The daemon reaches the game media contract through the package root, which
 // re-exports this module.
@@ -574,7 +574,7 @@ export const GAME_PLAN_STEPS = [
   { en: 'Build', 'zh-CN': '制作' },
 ] as const;
 
-/** Style samples shown in one round of the art step; the host caps the whole planning at `GAME_PLAN_CONCEPT_IMAGE_LIMIT`. */
+/** Style samples shown in one round of the art step; the user may ask for as many rounds as they like. */
 const STYLE_SAMPLES_PER_ROUND = 3;
 /** Where the samples go, so the chosen one stays in the project as the style reference. */
 const STYLE_SAMPLE_FOLDER = 'concept';
@@ -659,7 +659,7 @@ export function renderGamePlanBlock(
     '',
     'This game has no approved plan. Every new OpenPixo project is planned in chat first, in the steps below, and work starts only after the user approves the plan. A first prompt that says "build it", however detailed, does not end planning; only the user\'s approval does, and you cannot approve for them: they do it in the host.',
     '',
-    `The host holds the same line: until approval this run cannot change the project${canRunTools ? `, asset recipes are refused and images are capped at ${GAME_PLAN_CONCEPT_IMAGE_LIMIT}` : ''}. Do not write code, scaffold, install dependencies or create project files. The media rule about making art applies only after approval; before it, make only the style samples step 2 describes.`,
+    `The host holds the same line: until approval this run cannot change the project${canRunTools ? ', asset recipes are refused and only images can be made' : ''}. Do not write code, scaffold, install dependencies or create project files. The media rule about making art applies only after approval; before it, make only the style samples step 2 describes.`,
     '',
     'Do not ask where the game will be sold, which systems it targets or what it costs: it is not part of planning.',
     '',
@@ -677,7 +677,7 @@ export function renderGamePlanBlock(
 
   const art = canRunTools
     ? [
-        `2. **Art** (画风): show the user what the confirmed game could look like. Make ${quick ? 2 : `2 or ${STYLE_SAMPLES_PER_ROUND}`} small style samples of this game. Each sample is a key image: a screenshot of the confirmed game in play, drawn in one candidate look. Follow the \`game-key-image\` skill to pin down the look the user means, write the shared brief and test each result before you show it, then ask the user to pick one or describe changes. Make a new round when they ask for one (at most ${STYLE_SAMPLES_PER_ROUND} images a round; the host allows ${GAME_PLAN_CONCEPT_IMAGE_LIMIT} before approval in all).`,
+        `2. **Art** (画风): show the user what the confirmed game could look like. Make ${quick ? 2 : `2 or ${STYLE_SAMPLES_PER_ROUND}`} small style samples of this game. Each sample is a key image: a screenshot of the confirmed game in play, drawn in one candidate look. Follow the \`game-key-image\` skill to pin down the look the user means, write the shared brief and test each result before you show it, then ask the user to pick one or describe changes. Make a new round whenever they ask for one (at most ${STYLE_SAMPLES_PER_ROUND} images a round).`,
         ...(styles.length ? ['   Candidate styles: pick from these installed styles, or propose your own from the gameplay and any reference the user gave:', ...styles] : ['   Propose candidate styles from the gameplay and any reference the user gave.']),
         `   Make each sample with one \`${HOST_CLI} media generate --surface image\` call, \`--output ${STYLE_SAMPLE_FOLDER}/style-<n>.png\`, the display's aspect at full size (\`--size 1536x864\` for 16:9) and \`--style none\`: the sample's Style DNA already carries its look, written from the installed style it is based on. Show each one by its path.`,
         '   How samples are paid, by what the Models list in the media section offers:',

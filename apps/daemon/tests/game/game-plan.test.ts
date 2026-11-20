@@ -1,5 +1,4 @@
 import {
-  GAME_PLAN_CONCEPT_IMAGE_LIMIT,
   GAME_PLAN_RECORD_MAX_CHARS,
   GAME_SAMPLE_TEMPLATE_ID,
   type ApiErrorResponse,
@@ -236,13 +235,15 @@ describe('the plan state at the daemon HTTP boundary', () => {
       expect(JSON.stringify(body)).toContain('GAME_PLAN_NOT_APPROVED');
     };
 
-    it('allows a few concept images and then refuses', async () => {
+    // Owner decision 2026-11-20: no count of planning images. The 鸦堡 run used five free Codex
+    // samples in two rejected rounds and had one left for the third. Paid samples stay bounded
+    // by the art budget only the user sets.
+    it('allows as many concept images as the user asks for', async () => {
       const id = await create();
       const grant = toolTokenRegistry.mint({ runId: `run_${randomUUID()}`, projectId: id });
-      for (let attempt = 0; attempt < GAME_PLAN_CONCEPT_IMAGE_LIMIT; attempt += 1) {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
         expect((await generate(grant.token)).status).not.toBe(409);
       }
-      await held(await generate(grant.token));
     });
 
     it('refuses non-image media and asset recipes while planning', async () => {
