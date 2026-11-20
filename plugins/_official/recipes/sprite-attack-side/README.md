@@ -7,7 +7,7 @@ Step 2 of a side-view attack animation. It animates a sheet from `sprite-attack-
 It is the 8-direction walk's method (see `sprite-walk-8dir`) on a 2x1 grid:
 
 1. **The clip.** The sheet goes to an image-to-video model as both the first and the last frame: a short wind-up, one strike, and straight back to the ready stance. 0.92 s at 768p, prompt rewriting off.
-2. **Frames.** The clip is cut into 21 frames (or 7), keyed off the green and split into 2 cells per frame.
+2. **Frames.** The clip is cut into 21 frames (or 7), resized to 768x432, keyed off the green and split into 2 cells of 384x432 per frame (21 of them fit the 8192 px sheet limit).
 3. **Export.** One animation per facing, `right` and `left`, `loopSeconds: 0.875` with `loop: false`: a one-shot of 21 frames at 24 fps, or 7 at 8 fps.
 
 - The character is drawn at the same height as on the side-view walk and idle sheets (about 60% of the cell), but its body sits a quarter of the cell width behind the cell's centre, leaving the front of the cell for the strike. In the engine, offset the attack sprite by a quarter cell toward the way it faces, so the body stays where the walk and idle draw it.

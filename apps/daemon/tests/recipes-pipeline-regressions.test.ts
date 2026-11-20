@@ -136,11 +136,28 @@ describe.each(['walk', 'idle', 'attack'])('side-view %s', (state) => {
     const steps = clip.postprocess!;
     expect(steps.map(step => step.op)).toEqual(['video-frames', 'resize', 'remove-bg', 'slice', 'export-spritesheet']);
     expect(steps[3]!.params!.grid).toBe('2x1');
-    expect(steps.slice(0, 3)).toEqual(walk.postprocess!.slice(0, 3));
+    // Same frames and key as the 8-direction walk; only the size before slicing differs.
+    expect(steps[0]).toEqual(walk.postprocess![0]);
+    expect(steps[2]).toEqual(walk.postprocess![2]);
     expect(steps[4]!.params).toMatchObject({ name: state, order: 'by-cell', animations: ['right', 'left'],
       loopSeconds: walk.postprocess!.at(-1)!.params!.loopSeconds });
     expect(steps[4]!.params!.loop ?? true).toBe(state !== 'attack');
   });
+});
+
+// 鸦堡 run (2026-11-21): the side-view walk cut 21 frames of a 672 px cell, a 14,112 px row,
+// and export-spritesheet refused it after the paid clip was made.
+it('keeps every animation recipe export row within the sprite sheet limit', () => {
+  for (const detail of discoverRecipes(bundled)) {
+    const recipe = detail.manifest.pixo!.recipe!;
+    const steps = recipe.postprocess ?? [];
+    const frames = steps.find(step => step.op === 'video-frames');
+    if (!frames) continue;
+    const resize = steps.find(step => step.op === 'resize')!.params!;
+    const [columns] = String(steps.find(step => step.op === 'slice')!.params!.grid).split('x').map(Number) as [number];
+    const most = Math.max(...(recipe.inputs.find(input => input.name === 'frames')?.options ?? ['21']).map(Number));
+    expect(Number(resize.width) / columns * most, detail.id).toBeLessThanOrEqual(8192);
+  }
 });
 
 it('leaves room in front of a side-view attack and names the strike in both steps', () => {
