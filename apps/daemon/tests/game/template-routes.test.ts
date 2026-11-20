@@ -121,7 +121,7 @@ it('uses folder import authorization and registration, rejecting before copying'
     expect((await deniedParent.json() as ApiErrorResponse).error.details).toMatchObject({ reasonCode: 'TARGET_REJECTED' });
     expect(fs.existsSync(path.join(data, 'missing'))).toBe(false);
     const templates = (await (await fetch(base + '/api/game-templates')).json() as GameTemplatesResponse).templates;
-    expect(templates).toHaveLength(5);
+    expect(templates).toHaveLength(7);
     expect(templates).toContainEqual(expect.objectContaining({
       id: 'phaser3-sample-platformer', name: 'Sample: pixel platformer', nameZhCN: '示例：像素平台跳跃',
       descriptionZhCN: expect.stringContaining('无需配置生成密钥'),
@@ -154,7 +154,7 @@ it('says what this machine can run, and a failed check leaves the template list 
   expect((await listen(async () => [godot])).engines).toEqual([godot]);
   const failed = await listen(async () => { throw new Error('tool lookup failed'); });
   expect(failed.engines).toBeUndefined();
-  expect(failed.templates).toHaveLength(5);
+  expect(failed.templates).toHaveLength(7);
 });
 
 it('serves a listed template cover and 404s for unknown, invalid or cover-less ids', async () => {
@@ -236,7 +236,7 @@ it('mounts template listing and creation on the daemon', async () => {
     server = started.server;
     const listed = await fetch(started.url + '/api/game-templates');
     expect(listed.status).toBe(200);
-    expect((await listed.json() as GameTemplatesResponse).templates).toHaveLength(5);
+    expect((await listed.json() as GameTemplatesResponse).templates).toHaveLength(7);
     const response = await fetch(started.url + '/api/projects/game-from-template', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: started.url },

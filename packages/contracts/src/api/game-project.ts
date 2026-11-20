@@ -187,6 +187,12 @@ export interface GameTemplateSummary {
   description: string;
   descriptionZhCN?: string;
   /**
+   * Genres this starter is a kit for, as new-game genre preset ids such as
+   * `visual-novel`. A kit already has that genre's systems built; clients
+   * offer it only for those genres. Absent on a general engine starter.
+   */
+  genres?: string[];
+  /**
    * Daemon-relative URL of the template's catalog cover, an in-game screenshot
    * (`GET /api/game-templates/:id/cover`). Absent when the template ships no
    * `cover.webp` / `cover.png`; clients then fall back to their own artwork.

@@ -16,12 +16,14 @@ afterEach(async () => {
   for (const dir of scratch.splice(0)) await rm(dir, { recursive: true, force: true });
 });
 
-it('lists the five shipped templates with English and Chinese metadata', async () => {
+it('lists the seven shipped templates with English and Chinese metadata', async () => {
   const templates = await listGameTemplates(templatesRoot);
   expect(templates.map(({ id, engine }) => ({ id, engine }))).toEqual([
     { id: 'godot4-2d', engine: 'godot' },
     { id: 'godot4-3d', engine: 'godot' },
+    { id: 'godot4-story', engine: 'godot' },
     { id: 'phaser3-sample-platformer', engine: 'phaser' },
+    { id: 'phaser3-story', engine: 'phaser' },
     { id: 'phaser3-vite', engine: 'phaser' },
     { id: 'threejs-vite', engine: 'threejs' },
   ]);
@@ -36,6 +38,20 @@ it('lists the five shipped templates with English and Chinese metadata', async (
     description: 'A complete pixel platformer with coins, platforms, a goal flag, and original art and sound. No generation key needed.',
     descriptionZhCN: '完整的像素平台跳跃小游戏，包含金币、平台、终点旗帜及原创图像和音效，无需配置生成密钥。',
   });
+});
+
+it('lists the genres a kit is for, and refuses a manifest with malformed genres', async () => {
+  const root = await parent();
+  const write = async (id: string, genres: unknown) => {
+    await mkdir(path.join(root, id, 'files'), { recursive: true });
+    await writeFile(path.join(root, id, 'template.json'), JSON.stringify({ id, name: id, engine: 'godot', description: id, genres }));
+  };
+  await write('kit', ['visual-novel', 'life-sim']);
+  expect((await listGameTemplates(root)).map(({ id, genres }) => ({ id, genres }))).toEqual([{ id: 'kit', genres: ['visual-novel', 'life-sim'] }]);
+  for (const genres of [[], ['Visual Novel'], 'visual-novel', [3]]) {
+    await write('kit', genres);
+    await expect(listGameTemplates(root), JSON.stringify(genres)).rejects.toThrow('Invalid game template: kit');
+  }
 });
 
 it('lists coverUrl only for a template that ships a cover beside files/', async () => {

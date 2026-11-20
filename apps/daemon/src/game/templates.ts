@@ -70,6 +70,8 @@ export async function listGameTemplates(templatesRoot: string): Promise<GameTemp
         typeof manifest.description !== 'string' || !manifest.description.trim() ||
         (manifest.nameZhCN !== undefined && (typeof manifest.nameZhCN !== 'string' || !manifest.nameZhCN.trim())) ||
         (manifest.descriptionZhCN !== undefined && (typeof manifest.descriptionZhCN !== 'string' || !manifest.descriptionZhCN.trim())) ||
+        (manifest.genres !== undefined && (!Array.isArray(manifest.genres) || !manifest.genres.length ||
+          !manifest.genres.every(genre => typeof genre === 'string' && /^[a-z0-9-]+$/.test(genre)))) ||
         !(await stat(path.join(templatesRoot, entry.name, 'files'))).isDirectory()) {
       throw new Error(`Invalid game template: ${entry.name}`);
     }
@@ -77,6 +79,7 @@ export async function listGameTemplates(templatesRoot: string): Promise<GameTemp
       id: manifest.id, name: manifest.name, engine: manifest.engine, description: manifest.description,
       ...(manifest.nameZhCN !== undefined ? { nameZhCN: manifest.nameZhCN } : {}),
       ...(manifest.descriptionZhCN !== undefined ? { descriptionZhCN: manifest.descriptionZhCN } : {}),
+      ...(manifest.genres !== undefined ? { genres: [...manifest.genres] } : {}),
       ...(await resolveGameTemplateCover(templatesRoot, manifest.id) ? { coverUrl: `/api/game-templates/${manifest.id}/cover` } : {}),
     });
   }

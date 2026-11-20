@@ -8,7 +8,7 @@
   "metadata": {
     "description": "Curated OpenPixo game catalog with free local resources and paid Workshop asset packs. MCP presets require manually installed external servers.",
     "version": "0.1.0",
-    "bundledPreinstallCount": 65
+    "bundledPreinstallCount": 67
   },
   "plugins": [
     {
@@ -1442,6 +1442,36 @@
       ]
     },
     {
+      "name": "openpixo/godot4-story",
+      "title": "Godot 4 story kit · 2D",
+      "title_i18n": {
+        "en": "Godot 4 story kit · 2D",
+        "zh-CN": "Godot 4 故事套件 · 2D"
+      },
+      "version": "0.1.0",
+      "kind": "project-template",
+      "source": "./game-templates/godot4-story",
+      "engines": [
+        "godot"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A visual novel that already plays: typed text, choices, variables, several endings, a story log, auto play, skip and saves. The story is plain text files with a check for broken links and unreachable endings.",
+      "description_i18n": {
+        "en": "A visual novel that already plays: typed text, choices, variables, several endings, a story log, auto play, skip and saves. The story is plain text files with a check for broken links and unreachable endings.",
+        "zh-CN": "已经能玩的视觉小说：逐字显示的对话、选项、变量、多个结局、剧情回顾、自动播放、快进和存档。故事写在纯文本文件里，附带检查断开跳转和走不到结局的脚本。"
+      },
+      "tags": [
+        "godot",
+        "2d",
+        "visual-novel",
+        "story",
+        "kit"
+      ]
+    },
+    {
       "name": "openpixo/phaser3-vite",
       "title": "Phaser 3 · 2D",
       "version": "0.1.0",
@@ -1460,6 +1490,36 @@
         "typescript",
         "2d",
         "movement"
+      ]
+    },
+    {
+      "name": "openpixo/phaser3-story",
+      "title": "Phaser 3 story kit · 2D",
+      "title_i18n": {
+        "en": "Phaser 3 story kit · 2D",
+        "zh-CN": "Phaser 3 故事套件 · 2D"
+      },
+      "version": "0.1.0",
+      "kind": "project-template",
+      "source": "./game-templates/phaser3-story",
+      "engines": [
+        "phaser"
+      ],
+      "license": "Apache-2.0",
+      "pricing": {
+        "type": "free"
+      },
+      "description": "A visual novel that already plays in the browser: typed text, choices, variables, several endings, a story log, auto play, skip and saves. The story is plain text files with a check for broken links and unreachable endings.",
+      "description_i18n": {
+        "en": "A visual novel that already plays in the browser: typed text, choices, variables, several endings, a story log, auto play, skip and saves. The story is plain text files with a check for broken links and unreachable endings.",
+        "zh-CN": "已经能在浏览器里玩的视觉小说：逐字显示的对话、选项、变量、多个结局、剧情回顾、自动播放、快进和存档。故事写在纯文本文件里，附带检查断开跳转和走不到结局的脚本。"
+      },
+      "tags": [
+        "phaser",
+        "2d",
+        "visual-novel",
+        "story",
+        "kit"
       ]
     },
     {

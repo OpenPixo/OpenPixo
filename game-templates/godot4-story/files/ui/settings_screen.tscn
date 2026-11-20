@@ -1,0 +1,122 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://ui/settings_screen.gd" id="1"]
+
+[node name="SettingsScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.094, 0.133, 0.188, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 24
+
+[node name="Scroll" type="ScrollContainer" parent="Margin"]
+layout_mode = 2
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Center" type="CenterContainer" parent="Margin/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Rows" type="VBoxContainer" parent="Margin/Scroll/Center"]
+custom_minimum_size = Vector2(760, 0)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Heading" type="Label" parent="Margin/Scroll/Center/Rows"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "MENU_SETTINGS"
+
+[node name="General" type="GridContainer" parent="Margin/Scroll/Center/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="DisplayLabel" type="Label" parent="Margin/Scroll/Center/Rows/General"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SETTINGS_DISPLAY_MODE"
+
+[node name="DisplayMode" type="OptionButton" parent="Margin/Scroll/Center/Rows/General"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LanguageLabel" type="Label" parent="Margin/Scroll/Center/Rows/General"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SETTINGS_LANGUAGE"
+
+[node name="Language" type="OptionButton" parent="Margin/Scroll/Center/Rows/General"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ControlsHeading" type="Label" parent="Margin/Scroll/Center/Rows"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "SETTINGS_CONTROLS"
+
+[node name="Controls" type="GridContainer" parent="Margin/Scroll/Center/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/v_separation = 8
+columns = 3
+
+[node name="ActionHeading" type="Control" parent="Margin/Scroll/Center/Rows/Controls"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="KeyboardHeading" type="Label" parent="Margin/Scroll/Center/Rows/Controls"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SETTINGS_KEYBOARD"
+
+[node name="GamepadHeading" type="Label" parent="Margin/Scroll/Center/Rows/Controls"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SETTINGS_GAMEPAD"
+
+[node name="Buttons" type="HBoxContainer" parent="Margin/Scroll/Center/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Back" type="Button" parent="Margin/Scroll/Center/Rows/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SETTINGS_BACK"
+
+[node name="ResetControls" type="Button" parent="Margin/Scroll/Center/Rows/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SETTINGS_RESET_CONTROLS"

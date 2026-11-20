@@ -1,0 +1,10 @@
+{
+	"ren": {
+		"name": { "en": "Ren", "zh_CN": "阿仁" },
+		"color": "#e8b86b"
+	},
+	"iko": {
+		"name": { "en": "Iko", "zh_CN": "伊可" },
+		"color": "#8fc7e8"
+	}
+}

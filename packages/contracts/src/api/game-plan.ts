@@ -79,7 +79,7 @@ export interface GameEngineOption {
   engine: GameEngineId;
   name: string;
   /** Starter templates in `pixo game scaffold`; empty when the engine has none. */
-  templates: Array<{ id: string; name: string }>;
+  templates: Array<{ id: string; name: string; genres?: string[] }>;
   /** False when a tool the engine needs was not found on this machine. */
   available: boolean;
   /** Tools the host could not find. */
