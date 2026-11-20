@@ -740,8 +740,11 @@ async function probe(
   // Publish shared runtime facts together only for the current configuration.
   if (isCurrent()) {
     if (caps) agentCapabilities.set(def.id, caps);
-    if (auth && readinessContext) detectedReadinessAuth.set(def.id, { scope: readinessAuthScope(readinessContext), status: auth.status });
-    else detectedReadinessAuth.delete(def.id);
+    if (auth && readinessContext) {
+      const scope = readinessAuthScope(readinessContext);
+      const known = detectedReadinessAuth.get(def.id);
+      detectedReadinessAuth.set(def.id, { scope, status: answeredAuthStatus(known?.scope === scope ? known.status : undefined, auth.status) });
+    } else detectedReadinessAuth.delete(def.id);
     const runtimeVersions: DetectedRuntimeVersions = {
       invocable: true,
       ...(outcome.version ? { agentCliVersion: outcome.version } : {}),
@@ -799,6 +802,26 @@ function stripFns(
   return rest;
 }
 
+/**
+ * A sign-in probe that could not answer is not a sign-out. `codex login status` takes about
+ * 4 s on Windows and times out while the CLI is busy, which reads as `unknown`; a background
+ * refresh then hid a signed-in Codex for a whole turn, and the run's prompt offered no image
+ * model at all (鸦堡 run, 2026-11-20). So `unknown` keeps an answered `ok`; `missing` replaces
+ * it, and with no answered sign-in `unknown` stands.
+ */
+function answeredAuthStatus(previous: DetectedAgent['authStatus'], next: NonNullable<DetectedAgent['authStatus']>): NonNullable<DetectedAgent['authStatus']> {
+  return next === 'unknown' && previous === 'ok' ? 'ok' : next;
+}
+
+/** `answeredAuthStatus` for a whole snapshot: same executable only, and without the unknown's warning. */
+function keepAnsweredSignIn(previous: DetectedAgent | undefined, next: DetectedAgent): DetectedAgent {
+  if (!previous || !next.authStatus || previous.path !== next.path
+    || answeredAuthStatus(previous.authStatus, next.authStatus) === next.authStatus) return next;
+  const { authMessage: _unanswered, ...rest } = next;
+  const diagnostics = next.diagnostics?.filter((entry) => entry.reason !== 'auth-unknown');
+  return { ...rest, authStatus: 'ok', ...(diagnostics ? { diagnostics } : {}) };
+}
+
 export async function detectAgent(
   def: RuntimeAgentDef,
   configuredEnv: Record<string, string> = {},
@@ -820,7 +843,7 @@ export async function detectAgent(
       // A broken adapter must not blank the picker or its healthy peers.
       agent = unavailableAgent(def, [], undefined, configuredEnv);
     }
-    snapshot.agent = agent;
+    snapshot.agent = keepAnsweredSignIn(snapshot.agent, agent);
     snapshot.expiresAt = Date.now() + DETECTION_TTL_MS;
     // A probe for an old configuration may finish after a new one. Only the
     // current snapshot can update the model allowlist used by run admission.
