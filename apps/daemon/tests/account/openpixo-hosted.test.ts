@@ -614,6 +614,31 @@ describe('OpenPixo hosted media', () => {
       expect(JSON.stringify(warn.mock.calls)).not.toMatch(/fal\.media/iu);
     });
 
+    // 鸦堡 run (2026-11-21): one dropped upload left the reference registered but missing at the
+    // vendor, and every later quote on that picture failed. The link stays valid, so try it again.
+    it('retries a dropped reference upload on the same link before giving up', async () => {
+      let calls = 0;
+      const urls: string[] = [];
+      const { h, hosted } = await setup({ vendor: (url) => {
+        urls.push(url);
+        calls += 1;
+        if (calls === 1) throw new Error('connect ECONNRESET');
+        if (calls === 2) return new Response(null, { status: 503 });
+        return new Response(null, { status: 200 });
+      } });
+      h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => ({ body: { sha256: request.body.sha256, uploadUrl: 'https://upload.example/put?sig=s' } }));
+      expect(await hosted.uploadReferences([{ bytes: PNG, mime: 'image/png' }])).toEqual([SHA]);
+      expect(urls).toEqual(['https://upload.example/put?sig=s', 'https://upload.example/put?sig=s', 'https://upload.example/put?sig=s']);
+    });
+
+    it('does not retry an upload the link refused outright', async () => {
+      let calls = 0;
+      const { h, hosted } = await setup({ vendor: () => { calls += 1; return new Response(null, { status: 403 }); } });
+      h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => ({ body: { sha256: request.body.sha256, uploadUrl: 'https://upload.example/put?sig=s' } }));
+      await expect(hosted.uploadReferences([{ bytes: PNG, mime: 'image/png' }])).rejects.toMatchObject({ code: 'CLOUD_UNAVAILABLE' });
+      expect(calls).toBe(1);
+    });
+
     it('turns a failed reference upload into its own words, whatever the transport said', async () => {
       const { h, hosted } = await setup({ vendor: () => { throw new Error('connect ECONNRESET https://v3.fal.media/upload'); } });
       h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => ({ body: { sha256: request.body.sha256, uploadUrl: 'https://v3.fal.media/upload?sig=s' } }));
