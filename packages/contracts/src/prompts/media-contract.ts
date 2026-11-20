@@ -492,7 +492,7 @@ so and skip media generation.
   --surface <image|video|audio|model3d> \\
   --model <model-id> \\
   --output <project-relative path inside an asset root> \\
-  --prompt "<full prompt>" \\
+  (--prompt "<one-line prompt>" | --prompt-file - <<'EOF' … EOF) \\
   [--size <W>x<H> | --width <px> [--height <px>]] [--transparent | --background scene] \\
   [--sheet <C>x<R> [--names a,b,...] [--frames]] \\
   [--aspect 1:1|16:9|9:16|4:3|3:4] [--quality <tier>] [--resolution <res>] \\
@@ -501,7 +501,7 @@ so and skip media generation.
 \`\`\`
 
 PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN media generate --project $env:PIXO_PROJECT_ID ...\`.
-Always quote the prompt; never splice unquoted user text into the command.
+A prompt longer than one line, or with any quote in it, goes on stdin with \`--prompt-file -\`. In bash use a quoted here-document (\`<<'EOF'\`). In PowerShell use \`$OutputEncoding = [Text.UTF8Encoding]::new($false); $prompt = @'\` … \`'@\` on its own lines, then \`$prompt | & $env:PIXO_NODE_BIN $env:PIXO_BIN media generate … --prompt-file -\`. Never pass a long prompt as \`--prompt $prompt\`: Windows PowerShell ends the argument at the first double quote inside it, and the CLI refuses the leftover words. Never splice unquoted user text into the command.
 Run the dispatcher first. Do not replace it with curl, provider SDKs, or your own
 scripts, and do not probe the daemon before the first attempt.
 

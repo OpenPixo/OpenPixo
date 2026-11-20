@@ -15,6 +15,7 @@ Choose workflows for the project's engine, target platform and chosen art style.
 | [character-controller-3d](character-controller-3d/SKILL.md) | First/third-person movement, jump grace, slopes, camera collision and lock-on |
 | [enemy-ai-state-machines](enemy-ai-state-machines/SKILL.md) | Enemy behavior states and transitions |
 | [game-art-set](game-art-set/SKILL.md) | New art that matches the style reference: one style sheet, a prompt template per asset family, review before wiring in |
+| [game-key-image](game-key-image/SKILL.md) | The key image first: a believable gameplay screen as the style master, then the style bible, UI kit and UI components grown from it |
 | [game-assets-batch](game-assets-batch/SKILL.md) | Batch game-asset generation and processing |
 | [game-balance-data](game-balance-data/SKILL.md) | Spreadsheet/CSV/JSON pipelines, curves and seeded simulations |
 | [game-design-doc](game-design-doc/SKILL.md) | Project-owned game design documentation |

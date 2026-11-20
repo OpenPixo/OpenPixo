@@ -1,0 +1,38 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/game-key-image",
+  "version": "0.1.0",
+  "title": "Game key image",
+  "title_i18n": { "en": "Game key image", "zh-CN": "游戏效果图" },
+  "description": "Make the game's key image first: one believable gameplay screen that becomes the style master. Then grow the style bible, the UI kit and the UI components from it, so every later image copies a real game screen.",
+  "description_i18n": {
+    "en": "Make the game's key image first: one believable gameplay screen that becomes the style master. Then grow the style bible, the UI kit and the UI components from it, so every later image copies a real game screen.",
+    "zh-CN": "先做游戏的效果图：一张像真实游戏画面的图，作为风格母版；再从它延展出风格圣经、UI 规范板和界面组件，让之后的每张图都照着真实的游戏画面做。"
+  },
+  "license": "Apache-2.0",
+  "author": { "name": "OpenPixo" },
+  "tags": ["game-development", "game-assets", "art-style", "image-generation", "first-party", "openpixo"],
+  "compat": { "agentSkills": [{ "path": "./SKILL.md" }] },
+  "pixo": { "kind": "skill", "mode": "utility", "category": "game-assets" },
+  "examples": [
+    {
+      "title": "Pick the game's look",
+      "title_i18n": { "zh-CN": "定下游戏的画风" },
+      "prompt": "Make 3 key images of the confirmed game, each in a different look, and ask me to pick one as the style reference.",
+      "prompt_i18n": { "zh-CN": "为已确认的玩法做 3 张不同画风的效果图，让我挑一张作为画风参考。" }
+    },
+    {
+      "title": "Match a game I like",
+      "title_i18n": { "zh-CN": "照着喜欢的游戏" },
+      "prompt": "I want it to look like the screenshot I attached. Make a key image of our game in that look, with our own characters and places.",
+      "prompt_i18n": { "zh-CN": "我想要附图里那样的画面。用这种画风做一张我们游戏的效果图，角色和场景都用我们自己的。" }
+    },
+    {
+      "title": "Key image for a new area",
+      "title_i18n": { "zh-CN": "新区域的效果图" },
+      "prompt": "Before making the swamp's art, make a key image of the swamp at night from the style reference, so the tiles and props have something to match.",
+      "prompt_i18n": { "zh-CN": "做沼泽的美术之前，先按画风参考图做一张沼泽夜晚的效果图，让瓦片和道具有东西可以对照。" }
+    }
+  ]
+}
