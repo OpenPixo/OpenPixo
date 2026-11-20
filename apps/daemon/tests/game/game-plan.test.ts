@@ -495,7 +495,8 @@ describe('engine options offered while planning', () => {
     const options = await gameEngineOptions(root, id => id === 'npm' ? 'C:\\tools\\npm.cmd' : null);
     const byEngine = new Map(options.map(option => [option.engine, option]));
     expect(byEngine.get('phaser')).toMatchObject({ available: true, missingTools: [] });
-    expect(byEngine.get('phaser')?.templates.map(template => template.id)).toEqual(['phaser3-vite']);
+    // The Phaser story kit (2026-11-20) is a second Phaser starter.
+    expect(byEngine.get('phaser')?.templates.map(template => template.id)).toEqual(['phaser3-story', 'phaser3-vite']);
     expect(byEngine.get('threejs')?.available).toBe(true);
     expect(byEngine.get('godot')).toMatchObject({ available: false, missingTools: ['godot'] });
     expect(byEngine.has('unity')).toBe(false);
