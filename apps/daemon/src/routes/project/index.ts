@@ -7,7 +7,7 @@ import { type ProjectMutations } from '../../projects/mutations.js';
 import { injectMotionSourcePlayer, isMotionVideoComposition, markMotionHostedPreview, MOTION_PREVIEW_OUTPUT_HEADER } from '@openpixo/contracts/runtime/motion-source-player';
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { ProjectDeleteResponse } from '@openpixo/contracts';
+import type { ProjectDeleteResponse, ProjectLocationRefusal } from '@openpixo/contracts';
 import { publicFileMutationHandler } from '../public-file-mutation-handler.js';
 
 import { rm } from 'node:fs/promises';
@@ -70,7 +70,8 @@ import {
   BUILT_IN_PROJECT_LOCATION_ID,
   allProjectLocations,
   createLocationProjectDir,
-  ensureProjectLocation,
+  prepareProjectLocation,
+  type PreparedProjectLocation,
   scanProjectLocation,
   writeProjectManifest,
 } from '../../project-locations.js';
@@ -1121,6 +1122,11 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
       || isInsideOrSame(relativeToProjects) || isInsideOrSame(projectsInsideLocation);
   }
 
+  function daemonDataOverlapRefusal(requestedPath: string): PreparedProjectLocation {
+    const refusal: ProjectLocationRefusal = { reason: 'openpixo-data', path: requestedPath.trim() };
+    return { ok: false, refusal, message: `project location cannot overlap daemon data: ${refusal.path}` };
+  }
+
   function pathRelative(from: string, to: string): string {
     return path.relative(from, to);
   }
@@ -1201,12 +1207,16 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
       const prepared = [];
       for (const loc of requested) {
         if (!loc || typeof loc !== 'object' || typeof loc.path !== 'string') continue;
-        const canonicalPath = await ensureProjectLocation(loc.path);
-        const validated = validateLinkedDirs([canonicalPath]);
-        if (validated.error) return sendApiError(res, 400, 'BAD_REQUEST', validated.error);
-        if (locationOverlapsDaemonData(canonicalPath)) {
-          return sendApiError(res, 400, 'BAD_REQUEST', 'project location cannot overlap daemon data');
+        const checked = await prepareProjectLocation(loc.path);
+        const outcome = checked.ok && locationOverlapsDaemonData(checked.path)
+          ? daemonDataOverlapRefusal(loc.path)
+          : checked;
+        if (!outcome.ok) {
+          // The page shows this reason; the log keeps it for a report that comes without a screenshot.
+          console.warn('[project-locations] refused', outcome.refusal);
+          return sendApiError(res, 400, 'BAD_REQUEST', outcome.message, { details: { ...outcome.refusal } });
         }
+        const canonicalPath = outcome.path;
         prepared.push({
           id: typeof loc.id === 'string' ? loc.id : undefined,
           name: typeof loc.name === 'string' ? loc.name : undefined,

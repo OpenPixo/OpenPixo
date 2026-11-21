@@ -1,7 +1,9 @@
-import { lstat, mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { ProjectLocationRefusal, ProjectLocationRefusalReason } from '@openpixo/contracts';
 import type { ProjectLocationPrefs } from './app-config.js';
 import { expandHomePrefix } from './home-expansion.js';
+import { isBlocked, isFilesystemRoot } from './linked-dirs.js';
 import { isSafeId } from './projects.js';
 
 export const BUILT_IN_PROJECT_LOCATION_ID = 'default';
@@ -71,11 +73,59 @@ export function manifestPath(projectDir: string): string {
   return path.join(projectDir, PROJECT_MANIFEST_RELATIVE_PATH);
 }
 
-export async function ensureProjectLocation(locationPath: string): Promise<string> {
-  const expanded = expandHomePrefix(locationPath.trim());
-  if (!path.isAbsolute(expanded)) throw new Error(`project location must be an absolute path: ${locationPath}`);
-  await mkdir(expanded, { recursive: true });
-  return realpath(expanded);
+export type PreparedProjectLocation =
+  | { ok: true; path: string }
+  | { ok: false; refusal: ProjectLocationRefusal; message: string };
+
+function systemErrorCode(error: unknown): string | undefined {
+  const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && code ? code : undefined;
+}
+
+function placementRefusal(candidate: string): ProjectLocationRefusalReason | null {
+  if (isFilesystemRoot(candidate)) return 'drive-root';
+  if (isBlocked(candidate)) return 'system-folder';
+  return null;
+}
+
+/**
+ * Creates the requested folder if it is missing and returns its real path, or
+ * says which rule refused it. Every refusal names the folder as the request
+ * gave it, so the user sees which entry failed and why instead of one generic
+ * line. A drive root or system folder is refused before anything is created
+ * there, and again after the real path is known, since a link can lead into one.
+ * Overlap with the daemon's own data is the caller's rule; it knows the data root.
+ */
+export async function prepareProjectLocation(locationPath: string): Promise<PreparedProjectLocation> {
+  const requested = locationPath.trim();
+  const refuse = (reason: ProjectLocationRefusalReason, message: string, systemCode?: string): PreparedProjectLocation => ({
+    ok: false,
+    refusal: { reason, path: requested, ...(systemCode ? { systemCode } : {}) },
+    message: `${message}: ${requested}`,
+  });
+  const expanded = expandHomePrefix(requested);
+  if (!path.isAbsolute(expanded)) return refuse('not-absolute', 'project location must be an absolute path');
+  const resolved = path.resolve(expanded);
+  const early = placementRefusal(resolved);
+  if (early) return refuse(early, early === 'drive-root' ? 'project location cannot be a drive root' : 'system directory not allowed');
+  let canonical: string;
+  try {
+    await mkdir(resolved, { recursive: true });
+    canonical = await realpath(resolved);
+  } catch (error) {
+    const code = systemErrorCode(error);
+    if (code === 'EEXIST' || code === 'ENOTDIR') return refuse('not-a-folder', 'not a directory', code);
+    return refuse('not-accessible', `directory is not accessible${code ? ` (${code})` : ''}`, code);
+  }
+  try {
+    if (!(await stat(canonical)).isDirectory()) return refuse('not-a-folder', 'not a directory');
+  } catch (error) {
+    const code = systemErrorCode(error);
+    return refuse('not-accessible', `directory is not accessible${code ? ` (${code})` : ''}`, code);
+  }
+  const late = placementRefusal(canonical);
+  if (late) return refuse(late, late === 'drive-root' ? 'project location cannot be a drive root' : 'system directory not allowed');
+  return { ok: true, path: canonical };
 }
 
 export async function writeProjectManifest(projectDir: string, manifest: ProjectManifest): Promise<void> {

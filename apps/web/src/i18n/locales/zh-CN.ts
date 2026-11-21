@@ -3159,6 +3159,16 @@ export const zhCN: Dict = {
     "添加可包含多个 OpenPixo 项目文件夹的工作基目录。新项目会作为所选基目录内的一个文件夹保存。",
   "settings.projectLocationsSaveError":
     "无法保存项目位置。请检查每个路径都是可访问的文件夹。",
+  "settings.projectLocationsRefusedNotAbsolute": "“{path}”不是完整的文件夹路径，请重新选择。",
+  "settings.projectLocationsRefusedNotAccessible":
+    "OpenPixo 无法打开“{path}”。请确认这个文件夹存在，并且没有被安全软件拦截。",
+  "settings.projectLocationsRefusedNotAccessibleCode":
+    "OpenPixo 无法打开“{path}”（{code}）。请确认这个文件夹存在，并且没有被安全软件拦截。",
+  "settings.projectLocationsRefusedNotAFolder": "“{path}”是文件，不是文件夹。",
+  "settings.projectLocationsRefusedDriveRoot": "“{path}”是整个磁盘，请在里面选一个或新建一个文件夹。",
+  "settings.projectLocationsRefusedSystemFolder": "“{path}”是系统文件夹，不能存放项目。",
+  "settings.projectLocationsRefusedOpenPixoData":
+    "“{path}”和 OpenPixo 存放自身数据的文件夹重叠，请换一个文件夹。",
   "settings.projectLocationsSaved": "项目位置已保存。",
   "settings.projectLocationsScanError": "无法扫描项目位置。",
   "settings.projectLocationsScanComplete":

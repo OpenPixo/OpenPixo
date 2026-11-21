@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { ProjectLocation } from '@openpixo/contracts';
+import type { ProjectLocation, ProjectLocationRefusal } from '@openpixo/contracts';
 import type { AppConfig } from '../types';
 import {
   fetchProjectLocations,
@@ -90,18 +90,41 @@ export function ProjectLocationsSection({ cfg, setCfg, onProjectsRefresh }: Prop
     setCfg((current) => ({ ...current, defaultProjectLocationId: locationId }));
   }
 
+  /** Names the refused folder and why; the generic line only when the daemon gave no reason. */
+  function refusalMessage(refusal: ProjectLocationRefusal | null): string {
+    if (!refusal) return t('settings.projectLocationsSaveError');
+    const vars = { path: refusal.path, code: refusal.systemCode ?? '' };
+    switch (refusal.reason) {
+      case 'not-absolute':
+        return t('settings.projectLocationsRefusedNotAbsolute', vars);
+      case 'not-accessible':
+        return refusal.systemCode
+          ? t('settings.projectLocationsRefusedNotAccessibleCode', vars)
+          : t('settings.projectLocationsRefusedNotAccessible', vars);
+      case 'not-a-folder':
+        return t('settings.projectLocationsRefusedNotAFolder', vars);
+      case 'drive-root':
+        return t('settings.projectLocationsRefusedDriveRoot', vars);
+      case 'system-folder':
+        return t('settings.projectLocationsRefusedSystemFolder', vars);
+      case 'openpixo-data':
+        return t('settings.projectLocationsRefusedOpenPixoData', vars);
+    }
+  }
+
   async function save(nextDrafts: DraftLocation[]) {
     setSaving(true);
     setError(null);
     setStatus(null);
     try {
-      const saved = await updateProjectLocations(
+      const result = await updateProjectLocations(
         nextDrafts.filter((location) => location.path.trim()),
       );
-      if (!saved) {
-        setError(t('settings.projectLocationsSaveError'));
+      if (!result.ok) {
+        setError(refusalMessage(result.refusal));
         return null;
       }
+      const saved = result.locations;
       setLocations(saved);
       const external = externalLocations(saved);
       setDrafts(external);

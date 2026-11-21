@@ -15,7 +15,7 @@ const BLOCKED_CANONICAL = (() => {
 
 const WIN_ROOT_RE = /^[A-Za-z]:\\?$/;
 
-function isFilesystemRoot(p: string): boolean {
+export function isFilesystemRoot(p: string): boolean {
   if (process.platform === 'win32') return WIN_ROOT_RE.test(p);
   return p === '/';
 }

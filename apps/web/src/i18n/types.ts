@@ -1440,6 +1440,13 @@ export interface Dict {
   'settings.projectLocationsHint': string;
   'settings.projectLocationsDescription': string;
   'settings.projectLocationsSaveError': string;
+  'settings.projectLocationsRefusedNotAbsolute': string;
+  'settings.projectLocationsRefusedNotAccessible': string;
+  'settings.projectLocationsRefusedNotAccessibleCode': string;
+  'settings.projectLocationsRefusedNotAFolder': string;
+  'settings.projectLocationsRefusedDriveRoot': string;
+  'settings.projectLocationsRefusedSystemFolder': string;
+  'settings.projectLocationsRefusedOpenPixoData': string;
   'settings.projectLocationsSaved': string;
   'settings.projectLocationsScanError': string;
   'settings.projectLocationsScanComplete': string;

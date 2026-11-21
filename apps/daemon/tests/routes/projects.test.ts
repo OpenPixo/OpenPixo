@@ -12,7 +12,7 @@
  * than expanding any of them.
  */
 import type http from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdir, readdir, readFile, realpath, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -1827,6 +1827,53 @@ describe('project locations routes', () => {
     const body = (await resp.json()) as { error?: { code?: string; message?: string } };
     expect(body.error?.code).toBe('BAD_REQUEST');
   });
+
+  // A refusal names the folder and the rule in `details`, so the settings page
+  // can say what went wrong instead of one generic line.
+  async function refusalOf(location: string): Promise<Record<string, unknown> | undefined> {
+    const resp = await putProjectLocations([{ path: location }]);
+    expect(resp.status).toBe(400);
+    const body = (await resp.json()) as { error?: { details?: Record<string, unknown> } };
+    return body.error?.details;
+  }
+
+  it('PUT /api/project-locations names a drive root as the reason', async () => {
+    expect(await refusalOf('/')).toEqual({ reason: 'drive-root', path: '/' });
+  });
+
+  it('PUT /api/project-locations names an overlap with OpenPixo data as the reason', async () => {
+    const dataDir = process.env.PIXO_DATA_DIR;
+    if (!dataDir) throw new Error('PIXO_DATA_DIR required for daemon route tests');
+    const projectsDir = await realpath(path.join(dataDir, 'projects'));
+    expect(await refusalOf(projectsDir)).toEqual({ reason: 'openpixo-data', path: projectsDir });
+  });
+
+  it('PUT /api/project-locations names a relative path as the reason', async () => {
+    expect(await refusalOf('relative/games')).toEqual({ reason: 'not-absolute', path: 'relative/games' });
+  });
+
+  it('PUT /api/project-locations names a file as not a folder', async () => {
+    const file = path.join(makeTempDir(), 'notes.txt');
+    writeFileSync(file, 'not a folder');
+    expect(await refusalOf(file)).toMatchObject({ reason: 'not-a-folder', path: file });
+  });
+
+  it('PUT /api/project-locations names a folder it cannot open, with the system code', async () => {
+    const unopenable = `${makeTempDir()}${path.sep}bad\u0000name`;
+    const details = await refusalOf(unopenable);
+    expect(details).toMatchObject({ reason: 'not-accessible', path: unopenable });
+    expect(typeof details?.systemCode).toBe('string');
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'PUT /api/project-locations names a Windows folder name it cannot create, with the system code',
+    async () => {
+      const unopenable = path.join(makeTempDir(), 'bad|name');
+      const details = await refusalOf(unopenable);
+      expect(details).toMatchObject({ reason: 'not-accessible', path: unopenable });
+      expect(typeof details?.systemCode).toBe('string');
+    },
+  );
 
   it('app-config bypass: PUT /api/app-config persists invalid path but GET /api/project-locations does not expose it', async () => {
     // Persist a projectLocations entry with a system-protected path ('/') via

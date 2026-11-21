@@ -520,6 +520,26 @@ export interface UpdateProjectLocationsRequest {
   locations: Array<{ id?: string; name?: string; path: string }>;
 }
 
+/** Why `PUT /api/project-locations` refused a folder. */
+export type ProjectLocationRefusalReason =
+  | 'not-absolute'
+  | 'not-accessible'
+  | 'not-a-folder'
+  | 'drive-root'
+  | 'system-folder'
+  | 'openpixo-data';
+
+/**
+ * The `details` of a 400 from `PUT /api/project-locations`: the first folder
+ * refused, as the request named it, and why. `systemCode` is the operating
+ * system's error code (e.g. `EPERM`) when the folder could not be opened.
+ */
+export interface ProjectLocationRefusal {
+  reason: ProjectLocationRefusalReason;
+  path: string;
+  systemCode?: string;
+}
+
 export interface ProjectManifest {
   schemaVersion: 1;
   id: string;
