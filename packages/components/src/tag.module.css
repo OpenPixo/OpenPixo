@@ -1,12 +1,13 @@
+/* Status tag: a small bordered chip, 12px, `--radius-sm`. */
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 6px;
-  border-radius: 5px;
-  color: var(--ink-2, #3b3757);
-  background: var(--bg-subtle, #f4f3f8);
-  font: 500 11px/1.5 var(--mono, 'Geist Mono', ui-monospace, monospace);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  box-sizing: border-box;
+  padding: 1px 6px;
+  border: 1px solid var(--line, rgba(17, 17, 20, 0.12));
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted, #5c5c66);
+  background: var(--bg-panel, #fff);
+  font: 500 var(--font-size-12, 12px)/18px var(--sans, inherit);
   white-space: nowrap;
 }

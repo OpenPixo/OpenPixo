@@ -204,20 +204,22 @@ export function FileCard({ file, ctx }: { file: ProjectFile; ctx: EntryContext }
   );
 }
 
+/**
+ * A folder in grid mode is a compact tile (icon box, name, item count) two
+ * cells wide; the grid starts the files on a fresh row after the last one.
+ */
 export function DirCard({ path, name, count, ctx }: { path: string; name: string; count: number; ctx: EntryContext }) {
   return (
-    <div className={`df-dir-card ${styles.card}`} data-kind="folder" data-testid={`library-dir-${path}`}>
-      <div className={styles.thumbBox}>
-        <button type="button" className={`${styles.thumb} ${styles.folderThumb}`} title={path} aria-label={name} onClick={() => ctx.onOpenDir(path)}>
-          <Icon name="folder" size={28} />
-        </button>
-      </div>
-      <div className={styles.meta}>
-        <button type="button" className={styles.name} title={path} onClick={() => ctx.onOpenDir(path)}>
-          <span>{name}</span>
-        </button>
-        <span className={styles.sub}>{ctx.t('filesPanel.folderCount', { n: count })}</span>
-      </div>
+    <div className={`df-dir-card ${styles.folderTile}`} data-kind="folder" data-testid={`library-dir-${path}`}>
+      <button type="button" className={styles.folderMain} title={path} onClick={() => ctx.onOpenDir(path)}>
+        <span className={styles.folderIcon} aria-hidden>
+          <Icon name="folder" size={16} />
+        </span>
+        <span className={styles.folderText}>
+          <span className={styles.folderName}>{name}</span>
+          <span className={styles.sub}>{ctx.t('filesPanel.folderCount', { n: count })}</span>
+        </span>
+      </button>
     </div>
   );
 }

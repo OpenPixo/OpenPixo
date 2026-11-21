@@ -26,5 +26,6 @@ export {
 export type { DialogProps, ConfirmDialogProps } from './dialog';
 export { Input, Select, Textarea } from './form-controls';
 export type { InputProps, SelectProps, TextareaProps } from './form-controls';
+export * from './Notice/Notice';
 export { VisuallyHidden } from './visually-hidden';
 export type { VisuallyHiddenProps } from './visually-hidden';

@@ -27,6 +27,9 @@ interface Props {
   triggerLabel?: string;
   /** A mark that always leads the chip, whatever is selected (e.g. what the setting is about). */
   triggerLeading?: ReactNode;
+  /** A short name for the setting shown before the value ("Thinking · High"), so two chips
+      that both sit on their default never read the same. */
+  triggerPrefix?: string;
   /** `warning` outlines the chip when the current choice needs attention. */
   tone?: 'warning';
   title?: string;
@@ -39,7 +42,7 @@ interface Props {
  * one, instead of a native select.
  */
 export function ComposerMenuPicker({
-  label, hint, options, value, onChange, disabled, busy, triggerLabel, triggerLeading, tone, title, testId,
+  label, hint, options, value, onChange, disabled, busy, triggerLabel, triggerLeading, triggerPrefix, tone, title, testId,
 }: Props) {
   const menuId = useId();
   const [open, setOpen] = useState(false);
@@ -61,10 +64,14 @@ export function ComposerMenuPicker({
       const above = rect.top - margin - gap;
       const below = window.innerHeight - rect.bottom - margin - gap;
       const up = above >= below || above > 240;
+      const row = triggerRef.current?.parentElement?.closest('.composer-row, .home-hero__input-foot')?.getBoundingClientRect();
+      const alignStart = row ? rect.left + rect.width / 2 < row.left + row.width / 2 : false;
       setPosition({
         position: 'fixed',
         width,
-        left: Math.min(Math.max(margin, rect.right - width), window.innerWidth - width - margin),
+        // A chip in the left half of its row hangs the menu from its left
+        // edge; one on the right (approvals, beside Send) from its right edge.
+        left: Math.min(Math.max(margin, alignStart ? rect.left : rect.right - width), window.innerWidth - width - margin),
         top: up ? 'auto' : rect.bottom + gap,
         bottom: up ? window.innerHeight - rect.top + gap : 'auto',
         maxHeight: Math.max(120, up ? above : below),
@@ -182,7 +189,10 @@ export function ComposerMenuPicker({
       >
         {triggerLeading ? <span className={styles.leading} aria-hidden="true">{triggerLeading}</span> : null}
         {!triggerLeading && !triggerLabel && current?.leading ? <span className={styles.leading} aria-hidden="true">{current.leading}</span> : null}
-        <span className={styles.value}>{shown}</span>
+        <span className={styles.value}>
+          {triggerPrefix ? <><span className={styles.prefix}>{triggerPrefix}</span>{' · '}</> : null}
+          {shown}
+        </span>
       </Button>
       {open && typeof document !== 'undefined' ? createPortal(menu, document.body) : null}
     </>

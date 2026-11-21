@@ -1,0 +1,72 @@
+/* Inline notice: neutral box, tone only on the icon and a light tint. */
+.notice {
+  --notice-tone: var(--info, #166c9d);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--notice-tone) 24%, var(--border, #e4e2ec));
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--notice-tone) 4%, var(--bg-panel, #fff));
+  color: var(--text, #3b3757);
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.5;
+  text-align: left;
+}
+
+.info {
+  --notice-tone: var(--info, #166c9d);
+}
+
+.success {
+  --notice-tone: var(--success, #14825e);
+}
+
+.warning {
+  --notice-tone: var(--warning, #955400);
+}
+
+.danger {
+  --notice-tone: var(--danger, #bd3455);
+}
+
+.icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  /* Centre the 16px glyph on the first 20px text line. */
+  margin-top: 2px;
+  color: var(--notice-tone);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title {
+  color: var(--text-strong, #141128);
+  font-size: var(--font-size-14, 14px);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.message {
+  margin-top: 2px;
+  color: var(--text-muted, #6b6880);
+}
+
+.messageOnly {
+  color: var(--text, #3b3757);
+  font-size: var(--font-size-14, 14px);
+  line-height: 1.45;
+}
+
+.action {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

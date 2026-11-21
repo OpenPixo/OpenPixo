@@ -8,20 +8,35 @@
   min-width: 0;
   max-width: 100%;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 4px 9px;
+  gap: 4px;
+  /* One footer control system: 28px tall, small radius, no border until the
+     pointer is on it or its menu is open. */
+  box-sizing: border-box;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 999px;
-  color: var(--ink-2);
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-13, 13px);
   white-space: nowrap;
+  transition:
+    background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 140ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .chip:hover:not(:disabled),
 .chip[aria-expanded='true'] {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-color: var(--line);
+  background: var(--bg-subtle);
   color: var(--text);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--violet));
+  outline-offset: 1px;
 }
 
 .chip:disabled {
@@ -41,6 +56,12 @@
   text-overflow: ellipsis;
 }
 
+/* What the setting is ("Thinking"), quieter than the value it names. */
+.prefix {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
 .leading {
   display: inline-flex;
   flex: none;
@@ -55,7 +76,7 @@
    aria-label still say what they are, and the model name gets the room. */
 @container composer-row (max-width: 500px) {
   .chip:has(> .leading) {
-    padding-inline: 7px;
+    padding-inline: 6px;
   }
   .chip:has(> .leading) > .value {
     display: none;

@@ -1,22 +1,22 @@
-/* Sign-in flow shared by onboarding and Settings › Account & credits. */
+/* Sign-in flow shared by onboarding, the sign-in window and Settings › Account & credits. */
 .panel { display: flex; flex-direction: column; padding-block: 4px; }
-.label { display: block; margin-bottom: 8px; color: var(--ink); font-size: 14px; font-weight: 600; }
-.panel .input { width: 100%; min-height: 46px; border-radius: var(--radius-control); }
-.panel .codeInput { font: 600 20px var(--mono); letter-spacing: 0.45em; text-align: center; }
+.label { display: block; margin-bottom: 8px; color: var(--ink); font-size: var(--font-size-14); font-weight: 600; }
+.panel .input { width: 100%; min-height: 44px; border-radius: var(--radius-md); }
+.panel .codeInput { font: 600 var(--font-size-20) var(--mono); letter-spacing: 0.45em; text-align: center; font-variant-numeric: tabular-nums; }
 .panel .codeInput::placeholder { color: var(--faint); opacity: 0.45; }
-.submit { width: 100%; margin-top: 16px; }
+.submit { width: 100%; margin-top: 12px; }
 .wide { width: 100%; gap: 8px; }
-.divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--faint); font-size: 13px; }
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-.sentTo { margin: 0 0 14px; color: var(--ink-2); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
-.error { margin: 8px 0 0; color: var(--red, #c03946); font-size: 13px; line-height: 1.6; }
-.notice { margin: 6px 0 0; min-height: 0; color: var(--green, #14825e); font-size: 13px; }
+.divider { display: flex; align-items: center; gap: 12px; margin: 14px 0; color: var(--text-muted); font-size: var(--font-size-12); }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border-soft); }
+.sentTo { margin: 0 0 14px; color: var(--ink-2); font-size: var(--font-size-14); line-height: 1.6; overflow-wrap: anywhere; }
+.error { margin: 8px 0 0; color: var(--red); font-size: var(--font-size-13); line-height: 1.6; }
+.notice { margin: 6px 0 0; min-height: 0; color: var(--green); font-size: var(--font-size-13); }
 .notice:empty { display: none; }
 .codeActions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 10px; }
 .codeActions > button { color: var(--ink-2); }
-.hint { display: flex; align-items: flex-start; gap: 6px; margin: 14px 0 0; color: var(--faint); font-size: 13px; line-height: 1.7; }
+.hint { display: flex; align-items: flex-start; gap: 6px; margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text-muted); font-size: var(--font-size-13); line-height: 1.6; }
 .hint svg { flex: none; margin-top: 3px; }
-.googleWait { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 96px; padding: 0 12px; color: var(--ink-2); font-size: 14px; line-height: 1.6; text-align: center; }
+.googleWait { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 96px; padding: 0 12px; color: var(--ink-2); font-size: var(--font-size-14); line-height: 1.6; text-align: center; }
 .googleWait svg { flex: none; }
 .googleActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 .googleActions > button { gap: 6px; }

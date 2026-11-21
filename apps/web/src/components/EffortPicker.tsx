@@ -46,12 +46,13 @@ function EffortMeter({ level }: { level: number }) {
   );
 }
 
-/** The composer's reasoning control: a meter chip and a short level menu. */
+/** The composer's reasoning control: a meter chip ("Thinking · High") and a short level menu. */
 export function EffortPicker({ options, value, onChange }: Props) {
   const t = useT();
   return (
     <ComposerMenuPicker
       label={t('homeModel.reasoning')}
+      triggerPrefix={t('homeModel.reasoningShort')}
       hint={t('homeModel.reasoningHint')}
       title={t('homeModel.reasoningHint')}
       testId="inline-model-switcher-reasoning"

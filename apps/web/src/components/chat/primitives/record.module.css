@@ -662,15 +662,115 @@
 .fold.fail > summary .icon > svg { color: var(--chat-red); }
 
 /* 计划里的序号占图标那一格 —— 还没跑的步骤没有「哪类调用」可标 */
+/*
+ * UI polish 2026-11-21:序号画进一枚**方块**(1px 描边、小圆角),和 `.box` 那几档
+ * 同一个盒子 —— 做完变勾、在跑变转圈。列宽仍是 15px(`w76-icon-slot.test.tsx`),
+ * 贴行首的摆法照 `.mark`(OPEND-2417)。
+ */
 .step {
   flex: none;
+  align-self: flex-start;
+  margin-top: 1.5px;
+  display: grid;
+  place-items: center;
   width: 15px;
+  height: 15px;
+  border: var(--chat-stroke) solid var(--chat-border-strong);
+  border-radius: calc(var(--chat-radius-sm) - 2px);
+  background: var(--chat-bg);
   text-align: center;
   font-family: var(--chat-font-mono);
-  font-size: var(--chat-t-cap);
+  /* 记号里的字形,不是正文:15px 的盒子装不下 13px 的两位数 */
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
   /* 稿子 2237 把 `.pk` 也列进了「任务进度整族深色」那条,和行首图标同档;
      原来的 `--chat-text-soft`(#848484)是掉头之前那套配色留下的。 */
   color: var(--chat-progress-detail-ink);
+}
+
+/*
+ * 计划步骤的方块记号(`StatusMark` 带 `index` 时)。盒子沿用 `.mark` 的 15px 与贴行首,
+ * 只换形状和内芯:做完 = 绿勾,在跑 = 紫色转圈,没跑完 = 序号 + 实线灰,跑砸 = 红叉。
+ */
+.mark.box {
+  border: var(--chat-stroke) solid var(--chat-border-strong);
+  border-radius: calc(var(--chat-radius-sm) - 2px);
+  background: var(--chat-bg);
+  font-family: var(--chat-font-mono);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-text-soft);
+}
+.mark.box svg { width: 11px; height: 11px; }
+.mark.boxDone {
+  border-color: color-mix(in srgb, var(--chat-green) 45%, var(--chat-border));
+  background: color-mix(in srgb, var(--chat-green) 12%, var(--chat-bg));
+  color: var(--chat-green);
+}
+.mark.boxRun {
+  border-color: var(--chat-accent);
+  background: var(--chat-selected-soft);
+  color: var(--chat-accent);
+}
+.mark.boxFail {
+  border-color: var(--chat-red-border);
+  background: var(--chat-red-bg);
+  color: var(--chat-red);
+}
+.mark.boxStopped { color: var(--chat-text-soft); }
+.tick {
+  display: block;
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1px) rotate(-45deg);
+}
+/* 序号由 `data-index` 画出来,不进 textContent(见 `StatusMark`) */
+.step::before,
+.mark.boxStopped::before { content: attr(data-index); }
+.spin {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: step-spin 0.9s linear infinite;
+}
+@keyframes step-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
+
+/* 计划头:「执行计划 · N 步」右边的进度条和「2 / 5 完成」 */
+.planProgress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--chat-font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.planProgress > [role='progressbar'] {
+  flex: none;
+  width: 56px;
+}
+
+/*
+ * 计划清单里的每一步(计划卡展开后那几行),跟着步骤自己的状态走:
+ * 做完的退成静音灰,在跑的那一步加重 —— 其余照常。
+ */
+.tool.planDone { color: var(--chat-text-soft); }
+.tool.planNow { color: var(--chat-text-strong); }
+.tool.planNow .name { font-weight: 600; }
+
+/* 步骤抽屉头:做完的标题退一档,在跑的那一步加重 */
+.stepTitleDone { color: var(--chat-text-soft); }
+.stepTitleNow {
+  color: var(--chat-text-strong);
+  font-weight: 600;
 }
 
 /*

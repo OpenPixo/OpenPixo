@@ -210,8 +210,8 @@ describe('Settings › Account & credits', () => {
     expect(within(current).queryByRole('button')).toBeNull();
     const higher = screen.getByTestId('account-plan-plan_studio_monthly');
     expect(higher.textContent).toContain('$59.00 / month');
-    expect(within(higher).getByRole('button').textContent).toBe('Upgrade');
-    expect(within(screen.getByTestId('account-plan-plan_starter_monthly_v3')).getByRole('button').textContent).toBe('Downgrade');
+    expect(within(higher).getByRole('button').textContent).toBe('Upgrade to Max');
+    expect(within(screen.getByTestId('account-plan-plan_starter_monthly_v3')).getByRole('button').textContent).toBe('Switch to Starter');
     expect(screen.getByText(/Credits appear here once the payment is confirmed/)).toBeTruthy();
 
     fireEvent.click(within(pack).getByRole('button', { name: 'Buy · 500 credits · $5.00' }));
@@ -238,7 +238,7 @@ describe('Settings › Account & credits', () => {
     expect(await screen.findByText('No plan yet')).toBeTruthy();
     expect(screen.getByText(/Next step: choose a monthly plan/)).toBeTruthy();
     const pro = within(await screen.findByTestId('account-plan-plan_pro_monthly')).getByRole('button');
-    expect(pro.textContent).toBe('Subscribe');
+    expect(pro.textContent).toBe('Subscribe to Pro');
     fireEvent.click(pro);
 
     await waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith('https://checkout.example.test/c1'));
@@ -501,6 +501,31 @@ describe('Settings › Account & credits', () => {
     expect(list.textContent).toContain('4 charges');
     expect(list.textContent).not.toContain('request-');
     expect(callsTo(fetchMock, 'GET', '/api/openpixo/credits/ledger')).toHaveLength(2);
+  });
+
+  it('charts credits used per day once the records span more than one day, and keeps the list', async () => {
+    const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    installAccountFetch(signedInRoutes({
+      'GET /api/openpixo/credits/ledger': { nextCursor: null, entries: [
+        { id: 'u1', kind: 'usage', amount: -6, balanceAfter: 1240, createdAt: daysAgo(0), reference: null },
+        { id: 'u2', kind: 'settle', amount: -14, balanceAfter: 1246, createdAt: daysAgo(3), reference: null },
+        { id: 'u3', kind: 'usage', amount: -30, balanceAfter: 1260, createdAt: daysAgo(12), reference: null },
+      ] },
+    }));
+    renderSection();
+
+    const chart = await screen.findByTestId('account-usage-chart');
+    expect(within(chart).getByRole('img', { name: '20 credits used in the last 7 days' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: '30 days' }));
+    expect(within(chart).getByRole('img', { name: '50 credits used in the last 30 days' })).toBeTruthy();
+    expect(within(screen.getByRole('list', { name: 'Recent activity' })).getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('shows the list alone when there is not enough dated use for a chart', async () => {
+    installAccountFetch(signedInRoutes());
+    renderSection();
+    await screen.findByRole('list', { name: 'Recent activity' });
+    expect(screen.queryByTestId('account-usage-chart')).toBeNull();
   });
 
   it('signs out through the daemon', async () => {

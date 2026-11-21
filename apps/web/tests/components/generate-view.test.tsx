@@ -195,8 +195,9 @@ describe('生成', () => {
       credits: 8, available: 3, candidates: [{ credits: 4 }, { credits: 4 }], expiresAt: '2030-01-01T00:00:00.000Z', warnings: [] });
     show();
     await describeAndGenerate();
-    expect(await box().findByText("You don't have enough credits for this.")).toBeTruthy();
-    expect(box().getByRole('button', { name: 'Get credits' })).toBeTruthy();
+    const notice = await box().findByTestId('credits-notice');
+    expect(notice.textContent).toContain('This needs 8 credits and you have 3.');
+    expect(box().getByRole('button', { name: 'Top up' })).toBeTruthy();
     expect(api.started).toHaveLength(0);
   });
 

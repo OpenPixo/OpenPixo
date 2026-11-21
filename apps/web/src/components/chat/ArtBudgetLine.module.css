@@ -1,30 +1,134 @@
+/*
+ * The art budget near the composer. Owner: ArtBudgetLine.
+ * Collapsed: one quiet line, "used / limit" with a 4px bar. "Change" opens the block
+ * into rows (budget, the ask-first switch with its one-line hint) and a footer.
+ */
 .collapsible {
   flex: none;
 }
 
-.line {
+.block {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  padding: 0 8px 6px;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 8px 6px;
+  /* A quiet strip above the composer, same shape as the next-stage strip. */
+  padding: 5px 6px 5px 12px;
+  min-height: 34px;
+  justify-content: center;
   min-width: 0;
   /* The composer slot lets clicks through to the chat log behind it. */
   pointer-events: auto;
   font-size: var(--chat-t-mini);
   line-height: 20px;
   color: var(--chat-text-muted);
+  border: var(--chat-stroke) solid var(--chat-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
 }
 
-.summary {
+.block.expanded {
+  gap: 0;
+  padding: 8px 14px 10px;
+  border-color: var(--chat-border);
+  background: var(--chat-bg);
+  animation: art-budget-open var(--chat-dur-enter) var(--chat-ease-out);
+}
+
+@keyframes art-budget-open {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
+.summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.block.expanded .summary {
+  font-weight: 600;
+  color: var(--chat-text-strong);
+}
+
+.line .bar {
+  flex: 0 1 96px;
+  min-width: 48px;
+}
+
+/* The spending mode next to the usage: quiet, it is a setting, not news. */
+.mode {
+  flex: none;
+  white-space: nowrap;
+  color: var(--chat-text-faint);
+}
+
+.change {
+  flex: none;
+  margin-left: auto;
+}
+
+.hint {
+  margin: 0;
+  min-width: 0;
+  color: var(--chat-text-faint);
+}
+
+/* ── Opened: rows between hairlines ── */
+
 .form {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  margin-top: 8px;
+  border-top: var(--chat-stroke) solid var(--chat-border-soft);
+}
+
+.row {
+  display: flex;
   align-items: center;
-  gap: 4px 6px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: var(--chat-stroke) solid var(--chat-border-soft);
+  min-width: 0;
+}
+
+label.row {
+  cursor: pointer;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rowLabel {
+  font-weight: 500;
+  color: var(--chat-text-strong);
+}
+
+.rowControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .input {
@@ -32,68 +136,67 @@
   height: 26px;
   padding: 0 6px;
   font-size: var(--chat-t-mini);
-}
-
-.hint {
-  min-width: 0;
-  color: var(--chat-text-faint);
-}
-
-/* The spending mode next to the usage: quiet, it is a setting, not news. */
-.mode {
-  min-width: 0;
-  color: var(--chat-text-muted);
-}
-
-.mode::before {
-  content: '·';
-  margin-right: 8px;
-  color: var(--chat-text-faint);
-}
-
-/*
- * Two plain radio choices: "Ask me first" / "Spend within budget". They take a row of
- * their own under the credits and buttons, or the narrow chat pane squeezes them to
- * one character a line.
- */
-.modes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  flex-basis: 100%;
-  order: 1;
-  gap: 2px 10px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.legend {
-  float: left;
-  margin-right: 2px;
-  white-space: nowrap;
-  padding: 0;
-  color: var(--chat-text-faint);
-}
-
-.choice {
-  display: inline-flex;
-  white-space: nowrap;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  color: var(--chat-text);
-}
-
-.choice input {
-  margin: 0;
-  accent-color: var(--chat-accent);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .modeHint {
-  flex-basis: 100%;
-  order: 2;
   min-width: 0;
   color: var(--chat-text-faint);
+}
+
+/* A plain switch: violet when on (ask first). */
+.switch {
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  appearance: none;
+  border-radius: var(--chat-radius-pill);
+  background: var(--chat-bg-muted);
+  cursor: pointer;
+  transition: background-color var(--chat-dur-quick) var(--chat-ease-out);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--chat-bg);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--chat-text-strong) 20%, transparent);
+  transition: transform var(--chat-dur-quick) var(--chat-ease-out);
+}
+
+.switch:checked {
+  background: var(--chat-accent);
+}
+
+.switch:checked::after {
+  transform: translateX(12px);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block.expanded,
+  .switch,
+  .switch::after {
+    animation: none;
+    transition: none;
+  }
 }

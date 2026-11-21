@@ -4,12 +4,17 @@
 
 .line {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: 4px 12px;
   margin: 0 8px 6px;
-  padding: 2px 4px 2px 12px;
+  /* A quiet strip above the composer, same shape as the art budget strip. */
+  padding: 5px 6px 5px 12px;
+  min-height: 34px;
+  border: var(--chat-stroke) solid var(--chat-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
   /* The composer slot lets clicks through to the chat log behind it. */
   pointer-events: auto;
 }
@@ -19,5 +24,14 @@
   margin: 0;
   min-width: 0;
   font-size: var(--chat-t-mini);
+  line-height: 20px;
   color: var(--chat-text-muted);
+  /* One line: the strip stays one row; the full sentence is the hover title. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.line > button {
+  flex: none;
 }

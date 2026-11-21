@@ -33,6 +33,7 @@ import { ThinkingMarkdown } from './ThinkingMarkdown';
 import { Orb } from './primitives/Orb';
 import { SayBlock } from './SayBlock';
 import { StatusMark } from './primitives/StatusMark';
+import { ProgressBar } from './primitives/ProgressBar';
 import { ToolRow } from './primitives/ToolRow';
 import styles from './primitives/record.module.css';
 
@@ -334,6 +335,7 @@ export function ExecutionShell({
             firstThoughtsStack,
             mutedThoughtsIndex: mutedThoughtsIndexOf(items, shell.items, firstThoughtsStack),
             pixoCardScope,
+            planSegments: planSegmentsOf(shell.items),
           })
         : null}
     </Foldable>
@@ -414,8 +416,18 @@ function mutedThoughtsIndexOf(
   return grouped.findIndex((item) => item.kind === 'thoughts');
 }
 
+/**
+ * 这张壳里**还算数**的那几步(作废的不算),按行的顺序 —— 计划头的进度、
+ * 计划清单每一步的记号、步骤抽屉头的序号都从这一份读,三处说同一件事。
+ */
+function planSegmentsOf(items: ShellItem[]): TodoSegment[] {
+  return items.flatMap((item) => (item.kind === 'todo' && !item.segment.abandoned ? [item.segment] : []));
+}
+
 interface RenderCtx {
   t: ReturnType<typeof useT>;
+  /** 本壳还算数的步骤(`planSegmentsOf`);抽屉里没有计划,沿用外层那一份 */
+  planSegments: readonly TodoSegment[];
   onOpenFile?: (path: string) => void;
   fileScope?: RecordFileScope;
   onRetryImage?: (row: ImageRowData, index: number) => void;
@@ -563,6 +575,7 @@ function renderItem(item: GroupedShellItem, index: number, ctx: RenderCtx): Reac
       <PlanRow
         key={`plan-${index}`}
         steps={item.steps}
+        segments={ctx.planSegments}
         t={ctx.t}
         deferBody={ctx.deferCollapsedBodies}
       />
@@ -829,25 +842,45 @@ function ThoughtsRow({ texts, elapsedMs, tokens, muted, live, t, deferBody }: {
   );
 }
 
-/** 「执行计划 · N 步」:清单刚到时的全貌。每一步只有序号,还没跑,没有「哪类调用」可标 */
-function PlanRow({ steps, t, deferBody }: {
+/**
+ * 「执行计划 · N 步」:计划的全貌。头上一条进度(「2 / 5 完成」),
+ * 展开后每一步带自己的方块记号 —— 做完打勾、退成静音灰,在跑那一步转圈并加重,
+ * 没开始的只有序号。状态从同一壳里的步骤抽屉读(按内容认,D17),
+ * 对不上的那一步(清单刚到、还没有抽屉)当作没开始。
+ */
+function PlanRow({ steps, segments, t, deferBody }: {
   steps: string[];
+  segments: readonly TodoSegment[];
   t: RenderCtx['t'];
   deferBody: boolean;
 }): ReactElement {
+  const statusOf = (step: string) => segments.find((segment) => segment.content === step);
+  const total = steps.length;
+  const done = Math.min(total, steps.filter((step) => statusOf(step)?.status === 'completed').length);
   return (
     <Foldable
       summary={<><StatusMark status="ok" /><span>{t('chat.record.plan', { count: steps.length })}</span></>}
+      elapsed={total > 0 ? (
+        <span className={styles.planProgress} data-testid="chat-plan-progress">
+          <ProgressBar value={done} max={total} label={t('chat.record.planProgressLabel')} />
+          <span>{t('chat.record.planProgress', { done, total })}</span>
+        </span>
+      ) : undefined}
       deferBody={deferBody}
       /* 计划卡是这条链的头:它和下面几条 todo 一起构成「步骤」那一层(见 `TodoRow` 的注释) */
       className={styles.stepRow}
     >
-      {steps.map((step, i) => (
-        <div className={styles.tool} key={`${step}-${i}`}>
-          <StatusMark status="pending" index={i + 1} />
-          <span className={styles.name}>{step}</span>
-        </div>
-      ))}
+      {steps.map((step, i) => {
+        const segment = statusOf(step);
+        const mark = segment ? markFor(segment) : 'pending';
+        const rowState = mark === 'ok' ? styles.planDone : mark === 'running' ? styles.planNow : null;
+        return (
+          <div className={[styles.tool, rowState].filter(Boolean).join(' ')} key={`${step}-${i}`}>
+            <StatusMark status={mark} index={i + 1} />
+            <span className={styles.name}>{step}</span>
+          </div>
+        );
+      })}
     </Foldable>
   );
 }
@@ -866,6 +899,14 @@ function PlanRow({ steps, t, deferBody }: {
 function TodoRow({ segment, ctx }: { segment: TodoSegment; ctx: RenderCtx }): ReactElement {
   const expandable = isExpandable(segment);
   const struck = isStruck(segment);
+  /* 方块记号里的序号:本壳还算数的第几步。作废的那一步画勾,序号不出现 */
+  const position = ctx.planSegments.indexOf(segment);
+  const stepNumber = position >= 0 ? position + 1 : segment.abandoned ? 0 : undefined;
+  /* 做完的退一档,在跑的那一步加重;划线那一档墨色归 `.struck` */
+  const titleClass = struck ? styles.struck
+    : segment.status === 'completed' ? styles.stepTitleDone
+      : segment.status === 'in_progress' ? styles.stepTitleNow
+        : undefined;
   /**
    * **进行中那一条也挂耗时**(产品 2026-09-02,**有意偏离设计稿**)。
    *
@@ -905,8 +946,8 @@ function TodoRow({ segment, ctx }: { segment: TodoSegment; ctx: RenderCtx }): Re
     <Foldable
       summary={
         <>
-          <StatusMark status={markFor(segment)} />
-          <span className={struck ? styles.struck : undefined}>{segment.content}</span>
+          <StatusMark status={markFor(segment)} index={stepNumber} />
+          <span className={titleClass}>{segment.content}</span>
         </>
       }
       elapsed={elapsed ?? undefined}

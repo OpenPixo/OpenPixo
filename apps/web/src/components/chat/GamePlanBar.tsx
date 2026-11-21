@@ -15,7 +15,7 @@
  * the chat following. Always mounted so the collapse animates.
  */
 import { useId, useState } from 'react';
-import { Button, Input, VisuallyHidden } from '@openpixo/components';
+import { Button, Input, Tag, VisuallyHidden } from '@openpixo/components';
 import { gamePlanIsPending, type GamePlanState } from '@openpixo/contracts';
 import { useT } from '../../i18n';
 import { budgetDraft, imagesForCredits } from '../../runtime/chat/art-budget';
@@ -101,13 +101,17 @@ export function GamePlanBar({
       data-testid="game-plan-bar"
     >
       <div className="accordion-collapsible-inner">
-        <div className={styles.bar}>
+        <section className={styles.bar} aria-label={t('chat.gamePlan.title')}>
+          <div className={styles.head}>
+            <span className={styles.title}>{t('chat.gamePlan.title')}</span>
+            <Tag className={styles.tag}>{t('chat.gamePlan.tag')}</Tag>
+          </div>
           <p className={styles.notice}>{failed ? <span role="alert">{t('chat.gamePlan.failed')}</span> : t('chat.gamePlan.notice')}</p>
           {offersBudget ? (
             <div className={styles.budget} data-testid="game-plan-art-budget">
-              <div className={styles.field}>
+              <div className={styles.budgetRow}>
                 <label className={styles.field}>
-                  <span>{t('chat.artBudget.label')}</span>
+                  <span className={styles.fieldLabel}>{t('chat.artBudget.label')}</span>
                   <Input
                     className={styles.input}
                     inputMode="numeric"
@@ -142,31 +146,33 @@ export function GamePlanBar({
               </p>
             </div>
           ) : null}
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={busy}
-            tabIndex={open ? 0 : -1}
-            data-testid="game-plan-approve"
-            onClick={() => { void approve(); }}
-          >
-            {t('chat.gamePlan.approve')}
-          </Button>
-          {onApprovedInNewConversation ? (
+          <div className={styles.foot}>
+            {onApprovedInNewConversation ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                tabIndex={open ? 0 : -1}
+                aria-describedby={hintId}
+                data-testid="game-plan-approve-new-conversation"
+                onClick={() => { void approve(true); }}
+              >
+                {t('chat.nextStage.approve')}
+              </Button>
+            ) : null}
             <Button
               size="sm"
-              variant="ghost"
+              variant="primary"
               disabled={busy}
               tabIndex={open ? 0 : -1}
-              aria-describedby={hintId}
-              data-testid="game-plan-approve-new-conversation"
-              onClick={() => { void approve(true); }}
+              data-testid="game-plan-approve"
+              onClick={() => { void approve(); }}
             >
-              {t('chat.nextStage.approve')}
+              {t('chat.gamePlan.approve')}
             </Button>
-          ) : null}
-          {onApprovedInNewConversation ? <VisuallyHidden id={hintId}>{t('chat.nextStage.approveHint')}</VisuallyHidden> : null}
-        </div>
+            {onApprovedInNewConversation ? <VisuallyHidden id={hintId}>{t('chat.nextStage.approveHint')}</VisuallyHidden> : null}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -25,6 +25,7 @@ import { AnimatePresence } from "motion/react";
 import { Icon } from "./Icon";
 import { Toast } from "./Toast";
 import styles from "./ProjectsPanel.module.css";
+import { ProjectsNoMatch } from "./ProjectsEmptyState";
 import { ProjectDeleteConfirmDialog } from "./project-actions/ProjectDeleteConfirmDialog";
 import { useProjectDeleteFlow } from "./project-actions/useProjectDeleteFlow";
 
@@ -696,7 +697,7 @@ export function ProjectsPanel({
 							) : null}
 						</div>
 					) : (
-						t("designs.emptyNoMatch")
+						<ProjectsNoMatch query={filter} onClear={() => setFilter("")} />
 					)}
 				</div>
 			) : view === "grid" ? (

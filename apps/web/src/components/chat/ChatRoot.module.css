@@ -157,19 +157,13 @@
   /*
    * ── 「邀请卡」那一族弹窗自己的两档 ──────────────────────────────────
    *
-   * `AmrBalanceDialog` / `AmrArtifactUpgradeDialog` / `AmrOwnerTopUpDialog`
-   * 是同一族:满幅插画 + 居中标题 + 居中正文 + 胶囊 CTA。产品稿(2026-09-07
-   * `topup-reminder2.html`)在真 Chrome 里量出来是 **18 / 13.5**,和上面那条
-   * 聊天面板的阶梯(12 / 13 / 14 / 16 / 20)不是同一把尺 —— 前两个兄弟弹窗
-   * 早就各自写死了这两个数(`AmrArtifactUpgradeDialog.module.css` 还有
-   * 12.5 / 11.5 / 9.5)。
-   *
-   * 立成接缝变量而不是在组件里写字面值,是因为 §2 要求组件只认 `--chat-*`;
-   * 半像素那一档全局 token 里没有对应项(只有 12/13/14/16/18/20),所以按
-   * `--chat-confirm-surface` 的先例写字面量,并在亮暗两个作用域各写一遍。
+   * 满幅插画 + 居中标题 + 居中正文 + 胶囊 CTA 那一族弹窗。旧稿量出来的
+   * 正文是半像素 13.5,不在全站字号阶梯上;2026-11 统一字号时收到 13
+   * (`--font-size-13`),标题仍是 18。立成接缝变量而不是在组件里写字面值,
+   * 是因为 §2 要求组件只认 `--chat-*`。
    */
   --chat-t-dialog-title: var(--font-size-18);
-  --chat-t-dialog-body: 13.5px;
+  --chat-t-dialog-body: var(--font-size-13);
   --chat-lh-tight: 1.35;
   --chat-lh-body: 1.7;
   --chat-lh-row: 1.5;
@@ -225,12 +219,11 @@
   /* 单产物与设计稿的附件 / 音频内容道共用这一档上限。 */
   --chat-artifact-single-max-width: 406px;
   --chat-artifact-max-height: 240px;
-  /* 稿子的玻璃浮层(选区浮条、引用芯片的全文浮层):
-     `--overlay-glass: rgba(32,32,32,.88)` / `--overlay-glass-text: #fafafa`
-     / `--overlay-glass-edge: color-mix(in srgb,#fff 16%,transparent)` */
-  --chat-overlay-glass: rgba(32, 32, 32, 0.88);
-  --chat-overlay-glass-text: #fafafa;
-  --chat-overlay-glass-edge: color-mix(in srgb, #fff 16%, transparent);
+  /* 深色玻璃浮层(选区浮条、引用芯片的全文浮层)。不跟主题翻:底用
+     `--media-ground`(两套主题都是近黑),字和描边用 `--on-media`(白)。 */
+  --chat-overlay-glass: color-mix(in srgb, var(--media-ground) 88%, transparent);
+  --chat-overlay-glass-text: var(--on-media);
+  --chat-overlay-glass-edge: color-mix(in srgb, var(--on-media) 16%, transparent);
   /* 本轮生成图片底下的棋盘格(`AssetGallery`):透明像素露出它。两枚都映射到全局 token,
      暗色作用域写法相同,token 自己会翻。 */
   --chat-checker-a: var(--bg-panel);
@@ -340,7 +333,7 @@
   --chat-t-disp: var(--font-size-20);
   /* 邀请卡那一族的两档,和亮色作用域同值 —— 原委见上面那段长注释。 */
   --chat-t-dialog-title: var(--font-size-18);
-  --chat-t-dialog-body: 13.5px;
+  --chat-t-dialog-body: var(--font-size-13);
   --chat-lh-tight: 1.35;
   --chat-lh-body: 1.7;
   --chat-lh-row: 1.5;
@@ -361,12 +354,11 @@
   --chat-shadow-lg: var(--shadow-lg);
   --chat-artifact-single-max-width: 406px;
   --chat-artifact-max-height: 240px;
-  /* 稿子的玻璃浮层(选区浮条、引用芯片的全文浮层):
-     `--overlay-glass: rgba(32,32,32,.88)` / `--overlay-glass-text: #fafafa`
-     / `--overlay-glass-edge: color-mix(in srgb,#fff 16%,transparent)` */
-  --chat-overlay-glass: rgba(32, 32, 32, 0.88);
-  --chat-overlay-glass-text: #fafafa;
-  --chat-overlay-glass-edge: color-mix(in srgb, #fff 16%, transparent);
+  /* 深色玻璃浮层(选区浮条、引用芯片的全文浮层)。不跟主题翻:底用
+     `--media-ground`(两套主题都是近黑),字和描边用 `--on-media`(白)。 */
+  --chat-overlay-glass: color-mix(in srgb, var(--media-ground) 88%, transparent);
+  --chat-overlay-glass-text: var(--on-media);
+  --chat-overlay-glass-edge: color-mix(in srgb, var(--on-media) 16%, transparent);
   --chat-checker-a: var(--bg-panel);
   --chat-checker-b: var(--bg-muted);
   /* 工具行里那块代码的增删底色。红绿跟着全局 token 翻,亮暗写法相同 */

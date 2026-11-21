@@ -184,7 +184,10 @@ describe('StatusMark', () => {
 
   it('计划里还没跑的步骤用序号占那一格', () => {
     render(<StatusMark status="pending" index={3} />);
-    expect(screen.getByText('3')).toBeTruthy();
+    // 序号由 CSS 从 data-index 画出来,不进 textContent(UI polish 2026-11-21)
+    const mark = screen.getByLabelText('未开始');
+    expect(mark.getAttribute('data-index')).toBe('3');
+    expect(mark.textContent).toBe('');
   });
 
   it('取消沿用完成态,不画红叉(D16 是产品选的)', () => {

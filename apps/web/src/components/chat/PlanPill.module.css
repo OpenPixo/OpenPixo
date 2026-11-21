@@ -154,3 +154,43 @@
   flex: 1;
   min-width: 0;
 }
+
+/*
+ * 浮层头(UI polish 2026-11-21):和执行记录的计划头同一套 ——
+ * 标题在左,4px 进度条和「2 / 5 完成」在右。下面一条细线把它和清单分开。
+ */
+.wrap .pop .head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 11px 8px;
+  margin-bottom: 2px;
+  border-bottom: var(--chat-stroke) solid var(--chat-border-soft);
+  font-size: var(--chat-t-mini);
+  line-height: var(--chat-lh-row);
+}
+.headTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--chat-text-strong);
+}
+.wrap .pop .head .headBar {
+  flex: none;
+  width: 48px;
+}
+.headCount {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-text-soft);
+}
+
+/* 药丸里那条小进度:只是画出来,数字已经在「第 N / M 步」里说了 */
+.wrap .pill .pillBar {
+  flex: none;
+  width: 28px;
+  margin-inline-start: 2px;
+}

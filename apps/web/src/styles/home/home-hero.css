@@ -387,6 +387,33 @@
      mixed row of images and plain files reads as one band instead of a ragged
      edge. */
   min-height: var(--home-hero-chip-height);
+  /* An attached file is a bordered chip: mark, name over size, and a ×
+     that is always there (2026-11 UI pass) — a file the user added should
+     show how to take it back without a hover hunt. */
+  --chip-fill: var(--bg-app);
+  background: var(--chip-fill);
+  border-color: var(--line);
+  border-radius: var(--radius-sm);
+  gap: var(--spacing-6, 6px);
+  padding-inline-end: var(--spacing-4);
+}
+/* The × takes its own slot at the chip's end instead of floating over the
+   name's tail, so the name ellipsizes before it rather than under it. One
+   class more than the floating `.home-hero__active-chip .home-hero__active-clear`
+   below, which would otherwise win by source order. */
+.home-hero__active-chip.home-hero__active-chip--file .home-hero__active-clear {
+  position: static;
+  margin: 0;
+  opacity: 1;
+  border-radius: var(--radius-xs);
+  color: var(--text-faint);
+}
+.home-hero__active-chip.home-hero__active-chip--file .home-hero__active-clear:hover {
+  background: var(--bg-subtle);
+  color: var(--text-strong);
+}
+.home-hero__active-chip--file .home-hero__active-thumb {
+  border-radius: var(--radius-xs);
 }
 .home-hero__active-file-group {
   display: contents;
@@ -536,31 +563,9 @@
   background: var(--chip-fill, var(--bg-panel));
   box-shadow: -6px 0 6px 3px var(--chip-fill, var(--bg-panel));
 }
-/* File chips stand TWO lines tall (name over type · size), so an 18px disc
-   would leave both tails poking out around it. The chip paints a full-height
-   gradient cap in its own fill instead, fading in from the right edge with the
-   button riding on top. It lives on the chip rather than the button because the
-   button's box is only as tall as one line — and it stays `pointer-events:
-   none` so the fade can never swallow a click meant for the name. */
-.home-hero__active-chip--file::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 52px;
-  border-radius: 0 var(--radius-large) var(--radius-large) 0;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--chip-fill, var(--bg-panel)) 60%
-  );
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms var(--ease-out);
-}
-.home-hero__active-chip--file:hover::after,
-.home-hero__active-chip--file:focus-within::after {
-  opacity: 1;
-}
+/* File chips used to fade a gradient cap over the name's tail for a hover ×.
+   Their × now has its own slot (see `.home-hero__active-chip--file
+   .home-hero__active-clear` above), so there is nothing to cover. */
 .home-hero__active-chip:hover .home-hero__active-clear,
 .home-hero__active-chip:focus-within .home-hero__active-clear {
   opacity: 1;
@@ -1101,14 +1106,15 @@
   font-size: var(--font-size-13);
 }
 .home-hero__working-dir-picker [data-testid='working-dir-trigger'] {
-  font-weight: 600;
-  min-height: 26px;
+  font-weight: 500;
+  font-size: var(--font-size-12);
+  min-height: 22px;
   /* Peer of the "+"/upload button beside it: no fill, same padding and height,
      so the accessory row reads as one pair of plain labels.
      `height: auto` undoes primitives.css's blanket `button { height: 36px }`,
      which min-height alone cannot override. */
   height: auto;
-  padding: var(--spacing-8);
+  padding: 2px 6px;
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-muted);

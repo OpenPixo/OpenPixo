@@ -81,8 +81,10 @@ describe('the art card in a reply', () => {
     expect(container.textContent).toContain('The hero needs a design and four moves.');
     expect(container.textContent).not.toContain('art-request');
     expect(container.textContent).not.toContain('credits="32"');
-    await waitFor(() => expect(screen.getByTestId('art-request-left').textContent).toBe('88 left in the art budget'));
-    expect(approve().textContent).toBe(en['chat.artRequest.approve']);
+    // What is left once this card is approved: 88 - 32.
+    await waitFor(() => expect(screen.getByTestId('art-request-left').textContent).toBe('56 credits'));
+    // The button names the action and its cost.
+    expect(approve().textContent).toBe('Spend 32 credits');
     expect(approveAlways().textContent).toBe(en['chat.artRequest.approveAlways']);
     expect(card.textContent).toContain(en['chat.artRequest.orReply']);
   });
@@ -137,16 +139,23 @@ describe('the art card in a reply', () => {
 });
 
 describe('when the art card cannot be approved', () => {
-  it.each([
-    ['while this reply is still streaming', { streaming: true, message: reply(REPLY, 'running') }, en['chat.artRequest.busy']],
-    ['after the conversation moved on', { nextUserContent: 'Make the hero blue instead' }, en['chat.artRequest.stale']],
-    ['on a reply that is not the latest', { isLast: false, isLastTurn: false }, en['chat.artRequest.stale']],
-  ])('disables both buttons %s', async (_name, props, line) => {
+  it('disables both buttons while this reply is still streaming', async () => {
     stubDaemon(budgetState());
-    renderReply(props);
+    renderReply({ streaming: true, message: reply(REPLY, 'running') });
     expect(approve().disabled).toBe(true);
     expect(approveAlways().disabled).toBe(true);
-    await waitFor(() => expect(screen.getByTestId('art-request-status').textContent).toBe(line));
+    await waitFor(() => expect(screen.getByTestId('art-request-status').textContent).toBe(en['chat.artRequest.busy']));
+  });
+
+  it.each([
+    ['after the conversation moved on', { nextUserContent: 'Make the hero blue instead' }],
+    ['on a reply that is not the latest', { isLast: false, isLastTurn: false }],
+  ])('shrinks to one quiet line with no buttons %s', async (_name, props) => {
+    stubDaemon(budgetState());
+    renderReply(props);
+    expect(screen.queryByTestId('art-request-approve')).toBeNull();
+    expect(screen.queryByTestId('art-request-approve-always')).toBeNull();
+    expect(screen.getByTestId('art-request-status').textContent).toBe(en['chat.artRequest.stale']);
   });
 
   it('waits while the daemon says a run is active', async () => {

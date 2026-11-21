@@ -43,13 +43,11 @@ const SEAM = decomment(readFileSync(SEAM_PATH, 'utf-8'));
 const TOKENS_CSS = decomment(readFileSync(resolve(SRC, 'styles/tokens.css'), 'utf-8'));
 
 /**
- * 稿子那一档圆角的**字面值** —— 验收判据是「算出来的和稿子逐字节相同」,
- * 不是「用了某支 token」。出处
- * `361b78253e:docs/design/chat-panel/src/tokens.css`(稿子 tokens 三版 md5 相同):
- *   :114  --radius-2xlarge: 16px;
- *   :125  --radius-2xl: var(--radius-2xlarge);
+ * 卡片外壳那一档圆角的**字面值** —— 验收判据是「算出来的值逐字节相同」,
+ * 不是「用了某支 token」。原稿是 16px;2026-11 统一圆角阶梯
+ * (xs 4 / sm 6 / md 10 / lg 14)后 `--radius-2xl` 是 `--radius-lg` 的别名,14px。
  */
-const DESIGN_RADIUS_2XL = '16px';
+const DESIGN_RADIUS_2XL = '14px';
 
 /** 顶层规则:`选择器 { 声明 }`。接缝层没有嵌套,所以这一刀够用。 */
 function blocks(css: string): Array<{ selector: string; body: string }> {
@@ -155,7 +153,7 @@ describe('接缝层 · 圆角别名', () => {
     }
   });
 
-  it('两个作用域解出来都逐字节等于稿子的 16px', () => {
+  it('两个作用域解出来都逐字节等于卡片外壳那一档的 14px', () => {
     const map = rootTokens();
     // 先证明这把解析器解得动一条已知的 var 链(不然下面两条可能是空过)
     expect(deref('var(--radius-2xl)', map), '连 --radius-2xl 都解不出来,解析器没对准').toBe(

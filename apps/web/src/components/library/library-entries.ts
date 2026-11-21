@@ -101,26 +101,48 @@ function dirPrefix(dir: string): string {
 
 const byPath = (a: ProjectFile, b: ProjectFile) => a.name.localeCompare(b.name, undefined, { numeric: true });
 
+/**
+ * How the browser orders files. Folders always come first, by name; only the
+ * files move. `name` is the default and the order the listing always had.
+ */
+export type LibrarySort = 'name' | 'recent' | 'size';
+
+export const LIBRARY_SORTS: readonly LibrarySort[] = ['name', 'recent', 'size'];
+
+export function isLibrarySort(value: unknown): value is LibrarySort {
+  return typeof value === 'string' && (LIBRARY_SORTS as readonly string[]).includes(value);
+}
+
+/** Newest first / largest first; ties fall back to the path so the order is stable. */
+const FILE_ORDER: Record<LibrarySort, (a: ProjectFile, b: ProjectFile) => number> = {
+  name: byPath,
+  recent: (a, b) => b.mtime - a.mtime || byPath(a, b),
+  size: (a, b) => b.size - a.size || byPath(a, b),
+};
+
 export function libraryListing({
   files,
   folders,
   currentDir,
   type,
   query,
+  sort = 'name',
 }: {
   files: readonly ProjectFile[];
   folders?: readonly ProjectFolder[];
   currentDir: string;
   type: LibraryTypeFilter;
   query: string;
+  sort?: LibrarySort;
 }): LibraryListing {
   const prefix = dirPrefix(currentDir);
   const finding = type !== 'all' || query.trim() !== '';
+  const order = FILE_ORDER[sort] ?? byPath;
   if (finding) {
     const matches = files.filter((file) => file.name.startsWith(prefix)
       && (type === 'all' || libraryFileType(file) === type)
       && matchesLibraryQuery(file.name.slice(prefix.length), query));
-    return { dirs: [], files: matches.sort(byPath), flat: true };
+    return { dirs: [], files: matches.sort(order), flat: true };
   }
   const dirs = new Set<string>();
   const local: ProjectFile[] = [];
@@ -141,9 +163,28 @@ export function libraryListing({
   }
   return {
     dirs: [...dirs].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
-    files: local.sort(byPath),
+    files: local.sort(order),
     flat: false,
   };
+}
+
+/** What the header's count line says about a listing: only figures the listing has. */
+export interface LibrarySummary {
+  folders: number;
+  files: number;
+  bytes: number;
+}
+
+export function librarySummary(listing: LibraryListing): LibrarySummary {
+  let bytes = 0;
+  for (const file of listing.files) bytes += Number.isFinite(file.size) ? file.size : 0;
+  return { folders: listing.dirs.length, files: listing.files.length, bytes };
+}
+
+/** The header title: the folder being browsed, or the project root's name. */
+export function libraryTitle(currentDir: string, rootLabel: string): string {
+  const parts = currentDir.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? rootLabel;
 }
 
 /** How many files each filter would list under `currentDir` (ignoring search). */

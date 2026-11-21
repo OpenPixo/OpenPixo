@@ -34,7 +34,7 @@ export function SettingsNav({ activePage, onSelect, isVisible }: {
                 <button
                   key={item.page}
                   type="button"
-                  className={`settings-nav-item${active ? ' active' : ''}`}
+                  className={`settings-nav-item ${styles.item}${active ? ' active' : ''}`}
                   aria-current={active ? 'page' : undefined}
                   onClick={() => onSelect(item.page)}
                   data-testid={`settings-nav-${item.page}`}
