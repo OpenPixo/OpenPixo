@@ -1,0 +1,35 @@
+/* Settings › Account & credits: credits used per day. One series, so one hue and no legend. */
+.chart { display: flex; flex-direction: column; gap: 8px; }
+.total { margin: 0; color: var(--text-muted); font-size: var(--font-size-13); font-variant-numeric: tabular-nums; }
+.plot { position: relative; height: 120px; padding-top: 8px; border-bottom: 1px solid var(--line); }
+
+/* The one gridline: the tallest day, labelled at its left. */
+.maxLine { position: absolute; inset: 8px 0 auto; border-top: 1px dashed var(--border-soft); pointer-events: none; }
+.maxLine span { position: absolute; top: -8px; left: 0; padding-right: 6px; background: var(--bg-panel); color: var(--faint); font-size: var(--font-size-12); line-height: 16px; font-variant-numeric: tabular-nums; }
+
+.bars { position: relative; display: flex; align-items: stretch; gap: 2px; height: 100%; padding-left: 36px; }
+.column { position: relative; display: flex; flex: 1 1 0; align-items: flex-end; justify-content: center; min-width: 0; }
+.bar { width: 100%; max-width: 28px; border-radius: var(--radius-xs) var(--radius-xs) 0 0; background: var(--violet); transition: opacity 140ms var(--ease-out); }
+.bar[data-empty='true'] { height: 0; }
+.bars:hover .bar { opacity: 0.45; }
+.bars:hover .column:hover .bar { opacity: 1; transition-duration: 200ms; }
+
+.tip {
+  position: absolute; bottom: calc(100% + 6px); left: 50%; z-index: 1;
+  padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--bg-elevated, var(--bg-panel)); box-shadow: var(--sh-2);
+  color: var(--ink); font-size: var(--font-size-12); line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums;
+  opacity: 0; pointer-events: none; transform: translate(-50%, 2px);
+  transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+.column:hover .tip { opacity: 1; transform: translate(-50%, 0); transition-duration: 200ms; }
+/* Keep the first and last days' tips inside the card. */
+.column:first-child .tip { left: 0; transform: translate(0, 2px); }
+.column:first-child:hover .tip { transform: none; }
+.column:last-child .tip { right: 0; left: auto; transform: translate(0, 2px); }
+.column:last-child:hover .tip { transform: none; }
+
+.axis { display: flex; justify-content: space-between; padding-left: 36px; color: var(--faint); font-size: var(--font-size-12); font-variant-numeric: tabular-nums; }
+.partial { margin: 0; color: var(--faint); font-size: var(--font-size-12); line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) { .bar, .tip { transition: none; } }

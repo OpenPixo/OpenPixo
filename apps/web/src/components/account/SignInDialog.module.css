@@ -1,6 +1,5 @@
-/* Focused sign-in window opened from the nav rail. */
-.dialog { width: min(400px, calc(100vw - 32px)); }
-.body { display: flex; flex-direction: column; padding: 32px 28px 28px; }
-.body > :first-child { align-self: center; margin-bottom: 18px; }
-.title { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); }
-.subtitle { margin: 6px 0 22px; text-align: center; font-size: 14px; line-height: 1.6; color: var(--text-muted); }
+/* Focused sign-in window opened from the nav rail. The Dialog chrome pads it; the form fills its width. */
+.dialog { width: min(400px, calc(100vw - 32px)); padding: 28px; gap: 20px; }
+.header { gap: 6px; }
+.header > :first-child { margin-bottom: 10px; }
+.later { align-self: center; margin-top: -8px; color: var(--text-muted); }

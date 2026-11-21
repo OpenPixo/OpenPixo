@@ -1,0 +1,27 @@
+/* The chat's thin progress bar. Owner: ProgressBar. */
+.track {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 24px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--chat-radius-pill);
+  background: var(--chat-bg-muted);
+}
+
+.fill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  border-radius: inherit;
+  background: var(--chat-accent);
+  transition: width var(--chat-dur-enter) var(--chat-ease-out);
+}
+
+.track[data-tone='warn'] .fill { background: var(--chat-amber); }
+.track[data-tone='over'] .fill { background: var(--chat-red); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+}

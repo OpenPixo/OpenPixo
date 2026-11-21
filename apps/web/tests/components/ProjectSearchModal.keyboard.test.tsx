@@ -149,6 +149,48 @@ describe('ProjectSearchModal keyboard navigation', () => {
 
     expect(activeName()).toBeUndefined();
   });
+});
 
-  
+describe('ProjectSearchModal groups and no-results state', () => {
+  it('offers the app actions when there are no games yet', () => {
+    renderPalette(vi.fn(), vi.fn(), []);
+
+    expect(screen.getByTestId('project-search-action-new-game')).toBeTruthy();
+    expect(screen.queryByTestId('project-search-empty')).toBeNull();
+  });
+
+  it('hands the typed text to the agent from the no-results state', () => {
+    const onAskAgent = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <I18nProvider>
+        <ProjectSearchModal
+          projects={PROJECTS}
+          onOpenProject={vi.fn()}
+          onClose={onClose}
+          onAskAgent={onAskAgent}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.change(screen.getByTestId('project-search-input'), {
+      target: { value: '  a cozy fishing game  ' },
+    });
+
+    expect(screen.getByTestId('project-search-empty').textContent).toContain('a cozy fishing game');
+    expect(screen.getByTestId('project-search-suggestion-new-game')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('project-search-ask-agent'));
+
+    expect(onAskAgent).toHaveBeenCalledWith('a cozy fishing game');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows no agent button without an onAskAgent handler', () => {
+    renderPalette();
+    fireEvent.change(screen.getByTestId('project-search-input'), {
+      target: { value: 'no-such-project' },
+    });
+
+    expect(screen.getByTestId('project-search-empty')).toBeTruthy();
+    expect(screen.queryByTestId('project-search-ask-agent')).toBeNull();
+  });
 });

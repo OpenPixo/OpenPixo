@@ -42,7 +42,8 @@
   height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  /* Same box as Send, which it stands in for while a run is going. */
+  border-radius: var(--radius-md);
   background: var(--chat-text-strong);
   color: var(--chat-bg);
   box-shadow: none;

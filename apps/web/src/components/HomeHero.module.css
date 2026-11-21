@@ -30,14 +30,19 @@
   z-index: 2;
   width: 100%;
   min-width: 0;
-  border-radius: 18px;
+  /* One box: a 1px hairline at the large radius, no shadow. The ring is a
+     box-shadow rather than a border so focus can thicken it without moving
+     anything inside by a pixel. */
+  border-radius: var(--radius-lg);
   background: var(--bg-app);
-  box-shadow: 0 0 0 1px var(--line-2);
-  transition: box-shadow 200ms var(--ease-out);
+  box-shadow: 0 0 0 1px var(--line);
+  transition: box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .composerCard:focus-within {
-  box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--violet) 55%, var(--line)),
+    0 0 0 3px var(--violet-soft);
 }
 
 .composerCard:has(:global(.inline-switcher__popover)) {
@@ -48,9 +53,9 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 16px 16px 12px;
+  padding: 14px 14px 10px;
   border: 0;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: transparent;
   box-shadow: none;
   gap: 8px;
@@ -62,7 +67,7 @@
 }
 
 .composerCard:has(.dragActive) {
-  box-shadow: 0 0 0 1px var(--violet), 0 0 0 4px var(--violet-soft);
+  box-shadow: 0 0 0 1px var(--violet), 0 0 0 3px var(--violet-soft);
 }
 
 /* The shared Lexical editor and agent switcher keep their own interaction styles. */
@@ -86,48 +91,61 @@
 
 .inputCard .footer {
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   padding-top: 0;
 }
 
+/* One row of 28px controls, 4px apart: "+" first, then the model chip and its
+   thinking / speed chips. Only the model chip carries a text label. */
 .inputCard .controls {
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 }
 
-.executionSwitcher :global(.inline-switcher__chip),
-.controls .attachmentButton,
+.executionSwitcher {
+  display: inline-flex;
+  min-width: 0;
+}
+
+/* `plus-menu.css` dresses the Home "+" as a 36px bordered disc with a shadow
+   (`.home-hero__input-card .plus-menu__trigger`, 0,2,0). In the footer it is a
+   plain icon like everything beside it; three classes outrank that rule. */
+.inputCard .controls :global(.plus-menu__trigger) {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.inputCard .controls :global(.plus-menu__trigger):hover:not(:disabled),
+.inputCard .controls :global(.plus-menu__trigger.is-active) {
+  border-color: var(--line);
+  background: var(--bg-subtle);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.inputCard .controls :global(.plus-menu__trigger):focus-visible {
+  outline: 2px solid var(--focus-ring, var(--violet));
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
 .controls .styleTag {
-  height: 30px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--violet) 4%, var(--bg-app));
-  box-shadow: inset 0 0 0 1px var(--line);
-  color: var(--ink-2);
-  font: 500 13.5px/1 var(--sans);
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--font-size-12, 12px)/1 var(--sans);
   white-space: nowrap;
-}
-
-.executionSwitcher :global(.inline-switcher__chip):hover,
-.controls .attachmentButton:hover:not(:disabled) {
-  background: var(--violet-soft);
-  color: var(--violet-strong);
-}
-
-.controls .attachmentButton:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-shadow);
-}
-
-.executionSwitcher :global(.inline-switcher__chip-model-name) {
-  display: inline;
-}
-
-.executionSwitcher :global(.inline-switcher__chip-conn) {
-  width: 6px;
-  height: 6px;
 }
 
 .controls .styleTag {
@@ -138,17 +156,20 @@
 
 .inputCard .sendControls {
   align-self: flex-end;
-  gap: 12px;
+  gap: 4px;
   margin-left: auto;
 }
 
+/* The keys hint under the prompt: one muted 12px line at the right end of the
+   working-directory row, shown while the user is in the box. */
 .sendHint {
-  margin: 0;
-  color: var(--faint);
-  font: 400 12px/1.5 var(--mono);
+  margin: 0 0 0 auto;
+  padding-inline-end: 6px;
+  color: var(--text-faint);
+  font: 400 var(--font-size-12, 12px)/1.5 var(--sans);
   white-space: nowrap;
   opacity: 0;
-  transition: opacity 140ms var(--ease-out);
+  transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .composerCard:focus-within .sendHint {
@@ -156,16 +177,29 @@
   transition-duration: 200ms;
 }
 
+/* Send: the footer's one 32px control. Filled violet when there is something
+   to send; muted while the box is empty, so it never shouts "click me" at an
+   empty prompt. */
 .sendControls .submit {
   position: relative;
   flex: 0 0 auto;
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
   padding: 0;
-  border-radius: 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  box-shadow: none;
   overflow: hidden;
+  transition: background-color 140ms cubic-bezier(0.23, 1, 0.32, 1), color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.sendControls .submit:disabled {
+  opacity: 1;
+  background: var(--bg-muted);
+  color: var(--text-faint);
+  cursor: default;
 }
 
 .sendAttention::after {
@@ -180,8 +214,9 @@
 .composerCard .workingDirectory {
   width: 100%;
   max-width: none;
-  margin: 0;
-  padding: 0 8px 8px;
+  /* A compact foot line: tucked under the controls row, small and quiet. */
+  margin: -6px 0 0;
+  padding: 0 8px 6px;
 }
 
 .workingDirectory:empty {
@@ -220,13 +255,7 @@
     transition: none;
   }
 
-  .sendAttention::after,
-  .executionSwitcher :global(.inline-switcher__chip-conn)::after {
+  .sendAttention::after {
     animation: none;
   }
-}
-
-.executionSwitcher :global(.inline-switcher__chip-mode),
-.executionSwitcher :global(.inline-switcher__chip-mode + .inline-switcher__chip-sep) {
-  display: none;
 }

@@ -692,6 +692,7 @@ export function EntryShell({
             projects={projectSearchProjects}
 
             onOpenProject={handleOpenAllProjects}
+            onAskAgent={onImportFolderResponse ? (text) => setHomeSetup({ prompt: text, files: [] }) : undefined}
             onClose={() => setProjectSearchOpen(false)}
           />
         ) : null}

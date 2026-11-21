@@ -1,3 +1,4 @@
+import { CreditsNotice } from '../account/CreditsNotice';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Button, Input, SegmentedTabs, Select, Textarea, VisuallyHidden } from '@openpixo/components';
 import {
@@ -44,7 +45,8 @@ type Phase =
   | { kind: 'working' }
   /** The cloud's price came back above the number on the button: nothing is spent until the user says so. */
   | { kind: 'confirm'; quote: Extract<RecipeRunQuote, { paid: true }>; request: RecipeRunRequest }
-  | { kind: 'short' }
+  /** Not enough credits; carries the quote's numbers when the price was known, for the meter. */
+  | { kind: 'short'; needed?: number; available?: number }
   | { kind: 'noTool' };
 
 /** The box opens one panel at a time above the prompt: the style grid, the presets, or the game's pictures. */
@@ -228,7 +230,7 @@ export function GenerateBox({ projectId, files, uploads, onUploaded, form, onFor
       if (!mounted.current) return;
       if (!quote.paid) { await start(request); return; }
       void refreshOpenPixoCredits();
-      if (quote.available < quote.credits) { setPhase({ kind: 'short' }); return; }
+      if (quote.available < quote.credits) { setPhase({ kind: 'short', needed: quote.credits, available: quote.available }); return; }
       const paid = { ...request, quoteId: quote.quoteId };
       if (estimate === null || quote.credits > estimate) { setPhase({ kind: 'confirm', quote, request: paid }); return; }
       await start(paid);
@@ -468,10 +470,9 @@ export function GenerateBox({ projectId, files, uploads, onUploaded, form, onFor
       <span>{cloudAvailable && !signedIn ? t('generate.noToolSignIn') : t('generate.noTool')}</span>
       <Button size="sm" variant="secondary" onClick={openMediaSettings}>{t('generate.setUpTools')}</Button>
     </div>}
-    {phase.kind === 'short' && <div className={styles.problem} role="alert">
-      <span>{t('studio.cloud.notEnough')}</span>
-      {onOpenAccount && <Button size="sm" variant="secondary" onClick={onOpenAccount}>{t('studio.cloud.getCredits')}</Button>}
-    </div>}
+    {phase.kind === 'short' && (onOpenAccount
+      ? <CreditsNotice needed={phase.needed ?? null} balance={phase.available ?? null} onTopUp={onOpenAccount} onUseOwnKey={openMediaSettings} />
+      : <div className={styles.problem} role="alert"><span>{t('studio.cloud.notEnough')}</span></div>)}
     {error && <p className={styles.problem} role="alert">{t('studio.cloud.failed', { message: error })}</p>}
   </form>;
 }

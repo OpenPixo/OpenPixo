@@ -16,10 +16,10 @@ function contrast(a: string, b: string): number {
  const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 describe('OpenPixo brand contrast', () => {
- it('maps existing app roles to the approved violet and ink foundation', () => {
+ it('maps existing app roles to neutral ink and the approved violet accent', () => {
   const tokens = blocks[0]!;
   for (const [name, value] of Object.entries({
-   ink: '#141128', 'ink-2': '#2a2645', muted: '#545070', faint: '#726e8c',
+   ink: '#111114', 'ink-2': '#26262b', muted: '#5c5c66', faint: '#6e6e78',
    violet: '#6c4bff', 'violet-strong': '#4a2de0', 'violet-soft': '#f1eeff',
    lime: '#c4f542', mint: '#1bc38d', amber: '#ffa51f', green: '#14825e',
   })) expect(resolve(tokens, name).toLowerCase()).toBe(value);
@@ -30,8 +30,8 @@ describe('OpenPixo brand contrast', () => {
    expect(resolve(tokens, name)).toBe(resolve(tokens, 'violet-soft'));
   }
   expect(resolve(tokens, 'accent')).not.toBe(resolve(tokens, 'lime'));
-  expect(resolve(tokens, 'border')).toBe('rgba(20, 17, 40, 0.14)');
-  expect(resolve(tokens, 'border-strong')).toBe('rgba(20, 17, 40, 0.24)');
+  expect(resolve(tokens, 'border')).toBe('rgba(17, 17, 20, 0.12)');
+  expect(resolve(tokens, 'border-strong')).toBe('rgba(17, 17, 20, 0.2)');
  });
 
  for (const [index, block] of blocks.entries()) it(`keeps readable text, controls and distinct status in theme ${index}`, () => {
@@ -44,6 +44,9 @@ describe('OpenPixo brand contrast', () => {
    // Small secondary labels use this one, so it must stay legible at 11-12px.
    expect(contrast(resolve(tokens, 'text-faint'), resolve(tokens, surface))).toBeGreaterThanOrEqual(4);
   }
+  for (const surface of ['bg', 'bg-subtle']) {
+   for (const ink of ['text-muted', 'text-faint']) expect(contrast(resolve(tokens, ink), resolve(tokens, surface))).toBeGreaterThanOrEqual(4.5);
+  }
   expect(contrast(resolve(tokens, 'accent'), resolve(tokens, 'accent-contrast'))).toBeGreaterThanOrEqual(4.5);
   expect(contrast(resolve(tokens, 'accent'), resolve(tokens, 'bg-panel'))).toBeGreaterThanOrEqual(3);
   expect(resolve(tokens, 'green')).not.toBe(resolve(tokens, 'accent'));
@@ -51,8 +54,9 @@ describe('OpenPixo brand contrast', () => {
 
  it('keeps shared material, focus and motion tokens available to primitives', () => {
   const tokens = blocks[0]!;
-  expect(tokens['radius-card']).toBe('16px');
-  expect(tokens['radius-control']).toBe('10px');
+  for (const [name, px] of Object.entries({ 'radius-xs': '4px', 'radius-sm': '6px', 'radius-md': '10px', 'radius-lg': '14px', 'radius-xl': '14px', 'radius-2xl': '14px', 'radius-pill': '999px', 'radius-card': '14px', 'radius-control': '10px', 'radius-small': '6px', 'radius-medium': '6px', 'radius-large': '10px', 'radius-xlarge': '14px', 'radius-2xlarge': '14px', 'shell-radius': '10px' })) {
+   expect(resolve(tokens, name)).toBe(px);
+  }
   expect(tokens['ease-out']).toBe('cubic-bezier(0.23, 1, 0.32, 1)');
   expect(resolve(tokens, 'dur-enter')).toBe('200ms');
   expect(resolve(tokens, 'dur-exit')).toBe('140ms');

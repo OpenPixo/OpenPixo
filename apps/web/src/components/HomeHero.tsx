@@ -1371,35 +1371,10 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
             }}
           />
           <div className={`home-hero__foot-left ${styles.controls}`}>
-            {executionSwitcher ? (
-              <div className={`home-hero__execution-switcher ${styles.executionSwitcher}`}>
-                {executionSwitcher}
-              </div>
-            ) : null}
-            <Button
-              variant="secondary"
-              className={styles.attachmentButton}
-              onClick={() => {
-                trackHomeChatComposerClick(analytics.track, {
-                  page_name: 'home',
-                  area: 'chat_composer',
-                  element: 'attachment',
-                });
-                fileInputRef.current?.click();
-              }}
-            >
-              <Icon name="plus" size={13} />
-              {t('home.composerAttachments')}
-            </Button>
-            {artStyleId ? (
-              <Tag className={styles.styleTag} data-testid="home-hero-art-style">
-                {t('home.composerStyle', { style: artStyleId.replace(/[-_]/g, ' ') })}
-              </Tag>
-            ) : null}
-            {/* Upload entry: an icon-only disc, lifted out of the accessory row
-                below into the head of this one (per product) but keeping that
-                row's leading position. Sized and filled like the model chip
-                across the row. */}
+            {/* The footer's one add entry, leading the row: attach files is its
+                first item, beside skills, plugins, MCP and references. Home
+                used to carry a second, labelled 附件 button for the same
+                file picker; one "+" now serves both composers alike. */}
             <ComposerPlusMenu
 
               triggerTestId="home-hero-plus-trigger"
@@ -1497,6 +1472,16 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
               onReferenceProject={referenceProjectAction}
               onLinkLocalCode={linkLocalCodeAction}
             />
+            {executionSwitcher ? (
+              <div className={`home-hero__execution-switcher ${styles.executionSwitcher}`}>
+                {executionSwitcher}
+              </div>
+            ) : null}
+            {artStyleId ? (
+              <Tag className={styles.styleTag} data-testid="home-hero-art-style">
+                {t('home.composerStyle', { style: artStyleId.replace(/[-_]/g, ' ') })}
+              </Tag>
+            ) : null}
             {projectReferenceOpen ? (
               <ProjectReferenceModal
 
@@ -1554,9 +1539,6 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
                 by `HomeView`), and render the picker here with the
                 `trackComposerSessionModeClick` call it had. Pinned by
                 `tests/components/HomeView.mode-picker-removed.test.tsx`. */}
-            <p id={sendHintId} className={styles.sendHint} data-testid="home-hero-send-hint">
-              {t('chat.sendHint')}
-            </p>
             <Button
               variant="primary"
               className={`${styles.submit}${sendAttention ? ` ${styles.sendAttention}` : ''}`}
@@ -1683,6 +1665,11 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
             </button>
           </ContextChipHoverCard>
         ))}
+        {/* The keys hint sits under the prompt, at the row's right end, in
+            muted 12px — not beside Send, where it crowded the footer. */}
+        <p id={sendHintId} className={styles.sendHint} data-testid="home-hero-send-hint">
+          {t('chat.sendHint')}
+        </p>
       </div>
       </div>
 

@@ -1,0 +1,33 @@
+/* My Games search with no match. */
+.title,
+.title:global(.designs-empty-title) {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-size-16);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.lede {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-14);
+  line-height: 1.5;
+}
+
+.cta {
+  margin-top: 20px;
+  gap: 6px;
+}
+
+.noMatch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 0 24px;
+}
+
+.noMatch .cta { margin-top: 16px; }

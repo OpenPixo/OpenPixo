@@ -2922,14 +2922,16 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
               attachLoading={uploading}
             />
             {leadingAccessory}
-            <span className="composer-spacer" />
             {/* No mode picker in the composer (2026-08-19, product): the row
                 carried a 规划/设计/提问 chooser that every run defaulted past.
                 `sessionMode` still flows through this component — a
                 conversation keeps its stored mode and next-step actions still
                 switch it (ChatPane.handleNextStepPromptAction) — it just is
-                not chosen from here any more. */}
+                not chosen from here any more.
+                The model chip and its settings ride on the left, right after
+                "+", as on Home; the right edge holds only approvals and Send. */}
             {footerAccessory}
+            <span className="composer-spacer" />
             {projectId ? <ApprovalModePicker agentId={agentId} unsupported={noApproval} /> : null}
             {showAdmissionPendingButton ? (
               <button

@@ -1,8 +1,11 @@
 ﻿/* Flat by decision: solid fills, no gradients, no drop shadows, no hover lift.
    Hierarchy comes from fill and ink alone; `--button-shadow` only ever carries
-   the hairline ring of the outlined default, which reads as a border. */
+   the hairline ring of the outlined default, which reads as a border.
+   Sizes: sm 28 / default 34 / lg 40, all on `--radius-md`. Variants: primary is
+   the one filled violet action in a view; default and secondary are a 1px
+   `--line` ring on white; ghost has no ring and a subtle hover; danger is red. */
 .button {
-  --button-shadow: inset 0 0 0 1px var(--line-2, rgba(20, 17, 40, 0.14));
+  --button-shadow: inset 0 0 0 1px var(--line, rgba(17, 17, 20, 0.12));
   position: relative;
   overflow: hidden;
   display: inline-flex;
@@ -10,15 +13,15 @@
   justify-content: center;
   gap: var(--spacing-8, 8px);
   box-sizing: border-box;
-  height: 40px;
-  padding: 0 var(--spacing-16, 16px);
+  height: 34px;
+  padding: 0 14px;
   border: 0;
-  border-radius: var(--radius-control, 10px);
-  color: var(--text-strong, #141128);
+  border-radius: var(--radius-md, 10px);
+  color: var(--text-strong, #111114);
   background: var(--bg-panel, #fff);
   box-shadow: var(--button-shadow);
   font-family: var(--sans, inherit);
-  font-size: 14.5px;
+  font-size: var(--font-size-14, 14px);
   font-weight: 600;
   line-height: normal;
   white-space: nowrap;
@@ -30,12 +33,12 @@
 }
 
 .button:where(:hover:not(:disabled)) {
-  background: var(--bg-muted, #eeecf5);
+  background: var(--bg-subtle, #f6f6f7);
   transition-duration: 200ms;
 }
 
 .button:where(:active:not(:disabled)) {
-  background: var(--bg-hover, #e7e4f0);
+  background: var(--bg-muted, #ececef);
   transition-duration: 140ms;
 }
 
@@ -75,28 +78,35 @@
 }
 
 .ghost {
-  color: var(--text, #3b3757);
+  color: var(--text, #26262b);
   background: transparent;
 }
 
-.ghost:hover:not(:disabled),
-.subtle:hover:not(:disabled) {
-  color: var(--text-strong, #141128);
-  background: var(--bg-muted, #eeecf5);
+.ghost:hover:not(:disabled) {
+  color: var(--text-strong, #111114);
+  background: var(--bg-fill-tertiary, rgba(17, 17, 20, 0.04));
 }
 
-.ghost:active:not(:disabled),
+.ghost:active:not(:disabled) {
+  background: var(--bg-fill-secondary, rgba(17, 17, 20, 0.07));
+}
+
+.subtle:hover:not(:disabled) {
+  color: var(--text-strong, #111114);
+  background: var(--bg-muted, #ececef);
+}
+
 .subtle:active:not(:disabled) {
-  background: var(--bg-hover, #e7e4f0);
+  background: var(--bg-hover, #e4e4e8);
 }
 
 .subtle {
-  color: var(--text-strong, #141128);
-  background: var(--bg-subtle, #f6f5fa);
+  color: var(--text-strong, #111114);
+  background: var(--bg-subtle, #f6f6f7);
 }
 
 .secondary {
-  color: var(--text-strong, #141128);
+  color: var(--text-strong, #111114);
   background: var(--bg-panel, #fff);
 }
 
@@ -107,26 +117,32 @@
 }
 
 .danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--red, #d63d54) 85%, var(--text-strong, #141128));
+  background: color-mix(in srgb, var(--red, #d63d54) 85%, var(--text-strong, #111114));
 }
 
 .danger:active:not(:disabled) {
-  background: color-mix(in srgb, var(--red, #d63d54) 75%, var(--text-strong, #141128));
+  background: color-mix(in srgb, var(--red, #d63d54) 75%, var(--text-strong, #111114));
 }
 
 .icon {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
   padding: 0;
 }
 
 .sm {
-  height: 26px;
-  padding: 0 11px;
+  height: 28px;
+  padding-block: 4px;
+  padding-inline: 11px;
   gap: var(--spacing-6, 6px);
-  border-radius: 8px;
   font-size: var(--font-size-13, 13px);
+}
+
+.sm:where(.icon) {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
 }
 
 .sm svg {
@@ -135,10 +151,15 @@
 }
 
 .lg {
-  height: 46px;
-  padding: 0 20px;
-  border-radius: 12px;
-  font-size: 15.5px;
+  height: 40px;
+  padding: 0 18px;
+  font-size: var(--font-size-15, 15px);
+}
+
+.lg:where(.icon) {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
 }
 
 /* Preserve the shared selection hook even for quiet variants without borders.
@@ -154,8 +175,8 @@
 
 .button:disabled {
   --button-shadow: 0 0 0 0 transparent;
-  color: var(--text-muted, #6e6a88);
-  background: var(--bg-subtle, #f6f5fa);
+  color: var(--text-muted, #5c5c66);
+  background: var(--bg-subtle, #f6f6f7);
   cursor: not-allowed;
 }
 

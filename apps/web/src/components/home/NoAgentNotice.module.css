@@ -1,55 +1,64 @@
-/* Above the Home composer when no AI can build a game yet. */
+/* Above the Home composer when no AI can build a game yet: an inline notice.
+   Neutral box with a light warning tint; amber only on the icon; one line of
+   text, own tools as a quiet text link, one action on the right. */
 .notice {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin: 0 0 12px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--border));
-  border-radius: var(--radius-lg);
-  background: var(--amber-bg);
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning, var(--amber)) 24%, var(--line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning, var(--amber)) 4%, var(--bg-panel));
   color: var(--text);
 }
 
 .icon {
-  display: grid;
+  display: inline-flex;
   flex: none;
-  place-items: center;
-  color: var(--amber);
+  color: var(--warning, var(--amber));
 }
 
-.copy {
+.message {
   flex: 1;
   min-width: 0;
-}
-
-.title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-strong);
+  font-size: var(--font-size-13);
+  line-height: 1.5;
 }
 
-.body {
-  margin: 2px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-
-.actions {
-  display: flex;
+.action {
+  display: inline-flex;
   flex: none;
-  flex-wrap: wrap;
-  gap: 8px;
+}
+
+.alt {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-strong);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: text-decoration-color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.alt:hover {
+  text-decoration-color: currentColor;
+  transition-duration: 200ms;
+}
+
+.alt:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
 }
 
 @media (max-width: 640px) {
-  .notice {
-    flex-wrap: wrap;
-  }
-
-  .actions {
-    width: 100%;
-  }
+  .notice { flex-wrap: wrap; }
+  .action { margin-left: 26px; }
 }

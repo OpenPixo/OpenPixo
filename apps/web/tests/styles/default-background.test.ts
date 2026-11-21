@@ -21,15 +21,15 @@ describe('default app background colors', () => {
 
     expect(root).toMatch(/--bg:\s*#ffffff;/i);
     expect(root).toMatch(/--bg-app:\s*#ffffff;/i);
-    expect(root).toMatch(/--sidebar-bg:\s*#f3f1f9;/i);
+    expect(root).toMatch(/--sidebar-bg:\s*#f7f7f8;/i);
   });
 
-  it('uses matching dark violet surfaces', () => {
+  it('uses matching neutral near-black dark surfaces', () => {
     const dark = cssBlock('[data-theme="dark"]');
 
-    expect(dark).toMatch(/--bg:\s*#14111f;/i);
-    expect(dark).toMatch(/--bg-app:\s*#14111f;/i);
-    expect(dark).toMatch(/--bg-panel:\s*#1d192b;/i);
+    expect(dark).toMatch(/--bg:\s*#0b0b0d;/i);
+    expect(dark).toMatch(/--bg-app:\s*#0b0b0d;/i);
+    expect(dark).toMatch(/--bg-panel:\s*#141416;/i);
   });
 
   it('uses Geist with the approved CJK fallbacks and serif accent', () => {

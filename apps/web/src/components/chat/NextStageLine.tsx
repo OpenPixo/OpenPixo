@@ -50,12 +50,12 @@ export function NextStageLine({
     <div className={`${styles.collapsible} accordion-collapsible${open ? ' open' : ''}`} aria-hidden={!open} data-testid="next-stage-line">
       <div className="accordion-collapsible-inner">
         <div className={styles.line}>
-          <p className={styles.hint}>
+          <p className={styles.hint} title={failed ? undefined : t('chat.nextStage.hint')}>
             {failed ? <span role="alert">{t('chat.nextStage.failed')}</span> : t('chat.nextStage.hint')}
           </p>
           <Button
             size="sm"
-            variant="ghost"
+            variant="secondary"
             disabled={busy || !open}
             tabIndex={open ? 0 : -1}
             data-testid="next-stage-start"

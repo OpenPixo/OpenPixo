@@ -38,12 +38,14 @@ import {
   descendantFileCounts,
   isMediaFile,
   libraryListing,
+  librarySummary,
+  libraryTitle,
   libraryTypeCounts,
   nearestExistingDir,
   relativeToDir,
   type LibraryTypeFilter,
 } from './library/library-entries';
-import { readLibraryLayout, writeLibraryLayout, type LibraryLayout } from './library/library-layout';
+import { readLibraryLayout, useLibrarySort, writeLibraryLayout, type LibraryLayout } from './library/library-layout';
 import { PluginFolderList, usePluginFolders } from './library/PluginFolderList';
 import { downloadProjectFilesZip, SelectionBar } from './library/SelectionBar';
 import { useIncrementalRender } from './library/useIncrementalRender';
@@ -225,6 +227,7 @@ export function FilesPanel({
   const [currentDir, setCurrentDir] = useState<string>(() => navState?.currentDir ?? '');
   const [typeFilter, setTypeFilter] = useState<LibraryTypeFilter>(() => navState?.typeFilter ?? 'all');
   const [query, setQuery] = useState(() => navState?.query ?? '');
+  const [sort, setSort] = useLibrarySort(projectId);
   const [appliedRequestNonce, setAppliedRequestNonce] = useState(() => navState?.appliedRequestNonce ?? 0);
 
   // A request applies once: the browser remounts every time 资源库's root
@@ -320,9 +323,10 @@ export function FilesPanel({
 
   // ---- What is listed ----------------------------------------------------
   const listing = useMemo(
-    () => libraryListing({ files, folders, currentDir, type: typeFilter, query }),
-    [files, folders, currentDir, typeFilter, query],
+    () => libraryListing({ files, folders, currentDir, type: typeFilter, query, sort }),
+    [files, folders, currentDir, typeFilter, query, sort],
   );
+  const summary = useMemo(() => librarySummary(listing), [listing]);
   const counts = useMemo(() => libraryTypeCounts(files, currentDir), [files, currentDir]);
   const dirCounts = useMemo(() => descendantFileCounts(files), [files]);
   const pluginFolders = usePluginFolders(files, hiddenPluginActionPaths);
@@ -683,6 +687,10 @@ export function FilesPanel({
             t={t}
             onTypeChange={setTypeFilter}
             onQueryChange={setQuery}
+            title={libraryTitle(currentDir, rootDirName ?? t('filesPanel.crumbs'))}
+            summary={summary}
+            sort={sort}
+            onSortChange={setSort}
           />
         ) : null}
         <div className="df-body" {...drop.handlers}>

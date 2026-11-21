@@ -111,13 +111,16 @@ export function InlineModelSwitcher({
   // The bundled OpenCode on the OpenPixo-credits model; it needs an account, not a key.
   const hostedAgent = agents.find((agent) => agent.id === OPENPIXO_AGENT_ID);
   const hostedCost = useMemo(() => hostedModelCostMultipliers(hostedAgent?.models ?? []), [hostedAgent?.models]);
+  // The chip says "Default model", not a bare "Default": the reasoning chip beside it can
+  // also sit on its default, and two controls reading the same word say nothing.
+  const chipDefault = t('inlineSwitcher.modelDefaultChip');
   const modelName = config.mode === 'api'
-    ? config.model.trim() || t('inlineSwitcher.modelDefault')
+    ? config.model.trim() || chipDefault
     : currentModelId && currentAgent?.id === OPENPIXO_AGENT_ID && isOpenPixoAgentAutoModel(currentModelId)
       ? t('homeModel.autoModel')
       : currentModelId
-        ? modelOptionLabel(currentModelId, currentModel?.label ?? currentModelId, t('inlineSwitcher.modelDefault'))
-        : t('inlineSwitcher.modelDefault');
+        ? modelOptionLabel(currentModelId, currentModel?.label ?? currentModelId, chipDefault)
+        : chipDefault;
   const sourceName = config.mode === 'api'
     ? apiProtocolLabel(apiProtocol) + ' · ' + t('homeModel.ownKey')
     : currentAgent?.name ?? t('inlineSwitcher.noAgent');

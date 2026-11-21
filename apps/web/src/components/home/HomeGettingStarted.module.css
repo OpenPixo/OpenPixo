@@ -1,0 +1,146 @@
+/* Home's "开始做游戏" list, below the composer. One card: header row, then
+   hairline-divided step rows. Colour only for progress and done marks. */
+.card {
+  margin-top: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.heading { min-width: 0; }
+
+.title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-size-15);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.lede {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-13);
+  line-height: 1.45;
+}
+
+.meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.track {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--radius-pill);
+  background: var(--violet);
+  transition: width 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.count {
+  color: var(--text-muted);
+  font-size: var(--font-size-12);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dismiss { color: var(--text-muted); }
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.row + .row { border-top: 1px solid var(--border-soft); }
+
+.mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-12);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-size-14);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.rowBody {
+  margin: 1px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-13);
+  line-height: 1.45;
+}
+
+.action {
+  flex: none;
+  gap: 4px;
+}
+
+.done .mark {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--line));
+  background: color-mix(in srgb, var(--success) 10%, var(--bg-panel));
+  color: var(--success);
+}
+
+.done .rowTitle {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
+}
+
+.done .rowBody { color: var(--text-faint); }
+
+@media (max-width: 640px) {
+  .head { flex-wrap: wrap; }
+  .meta { width: 100%; }
+  .track { flex: 1; width: auto; }
+  .row { flex-wrap: wrap; }
+  .action { margin-left: 32px; }
+}

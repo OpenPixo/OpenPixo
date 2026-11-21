@@ -16,9 +16,53 @@ import styles from './record.module.css';
 
 export function StatusMark({ status, index }: StatusMarkProps): ReactElement {
   const t = useT();
-  // 计划里还没跑的步骤用序号占那一格:此刻它唯一的身份就是「第几条」
-  if (index != null && status === 'pending') {
-    return <span className={styles.step}>{index}</span>;
+  /*
+   * 计划里的步骤(带序号)画成**方块**,和工具行那套圆分开(UI polish 2026-11-21):
+   * 没开始 = 序号,做完 = 勾,在跑 = 转圈,没跑完 = 序号 + 实线,作废沿用完成态(D16)。
+   * 尺寸仍是 15px 那一列,行首对齐和缩进不动(`w76-icon-slot.test.tsx`)。
+   */
+  if (index != null) {
+    if (status === 'pending') {
+      // 此刻它唯一的身份就是「第几条」。序号由 CSS 从 `data-index` 画出来,不进文字:
+      // 行的 textContent 仍只是步骤本身(药丸浮层、步骤抽屉头都按文字认行)
+      return <span className={styles.step} role="img" aria-label={t('chat.record.pending')} data-index={index} />;
+    }
+    if (status === 'ok' || status === 'skip') {
+      return (
+        <span
+          className={`${styles.mark} ${styles.box} ${styles.boxDone}`}
+          role="img"
+          aria-label={t(status === 'ok' ? 'chat.record.done' : 'chat.record.canceled')}
+        >
+          {/* 勾用 CSS 画:行头里的 svg 只留给箭头(D35 的「没有箭头」按 `summary svg` 认) */}
+          <i className={styles.tick} aria-hidden />
+        </span>
+      );
+    }
+    if (status === 'running') {
+      return (
+        <span className={`${styles.mark} ${styles.box} ${styles.boxRun}`} role="img" aria-label={t('chat.record.running')}>
+          <i className={styles.spin} aria-hidden />
+        </span>
+      );
+    }
+    if (status === 'fail') {
+      return (
+        <span className={`${styles.mark} ${styles.box} ${styles.boxFail}`} role="img" aria-label={t('chat.record.failed')}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M5 5l6 6M11 5l-6 6" />
+          </svg>
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`${styles.mark} ${styles.box} ${styles.boxStopped}`}
+        role="img"
+        aria-label={t('chat.record.unfinished')}
+        data-index={index}
+      />
+    );
   }
 
   if (status === 'ok') {

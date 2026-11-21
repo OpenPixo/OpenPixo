@@ -1410,6 +1410,67 @@ body:has(.manual-edit-workspace) .chat-composer-fixed-layer {
   margin: 0 8px;
 }
 
+/* --- Prompt box polish (2026-11 UI pass) ------------------------------------
+   One box: a 1px `--line` border at `--radius-lg`, no shadow, and a soft 2px
+   violet ring while the user is in it. Footer: every control is a 28px box at
+   `--radius-sm` with no border until hover or open; Send is the one 32px
+   control, filled violet when there is something to send and muted when there
+   is not.
+   ⚠️ `viewer/routines.css` loads later and styles the same nodes at (0,2,0) —
+   `.app .composer-shell`, `.chat-composer-fixed-layer .composer-send` — and
+   (0,4,0) for the disabled send. Each rule here carries one more class than
+   the rule it replaces, so the result does not depend on import order. The
+   drag-active outline in that file is (0,4,0) and keeps winning, on purpose. */
+.chat-composer-fixed-layer .composer .composer-shell,
+.app .composer .composer-shell {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  transition:
+    border-color 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.chat-composer-fixed-layer .composer .composer-shell:focus-within,
+.app .composer .composer-shell:focus-within {
+  border-color: color-mix(in srgb, var(--violet) 55%, var(--line));
+  box-shadow: 0 0 0 2px var(--violet-soft);
+}
+/* The "+" menu (attach, skills, plugins, MCP, references) is the footer's
+   only add entry; it reads as a plain icon until it is pointed at or open.
+   `plus-menu.css` loads later with `:is(.home-hero__foot-left, .composer-row)
+   .plus-menu__trigger` (0,2,0) — a 36px filled disc — so these carry `.composer`
+   for one class more. */
+.composer .composer-row .plus-menu__trigger {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.composer .composer-row .plus-menu__trigger:hover:not(:disabled),
+.composer .composer-row .plus-menu__trigger.is-active {
+  border-color: var(--line);
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+.composer .composer-row .plus-menu__trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.chat-composer-fixed-layer .composer-row .composer-send,
+.app .composer-row .composer-send {
+  border-radius: var(--radius-md);
+}
+.chat-composer-fixed-layer .composer-row .composer-send:not(.stop):disabled,
+.app .composer-row .composer-send:not(.stop):disabled {
+  background: var(--bg-muted);
+  color: var(--text-faint);
+}
+
 .chat-queued-send-row {
   position: relative;
   /* 稿子 `.queue .q { display: flex; align-items: flex-start; gap: 8px }` ——

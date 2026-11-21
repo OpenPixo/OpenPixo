@@ -20,6 +20,7 @@ import { useLayoutEffect, useRef, type ReactElement } from 'react';
 import { useT } from '../../i18n';
 import { planPillState, type PlanPillTodo } from '../../runtime/chat/plan-pill';
 import { Orb } from './primitives/Orb';
+import { ProgressBar } from './primitives/ProgressBar';
 import { StatusMark } from './primitives/StatusMark';
 import record from './primitives/record.module.css';
 import styles from './PlanPill.module.css';
@@ -40,6 +41,7 @@ const POPOVER_BLOCK_PADDING_PX = 12;
 function useAvailableStepsHeight(visible: boolean) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<HTMLOListElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (!visible) return undefined;
@@ -57,7 +59,9 @@ function useAvailableStepsHeight(visible: boolean) {
           wrap.getBoundingClientRect().top
           - viewport.getBoundingClientRect().top
           - POPOVER_GAP_PX
-          - POPOVER_BLOCK_PADDING_PX,
+          - POPOVER_BLOCK_PADDING_PX
+          // 浮层头那一行(标题 + 进度)也在这段距离里
+          - (headRef.current?.offsetHeight ?? 0),
         ),
       );
       steps.style.maxHeight = `${available}px`;
@@ -81,15 +85,16 @@ function useAvailableStepsHeight(visible: boolean) {
     };
   }, [visible]);
 
-  return { wrapRef, stepsRef };
+  return { wrapRef, stepsRef, headRef };
 }
 
 export function PlanPill({ todos, running }: PlanPillProps): ReactElement | null {
   const t = useT();
   const state = planPillState(todos, running);
-  const { wrapRef, stepsRef } = useAvailableStepsHeight(state !== null);
+  const { wrapRef, stepsRef, headRef } = useAvailableStepsHeight(state !== null);
   // 出没判据全在纯函数里,这里只认 null(chat/AGENTS.md §3:数据缺席时不占位)
   if (!state) return null;
+  const done = state.steps.filter((step) => step.mark === 'ok').length;
 
   return (
     <div
@@ -101,6 +106,14 @@ export function PlanPill({ todos, running }: PlanPillProps): ReactElement | null
       ref={wrapRef}
     >
       <div className={styles.pop}>
+        {/* 浮层头:和执行记录的计划头同一套 —— 标题 + 进度条 + 「2 / 5 完成」 */}
+        <div className={styles.head} ref={headRef}>
+          <span className={styles.headTitle}>{t('chat.record.plan', { count: state.total })}</span>
+          <ProgressBar value={done} max={state.total} label={t('chat.record.planProgressLabel')} className={styles.headBar} />
+          <span className={styles.headCount} data-testid="chat-plan-pill-progress">
+            {t('chat.record.planProgress', { done, total: state.total })}
+          </span>
+        </div>
         <ol
           className={styles.steps}
           data-testid="chat-plan-pill-steps"
@@ -113,7 +126,7 @@ export function PlanPill({ todos, running }: PlanPillProps): ReactElement | null
               key={`${step.content}-${index}`}
               className={step.current ? styles.now : step.struck ? styles.done : undefined}
             >
-              <StatusMark status={step.mark} />
+              <StatusMark status={step.mark} index={index + 1} />
               <span className={styles.tx}>
                 {/* 划线走执行记录那枚 `.struck`,不在本 Module 里另画一条 ——
                     线只跟着文字走,所以挂在内层而不是整栏上 */}
@@ -128,6 +141,7 @@ export function PlanPill({ todos, running }: PlanPillProps): ReactElement | null
       <button className={styles.pill} type="button">
         <Orb state="solving" label={t('chat.record.running')} className={record.orb} />
         {t('chat.record.planStep', { current: state.current, total: state.total })}
+        <ProgressBar value={done} max={state.total} label={t('chat.record.planProgressLabel')} className={styles.pillBar} decorative />
       </button>
     </div>
   );

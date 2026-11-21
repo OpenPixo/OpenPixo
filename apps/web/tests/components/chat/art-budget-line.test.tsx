@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArtBudgetLine } from '../../../src/components/chat/ArtBudgetLine';
 import { en } from '../../../src/i18n/locales/en';
 import { zhCN } from '../../../src/i18n/locales/zh-CN';
+import { budgetTone } from '../../../src/components/chat/primitives/ProgressBar';
 import { artBudgetLine, budgetDraft, imagesForCredits } from '../../../src/runtime/chat/art-budget';
 
 afterEach(() => {
@@ -63,6 +64,14 @@ describe('what the line says', () => {
     expect(budgetDraft('999', 252)).toBe('252');
     expect(budgetDraft('-5.5x', 252)).toBe('55');
     expect(budgetDraft('', 252)).toBe('');
+  });
+
+  it('turns the bar amber past 80% and red only once more is used than the limit', () => {
+    expect(budgetTone(80, 100)).toBe('default');
+    expect(budgetTone(81, 100)).toBe('warn');
+    expect(budgetTone(100, 100)).toBe('warn');
+    expect(budgetTone(101, 100)).toBe('over');
+    expect(budgetTone(5, 0)).toBe('default');
   });
 
   it('estimates images only from a real price', () => {
@@ -178,9 +187,10 @@ describe('the art budget line', () => {
     const { fetchMock } = stubDaemon(state({ mode: 'ask' }), () => new Response(JSON.stringify(state({ mode: 'auto' })), { status: 200 }));
     renderLine();
     fireEvent.click(await waitFor(() => { expect(isOpen()).toBe(true); return screen.getByTestId('art-budget-change'); }));
-    expect((screen.getByTestId('art-budget-mode-ask') as HTMLInputElement).checked).toBe(true);
+    // One switch: on = ask first, off = spend within the budget.
+    expect((screen.getByTestId('art-budget-mode-toggle') as HTMLInputElement).checked).toBe(true);
     expect(screen.getByTestId('art-budget-mode-hint').textContent).toBe(en['chat.artBudget.modeAskHint']);
-    fireEvent.click(screen.getByTestId('art-budget-mode-auto'));
+    fireEvent.click(screen.getByTestId('art-budget-mode-toggle'));
     expect(screen.getByTestId('art-budget-mode-hint').textContent).toBe(en['chat.artBudget.modeAutoHint']);
     fireEvent.click(screen.getByTestId('art-budget-save'));
     await waitFor(() => expect(screen.getByTestId('art-budget-mode').textContent).toBe(en['chat.artBudget.modeAuto']));
@@ -194,7 +204,8 @@ describe('the art budget line', () => {
     renderLine();
     fireEvent.click(await waitFor(() => { expect(isOpen()).toBe(true); return screen.getByTestId('art-budget-change'); }));
     fireEvent.change(screen.getByTestId('art-budget-input'), { target: { value: '150' } });
-    fireEvent.click(screen.getByTestId('art-budget-mode-ask'));
+    expect((screen.getByTestId('art-budget-mode-toggle') as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByTestId('art-budget-mode-toggle'));
     fireEvent.click(screen.getByTestId('art-budget-save'));
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(true));
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!;
@@ -206,7 +217,7 @@ describe('the art budget line', () => {
     renderLine({ streaming: true });
     await waitFor(() => expect(isOpen()).toBe(true));
     expect((screen.getByTestId('art-budget-change') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByTestId('art-budget-mode-auto')).toBeNull();
+    expect(screen.queryByTestId('art-budget-mode-toggle')).toBeNull();
   });
 
   it('mentions art the user approved that no run has started on', async () => {

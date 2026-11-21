@@ -1,0 +1,88 @@
+/* Start-path option tiles (Home first run, empty My Games). Neutral tiles;
+   the icon sits in a small nested box, the time cost is quiet meta. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'icon cost'
+    'title title'
+    'body body';
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  /* The tile is a <button>: undo the global button height/nowrap so it grows with its text. */
+  height: auto;
+  min-height: 0;
+  white-space: normal;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.tile:hover:not(:disabled) {
+  border-color: var(--line-2);
+  background: var(--bg-subtle);
+  transition-duration: 200ms;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.tile:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  color: var(--text-strong);
+}
+
+.cost {
+  grid-area: cost;
+  justify-self: end;
+  align-self: start;
+  color: var(--text-muted);
+  font-size: var(--font-size-12);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.title {
+  grid-area: title;
+  color: var(--text-strong);
+  font-size: var(--font-size-14);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.body {
+  grid-area: body;
+  color: var(--text-muted);
+  font-size: var(--font-size-13);
+  line-height: 1.45;
+}

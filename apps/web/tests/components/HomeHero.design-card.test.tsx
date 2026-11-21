@@ -50,13 +50,15 @@ it('lets the dashboard own the heading while retaining composer controls and its
   expect(onSubmit).toHaveBeenCalledOnce();
 });
 
-it('keeps attachments reachable through the visible attachment chip', () => {
+it('keeps attachments reachable through the one "+" menu', () => {
   renderComposer();
   const input = screen.getByTestId('home-hero-file-input');
   const click = vi.spyOn(input, 'click').mockImplementation(() => undefined);
-  fireEvent.click(screen.getByRole('button', { name: 'Attachments' }));
+  // One add entry, as in the project composer: no second, labelled attach button.
+  expect(screen.queryByRole('button', { name: 'Attachments' })).toBeNull();
+  fireEvent.click(screen.getByTestId('home-hero-plus-trigger'));
+  fireEvent.click(screen.getByTestId('composer-plus-attach'));
   expect(click).toHaveBeenCalledOnce();
-  expect(screen.getByTestId('home-hero-plus-trigger')).toBeTruthy();
   expect(screen.queryByTestId('home-hero-art-style')).toBeNull();
 });
 

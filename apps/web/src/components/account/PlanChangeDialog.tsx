@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Button, Dialog } from '@openpixo/components';
+import { Button, Dialog, DialogFooter, DialogTitle } from '@openpixo/components';
 import type { OpenPixoPlanChangeQuote, OpenPixoPlanChangeResponse } from '@openpixo/contracts';
 import { useI18n } from '../../i18n';
 import { markExternalBillingVisit, refreshOpenPixoCredits, setOpenPixoCredits } from '../../hooks/useOpenPixoAccount';
@@ -152,7 +152,7 @@ export function PlanChangeDialog({ sku, onClose, onDone }: Props) {
   return (
     <Dialog open={sku !== null} onClose={() => { if (!paying) onClose(); }} size="sm" ariaLabelledBy={titleId} className={styles.dialog}>
       <div className={styles.body} data-testid="plan-change-dialog">
-        <h2 id={titleId} className={styles.title}>{title()}</h2>
+        <DialogTitle id={titleId}>{title()}</DialogTitle>
 
         {stage.name === 'loading' && <p className={styles.muted} aria-busy="true">{t('account.loading')}</p>}
 
@@ -165,47 +165,47 @@ export function PlanChangeDialog({ sku, onClose, onDone }: Props) {
               ))}
             </dl>
             <p className={styles.muted}>{hint(stage.quote)}</p>
-            <div className={styles.actions}>
+            <DialogFooter className={styles.actions}>
               <Button variant="secondary" size="sm" disabled={paying} onClick={onClose}>{t('common.cancel')}</Button>
               <Button variant="primary" size="sm" disabled={paying} onClick={() => void confirm(stage.quote)}>
                 {paying ? t('account.change.working') : confirmLabel(stage.quote)}
               </Button>
-            </div>
+            </DialogFooter>
           </>
         )}
 
         {stage.name === 'declined' && (
           <>
             <p role="alert" className={styles.warn}>{t('account.change.declined')}</p>
-            <div className={styles.actions}>
+            <DialogFooter className={styles.actions}>
               <Button variant="secondary" size="sm" onClick={onClose}>{t('common.close')}</Button>
               <Button variant="primary" size="sm" disabled={opening}
                 onClick={() => void openExternal(async () => (await createOpenPixoBillingPortal()).url)}>
                 {t('account.change.updateCard')}<Icon name="external-link" size={13} />
               </Button>
-            </div>
+            </DialogFooter>
           </>
         )}
 
         {stage.name === 'verify' && (
           <>
             <p className={styles.body2}>{t('account.change.verify', { price: money(stage.quote.chargeNowMinor, stage.quote.currency) })}</p>
-            <div className={styles.actions}>
+            <DialogFooter className={styles.actions}>
               <Button variant="secondary" size="sm" onClick={onClose}>{t('account.change.later')}</Button>
               <Button variant="primary" size="sm" disabled={opening}
                 onClick={() => void openExternal(async () => stage.url, onClose)}>
                 {t('account.change.verifyNow')}<Icon name="external-link" size={13} />
               </Button>
-            </div>
+            </DialogFooter>
           </>
         )}
 
         {stage.name === 'failed' && (
           <>
             <p role="alert" className={styles.warn}>{stage.message}</p>
-            <div className={styles.actions}>
+            <DialogFooter className={styles.actions}>
               <Button variant="secondary" size="sm" onClick={onClose}>{t('common.close')}</Button>
-            </div>
+            </DialogFooter>
           </>
         )}
       </div>

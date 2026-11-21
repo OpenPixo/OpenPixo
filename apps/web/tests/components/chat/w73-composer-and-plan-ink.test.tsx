@@ -355,51 +355,46 @@ describe('①-1 输入区正文与占位符的行高 —— 稿子 `.composer .t
   });
 });
 
-/* ⚠️ ①-2 / ①-3 **翻过面**(OPEND-3085,2026-09-14)。原来钉的是稿子
- * `729fa43ce7` 的 `.composer .bar button`:静止 #202020、hover 只换底色为
- * `--bg-fill-secondary`。产品拍板项目页聊天模块一律按 Demo `877980fb17`(#8113)
- * 还原,而 Demo 把这颗「+」从 `icon-btn` 上摘下来,让它和首页那颗共用
- * `plus-menu.css` 的 36px 圆盘:静止 `--bg-panel` 底 + `--text-muted` 字,
- * hover `--bg-subtle` 底 + `--text-strong` 字,描边始终透明。下面钉的是这一档,
- * 期望值写 token 表里的字面值,和 Demo 运行时 `getComputedStyle` 读到的一致。 */
-const DEMO_DISC = {
-  /** `--text-muted`  tokens.css —— 圆盘静止字色 */
-  textMuted: '#5c5c5c',
-  /** `--text-strong` tokens.css —— 圆盘 hover 字色 */
-  textStrong: '#202020',
-  /** `--bg-panel`    tokens.css —— 圆盘静止底色 */
-  bgPanel: '#fafafa',
-  /** `--bg-subtle`   tokens.css —— 圆盘 hover 底色 */
-  bgSubtle: '#ededed',
+/* ⚠️ ①-2 / ①-3 翻过第二次面(2026-11 UI pass)。OPEND-3085 让这颗「+」和首页
+ * 那颗共用 `plus-menu.css` 的 36px 圆盘(静止 `--bg-panel` 底、描边始终透明)。
+ * 输入框改版后底栏只有一套控件:28px、`--radius-sm`、静止无底无描边,
+ * hover / 打开时才出 `--bg-subtle` 底和 1px `--line` 描边(`chat.css` 的
+ * "Prompt box polish" 一节)。期望值从 token 表里解出来,不再抄字面色值 ——
+ * token 换一轮色,这里不用跟着抄一遍。 */
+const FOOTER_CONTROL = {
+  textMuted: deref('var(--text-muted)'),
+  text: deref('var(--text)'),
+  bgSubtle: deref('var(--bg-subtle)'),
+  line: deref('var(--line)'),
 } as const;
 
-describe('①-2 底栏「+」圆盘的静止墨色 —— Demo `plus-menu.css` 的共用圆盘', () => {
+describe('①-2 底栏「+」的静止墨色 —— 底栏控件统一一套', () => {
   it('是 `--text-muted`,和首页那颗同一档', () => {
     const el = pick(mountChatComposer(), '.plus-menu__trigger');
     const color = CSS.resolved(el)['color'];
     expect(color, '量尺没盖到这颗按钮').not.toBe(UNSET);
-    expect(color).toBe(DEMO_DISC.textMuted);
+    expect(color).toBe(FOOTER_CONTROL.textMuted);
   });
 
 });
 
-describe('①-3 底栏「+」圆盘的 hover —— Demo `plus-menu.css` 的共用圆盘', () => {
+describe('①-3 底栏「+」的 hover —— 底栏控件统一一套', () => {
   const hovered = (): Element => pick(mountChatComposer(), '.plus-menu__trigger');
 
   it('hover 换成 `--bg-subtle` 底', () => {
-    expect(state(hovered(), 'background', [':hover'])).toBe(DEMO_DISC.bgSubtle);
+    expect(state(hovered(), 'background', [':hover'])).toBe(FOOTER_CONTROL.bgSubtle);
   });
 
-  it('hover 字色提到 `--text-strong`', () => {
-    expect(state(hovered(), 'color', [':hover'])).toBe(DEMO_DISC.textStrong);
+  it('hover 字色提到 `--text`', () => {
+    expect(state(hovered(), 'color', [':hover'])).toBe(FOOTER_CONTROL.text);
   });
 
-  it('hover 不长描边 —— 边框始终透明', () => {
-    expect(state(hovered(), 'border-color', [':hover'])).toBe('transparent');
+  it('hover 才长出 1px `--line` 描边', () => {
+    expect(state(hovered(), 'border-color', [':hover'])).toBe(FOOTER_CONTROL.line);
   });
 
-  it('静止态的底是 `--bg-panel` —— 圆盘在底栏上自带一层浅底', () => {
-    expect(state(hovered(), 'background')).toBe(DEMO_DISC.bgPanel);
+  it('静止态没有底 —— 只是一枚图标', () => {
+    expect(state(hovered(), 'background')).toBe('transparent');
   });
 });
 

@@ -34,6 +34,7 @@ export function SpeedPicker({ tiers, value, onChange }: Props) {
   return (
     <ComposerMenuPicker
       label={t('avatar.speedLabel')}
+      triggerPrefix={t('avatar.speedLabel')}
       hint={t('avatar.speedHint')}
       title={t('avatar.speedHint')}
       testId="inline-model-switcher-speed"

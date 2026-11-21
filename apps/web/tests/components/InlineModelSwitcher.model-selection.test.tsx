@@ -196,7 +196,8 @@ describe('InlineModelSwitcher model selection', () => {
     renderPicker({ agents: [hosted], config: { ...config, mode: 'daemon', agentId: 'codex' } } as never);
     const trigger = screen.getByTestId('inline-model-switcher-reasoning');
     expect(trigger.closest('[aria-hidden="true"]')).toBeNull();
-    expect(trigger.textContent).toBe('Default');
+    // The chip names what it sets, so it never reads like the model chip's "Default".
+    expect(trigger.textContent).toBe('Thinking · Default');
     fireEvent.click(trigger);
     expect(Array.from(screen.getByTestId('inline-model-switcher-reasoning-menu')
       .querySelectorAll('[role="menuitemradio"]')).map((item) => item.textContent)).toEqual(['Default', 'Extra high']);
@@ -425,7 +426,7 @@ describe('InlineModelSwitcher local lists', () => {
     const speed = screen.getByTestId('inline-model-switcher-speed');
     // Nothing saved reads as Regular, not as the only tier the model lists.
     expect(speed.getAttribute('data-value')).toBe('default');
-    expect(speed.textContent).toBe('Regular');
+    expect(speed.textContent).toBe('Speed · Regular');
     fireEvent.click(speed);
     fireEvent.click(screen.getByTestId('inline-model-switcher-speed-priority'));
     expect(onAgentModelChange).toHaveBeenLastCalledWith('codex', { serviceTier: 'priority' });
@@ -440,7 +441,7 @@ describe('InlineModelSwitcher local lists', () => {
       agents: [codex], config: { ...config, agentId: 'codex', agentModels: { codex: { model: 'gpt-6-sol', serviceTier: 'priority' } } },
     });
     const speed = screen.getByTestId('inline-model-switcher-speed');
-    expect(speed.textContent).toBe('Fast');
+    expect(speed.textContent).toBe('Speed · Fast');
     fireEvent.click(speed);
     fireEvent.click(screen.getByTestId('inline-model-switcher-speed-default'));
     expect(onAgentModelChange).toHaveBeenLastCalledWith('codex', { serviceTier: undefined });

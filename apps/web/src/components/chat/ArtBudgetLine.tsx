@@ -3,19 +3,22 @@
  * is used, and a way to change it between turns. Only the user changes it, and the
  * daemon refuses while a run is active, so the control says so instead of failing.
  *
- * The spending mode is changed in the same place: "Ask me first" (the agent shows an
- * art card and waits for Approve) or "Spend within budget". Both go through
+ * The spending mode is changed in the same place, as one switch: on = "Ask me before
+ * each spend" (the agent shows an art card and waits for Approve), off = spend within
+ * the budget. Collapsed it is one line with a progress bar; "Change" opens the rows.
+ * Both go through
  * `POST /api/projects/:id/art-budget`, sending only what changed.
  *
  * Lives in `ChatPane`'s `composerNode` like `GamePlanBar`, so it is on the pane's
  * ResizeObserver list already. Always mounted so the collapse animates.
  */
-import { useId, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button, Input } from '@openpixo/components';
-import { ART_SPENDING_MODES, gamePlanIsPending, type ArtSpendingMode, type GamePlanState, type SetArtBudgetRequest } from '@openpixo/contracts';
+import { gamePlanIsPending, type ArtSpendingMode, type GamePlanState, type SetArtBudgetRequest } from '@openpixo/contracts';
 import { useT } from '../../i18n';
 import { artBudgetLine, artSpendingMode, budgetDraft, unclaimedApprovalCredits } from '../../runtime/chat/art-budget';
 import { setArtBudget } from '../../state/art-budget';
+import { ProgressBar, budgetTone } from './primitives/ProgressBar';
 import { useArtBudget } from './useArtBudget';
 import styles from './ArtBudgetLine.module.css';
 
@@ -35,7 +38,6 @@ export function ArtBudgetLine({
   const { state, setState } = useArtBudget(projectId, { enabled, streaming });
   const [draft, setDraft] = useState<string | null>(null);
   const [modeDraft, setModeDraft] = useState<ArtSpendingMode | null>(null);
-  const modeGroup = useId();
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
   const line = enabled ? artBudgetLine(state) : { kind: 'hidden' as const };
@@ -75,6 +77,8 @@ export function ArtBudgetLine({
     }
   }
 
+  const askDraft = (modeDraft ?? mode) === 'ask';
+
   return (
     <div
       className={`${styles.collapsible} accordion-collapsible${open ? ' open' : ''}`}
@@ -82,67 +86,87 @@ export function ArtBudgetLine({
       data-testid="art-budget-line"
     >
       <div className="accordion-collapsible-inner">
-        <div className={styles.line}>
-          <span className={styles.summary} data-testid="art-budget-summary">
-            {line.kind === 'usage'
-              ? t('chat.artBudget.usage', { used: line.used, limit: line.limit })
-              : t('chat.artBudget.unset')}
-          </span>
-          {line.kind === 'usage' && !editing ? (
-            <span className={styles.mode} data-testid="art-budget-mode">
-              {t(mode === 'ask' ? 'chat.artBudget.modeAsk' : 'chat.artBudget.modeAuto')}
+        <div className={`${styles.block}${editing ? ` ${styles.expanded}` : ''}`}>
+          <div className={styles.line}>
+            <span className={styles.summary} data-testid="art-budget-summary">
+              {line.kind === 'usage'
+                ? t('chat.artBudget.usage', { used: line.used, limit: line.limit })
+                : t('chat.artBudget.unset')}
             </span>
-          ) : null}
+            {line.kind === 'usage' ? (
+              <ProgressBar
+                className={styles.bar}
+                value={line.used}
+                max={line.limit}
+                tone={budgetTone(line.used, line.limit)}
+                label={t('chat.artBudget.progressLabel')}
+                data-testid="art-budget-bar"
+              />
+            ) : null}
+            {line.kind === 'usage' && !editing ? (
+              <span className={styles.mode} data-testid="art-budget-mode">
+                {t(mode === 'ask' ? 'chat.artBudget.modeAsk' : 'chat.artBudget.modeAuto')}
+              </span>
+            ) : null}
+            {!editing ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className={styles.change}
+                disabled={busy}
+                tabIndex={open ? 0 : -1}
+                aria-expanded={false}
+                data-testid="art-budget-change"
+                onClick={startEditing}
+              >
+                {line.kind === 'usage' ? t('chat.artBudget.change') : t('chat.artBudget.set')}
+              </Button>
+            ) : null}
+          </div>
           {approvedCredits !== null && !editing ? (
-            <span className={styles.hint} data-testid="art-budget-approved">{t('chat.artBudget.approvedWaiting', { credits: approvedCredits })}</span>
+            <p className={styles.hint} data-testid="art-budget-approved">{t('chat.artBudget.approvedWaiting', { credits: approvedCredits })}</p>
           ) : null}
+          {busy ? <p className={styles.hint} data-testid="art-budget-busy">{t('chat.artBudget.busy')}</p> : null}
+          {failed ? <p className={styles.hint} role="status">{t('chat.artBudget.failed')}</p> : null}
           {editing ? (
             <form className={styles.form} onSubmit={(event) => { void save(event); }}>
-              <Input
-                className={styles.input}
-                inputMode="numeric"
-                aria-label={t('chat.artBudget.inputLabel')}
-                value={draft}
-                data-testid="art-budget-input"
-                onChange={(event) => setDraft(budgetDraft(event.target.value, maxCredits))}
-              />
-              <span>{t('chat.artBudget.credits')}</span>
-              <fieldset className={styles.modes}>
-                <legend className={styles.legend}>{t('chat.artBudget.modeLabel')}</legend>
-                {ART_SPENDING_MODES.map((option) => (
-                  <label key={option} className={styles.choice}>
-                    <input
-                      type="radio"
-                      name={modeGroup}
-                      value={option}
-                      checked={(modeDraft ?? mode) === option}
-                      data-testid={`art-budget-mode-${option}`}
-                      onChange={() => setModeDraft(option)}
-                    />
-                    <span>{t(option === 'ask' ? 'chat.artBudget.modeAsk' : 'chat.artBudget.modeAuto')}</span>
-                  </label>
-                ))}
-              </fieldset>
-              <Button size="sm" variant="primary-ghost" type="submit" disabled={saving} data-testid="art-budget-save">{t('chat.artBudget.save')}</Button>
-              <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>{t('chat.artBudget.cancel')}</Button>
-              <span className={styles.modeHint} data-testid="art-budget-mode-hint">
-                {t((modeDraft ?? mode) === 'ask' ? 'chat.artBudget.modeAskHint' : 'chat.artBudget.modeAutoHint')}
-              </span>
+              <div className={styles.row}>
+                <span className={styles.rowLabel}>{t('chat.artBudget.label')}</span>
+                <span className={styles.rowControl}>
+                  <Input
+                    className={styles.input}
+                    inputMode="numeric"
+                    aria-label={t('chat.artBudget.inputLabel')}
+                    value={draft}
+                    data-testid="art-budget-input"
+                    onChange={(event) => setDraft(budgetDraft(event.target.value, maxCredits))}
+                  />
+                  <span>{t('chat.artBudget.credits')}</span>
+                </span>
+              </div>
+              <label className={styles.row}>
+                <span className={styles.rowText}>
+                  <span className={styles.rowLabel}>{t('chat.artBudget.askToggle')}</span>
+                  <span className={styles.modeHint} data-testid="art-budget-mode-hint">
+                    {t(askDraft ? 'chat.artBudget.modeAskHint' : 'chat.artBudget.modeAutoHint')}
+                  </span>
+                </span>
+                {/* On = ask first (`ask`), off = spend within the budget (`auto`). */}
+                <input
+                  type="checkbox"
+                  role="switch"
+                  className={styles.switch}
+                  checked={askDraft}
+                  data-testid="art-budget-mode-toggle"
+                  onChange={(event) => setModeDraft(event.target.checked ? 'ask' : 'auto')}
+                />
+              </label>
+              <div className={styles.foot}>
+                <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>{t('chat.artBudget.cancel')}</Button>
+                <Button size="sm" variant="primary" type="submit" disabled={saving} data-testid="art-budget-save">{t('chat.artBudget.save')}</Button>
+              </div>
             </form>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              tabIndex={open ? 0 : -1}
-              data-testid="art-budget-change"
-              onClick={startEditing}
-            >
-              {line.kind === 'usage' ? t('chat.artBudget.change') : t('chat.artBudget.set')}
-            </Button>
-          )}
-          {busy ? <span className={styles.hint} data-testid="art-budget-busy">{t('chat.artBudget.busy')}</span> : null}
-          {failed ? <span className={styles.hint} role="status">{t('chat.artBudget.failed')}</span> : null}
+          ) : null}
         </div>
       </div>
     </div>

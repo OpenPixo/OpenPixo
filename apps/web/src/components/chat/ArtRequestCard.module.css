@@ -1,11 +1,16 @@
-/* The art card inside an assistant reply. Owner: ArtRequestCard. */
+/*
+ * The art card inside an assistant reply. Owner: ArtRequestCard.
+ * Approval card anatomy (UI polish 2026-11-21): tag + one-line title, a muted box with
+ * what approving costs, a details disclosure, then the actions right-aligned.
+ * Answered and passed cards shrink to one quiet line with a mark.
+ */
 .card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin: 10px 0 4px;
   padding: 12px 14px;
-  border: 1px solid var(--chat-border);
+  border: var(--chat-stroke) solid var(--chat-border);
   border-radius: var(--chat-radius-lg);
   background: var(--chat-bg);
   color: var(--chat-text);
@@ -25,28 +30,112 @@
 
 .head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 2px 12px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* A plain bordered chip, not the uppercase eyebrow the shared Tag draws by default. */
+.head .tag {
+  flex: none;
+  padding: 1px 6px;
+  border: var(--chat-stroke) solid var(--chat-border-strong);
+  border-radius: var(--chat-radius-sm);
+  background: var(--chat-bg);
+  color: var(--chat-text-muted);
+  font: 500 var(--chat-t-cap) / var(--chat-lh-row) var(--chat-font-sans);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--chat-t-lead);
   font-weight: 600;
   color: var(--chat-text-strong);
 }
 
-.total {
+/* What approving does: a muted box, label left, number right. */
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--chat-radius-sm);
+  background: var(--chat-bg-subtle);
+  font-size: var(--chat-t-mini);
+  line-height: var(--chat-lh-row);
+  color: var(--chat-text-muted);
+}
+
+.infoRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.infoRow dt {
+  min-width: 0;
+}
+
+.infoRow dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-text-strong);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+}
+
+.detailsToggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
   font-size: var(--chat-t-mini);
   color: var(--chat-text-muted);
-  font-variant-numeric: tabular-nums;
+  border-radius: var(--chat-radius-sm);
+}
+
+.detailsToggle:hover {
+  color: var(--chat-text-strong);
+}
+
+.detailsToggle:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+.chev {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--chat-dur-quick) var(--chat-ease-out);
+}
+
+.detailsToggle[aria-expanded='true'] .chev {
+  transform: rotate(180deg);
 }
 
 .items {
   margin: 0;
-  padding: 0 0 0 18px;
-  font-size: var(--chat-t-body);
+  padding: 6px 0 0 18px;
+  font-size: var(--chat-t-mini);
   line-height: var(--chat-lh-body);
+  color: var(--chat-text);
 }
 
 .items li + li {
@@ -61,48 +150,92 @@
 
 .foot {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid var(--chat-border-soft);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  padding-top: 10px;
+  border-top: var(--chat-stroke) solid var(--chat-border-soft);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
 .note,
 .quiet,
-.error,
-.approved {
+.error {
   margin: 0;
   font-size: var(--chat-t-mini);
   line-height: var(--chat-lh-row);
+}
+
+.quiet {
+  flex: 1 1 160px;
+  min-width: 0;
+  color: var(--chat-text-faint);
 }
 
 .note {
   color: var(--chat-text-muted);
 }
 
-.quiet {
-  color: var(--chat-text-faint);
+.error {
+  color: var(--chat-red);
 }
 
-.error {
+/* ── Answered or passed: one quiet line ── */
+
+.card.settled {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-color: var(--chat-border-soft);
+  background: var(--chat-bg-subtle);
+  font-size: var(--chat-t-mini);
+  line-height: var(--chat-lh-row);
+}
+
+.card.settled > [role='img'] {
+  align-self: center;
+  margin-top: 0;
+}
+
+.settledTitle {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
   color: var(--chat-text-strong);
 }
 
-.approved {
-  padding-top: 8px;
-  border-top: 1px solid var(--chat-border-soft);
-  color: var(--chat-green);
-  font-weight: 500;
+.settledNote {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--chat-text-muted);
 }
 
-.card[data-status='stale'] .items {
-  color: var(--chat-text-muted);
+.card[data-status='approved'] .settledNote {
+  color: var(--chat-green);
+}
+
+.staleMark {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: var(--chat-stroke) solid var(--chat-border-strong);
+  border-radius: 50%;
 }
 
 @media (prefers-reduced-motion: reduce) {

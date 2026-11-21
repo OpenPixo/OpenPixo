@@ -2,7 +2,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: var(--text-muted, #6e6a88);
+  color: var(--text-muted, #5c5c66);
   font: 500 12px/1.5 var(--mono, 'Geist Mono', ui-monospace, monospace);
   letter-spacing: 0.14em;
   text-transform: uppercase;

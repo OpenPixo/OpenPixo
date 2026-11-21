@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Tag } from '@openpixo/components';
+import { Button, Card, SegmentedTabs, Tag } from '@openpixo/components';
 import type {
   OpenPixoCatalogResponse,
   OpenPixoCreditsSummary,
@@ -45,6 +45,7 @@ import {
 import { ledgerRows } from './ledger-rows';
 import { SignInPanel } from './CloudSignIn';
 import { PlanChangeDialog } from './PlanChangeDialog';
+import { hasUsageChartData, USAGE_RANGES, UsageChart, type UsageRange } from './UsageChart';
 import styles from './AccountSection.module.css';
 
 const PLAN_BLURBS: Record<PlanTier, keyof Dict> = {
@@ -255,25 +256,30 @@ function OverviewCard({ credits, failed, loading, refresh, notice, setNotice }: 
     : credits.available < LOW_BALANCE_CREDITS && !ending && live.status === 'active' ? t('account.next.lowBalance')
       : null;
 
+  const showPlanCredits = live !== null && credits.planCredits !== undefined;
+
   return (
-    <Card className={styles.card} aria-labelledby="account-overview-title">
+    <Card className={`${styles.card} ${styles.overviewCard}`} aria-labelledby="account-overview-title">
       <h3 id="account-overview-title" className={styles.visuallyHidden}>{t('account.overviewTitle')}</h3>
-      <div className={styles.overview}>
-        <div className={styles.overviewBalance}>
-          <span className={styles.label}>{t('account.available')}</span>
-          <span className={styles.balanceValue} data-testid="account-credits-available">{formatCredits(credits.available, locale)}</span>
-          {credits.reserved > 0 && (
-            <span className={styles.muted} data-testid="account-credits-reserved">
-              {t('account.reservedLine', { n: formatCredits(credits.reserved, locale) })}
-            </span>
-          )}
-          {live && (credits.planCredits ?? 0) > 0 && (
-            <span className={styles.muted} data-testid="account-plan-credits-ending">
-              {t('account.planCreditsEnding', { n: formatCredits(credits.planCredits ?? 0, locale), date: formatAccountDate(live.currentPeriodEnd, locale) })}
-            </span>
-          )}
+      <dl className={styles.stats}>
+        <div className={styles.stat}>
+          <dt className={styles.label}>{t('account.available')}</dt>
+          <dd className={styles.statValue} data-testid="account-credits-available">{formatCredits(credits.available, locale)}</dd>
         </div>
-        <div className={styles.overviewPlan}>
+        <div className={styles.stat}>
+          <dt className={styles.label}>{t('account.stat.reserved')}</dt>
+          <dd className={styles.statValue} data-testid="account-credits-reserved">{formatCredits(credits.reserved, locale)}</dd>
+        </div>
+        {showPlanCredits && (
+          <div className={styles.stat}>
+            <dt className={styles.label}>{t('account.stat.planCredits')}</dt>
+            <dd className={styles.statValue}>{formatCredits(credits.planCredits ?? 0, locale)}</dd>
+          </div>
+        )}
+      </dl>
+
+      <div className={styles.planRow}>
+        <div className={styles.planCopy}>
           <span className={styles.label}>{t('account.planLabel')}</span>
           {live ? (
             <>
@@ -291,51 +297,54 @@ function OverviewCard({ credits, failed, loading, refresh, notice, setNotice }: 
             </>
           ) : <span className={styles.planNone}>{t('account.noSubscription')}</span>}
         </div>
-      </div>
-
-      {notice && <p className={styles.notice} role="status">{notice}</p>}
-      {nextStep && <p className={styles.nextStep}>{nextStep}</p>}
-
-      {live?.pendingUpgrade && (
-        <div className={styles.callout} data-testid="account-pending-upgrade">
-          <p>{t('account.pendingUpgrade', {
-            plan: planDisplayName(live.pendingUpgrade.sku, t),
-            price: formatMinorAmount(live.pendingUpgrade.chargeMinor, live.pendingUpgrade.currency, locale),
-          })}</p>
-          <div className={styles.actions}>
-            <Button variant="primary" size="sm" disabled={portal.pending !== null}
-              onClick={() => void portal.run('verify', async () => live.pendingUpgrade!.paymentUrl)}>
-              {t('account.change.verifyNow')}<Icon name="external-link" size={13} />
-            </Button>
-            <Button variant="secondary" size="sm" disabled={undoing} onClick={() => void undo('upgrade')}>{t('account.abandonUpgrade')}</Button>
-          </div>
-        </div>
-      )}
-      {live?.pendingDowngrade && !ending && (
-        <div className={styles.callout} data-testid="account-pending-downgrade">
-          <p>{t('account.pendingDowngrade', {
-            date: formatAccountDate(live.pendingDowngrade.effectiveAt, locale),
-            plan: planDisplayName(live.pendingDowngrade.sku, t),
-            price: formatMinorAmount(live.pendingDowngrade.amountMinor, live.pendingDowngrade.currency, locale),
-            credits: formatCredits(live.pendingDowngrade.monthlyCredits, locale),
-          })}</p>
-          <div className={styles.actions}>
-            <Button variant="secondary" size="sm" disabled={undoing} onClick={() => void undo('downgrade')}>{t('account.undoDowngrade')}</Button>
-          </div>
-        </div>
-      )}
-      {ending && <p className={styles.callout}>{t('account.endingNote')}</p>}
-      {live && live.status !== 'active' && <p className={styles.callout}>{t('account.pastDueNote')}</p>}
-      {undoError && <p role="alert" className={styles.error}>{undoError}</p>}
-
-      {live && (
-        <div className={styles.actions}>
-          <Button variant="secondary" size="sm" disabled={portal.pending !== null} onClick={openPortal}>
+        {live && (
+          <Button variant="secondary" size="sm" className={styles.planManage} disabled={portal.pending !== null} onClick={openPortal}>
             {portal.pending === 'portal' ? t('account.opening') : t(ending ? 'account.renewInPortal' : 'account.manageSubscription')}<Icon name="external-link" size={13} />
           </Button>
-        </div>
-      )}
-      {portal.error && <p role="alert" className={styles.error}>{portal.error}</p>}
+        )}
+      </div>
+
+      <div className={styles.overviewNotes}>
+        {live && (credits.planCredits ?? 0) > 0 && (
+          <p className={styles.muted} data-testid="account-plan-credits-ending">
+            {t('account.planCreditsEnding', { n: formatCredits(credits.planCredits ?? 0, locale), date: formatAccountDate(live.currentPeriodEnd, locale) })}
+          </p>
+        )}
+        {notice && <p className={styles.notice} role="status">{notice}</p>}
+        {nextStep && <p className={styles.nextStep}>{nextStep}</p>}
+        {live?.pendingUpgrade && (
+          <div className={styles.callout} data-testid="account-pending-upgrade">
+            <p>{t('account.pendingUpgrade', {
+              plan: planDisplayName(live.pendingUpgrade.sku, t),
+              price: formatMinorAmount(live.pendingUpgrade.chargeMinor, live.pendingUpgrade.currency, locale),
+            })}</p>
+            <div className={styles.actions}>
+              <Button variant="primary" size="sm" disabled={portal.pending !== null}
+                onClick={() => void portal.run('verify', async () => live.pendingUpgrade!.paymentUrl)}>
+                {t('account.change.verifyNow')}<Icon name="external-link" size={13} />
+              </Button>
+              <Button variant="secondary" size="sm" disabled={undoing} onClick={() => void undo('upgrade')}>{t('account.abandonUpgrade')}</Button>
+            </div>
+          </div>
+        )}
+        {live?.pendingDowngrade && !ending && (
+          <div className={styles.callout} data-testid="account-pending-downgrade">
+            <p>{t('account.pendingDowngrade', {
+              date: formatAccountDate(live.pendingDowngrade.effectiveAt, locale),
+              plan: planDisplayName(live.pendingDowngrade.sku, t),
+              price: formatMinorAmount(live.pendingDowngrade.amountMinor, live.pendingDowngrade.currency, locale),
+              credits: formatCredits(live.pendingDowngrade.monthlyCredits, locale),
+            })}</p>
+            <div className={styles.actions}>
+              <Button variant="secondary" size="sm" disabled={undoing} onClick={() => void undo('downgrade')}>{t('account.undoDowngrade')}</Button>
+            </div>
+          </div>
+        )}
+        {ending && <p className={styles.callout}>{t('account.endingNote')}</p>}
+        {live && live.status !== 'active' && <p className={styles.callout}>{t('account.pastDueNote')}</p>}
+        {undoError && <p role="alert" className={styles.error}>{undoError}</p>}
+        {portal.error && <p role="alert" className={styles.error}>{portal.error}</p>}
+      </div>
     </Card>
   );
 }
@@ -380,6 +389,10 @@ function CatalogCards({ credits, setNotice }: { credits: OpenPixoCreditsSummary 
   // An ending or unpaid plan is sorted out in the portal first; the overview says so.
   const locked = subscription !== null && (subscription.cancelAtPeriodEnd || subscription.status !== 'active' || Boolean(subscription.pendingUpgrade));
   const buy = (sku: string) => void checkout.run(sku, async () => (await createOpenPixoCheckout(sku)).checkoutUrl);
+  // One filled button in the list: the next plan up from the current one.
+  const nextUpgradeSku = current
+    ? catalog.plans.filter((plan) => plan.amountMinor > current.amountMinor).sort((a, b) => a.amountMinor - b.amountMinor)[0]?.sku ?? null
+    : null;
 
   return (
     <>
@@ -396,7 +409,8 @@ function CatalogCards({ credits, setNotice }: { credits: OpenPixoCreditsSummary 
               const isUpgrade = !current || plan.amountMinor > current.amountMinor;
               const name = planDisplayName(plan.sku, t);
               const price = t('account.perMonth', { price: formatMinorAmount(plan.amountMinor, plan.currency, locale) });
-              const action = !subscription ? t('account.subscribe') : isUpgrade ? t('account.upgrade') : t('account.downgrade');
+              const action = !subscription ? t('account.subscribeTo', { plan: name })
+                : isUpgrade ? t('account.upgradeTo', { plan: name }) : t('account.downgradeTo', { plan: name });
               return (
                 <li key={plan.sku} className={`${styles.plan} ${isCurrent ? styles.planCurrent : ''}`} data-testid={`account-plan-${plan.sku}`}>
                   <strong className={styles.planTitle}>{name}</strong>
@@ -407,9 +421,9 @@ function CatalogCards({ credits, setNotice }: { credits: OpenPixoCreditsSummary 
                     {isCurrent ? <Tag className={styles.okTag}>{t('account.currentPlan')}</Tag>
                       : isPending ? <Tag className={styles.mutedTag}>{t('account.pendingTag', { date: formatAccountDate(subscription!.pendingDowngrade!.effectiveAt, locale) })}</Tag>
                       : (
-                        <Button variant={!subscription || isUpgrade ? 'primary' : 'secondary'} size="sm"
+                        <Button variant={plan.sku === nextUpgradeSku ? 'primary' : 'secondary'} size="sm"
                           disabled={locked || checkout.pending !== null || (paused && isUpgrade)}
-                          aria-label={`${action} · ${name} · ${price}`}
+                          aria-label={`${action} · ${price}`}
                           onClick={() => { setNotice(null); if (subscription) setChanging(plan.sku); else buy(plan.sku); }}>
                           {checkout.pending === plan.sku ? t('account.opening') : action}
                         </Button>
@@ -434,14 +448,11 @@ function CatalogCards({ credits, setNotice }: { credits: OpenPixoCreditsSummary 
               const price = formatMinorAmount(pack.amountMinor, pack.currency, locale);
               return (
                 <li key={pack.sku} className={styles.pack} data-testid={`account-topup-${pack.sku}`}>
-                  <div className={styles.productCopy}>
-                    <strong>{amount}</strong>
-                    <span className={styles.price}>{price}</span>
-                  </div>
+                  <strong className={styles.packAmount}>{amount}</strong>
                   <Button variant="secondary" size="sm" disabled={paused || checkout.pending !== null}
                     aria-label={`${t('account.buy')} · ${amount} · ${price}`}
                     onClick={() => buy(pack.sku)}>
-                    {checkout.pending === pack.sku ? t('account.opening') : t('account.buy')}
+                    {checkout.pending === pack.sku ? t('account.opening') : t('account.payTopup', { price })}
                   </Button>
                 </li>
               );
@@ -488,6 +499,7 @@ function ActivityCard({ credits }: { credits: OpenPixoCreditsSummary | null }) {
   const [shown, setShown] = useState(LEDGER_PAGE_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+  const [range, setRange] = useState<UsageRange>('7');
   const generation = useRef(0);
   const rows = useMemo(() => (read ? ledgerRows(read.entries) : null), [read]);
 
@@ -522,32 +534,52 @@ function ActivityCard({ credits }: { credits: OpenPixoCreditsSummary | null }) {
     }
   }
 
+  const showChart = read !== null && hasUsageChartData(read.entries);
+
   return (
     <Card className={styles.card} aria-labelledby="account-activity-title">
       <div className={styles.cardHead}>
-        <h3 id="account-activity-title" className={styles.cardTitle}>{t('account.activityTitle')}</h3>
+        <h3 id="account-activity-title" className={styles.cardTitle}>{t(showChart ? 'account.usage.title' : 'account.activityTitle')}</h3>
+        {showChart && (
+          <SegmentedTabs label={t('account.usage.range')} value={range} onValueChange={(value) => setRange(value as UsageRange)}
+            items={USAGE_RANGES.map((value) => ({ value, label: t(value === '7' ? 'account.usage.days7' : 'account.usage.days30') }))} />
+        )}
       </div>
+      {showChart && read && <UsageChart entries={read.entries} hasOlder={read.cursor !== null} range={range} />}
       {rows === null && !error ? <p className={styles.muted}>{t('account.loading')}</p> : null}
       {rows !== null && rows.length === 0 ? <p className={styles.muted}>{t('account.activityEmpty')}</p> : null}
       {rows !== null && rows.length > 0 && (
-        <ul className={styles.ledger} aria-label={t('account.activityTitle')}>
-          {rows.slice(0, shown).map((row) => (
-            <li key={row.id} className={styles.ledgerRow}>
-              <div className={styles.ledgerCopy}>
-                <span className={styles.ledgerKind}>{t(LEDGER_KIND_KEYS[row.kind] ?? 'account.ledger.adjustment')}</span>
-                <span className={styles.muted}>
+        <div className={styles.ledgerTable}>
+          <div className={`${styles.ledgerGrid} ${styles.ledgerHead}`} aria-hidden="true">
+            <span>{t('account.ledger.colDate')}</span>
+            <span>{t('account.ledger.colWhat')}</span>
+            <span className={styles.ledgerNumber}>{t('account.ledger.colCredits')}</span>
+          </div>
+          <ul className={styles.ledger} aria-label={t('account.activityTitle')}>
+            {rows.slice(0, shown).map((row) => (
+              <li key={row.id} className={`${styles.ledgerGrid} ${styles.ledgerRow}`}>
+                <span className={styles.ledgerDate}>
                   {row.count > 1 ? formatAccountDateTimeRange(row.oldestAt, row.newestAt, locale) : formatAccountDateTime(row.newestAt, locale)}
-                  {row.count > 1 ? ` · ${t('account.ledger.usageCharges', { n: formatCredits(row.count, locale) })}` : ''}
-                  {row.reference ? ` · ${t('account.reference', { ref: row.reference })}` : ''}
                 </span>
-              </div>
-              <div className={styles.ledgerAmounts}>
-                <span className={row.amount >= 0 ? styles.amountUp : styles.amountDown}>{formatSignedCredits(row.amount, locale)}</span>
-                <span className={styles.muted}>{t('account.balanceAfter', { n: formatCredits(row.balanceAfter, locale) })}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+                <span className={styles.ledgerCopy}>
+                  <span className={styles.ledgerKind}>{t(LEDGER_KIND_KEYS[row.kind] ?? 'account.ledger.adjustment')}</span>
+                  {(row.count > 1 || row.reference) && (
+                    <span className={styles.ledgerMeta}>
+                      {[
+                        row.count > 1 ? t('account.ledger.usageCharges', { n: formatCredits(row.count, locale) }) : null,
+                        row.reference ? t('account.reference', { ref: row.reference }) : null,
+                      ].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                </span>
+                <span className={styles.ledgerAmounts}>
+                  <span className={row.amount >= 0 ? styles.amountUp : styles.amountDown}>{formatSignedCredits(row.amount, locale)}</span>
+                  <span className={styles.ledgerMeta}>{t('account.balanceAfter', { n: formatCredits(row.balanceAfter, locale) })}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {error && <p role="alert" className={styles.error}>{t('account.activityLoadFailed')}</p>}
       {read && rows && (read.cursor || rows.length > shown) && (
