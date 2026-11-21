@@ -304,6 +304,19 @@ describe('renderMarkdown', () => {
     expect(out).toContain('alt=""');
   });
 
+  it('asks the caller to resolve an image path it would otherwise drop', () => {
+    const resolve = (src: string) => (src === 'concept/style-1.png' ? '/api/projects/p1/raw/concept/style-1.png' : null);
+    const shown = renderToStaticMarkup(<>{renderMarkdown('![A](concept/style-1.png)', { resolveImageSrc: resolve })}</>);
+    expect(shown).toContain('src="/api/projects/p1/raw/concept/style-1.png"');
+    // Unresolved: the alt text stays, as before.
+    const kept = renderToStaticMarkup(<>{renderMarkdown('![B](other/x.png)', { resolveImageSrc: resolve })}</>);
+    expect(kept).not.toContain('<img');
+    expect(kept).toContain('B');
+    // A resolver cannot turn an unsafe answer into an image.
+    const unsafe = renderToStaticMarkup(<>{renderMarkdown('![C](x.png)', { resolveImageSrc: () => 'javascript:alert(1)' })}</>);
+    expect(unsafe).not.toContain('<img');
+  });
+
   it('renders https image URLs', () => {
     const out = html('![logo](https://example.com/logo.png)');
     expect(out).toContain('<img');

@@ -113,7 +113,8 @@ Look at the image at the size it was made. It passes when every line holds:
 - [ ] It is as full as the genre's screen at this moment, and the play area has the genre's shape.
 - [ ] The world is visibly built the way its method says (repeated tiles, layers, a stage, a kit of models), and it is clear where the player can walk.
 - [ ] The HUD follows the HUD rules in [screen-layouts.md](references/screen-layouts.md): bare, in the world's own rendering, not the loudest thing on screen.
-- [ ] Shrunk to a grey thumbnail, the player, the threats and the walkable surfaces are the clearest shapes; everything is sharp, with no photographic blur or vignette, and the screen is not a centred hero or a mirrored stage.
+- [ ] Shrunk to a grey thumbnail, the player, the threats and the walkable surfaces are the clearest shapes; everything is sharp, with no photographic blur or lens vignette, and the screen is not a centred hero or a mirrored stage.
+- [ ] It is lit, not evenly grey: the play area is the brightest part, the background steps back, and large surfaces are calm while props and edges carry the detail. Evenly detailed texture everywhere is what users call "ugly" next to the game they named (鸦堡 run, 2026-11-20).
 - [ ] Only the text the prompt gave is readable; nothing else looks like garbled writing.
 
 Images grown from the master also match it: colour, outline, material, light direction and UI frames.

@@ -291,7 +291,7 @@ describe('the art budget', () => {
       expect(cloud.charged).toBe(0);
     });
 
-    it('pays planning\'s style samples from a budget the user set before approval, within the concept cap', async () => {
+    it('pays planning\'s style samples from a budget the user set before approval', async () => {
       // Owner decision 2026-11-10: the art step shows samples, and only the user sets what they may cost.
       const id = planning();
       expect((await setBudget(id, 100)).status).toBe(200);
@@ -299,7 +299,6 @@ describe('the art budget', () => {
       expect(task.status).toBe('done');
       expect(cloud.quotes).toHaveLength(1);
       expect((await budget(id))?.usedCredits).toBeGreaterThan(0);
-      expect(getProject(db, id)!.metadata?.gamePlan?.conceptImages).toBe(1);
       expect(getProject(db, id)!.metadata?.gamePlan?.status).toBe('planning');
     });
 

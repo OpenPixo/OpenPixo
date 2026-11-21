@@ -128,6 +128,15 @@ describe('codex buildArgs session resume', () => {
     expect(includeOnly).not.toContain('PIXO_API_TOKEN');
   });
 
+  it('keeps the Windows system locations, so a game an agent launches does not write a literal %SystemDrive% folder', () => {
+    const includeOnly = codexOpenPixoShellEnvironmentArgs().find((arg) =>
+      arg.startsWith('shell_environment_policy.include_only='),
+    );
+    for (const key of ['SYSTEMDRIVE', 'SYSTEMROOT', 'WINDIR', 'PROGRAMDATA', 'ALLUSERSPROFILE', 'PROGRAMFILES', 'PUBLIC']) {
+      expect(includeOnly).toContain(`"${key}"`);
+    }
+  });
+
   it('declares CLI-managed, capture-style session resume', () => {
     expect(codexAgentDef.resumesSessionViaCli).toBe(true);
     expect(codexAgentDef.capturesSessionIdFromStream).toBe(true);

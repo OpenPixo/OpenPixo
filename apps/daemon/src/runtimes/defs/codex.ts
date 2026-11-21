@@ -163,6 +163,18 @@ const CODEX_SHELL_ENVIRONMENT_INCLUDE_KEYS = [
   'TERM',
   'COLORTERM',
   'SYSTEMROOT',
+  // Windows system locations. Without them a program the agent starts (a game it
+  // exports and launches, say) expands `%SystemDrive%` and friends to nothing and
+  // writes a literal `%SystemDrive%` folder into the project. They name places, not
+  // credentials.
+  'SYSTEMDRIVE',
+  'WINDIR',
+  'PROGRAMDATA',
+  'ALLUSERSPROFILE',
+  'PROGRAMFILES',
+  'PROGRAMFILES(X86)',
+  'COMMONPROGRAMFILES',
+  'PUBLIC',
   'COMSPEC',
   'PATHEXT',
   'USERPROFILE',

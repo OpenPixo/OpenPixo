@@ -32,6 +32,13 @@ export interface RenderMarkdownOptions {
    */
   onLinkClick?: MarkdownLinkClickHandler;
   /**
+   * Resolves an image src that is not already safe to load, such as an
+   * in-project path (`concept/style-1.png`) an agent uses to show what it
+   * made. Return null to keep the alt text. The answer must itself be a safe
+   * src; anything else is dropped like an unsafe src.
+   */
+  resolveImageSrc?: (src: string) => string | null;
+  /**
    * Disable asynchronous syntax highlighting while a fenced block is still
    * growing. The plain, escaped code block remains visible; callers can enable
    * highlighting on the final snapshot without launching Shiki for every
@@ -631,8 +638,9 @@ function renderInline(text: string, options?: RenderMarkdownOptions): ReactNode 
       out.push(renderInlineCodeSpan(m[1].slice(1, -1), key++));
     } else if (m[3] !== undefined) {
       // Image: m[2] = alt (may be empty), m[3] = src
-      const src = unwrapMarkdownDestination(m[3]);
+      const written = unwrapMarkdownDestination(m[3]);
       const alt = m[2] || '';
+      const src = isSafeMarkdownImageSrc(written) ? written : options?.resolveImageSrc?.(written) ?? '';
       if (isSafeMarkdownImageSrc(src)) {
         out.push(
           <img

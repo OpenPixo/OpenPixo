@@ -1,0 +1,110 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-walk-sheet-side",
+  "title": "Side-view walk sheet",
+  "title_i18n": {
+    "en": "Side-view walk sheet",
+    "zh-CN": "侧视行走姿势图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-20T12:00:00+09:00",
+  "description": "Step 1 of a side-view walk: one character drawn mid-stride facing right and facing left on a green screen, ready to animate with the side-view walk.",
+  "description_i18n": {
+    "en": "Step 1 of a side-view walk: one character drawn mid-stride facing right and facing left on a green screen, ready to animate with the side-view walk.",
+    "zh-CN": "侧视行走第 1 步：把角色在绿幕上画成朝右、朝左两个迈步姿势，再用「侧视行走动画」让它走起来。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "First step of a side-view walk (platformer, brawler, side-scroller): draw the walk sheet facing right and left, check it, then animate it with sprite-walk-side.",
+      "dimension": [
+        "2d"
+      ],
+      "inputs": [
+        {
+          "name": "character",
+          "label": "Character",
+          "label_i18n": {
+            "zh-CN": "角色"
+          },
+          "type": "character-ref",
+          "required": true
+        },
+        {
+          "name": "style",
+          "label": "Art style (empty: match the game)",
+          "label_i18n": {
+            "zh-CN": "美术风格（留空则跟随游戏）"
+          },
+          "type": "string",
+          "placeholder": "e.g. clean cartoon with bold outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：粗描边的简洁卡通"
+          }
+        }
+      ],
+      "prompt": "Game character pose sheet for a side-view walk animation: {{character.name}}, {{character.description}}. Two copies of the same character side by side in a strict grid of 2 columns by 1 row of equal cells on a 16:9 canvas, with no visible grid lines. Left cell: facing right. Right cell: facing left. The game camera of a side-scroller, platformer or brawler, level with the character or a little above it as the design is drawn, identical in both cells: each copy is seen from the side, in profile or turned slightly toward the viewer, the same amount in both. Every copy is caught mid-stride at the contact pose of a walk: its own left foot forward with the heel just touching down, its right foot behind with the toe pushing off, its right arm swung forward and its left arm back. The stride runs along the facing, left-right on screen. No copy stands with its feet together. The facing-left copy is the same character turned around, not a mirror image: one-sided details such as a weapon, a shield, a bag, a scarf end or a hair parting stay on the same side of the body, so a detail on the near side in one copy is on the far side in the other. Identical design, colours, proportions and size in both copies; where reference images are provided, follow them exactly. Each copy is centred in its cell with its whole body visible, about 60 percent of the cell height, the same scale as the character's other side-view sheets, feet on the same baseline, with clear empty space around it; nothing crosses into the other cell. Style: {{style}}, crisp clean edges, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
+      "negative": "text, letters, numbers, labels, captions, watermark, logo, border, frame, grid lines, gradient background, floor, cast shadow, scenery, vignette, standing pose, feet together, motion blur, speed lines, extra characters, cropped, cut off at the edge, overlapping cells, inconsistent character between cells, changing size, bright green clothing, weapons or props not in the reference",
+      "models": {
+        "requires": [
+          "t2i",
+          "i2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "16:9"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": 1344,
+            "height": 768
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "dimensions",
+          "params": {
+            "width": 1344,
+            "height": 768
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/{{character.slug}}",
+        "name": "{{character.slug}}_walk_side_sheet"
+      }
+    }
+  }
+}

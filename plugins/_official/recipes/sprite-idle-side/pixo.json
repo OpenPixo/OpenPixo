@@ -1,0 +1,158 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-idle-side",
+  "title": "Side-view idle animation",
+  "title_i18n": {
+    "en": "Side-view idle animation",
+    "zh-CN": "侧视待机动画"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-20T12:00:00+09:00",
+  "description": "Step 2 of a side-view idle: animates a side-view idle sheet into one calm breathing loop facing right and one facing left, as transparent frames and an engine sprite sheet.",
+  "description_i18n": {
+    "en": "Step 2 of a side-view idle: animates a side-view idle sheet into one calm breathing loop facing right and one facing left, as transparent frames and an engine sprite sheet.",
+    "zh-CN": "侧视待机第 2 步：把侧视待机姿势图做成朝右、朝左各一段平稳呼吸的循环，导出透明帧和引擎精灵图。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "video",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "video",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "Second step of a side-view idle: animate an idle sheet from sprite-idle-sheet-side into a breathing loop facing right and facing left.",
+      "dimension": [
+        "2d"
+      ],
+      "acts": {
+        "on": [
+          "image"
+        ],
+        "recipes": [
+          "openpixo/sprite-idle-sheet-side"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "source",
+          "label": "Idle sheet",
+          "label_i18n": {
+            "zh-CN": "待机姿势图"
+          },
+          "type": "image-ref",
+          "required": true
+        },
+        {
+          "name": "frames",
+          "label": "Frames per direction",
+          "label_i18n": {
+            "zh-CN": "每个方向的帧数"
+          },
+          "type": "select",
+          "options": [
+            "21",
+            "7"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "21": "21 帧（流畅）",
+              "7": "7 帧（像素游戏常用）"
+            }
+          },
+          "default": "21"
+        }
+      ],
+      "prompt": "A 2D game sprite sheet on a flat green screen: two copies of the same character side by side, seen from the side, the left one facing right and the right one facing left. Each copy plays a calm idle loop: it breathes slowly, its chest and shoulders rise and fall a little, its body bobs down and up by a few pixels, its hands sway slightly, its hair and any loose cloth stir gently as if in a light breeze.\n\nEvery copy keeps both feet planted exactly where they are for the whole clip: no stepping, no walking, no shifting weight from foot to foot. No copy turns, leans, looks around or changes direction. Small, subtle motion only.\n\nBoth breathe in sync. The clip starts and ends in the exact starting pose: one slow breath in and out.\n\nLocked static camera, no zoom, no pan. Flat solid chroma-green background the whole time. Same design, colours and size in every frame. No new objects, no text, no shadows.",
+      "models": {
+        "requires": [
+          "i2v-loop"
+        ],
+        "recommended": [
+          "h3-max-turbo-gateway"
+        ],
+        "fallback": []
+      },
+      "generation": {
+        "count": {
+          "default": 1,
+          "max": 3
+        },
+        "video": {
+          "duration": 0.92,
+          "resolution": "768p",
+          "loop": true
+        }
+      },
+      "postprocess": [
+        {
+          "op": "video-frames",
+          "params": {
+            "count": "{{frames}}",
+            "dropRepeatedEnd": true
+          },
+          "keep": false
+        },
+        {
+          "op": "resize",
+          "params": {
+            "width": 768,
+            "height": 432
+          },
+          "keep": false
+        },
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "00ff00",
+            "tolerance": 100,
+            "softness": 80,
+            "despill": true
+          },
+          "keep": false
+        },
+        {
+          "op": "slice",
+          "params": {
+            "grid": "2x1"
+          },
+          "keep": false
+        },
+        {
+          "op": "export-spritesheet",
+          "params": {
+            "name": "idle",
+            "animations": [
+              "right",
+              "left"
+            ],
+            "order": "by-cell",
+            "loopSeconds": 1.75
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/idle",
+        "name": "idle"
+      }
+    }
+  }
+}

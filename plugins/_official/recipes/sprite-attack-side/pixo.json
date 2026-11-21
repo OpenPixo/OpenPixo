@@ -1,0 +1,172 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-attack-side",
+  "title": "Side-view attack animation",
+  "title_i18n": {
+    "en": "Side-view attack animation",
+    "zh-CN": "侧视攻击动画"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-20T12:00:00+09:00",
+  "description": "Step 2 of a side-view attack: animates a side-view attack sheet into one strike facing right and one facing left that starts and ends in the ready stance, as transparent frames and an engine sprite sheet.",
+  "description_i18n": {
+    "en": "Step 2 of a side-view attack: animates a side-view attack sheet into one strike facing right and one facing left that starts and ends in the ready stance, as transparent frames and an engine sprite sheet.",
+    "zh-CN": "侧视攻击第 2 步：把侧视攻击姿势图做成朝右、朝左各一次出招，从准备姿势开始并回到准备姿势，导出透明帧和引擎精灵图。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "video",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "video",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "Second step of a side-view attack: animate an attack sheet from sprite-attack-sheet-side into one strike facing right and facing left.",
+      "dimension": [
+        "2d"
+      ],
+      "acts": {
+        "on": [
+          "image"
+        ],
+        "recipes": [
+          "openpixo/sprite-attack-sheet-side"
+        ]
+      },
+      "inputs": [
+        {
+          "name": "source",
+          "label": "Attack sheet",
+          "label_i18n": {
+            "zh-CN": "攻击姿势图"
+          },
+          "type": "image-ref",
+          "required": true
+        },
+        {
+          "name": "attack",
+          "label": "Attack",
+          "label_i18n": {
+            "zh-CN": "招式"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "one fast horizontal sword slash",
+          "placeholder_i18n": {
+            "zh-CN": "一记快速的横向剑斩"
+          }
+        },
+        {
+          "name": "frames",
+          "label": "Frames per direction",
+          "label_i18n": {
+            "zh-CN": "每个方向的帧数"
+          },
+          "type": "select",
+          "options": [
+            "21",
+            "7"
+          ],
+          "optionLabels_i18n": {
+            "zh-CN": {
+              "21": "21 帧（流畅）",
+              "7": "7 帧（像素游戏常用）"
+            }
+          },
+          "default": "21"
+        }
+      ],
+      "prompt": "A 2D game sprite sheet on a flat green screen: two copies of the same character side by side, seen from the side, the left one facing right and the right one facing left. Each copy performs {{attack}} once, toward the way it faces, then returns to its ready stance: a short wind-up, one fast strike that reaches forward into the empty front of its cell, then straight back to the starting stance. It does not hold the extended pose; the recovery starts right after the strike lands.\n\nEach copy keeps facing its own way and keeps the weapon in the same hand the whole time. Its feet stay planted, apart from at most a small step forward and back. The weapon and any swing trail stay inside its own cell and never cross into the other one. Both copies strike in sync. The clip ends in the exact starting pose.\n\nLocked static camera, no zoom, no pan. Flat solid chroma-green background the whole time. Same design, colours and size in every frame. No new objects, no text, no shadows.",
+      "models": {
+        "requires": [
+          "i2v-loop"
+        ],
+        "recommended": [
+          "h3-max-turbo-gateway"
+        ],
+        "fallback": []
+      },
+      "generation": {
+        "count": {
+          "default": 1,
+          "max": 3
+        },
+        "video": {
+          "duration": 0.92,
+          "resolution": "768p",
+          "loop": true
+        }
+      },
+      "postprocess": [
+        {
+          "op": "video-frames",
+          "params": {
+            "count": "{{frames}}",
+            "dropRepeatedEnd": true
+          },
+          "keep": false
+        },
+        {
+          "op": "resize",
+          "params": {
+            "width": 768,
+            "height": 432
+          },
+          "keep": false
+        },
+        {
+          "op": "remove-bg",
+          "params": {
+            "mode": "chroma",
+            "color": "00ff00",
+            "tolerance": 100,
+            "softness": 80,
+            "despill": true
+          },
+          "keep": false
+        },
+        {
+          "op": "slice",
+          "params": {
+            "grid": "2x1"
+          },
+          "keep": false
+        },
+        {
+          "op": "export-spritesheet",
+          "params": {
+            "name": "attack",
+            "animations": [
+              "right",
+              "left"
+            ],
+            "order": "by-cell",
+            "loopSeconds": 0.875,
+            "loop": false
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "has-alpha"
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/attack",
+        "name": "attack"
+      }
+    }
+  }
+}

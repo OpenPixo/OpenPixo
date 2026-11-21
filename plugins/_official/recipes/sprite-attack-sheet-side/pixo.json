@@ -1,0 +1,123 @@
+{
+  "$schema": "urn:openpixo:plugin:v1",
+  "specVersion": "1.0.0",
+  "name": "openpixo/sprite-attack-sheet-side",
+  "title": "Side-view attack sheet",
+  "title_i18n": {
+    "en": "Side-view attack sheet",
+    "zh-CN": "侧视攻击姿势图"
+  },
+  "version": "0.1.0",
+  "publishedAt": "2026-11-20T12:00:00+09:00",
+  "description": "Step 1 of a side-view attack: one character drawn in its ready stance facing right and facing left on a green screen, with room in front for the strike, ready to animate with the side-view attack.",
+  "description_i18n": {
+    "en": "Step 1 of a side-view attack: one character drawn in its ready stance facing right and facing left on a green screen, with room in front for the strike, ready to animate with the side-view attack.",
+    "zh-CN": "侧视攻击第 1 步：把角色在绿幕上画成朝右、朝左两个准备出招的姿势，前方留出出招空间，再用「侧视攻击动画」让它出招。"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "OpenPixo"
+  },
+  "tags": [
+    "recipe",
+    "first-party",
+    "openpixo",
+    "image",
+    "character"
+  ],
+  "pixo": {
+    "kind": "recipe",
+    "recipe": {
+      "surface": "image",
+      "category": "character",
+      "engines": [
+        "any"
+      ],
+      "whenToUse": "First step of a side-view melee attack (slash, thrust, punch, smash): draw the ready stance facing right and left, check it, then animate it with sprite-attack-side.",
+      "dimension": [
+        "2d"
+      ],
+      "inputs": [
+        {
+          "name": "character",
+          "label": "Character",
+          "label_i18n": {
+            "zh-CN": "角色"
+          },
+          "type": "character-ref",
+          "required": true
+        },
+        {
+          "name": "attack",
+          "label": "Attack",
+          "label_i18n": {
+            "zh-CN": "招式"
+          },
+          "type": "string",
+          "required": true,
+          "placeholder": "one fast horizontal sword slash",
+          "placeholder_i18n": {
+            "zh-CN": "一记快速的横向剑斩"
+          }
+        },
+        {
+          "name": "style",
+          "label": "Art style (empty: match the game)",
+          "label_i18n": {
+            "zh-CN": "美术风格（留空则跟随游戏）"
+          },
+          "type": "string",
+          "placeholder": "e.g. clean cartoon with bold outlines",
+          "placeholder_i18n": {
+            "zh-CN": "例如：粗描边的简洁卡通"
+          }
+        }
+      ],
+      "prompt": "Game character pose sheet for a side-view attack animation: {{character.name}}, {{character.description}}. Two copies of the same character side by side in a strict grid of 2 columns by 1 row of equal cells on a 16:9 canvas, with no visible grid lines. Left cell: facing right. Right cell: facing left. The game camera of a side-scroller, platformer or brawler, level with the character or a little above it as the design is drawn, identical in both cells: each copy is seen from the side, in profile or turned slightly toward the viewer, the same amount in both. Every copy stands in the ready stance it takes just before {{attack}}: feet planted apart, knees slightly bent, weight centred, the weapon or hands held ready toward its facing, not yet swinging. The facing-left copy is the same character turned around, not a mirror image: one-sided details such as a weapon, a shield, a bag, a scarf end or a hair parting stay on the same side of the body, so a detail on the near side in one copy is on the far side in the other. Identical design, colours, proportions and size in both copies; where reference images are provided, follow them exactly. Each copy's body is centred in the back half of its cell, the side it faces away from, a quarter of the cell width behind the cell's centre, with its whole body visible, about 60 percent of the cell height, the same scale as the character's other side-view sheets, feet on the same baseline; the front half of each cell is empty, so the strike has room to reach forward without crossing into the other cell. Style: {{style}}, crisp clean edges, flat even lighting, no cast shadows. Background: one flat, perfectly uniform pure chroma-key green (#00FF00) across the whole image, with no gradient, floor, shadow, scenery or grid lines. Nothing on the character is bright green.",
+      "negative": "text, letters, numbers, labels, captions, watermark, logo, border, frame, grid lines, gradient background, floor, cast shadow, scenery, vignette, mid-swing, motion blur, speed lines, swing trail, extra characters, cropped, cut off at the edge, overlapping cells, weapon crossing into the other cell, inconsistent character between cells, changing size, bright green clothing, weapons or props not in the reference",
+      "models": {
+        "requires": [
+          "t2i",
+          "i2i"
+        ],
+        "recommended": [
+          "gpt-image-2",
+          "gemini-3-pro-image-preview"
+        ],
+        "fallback": [
+          "gpt-image-1.5",
+          "custom-image"
+        ]
+      },
+      "generation": {
+        "count": {
+          "default": 2,
+          "max": 4
+        },
+        "aspect": "16:9"
+      },
+      "postprocess": [
+        {
+          "op": "resize",
+          "params": {
+            "width": 1344,
+            "height": 768
+          }
+        }
+      ],
+      "checks": [
+        {
+          "check": "dimensions",
+          "params": {
+            "width": 1344,
+            "height": 768
+          }
+        }
+      ],
+      "output": {
+        "dir": "{{engine.spriteRoot}}/{{character.slug}}",
+        "name": "{{character.slug}}_attack_side_sheet"
+      }
+    }
+  }
+}

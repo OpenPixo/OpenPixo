@@ -95,6 +95,9 @@ export interface HostedGenerateArgs {
 const MAX_ARTIFACT_BYTES = 200 * 1024 * 1024;
 const MAX_REFERENCE_BYTES = 10 * 1024 * 1024;
 const MAX_REFERENCES = 4;
+/** Tries for one reference upload; a dropped one otherwise poisons that picture until the link expires. */
+const REFERENCE_UPLOAD_ATTEMPTS = 3;
+const REFERENCE_UPLOAD_RETRY_MS = 1_000;
 const EXTENSIONS = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'audio/mpeg': '.mp3', 'model/gltf-binary': '.glb', 'video/mp4': '.mp4' } as const;
 const PENDING = ['submitting', 'pending'] as const;
 
@@ -314,17 +317,32 @@ export class OpenPixoHostedMedia {
       if (registered.uploadUrl) {
         let url: URL;
         try { url = cloudGivenUrl(registered.uploadUrl, origin); } catch { throw new AccountError('CLOUD_UNAVAILABLE'); }
-        let response: Response;
-        // The transport's own words can carry the host, and this error reaches the task and the CLI.
-        try {
-          response = await this.fetcher(url, { method: 'PUT', redirect: 'error', signal: AbortSignal.timeout(120_000),
-            headers: { 'Content-Type': mime, ...(url.origin === origin ? { 'x-upsert': 'true' } : {}) }, body: new Uint8Array(image.bytes) });
-        } catch { throw new AccountError('CLOUD_UNAVAILABLE'); }
-        if (!response.ok) throw new AccountError('CLOUD_UNAVAILABLE');
+        await this.putReference(url, mime, image.bytes, url.origin === origin);
       }
       hashes.push(sha256);
     }
     return hashes;
+  }
+
+  /**
+   * Puts one reference on the link the cloud handed out, trying a dropped connection or a
+   * server error again on the same link. The cloud already counts the reference as uploaded
+   * when it hands out the link, so one lost upload made every later quote on that picture
+   * fail (鸦堡 run, 2026-11-21). A refusal (4xx) is final.
+   */
+  private async putReference(url: URL, mime: string, bytes: Uint8Array, cloudStorage: boolean): Promise<void> {
+    for (let attempt = 1; ; attempt += 1) {
+      let response: Response | null = null;
+      // The transport's own words can carry the host, and this error reaches the task and the CLI.
+      try {
+        response = await this.fetcher(url, { method: 'PUT', redirect: 'error', signal: AbortSignal.timeout(120_000),
+          headers: { 'Content-Type': mime, ...(cloudStorage ? { 'x-upsert': 'true' } : {}) }, body: new Uint8Array(bytes) });
+      } catch { response = null; }
+      if (response?.ok) return;
+      const retryable = !response || response.status >= 500 || response.status === 429;
+      if (!retryable || attempt >= REFERENCE_UPLOAD_ATTEMPTS) throw new AccountError('CLOUD_UNAVAILABLE');
+      await new Promise((resolve) => setTimeout(resolve, REFERENCE_UPLOAD_RETRY_MS * attempt));
+    }
   }
 
   /** Quotes exactly what `generate` will send, references included. Spends nothing. */

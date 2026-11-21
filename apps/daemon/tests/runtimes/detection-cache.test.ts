@@ -263,3 +263,23 @@ test('expired cached stream yields stale entries while its background model prob
     await stream.return(undefined);
   }
 });
+
+// 鸦堡 run (2026-11-20): a background re-probe of `codex login status` timed out while the agent
+// was busy, the snapshot flipped to `unknown`, and the next turn's prompt listed no image model,
+// so the agent asked the user for credits instead of drawing with their own Codex.
+test('a re-probe that cannot answer keeps the last answered sign-in; a real sign-out still replaces it', async () => {
+  const { detectAgents, getDetectedAgents } = await import('../../src/runtimes/detection.js');
+  await detectAgents();
+  state.auth.mockResolvedValue({ status: 'unknown', message: 'could not be verified' });
+  await detectAgents();
+  const [kept] = await getDetectedAgents();
+  expect(kept?.authStatus).toBe('ok');
+  expect(kept?.authMessage).toBeUndefined();
+  state.auth.mockResolvedValue({ status: 'missing', message: 'not signed in' });
+  await detectAgents();
+  expect((await getDetectedAgents())[0]?.authStatus).toBe('missing');
+  // Unknown after a known sign-out stays unknown: only an answered sign-in is kept.
+  state.auth.mockResolvedValue({ status: 'unknown' });
+  await detectAgents();
+  expect((await getDetectedAgents())[0]?.authStatus).toBe('unknown');
+});

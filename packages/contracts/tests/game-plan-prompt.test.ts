@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { ART_BUDGET_ESTIMATE_CREDITS } from '../src/api/art-budget.js';
 import {
   GAME_PLAN_APPROVE_LABELS,
-  GAME_PLAN_CONCEPT_IMAGE_LIMIT,
   gamePlanIsPending,
   type GameEngineOption,
 } from '../src/api/game-plan.js';
@@ -121,7 +120,9 @@ describe('a new game is planned before it is built', () => {
     expect(block).toContain('--size 1536x864');
     expect(block).toContain('--style none');
     expect(block).not.toContain('960x540');
-    expect(block).toContain(String(GAME_PLAN_CONCEPT_IMAGE_LIMIT));
+    // No count of planning images (owner, 2026-11-20); a round is still at most three.
+    expect(block).not.toMatch(/capped at \d|allows \d+ before approval/);
+    expect(block).toContain('at most 3 images a round');
     expect(block).toMatch(/The picked image is the game's style reference/);
     expect(block).toMatch(/never impose a style's own palette/);
     // The style's own palette is only a suggestion; a palette the user set is the requirement.

@@ -79,6 +79,8 @@ export function gameMediaModelCatalog(usableProviders?: readonly string[], budge
     ...(paid.length ? { budgetImageModels: paid } : {}),
     ...(budgetAudio.length ? { budgetAudioModels: budgetAudio } : {}),
     ...(budgetModel3d.length ? { budgetModel3dModels: budgetModel3d } : {}),
+    // The hosted looping clip runs only through the animation recipes, after every own tool.
+    ...(paidOf(VIDEO_MODELS).some((id) => findMediaModel(id)?.caps.includes('i2v-loop')) ? { budgetSpriteAnimation: true } : {}),
     ...(budgetUnset && !budgetImages ? { artBudgetUnset: true } : {}),
   };
 }

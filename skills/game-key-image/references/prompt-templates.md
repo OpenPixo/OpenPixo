@@ -22,7 +22,7 @@ The signature a fan names first goes in at full strength ("strong rim light", "n
 Add to every prompt, trimming what does not apply:
 
 ```text
-Avoid: poster, key art, concept painting, illustration framing, centred hero, symmetrical composition, centred landmark, an empty side of the screen, mobile game UI, buttons on top of the scene, bevelled icon tiles, depth of field, lens flare, photographic lighting, vignette, garbled or misspelled text, logos and trademarks, characters or UI copied from existing games, perspective camera, vanishing point, receding ground, buildings showing a side wall, objects shrinking toward the top, mixed pixel sizes, grid lines drawn over the ground, watermark.
+Avoid: poster, key art, concept painting, illustration framing, centred hero, symmetrical composition, centred landmark, an empty side of the screen, mobile game UI, buttons on top of the scene, bevelled icon tiles, depth of field, lens flare, photographic lighting, photographic lens vignette, the same texture over every surface, flat even lighting, garbled or misspelled text, logos and trademarks, characters or UI copied from existing games, perspective camera, vanishing point, receding ground, buildings showing a side wall, objects shrinking toward the top, mixed pixel sizes, grid lines drawn over the ground, watermark.
 ```
 
 Exceptions:
@@ -49,7 +49,7 @@ HUD (drawn on the scene in the world's own art, bare icons, bars and numbers wit
 - Top right: <...>
 - Bottom: <...>
 Text (render exactly and only these): <up to 8 short strings separated by " | ", without quotes, e.g. Day 1 | 48 | [E] Fish>
-Quality: polished released game, crisp edges; light with a time of day and a direction, soft shadows cast the same way, cool shadows and warm highlights; everything sharp; readability order: the play layer (walkable surfaces, characters, attacks, pickups) has the highest contrast and cleanest shapes, the background is lower in contrast and saturation with simpler shapes, the ground is quiet repeated tiles
+Quality: polished released game, crisp edges; light with a time of day and a direction, soft shadows cast the same way, cool shadows and warm highlights; the scene's own lights pool on the play area so it is the brightest, warmest part of the screen, and lamps, fire and magic carry a soft painted glow; everything sharp; readability order: the play layer (walkable surfaces, characters, attacks, pickups) has the highest contrast and cleanest shapes, the background steps back in value and saturation with simpler, larger shapes and a little atmospheric haze, the ground is quiet repeated tiles or a smooth surface with soft shading; detail sits on props, edges and silhouettes, never as texture over every stone and plank; outlines are heaviest on characters and the foreground and thin out with distance
 <Avoid block>, multiple screens in one image, wireframe, design annotations
 ```
 

@@ -2,7 +2,6 @@ import { mkdir } from 'node:fs/promises';
 import type Database from 'better-sqlite3';
 import type { Express, NextFunction, Request, Response } from 'express';
 import {
-  GAME_PLAN_CONCEPT_IMAGE_LIMIT,
   gamePlanIsPending,
   nextGameStage,
   nextStageConversationTitle,
@@ -232,20 +231,15 @@ export function registerGamePlanRoutes(app: Express, ctx: RegisterGamePlanRoutes
     return project && gamePlanIsPending(project.metadata) ? project : null;
   }
 
-  // Registered ahead of the media routes, which then answer as usual. Each
-  // attempt counts, so a failing provider cannot retry without limit either.
+  // Registered ahead of the media routes, which then answer as usual. Planning
+  // makes images only, and as many as the user asks for (owner, 2026-11-20): a
+  // count ran out after two rejected style rounds of free Codex images, and paid
+  // samples are already bounded by the art budget only the user sets.
   const conceptImageGuard = (req: Request, res: Response, next: NextFunction) => {
     if (req.method !== 'POST') { next(); return; }
     const project = plannedProjectOfAgent(req);
     if (!project?.metadata?.gamePlan) { next(); return; }
     if (req.body?.surface !== 'image') { hold(res, 'Only concept images can be generated before the user approves the plan'); return; }
-    const plan = project.metadata.gamePlan;
-    const used = plan.conceptImages ?? 0;
-    if (used >= GAME_PLAN_CONCEPT_IMAGE_LIMIT) {
-      hold(res, `The ${GAME_PLAN_CONCEPT_IMAGE_LIMIT} concept images allowed before approval are used. Ask the user to choose from what they have, or to approve the plan`);
-      return;
-    }
-    store.update(project.id, { metadata: { ...project.metadata, gamePlan: { ...plan, conceptImages: used + 1 } } });
     next();
   };
   // `use`, because each of these paths has one owner route that does the work.

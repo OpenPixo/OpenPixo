@@ -225,7 +225,8 @@ and two steps never share a form. A step is never skipped because Game setup ans
   `ART_BUDGET_ESTIMATE_CREDITS.image` each. With no image model the agent asks whether to make them
   with credits and points at the approve bar's budget field and its Save button, which only the
   user can use (see [Art budget](#art-budget)); otherwise it describes styles in words with
-  reference games. The host still caps planning at `GAME_PLAN_CONCEPT_IMAGE_LIMIT` images.
+  reference games. Planning images have no count (owner, 2026-11-20): the user may ask for as
+  many rounds as they like, and paid ones are bounded by their art budget.
 - Engine and tech is one confirming sentence when the engine is chosen and ready. A missing
   tool is raised and the user asked to install it or switch; an unchosen engine is recommended
   only from the ready ones (Phaser preselected for a quick game).
@@ -298,7 +299,7 @@ an estimate of images and credits, and says the user sets the budget on the appr
 
 Owner decision (2026-11-10): a budget the user saves before approval (the approve bar's Save
 button, `pixo game plan budget`) pays for planning's style samples. The plan gate still allows a
-planning agent only images, at most `GAME_PLAN_CONCEPT_IMAGE_LIMIT`, and
+planning agent only images, with no count since 2026-11-20, and
 `prepareAgentHostedRequest` refuses hosted audio and 3D until approval. No agent path sets a budget.
 In a new game with an approved plan, the budget caps spending but is not consent for each piece:
 the agent lists the art it will make (and its credits) and waits for the user's OK.

@@ -9,9 +9,6 @@ import type { Project, ProjectMetadata } from './projects.js';
 export const GAME_PLAN_STATUSES = ['planning', 'approved'] as const;
 export type GamePlanStatus = (typeof GAME_PLAN_STATUSES)[number];
 
-/** Concept images an agent may generate per project before the plan is approved. */
-export const GAME_PLAN_CONCEPT_IMAGE_LIMIT = 6;
-
 /** The longest approved plan the daemon records; a plan is meant to be short. */
 export const GAME_PLAN_RECORD_MAX_CHARS = 8000;
 
@@ -31,7 +28,7 @@ export interface GamePlanState {
   status: GamePlanStatus;
   startedAt: number;
   approvedAt?: number;
-  /** Concept images the agent has generated while planning. */
+  /** Concept images counted while planning. No longer written or read (no cap since 2026-11-20); older projects may still hold it. */
   conceptImages?: number;
   /**
    * The agent's last message before the user approved, recorded by the daemon at

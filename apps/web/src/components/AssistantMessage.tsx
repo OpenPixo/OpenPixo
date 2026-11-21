@@ -15,6 +15,7 @@ import { turnSkillIds } from "../runtime/chat/turn-skills";
 import { useRunChanges } from "./changes/useRunChanges";
 import { changeDiffItem, PANEL_CHANGES_ROOT } from "./panel/panel-nav";
 import { collectTurnAssets, isTurnMediaPath, withCheckpointAssets, withoutGalleryImages } from "../runtime/chat/turn-assets";
+import { chatImageSrc } from "../runtime/chat/chat-image-src";
 import { languageOfPath } from "../runtime/chat/tool-preview";
 import { turnChangeRows, type TurnChangeRow } from "../runtime/chat/turn-changes";
 import { indexArtifactRefs, messageArtifactRefs } from "../runtime/chat/artifact-refs";
@@ -2988,6 +2989,11 @@ function ProseBlock({
     () => chatFileLinkClickHandler(onRequestOpenFile, projectFileNames, projectId, projectResolvedDir),
     [onRequestOpenFile, projectFileNames, projectId, projectResolvedDir],
   );
+  // Images the agent shows by project path (`![A](concept/style-1.png)`) load from the project.
+  const resolveImageSrc = useCallback(
+    (src: string) => chatImageSrc(src, { projectId, projectFileNames, projectResolvedDir }),
+    [projectFileNames, projectId, projectResolvedDir],
+  );
   // The question-form scanner preserves card/code spans as opaque text. Decode
   // those complete cards here so payload-owned forms never become renderables.
   // Use the shell's code-aware boundary so quoted card examples stay Markdown,
@@ -3048,7 +3054,7 @@ function ProseBlock({
         if (seg.kind === "text") {
           return (
             <Fragment key={seg.key}>
-              {renderMarkdown(seg.text, { onLinkClick })}
+              {renderMarkdown(seg.text, { onLinkClick, resolveImageSrc })}
             </Fragment>
           );
         }
