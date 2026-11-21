@@ -22,6 +22,19 @@ function hardLinuxFolderDialogFailure(error: unknown, stderrText: string): strin
   return null;
 }
 
+/**
+ * The PowerShell step that hands a chosen path back to the daemon.
+ *
+ * Windows PowerShell 5.1 encodes a piped stdout in the console's OEM code
+ * page (GBK on Chinese Windows, 437 on English), never UTF-8, so a non-ASCII
+ * folder name printed as text arrives garbled. The path therefore leaves as
+ * base64 of its UTF-8 bytes, which is plain ASCII in every code page, and
+ * `parseFolderDialogStdout` decodes it.
+ */
+export function windowsFolderDialogOutputStep(pathExpression: string): string {
+  return `[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(${pathExpression}))`;
+}
+
 const WINDOWS_FOLDER_DIALOG_SCRIPT = [
   'Add-Type -AssemblyName System.Windows.Forms;',
   '$owner = New-Object System.Windows.Forms.Form;',
@@ -35,7 +48,7 @@ const WINDOWS_FOLDER_DIALOG_SCRIPT = [
   "$dialog.Description = 'Select a code folder to link';",
   '$dialog.ShowNewFolderButton = $true;',
   'try {',
-  '  if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.SelectedPath }',
+  `  if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { ${windowsFolderDialogOutputStep('$dialog.SelectedPath')} }`,
   '} finally {',
   '  $owner.Dispose();',
   '}',
@@ -48,12 +61,17 @@ export function buildWindowsFolderDialogCommand(): NativeFolderDialogCommand {
   };
 }
 
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** Decodes the Windows picker's output (see `windowsFolderDialogOutputStep`). */
 export function parseFolderDialogStdout(error: unknown, stdout: string): string | null {
   if (error) {
     return null;
   }
 
-  const selectedPath = stdout.trim();
+  const encoded = stdout.trim();
+  if (!encoded || encoded.length % 4 !== 0 || !BASE64_RE.test(encoded)) return null;
+  const selectedPath = Buffer.from(encoded, 'base64').toString('utf8');
   return selectedPath.length > 0 ? selectedPath : null;
 }
 

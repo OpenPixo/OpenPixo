@@ -1,8 +1,10 @@
+import { execFile } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   buildWindowsFolderDialogCommand,
   parseLinuxFolderDialogResult,
   parseFolderDialogStdout,
+  windowsFolderDialogOutputStep,
 } from '../src/native-folder-dialog.js';
 
 function dialogError(message: string, code: string | number): Error & { code: string | number } {
@@ -40,7 +42,8 @@ describe('native folder dialog helpers', () => {
   });
 
   it('parses a selected folder path from stdout', () => {
-    expect(parseFolderDialogStdout(null, 'C:\\Users\\Ada\\Project\r\n')).toBe('C:\\Users\\Ada\\Project');
+    const stdout = `${Buffer.from('C:\\Users\\Ada\\Project', 'utf8').toString('base64')}\r\n`;
+    expect(parseFolderDialogStdout(null, stdout)).toBe('C:\\Users\\Ada\\Project');
   });
 
   it('returns null when the dialog is cancelled', () => {
@@ -48,7 +51,36 @@ describe('native folder dialog helpers', () => {
   });
 
   it('returns null when the native dialog command fails', () => {
-    expect(parseFolderDialogStdout(new Error('cancelled'), 'C:\\Users\\Ada\\Project\r\n')).toBeNull();
+    const stdout = Buffer.from('C:\\Users\\Ada\\Project', 'utf8').toString('base64');
+    expect(parseFolderDialogStdout(new Error('cancelled'), stdout)).toBeNull();
+  });
+
+  it('returns null for output that is not the encoded path', () => {
+    expect(parseFolderDialogStdout(null, 'C:\\Users\\Ada\\Project\r\n')).toBeNull();
+  });
+
+  // PowerShell 5.1 writes a piped stdout in the console's OEM code page (GBK on
+  // Chinese Windows), so a folder named 游戏 used to reach the daemon as
+  // "��Ϸ" and either failed to save or created a junk folder.
+  it.runIf(process.platform === 'win32')(
+    'keeps a Chinese folder name intact through the real PowerShell output step',
+    async () => {
+      const chinese = String.fromCharCode(0x6e38, 0x620f, 0x9879, 0x76ee);
+      const codes = [...`D:\\${chinese}\\觸 sprites`].map((c) => `0x${c.charCodeAt(0).toString(16)}`).join(',');
+      const script = `$selected = [string]::new([char[]]@(${codes})); ${windowsFolderDialogOutputStep('$selected')}`;
+      const stdout = await new Promise<string>((resolve, reject) => {
+        execFile('powershell.exe', ['-NoProfile', '-Command', script], { timeout: 60_000 }, (err, out) =>
+          err ? reject(err) : resolve(out),
+        );
+      });
+      expect(parseFolderDialogStdout(null, stdout)).toBe(`D:\\${chinese}\\觸 sprites`);
+    },
+    60_000,
+  );
+
+  it('emits the selected path through the encoded output step', () => {
+    const script = buildWindowsFolderDialogCommand().args[3] ?? '';
+    expect(script).toContain(windowsFolderDialogOutputStep('$dialog.SelectedPath'));
   });
 
   it('parses a selected Linux folder path from stdout', () => {
