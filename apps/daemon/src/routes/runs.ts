@@ -130,6 +130,7 @@ import {
   runtimeAcceptsMidTurnInput,
   type RunSteeringRefusal,
 } from '../runtimes/run-steering.js';
+import { applyCodexTransportOverride } from '../runtimes/defs/codex.js';
 import { runMessageEventPersistenceAnalytics } from '../runtimes/chat-run-messages.js';
 import {
   isLegacyHydratedRunWithoutAppliedSnapshot,
@@ -307,9 +308,10 @@ interface ChatRunService {
     run: ChatRun,
     text: string,
     runtimeAccepts: boolean,
-  ):
-    | { ok: true; backpressure: boolean }
-    | { ok: false; refusal: RunSteeringRefusal };
+  ): Promise<
+    | { ok: true }
+    | { ok: false; refusal: RunSteeringRefusal }
+  >;
   /** Undo an optimistically-created run (e.g. a failed ownership claim). */
   drop(run: ChatRun): void;
   /** Persist daemon-owned state assigned during an atomic claim hook. */
@@ -1852,7 +1854,9 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
       { mode: 'write', capability: 'writeFiles' },
     )) return;
     const cancelRun = run;
-    await design.runs.cancel(cancelRun, 'user_stop');
+    // Only the one named reason is accepted; anything else is a plain Stop.
+    const origin = toJsonRecord(req.body).origin === 'queued_send' ? 'queued_send' : 'user_stop';
+    await design.runs.cancel(cancelRun, origin);
     const body = { ok: true, run: runStatus(cancelRun) };
     res.json(body);
   });
@@ -1887,10 +1891,13 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
         'text is required and must be a non-empty string',
       );
     }
+    // The def the run actually uses: Codex steers only over app-server.
     const runtimeAccepts = runtimeAcceptsMidTurnInput(
-      typeof run.agentId === 'string' ? getAgentDef(run.agentId) : null,
+      await applyCodexTransportOverride(
+        typeof run.agentId === 'string' ? getAgentDef(run.agentId) ?? null : null,
+      ),
     );
-    const outcome = design.runs.steer(run, text, runtimeAccepts);
+    const outcome = await design.runs.steer(run, text, runtimeAccepts);
     if (!outcome.ok) {
       // Two distinct codes on purpose: `UNSUPPORTED` is permanent for this
       // agent (the caller should stop offering the affordance), the closed
@@ -1900,8 +1907,8 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
           res,
           409,
           'RUN_STEERING_UNSUPPORTED',
-          `agent ${run.agentId ?? 'unknown'} cannot take a mid-turn message: `
-          + 'its stdin is closed together with the opening prompt',
+          `agent ${run.agentId ?? 'unknown'} cannot take a message into a running turn; `
+          + 'stop the turn and send it instead',
           { retryable: false, details: { refusal: outcome.refusal } },
         );
       }

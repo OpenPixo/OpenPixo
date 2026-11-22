@@ -34,5 +34,5 @@ it('prints the runtime columns and capability states as a human table', async ()
   const output = String(stdout.mock.calls[0]?.[0]);
   expect(output).toContain('codex (codex-cli 0.160.0)');
   expect(output).toMatch(/Capability\s+codex.*claude\s+opencode/);
-  expect(output).toMatch(/steer\s+unsupported\s+implemented\s+unsupported/);
+  expect(output).toMatch(/steer\s+implemented\s+unsupported\s+unsupported/);
 });

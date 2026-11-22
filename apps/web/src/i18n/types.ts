@@ -2472,6 +2472,18 @@ export interface Dict {
   'chat.queuedSteerFailed': string;
   /** This queued item carries attachments, which a mid-turn message cannot deliver. */
   'chat.queuedSteerTextOnly': string;
+  /**
+   * C18: the queue row's leading button while a turn runs that cannot take the
+   * message (the agent has no mid-turn input, or the row carries more than
+   * text). Not steering: it stops the turn, then sends.
+   */
+  'chat.queuedStopAndSend': string;
+  /** C18: the queue row's leading button when nothing is running. */
+  'chat.queuedSendNow': string;
+  /** C18: confirm dialog before 「停止并发送」 ends the running turn. */
+  'chat.queuedStopAndSendTitle': string;
+  'chat.queuedStopAndSendBody': string;
+  'chat.queuedStopAndSendConfirm': string;
   'chat.queuedFollowUpFallback': string;
   'chat.send': string;
   'chat.stop': string;
@@ -3336,6 +3348,9 @@ export interface Dict {
   /** Run title while the last turn's question form is still unanswered (OPEND-2744). */
   'assistant.canceledLabel': string;
   'assistant.canceledDetail': string;
+  /** C18: footer of a turn the user stopped to send a queued message (`cancelOrigin: 'queued_send'`). */
+  'assistant.interruptedForQueuedLabel': string;
+  'assistant.interruptedForQueuedDetail': string;
   'assistant.copyMarkdown': string;
   /**
    * 回合动作行那颗按钮的名字。**必须和 `chat.newSession` 同字** —— 聊天面板内
@@ -3699,6 +3714,8 @@ export interface Dict {
   'chat.record.thoughts': string;
   'chat.record.done': string;
   'chat.record.canceled': string;
+  /** C18: execution record head for a turn stopped to send a queued message. */
+  'chat.record.interrupted': string;
   'chat.record.pending': string;
   /**
    * 一条步骤**没跑完就结束了** —— 不知道它成没成(`closeRunningSegments`)。

@@ -1,94 +1,103 @@
 // B11 "steer the running turn" (`引导对话`) — the invariant that decides whether a
 // mid-turn user message can actually reach the model.
 //
-// The queue row's third button used to be "send now", which CANCELS the running
-// turn and re-sends. Steering is the opposite: the turn keeps running and the
-// message is written onto the child's still-open stdin.
-//
-// Three things have to hold for that write to mean anything, and each of them
-// fails silently if we only guess:
-//   1. the runtime must deliver its prompt as `stream-json` — that is the only
-//      format whose writer leaves stdin open past the opening prompt. Every
-//      other plain-text runtime gets its prompt as a file-backed stdin at
-//      spawn, so there is no pipe for a later write to reach.
+// Steering is the opposite of "stop and send": the turn keeps running and the
+// message is added to it. Three things have to hold for that to mean anything,
+// and each of them fails silently if we only guess:
+//   1. the runtime must take a message into a running turn and act on it
+//      there — Codex over app-server (`turn/steer`). Claude Code keeps stdin
+//      open but does not act on a frame written mid-turn (claude 2.1.259), so
+//      it is not a steering runtime; OpenCode reads its prompt once at spawn.
 //   2. the run must still be live.
-//   3. `run.stdinOpen` must still be true. A clean `turn_end` closes stdin
-//      (applyClaudeStreamJsonRunBookkeeping); a `stop_reason: 'tool_use'` pause
-//      does NOT — and that pause is exactly when steering is most valuable.
+//   3. the turn must still be open to input (the Codex session's own answer).
 
 import { describe, expect, it } from 'vitest';
 
 import { claudeAgentDef } from '../src/runtimes/defs/claude.js';
-import { codexAgentDef } from '../src/runtimes/defs/codex.js';
+import { codexAgentDef, withCodexTransport } from '../src/runtimes/defs/codex.js';
+import { opencodeAgentDef } from '../src/runtimes/defs/opencode.js';
 import {
+  agentAdvertisesMidTurnSteering,
   classifyRunSteering,
   encodeStreamJsonUserMessage,
   runtimeAcceptsMidTurnInput,
-  writeSteeringUserMessage,
 } from '../src/runtimes/run-steering.js';
 
 describe('runtimeAcceptsMidTurnInput', () => {
-  it('accepts the stream-json runtime, which keeps stdin open past the prompt', () => {
+  it('accepts Codex over app-server, which has turn/steer', () => {
+    expect(runtimeAcceptsMidTurnInput(withCodexTransport(codexAgentDef, 'app-server'))).toBe(true);
+  });
+
+  it('refuses Codex over exec --json, which has no input channel mid-turn', () => {
+    expect(runtimeAcceptsMidTurnInput(withCodexTransport(codexAgentDef, 'exec-json'))).toBe(false);
+  });
+
+  it('refuses Claude Code: an open stdin is not steering', () => {
     expect(claudeAgentDef.promptInputFormat).toBe('stream-json');
-    expect(runtimeAcceptsMidTurnInput(claudeAgentDef)).toBe(true);
+    expect(runtimeAcceptsMidTurnInput(claudeAgentDef)).toBe(false);
   });
 
-  it('refuses a text-prompt runtime, whose stdin is closed with the prompt', () => {
-    expect(runtimeAcceptsMidTurnInput(codexAgentDef)).toBe(false);
-  });
-
-  it('refuses an unknown / missing runtime def rather than guessing', () => {
+  it('refuses OpenCode and an unknown / missing runtime def rather than guessing', () => {
+    expect(runtimeAcceptsMidTurnInput(opencodeAgentDef)).toBe(false);
     expect(runtimeAcceptsMidTurnInput(null)).toBe(false);
     expect(runtimeAcceptsMidTurnInput(undefined)).toBe(false);
-    expect(runtimeAcceptsMidTurnInput({ id: 'x', promptInputFormat: 'text' })).toBe(false);
+  });
+});
+
+describe('agentAdvertisesMidTurnSteering', () => {
+  it('advertises Codex on the shipping app-server transport', () => {
+    expect(agentAdvertisesMidTurnSteering(codexAgentDef, 'codex-cli 0.160.0', {})).toBe(true);
+  });
+
+  it('follows the operator rollback to exec --json', () => {
+    expect(agentAdvertisesMidTurnSteering(codexAgentDef, 'codex-cli 0.160.0', { PIXO_CODEX_TRANSPORT: 'exec-json' })).toBe(false);
+  });
+
+  it('follows auto mode down to exec --json on a codex below the app-server floor', () => {
+    expect(agentAdvertisesMidTurnSteering(codexAgentDef, 'codex-cli 0.80.0', { PIXO_CODEX_TRANSPORT: 'auto' })).toBe(false);
+  });
+
+  it('never advertises Claude Code or OpenCode', () => {
+    expect(agentAdvertisesMidTurnSteering(claudeAgentDef, '2.1.259', {})).toBe(false);
+    expect(agentAdvertisesMidTurnSteering(opencodeAgentDef, '1.18.35', {})).toBe(false);
   });
 });
 
 describe('classifyRunSteering', () => {
-  it('admits a live stream-json run whose stdin is still open', () => {
+  it('admits a live run whose turn is open to input', () => {
     expect(
-      classifyRunSteering({ runtimeAccepts: true, terminal: false, stdinOpen: true }),
-    ).toEqual({ ok: true });
-  });
-
-  it('admits a run paused on tool_use — stdin is open, so the model still reads', () => {
-    // The daemon does not close stdin on `stop_reason: 'tool_use'`; that pause
-    // is a mid-turn wait, not a turn boundary. Steering must be allowed there.
-    expect(
-      classifyRunSteering({ runtimeAccepts: true, terminal: false, stdinOpen: true }),
+      classifyRunSteering({ runtimeAccepts: true, terminal: false, inputOpen: true }),
     ).toEqual({ ok: true });
   });
 
   it('refuses a runtime that cannot take mid-turn input, before anything else', () => {
     expect(
-      classifyRunSteering({ runtimeAccepts: false, terminal: false, stdinOpen: true }),
+      classifyRunSteering({ runtimeAccepts: false, terminal: false, inputOpen: true }),
     ).toEqual({ ok: false, refusal: 'runtime_unsupported' });
     // Permanent property of the runtime: it wins over the transient reasons so
     // the caller can disable the affordance instead of showing a retry hint.
     expect(
-      classifyRunSteering({ runtimeAccepts: false, terminal: true, stdinOpen: false }),
+      classifyRunSteering({ runtimeAccepts: false, terminal: true, inputOpen: false }),
     ).toEqual({ ok: false, refusal: 'runtime_unsupported' });
   });
 
   it('refuses a terminal run', () => {
     expect(
-      classifyRunSteering({ runtimeAccepts: true, terminal: true, stdinOpen: false }),
+      classifyRunSteering({ runtimeAccepts: true, terminal: true, inputOpen: false }),
     ).toEqual({ ok: false, refusal: 'run_terminal' });
   });
 
-  it('refuses a live run whose turn already ended cleanly and closed stdin', () => {
-    // The child process can still be alive here (it exits a beat later). The
-    // message must be rejected loudly, not written into a closed pipe.
+  it('refuses a live run whose turn already stopped taking input', () => {
+    // The child can still be alive here (it exits a beat later). The message
+    // must be refused loudly, not recorded as said to a turn that is over.
     expect(
-      classifyRunSteering({ runtimeAccepts: true, terminal: false, stdinOpen: false }),
+      classifyRunSteering({ runtimeAccepts: true, terminal: false, inputOpen: false }),
     ).toEqual({ ok: false, refusal: 'stdin_closed' });
   });
 });
 
 describe('encodeStreamJsonUserMessage', () => {
   it('produces exactly the JSONL frame the opening prompt uses', () => {
-    // Drift here is invisible until a real model silently ignores the frame, so
-    // the opening-prompt writer in server.ts shares this encoder.
     const line = encodeStreamJsonUserMessage('tighten the hero copy');
     expect(line.endsWith('\n')).toBe(true);
     expect(JSON.parse(line)).toEqual({
@@ -104,63 +113,5 @@ describe('encodeStreamJsonUserMessage', () => {
     const line = encodeStreamJsonUserMessage('one\ntwo');
     expect(line.split('\n').filter(Boolean)).toHaveLength(1);
     expect(JSON.parse(line).message.content[0].text).toBe('one\ntwo');
-  });
-});
-
-describe('writeSteeringUserMessage', () => {
-  function fakeStdin(writeReturns: boolean, destroyed = false) {
-    const calls: string[] = [];
-    return {
-      destroyed,
-      calls,
-      write(chunk: string, encoding: BufferEncoding) {
-        calls.push(chunk);
-        void encoding;
-        return writeReturns;
-      },
-    };
-  }
-
-  it('writes the frame and reports it delivered', () => {
-    const stdin = fakeStdin(true);
-    expect(writeSteeringUserMessage(stdin, 'go left')).toEqual({
-      delivered: true,
-      backpressure: false,
-    });
-    expect(JSON.parse(stdin.calls[0]!).message.content[0].text).toBe('go left');
-  });
-
-  it('still counts as delivered when the pipe buffered it, but flags backpressure', () => {
-    const stdin = fakeStdin(false);
-    expect(writeSteeringUserMessage(stdin, 'go left')).toEqual({
-      delivered: true,
-      backpressure: true,
-    });
-  });
-
-  it('never claims delivery on a destroyed or missing stdin', () => {
-    expect(writeSteeringUserMessage(fakeStdin(true, true), 'go left')).toEqual({
-      delivered: false,
-      backpressure: false,
-    });
-    expect(writeSteeringUserMessage(null, 'go left')).toEqual({
-      delivered: false,
-      backpressure: false,
-    });
-  });
-
-  it('reports a failed write instead of throwing on EPIPE', () => {
-    const stdin = {
-      destroyed: false,
-      write() {
-        const err = new Error('write EPIPE') as NodeJS.ErrnoException;
-        err.code = 'EPIPE';
-        throw err;
-      },
-    };
-    expect(writeSteeringUserMessage(stdin, 'go left')).toEqual({
-      delivered: false,
-      backpressure: false,
-    });
   });
 });

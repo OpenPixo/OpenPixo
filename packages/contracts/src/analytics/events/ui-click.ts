@@ -592,17 +592,15 @@ export interface ChatPanelResourcesPopoverClickProps {
 }
 
 // Actions on the queued-send strip that sits above the chat composer while a
-// run is in flight: re-open a queued prompt in the composer (`edit`), send it
-// now (`steer`, B11 「引导对话」 — stops the turn in flight first when there is
-// one), or drop it from the queue (`delete`).
+// run is in flight: re-open a queued prompt in the composer (`edit`), put it
+// into the running turn (`steer`, B11 「引导对话」, only where the agent can take
+// a message mid-turn), send it now (`send_now`: 「立即发送」, or 「停止并发送」
+// after the user confirmed stopping the turn in flight), or drop it from the
+// queue (`delete`).
 //
-// `send_now` is RETIRED, not renamed. The strip's leading button used to have
-// two faces — `steer` while a turn was interruptible, `send_now` otherwise —
-// wired to the same handler under two names. Product collapsed them into the
-// single 「引导对话」 button on 2026-09-08, and the survivor reports `steer`.
-// So from that release on this surface emits no `send_now` at all; the member
-// stays in the union because PostHog still holds the historical events and
-// dashboards that read them must keep type-checking.
+// History: from 2026-09-08 to C18 (2026-11-21) the leading button was one
+// 「引导对话」 face that always stopped and resent, and it reported `steer` for
+// every click. Since C18 `steer` means a real mid-turn steer again.
 //
 // `queue_length` is the queue size at click time, before the action applies.
 export interface ChatPanelMessageQueueClickProps {

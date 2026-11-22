@@ -53,9 +53,13 @@ export interface ActiveConversationChatState {
     },
   ) => void;
   onReorderQueuedSends?: (orderedIds: string[]) => void;
-  /** B11 「引导对话」: send this queued item now, stopping the turn in flight
-   *  first when there is one. One button, one handler (ruling 2026-09-08). */
+  /** Send this queued item now, stopping the turn in flight first when there
+   *  is one (「停止并发送」 / 「立即发送」). */
   onSendQueuedNow?: (id: string) => void;
+  /** B11 「引导对话」: put this queued item into the running turn. */
+  onSteerQueuedSend?: (id: string) => void;
+  queuedMidTurnSteering?: boolean;
+  queuedTurnInFlight?: boolean;
   steerBlockedReason?: string | null;
   onAssistantFeedback?: (
     assistantMessage: ChatMessage,
@@ -158,6 +162,9 @@ export function SideChatTab({
           onUpdateQueuedSend={controlledChat?.onUpdateQueuedSend}
           onReorderQueuedSends={controlledChat?.onReorderQueuedSends}
           onSendQueuedNow={controlledChat?.onSendQueuedNow}
+          onSteerQueuedSend={controlledChat?.onSteerQueuedSend}
+          queuedMidTurnSteering={controlledChat?.queuedMidTurnSteering}
+          queuedTurnInFlight={controlledChat?.queuedTurnInFlight}
           steerBlockedReason={controlledChat?.steerBlockedReason ?? null}
           error={controlledChat ? controlledChat.error : chat.error}
           errorSourceAssistantId={controlledChat?.errorSourceAssistantId}

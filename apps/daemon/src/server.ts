@@ -92,8 +92,7 @@ import {
   runtimeEmissionCountsAsAgentProgress,
   resolveChatRunShutdownGraceMs,
 } from './runtimes/chat-run-lifecycle.js';
-// Shared with `POST /api/runs/:id/steer` so the opening prompt and a B11
-// mid-turn steering frame are encoded by the same writer.
+// The stream-json `user` frame for Claude's opening prompt.
 import { encodeStreamJsonUserMessage } from './runtimes/run-steering.js';
 import {
   normalizeRunContextSelection,
@@ -7030,6 +7029,11 @@ export async function startServer({
       protocolSession = codexSession;
       run.codexApprovalSession = codexSession;
       run.approvalSession = codexRunApprovalSession(codexSession);
+      // B11 「引导对话」: `turn/steer` puts a user message into this running turn.
+      run.steeringTarget = {
+        acceptsInput: () => codexSession.acceptsSteering(),
+        deliver: (text) => codexSession.steer(text),
+      };
     } else if (def.streamFormat === 'json-event-stream') {
       // Pipe through sendAgentEvent so the OpenCode `type:'error'` frame
       // (now emitted as a real error event by json-event-stream.ts after

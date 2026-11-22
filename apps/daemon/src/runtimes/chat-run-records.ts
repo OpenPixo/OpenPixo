@@ -12,6 +12,7 @@ import type { ChatRunStatus, ChatRunStatusResponse, ProjectMetadata as ContractP
 import type { AnalyticsContext } from '../analytics.js';
 import type { CodexAppServerSession } from '../agent-protocol/codex-app-server/session.js';
 import type { RunApprovalSession } from './run-approvals.js';
+import type { RunSteeringTarget } from './run-steering.js';
 import type { RunArtifactBaseline } from '../run-artifact-fs.js';
 import type {
   RunEventForAnalyticsObservability,
@@ -150,6 +151,8 @@ export interface ChatRun {
   id: string;
   approvalSession?: RunApprovalSession;
   codexApprovalSession?: Pick<CodexAppServerSession, 'listApprovals' | 'respondApproval'>;
+  /** B11 「引导对话」: the running turn's input, when its runtime can take one (`run-steering.ts`). */
+  steeringTarget?: RunSteeringTarget;
   diagnosticIncidentIds?: string[];
   projectId: string | null;
   conversationId: string | null;
