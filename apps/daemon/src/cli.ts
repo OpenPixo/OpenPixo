@@ -770,8 +770,9 @@ function printRootHelp() {
       Create a deterministic HyperFrames composition without npx or global
       skill installation, before dispatching it through media generate.
 
-  ${PRODUCT_CLI_NAME} media capabilities [--json]
-      Show which media capabilities have a configured provider.
+  ${PRODUCT_CLI_NAME} media capabilities [--project <id>] [--json]
+      Show which media capabilities have a configured provider and, when
+      signed in, which ones credits make and the project's art budget.
 
   ${PRODUCT_CLI_NAME} mcp [--daemon-url <url>]
       Run a stdio MCP server that proxies project tool calls to a
@@ -895,6 +896,27 @@ Flags:
 // Subcommand: pixo media …
 // ---------------------------------------------------------------------------
 
+/** `pixo media capabilities` without --json: own tools first, then what credits make. */
+function mediaCapabilityLines(data: GetMediaCapabilitiesResponse): string[] {
+  const lines = Object.entries(data.capabilities).map(([capability, status]) => {
+    const hosted = status.hosted
+      ? `on credits (${status.hosted.services.join(', ')}${status.hosted.recipesOnly ? ', through recipes only' : ''})`
+      : '';
+    if (status.configured) return `${capability}: configured (${status.providers.join(', ')})${hosted ? `; also ${hosted}` : ''}`;
+    return `${capability}: ${hosted || 'not configured'}`;
+  });
+  const budget = data.hosted?.artBudget;
+  if (budget?.state === 'unset') lines.push('art budget: not set; only the user can set one, above the message box');
+  else if (budget?.state === 'off') lines.push('art budget: 0 credits; the user chose not to spend credits on this project');
+  else if (budget?.state === 'set') {
+    const spending = budget.mode === 'ask'
+      ? `spend only what the user approves on an art card${budget.approvedCredits ? `; ${budget.approvedCredits} approved credits left` : ''}`
+      : 'spend within the budget';
+    lines.push(`art budget: ${budget.remainingCredits} of ${budget.limitCredits} credits left, mode ${budget.mode} (${spending})`);
+  }
+  return lines;
+}
+
 async function runMedia(args) {
   const sub = args.find((a) => !a.startsWith('-')) || '';
   if (sub === 'help' || sub === '-h' || sub === '--help' || sub === '') {
@@ -910,19 +932,20 @@ async function runMedia(args) {
   const idx = args.indexOf(sub);
   const subArgs = [...args.slice(0, idx), ...args.slice(idx + 1)];
   if (sub === 'capabilities') {
-    const flags = parseFlags(subArgs, { string: ['daemon-url'], boolean: ['json', 'help', 'h'] });
+    const flags = parseFlags(subArgs, { string: ['daemon-url', 'project'], boolean: ['json', 'help', 'h'] });
     if (flags.help || flags.h) { printMediaHelp(); return; }
     const daemonUrl = await cliDaemonUrl(flags);
     const token = process.env.PIXO_TOOL_TOKEN;
-    const response = await fetch(`${daemonUrl.replace(/\/$/, '')}/api/media/capabilities`, {
+    // The project names whose art budget to report; an agent's token names its own.
+    const project = flags.project || process.env.PIXO_PROJECT_ID || '';
+    const query = project ? `?${new URLSearchParams({ projectId: project })}` : '';
+    const response = await fetch(`${daemonUrl.replace(/\/$/, '')}/api/media/capabilities${query}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!response.ok) throw new Error(`Media capabilities request failed (${response.status})`);
     const data: GetMediaCapabilitiesResponse = await response.json();
     if (flags.json) console.log(JSON.stringify(data));
-    else for (const [capability, status] of Object.entries(data.capabilities)) {
-      console.log(`${capability}: ${status.configured ? `configured (${status.providers.join(', ')})` : 'not configured'}`);
-    }
+    else for (const line of mediaCapabilityLines(data)) console.log(line);
     return;
   }
   if (sub === 'models') {
@@ -1539,7 +1562,7 @@ function printMediaHelp() {
   console.log(`Usage: ${PRODUCT_CLI_NAME} media models [--cloud --project <id>] --json
        ${PRODUCT_CLI_NAME} media image-models [--json]   Image models the agent can make art with here;
                                                  pick one with: config set agentImageModel <id|${AGENT_IMAGE_MODEL_AUTOMATIC}>
-       ${PRODUCT_CLI_NAME} media capabilities [--json]
+       ${PRODUCT_CLI_NAME} media capabilities [--project <id>] [--json]   Own tools, what credits make, the art budget
        ${PRODUCT_CLI_NAME} media scaffold --composition-dir .hyperframes-cache/<id> [opts]
        ${PRODUCT_CLI_NAME} media generate --surface <image|video|audio|model3d> --model <id> [opts]
        "$PIXO_NODE_BIN" "$PIXO_BIN" media generate --surface <image|video|audio|model3d> --model <id> [opts]

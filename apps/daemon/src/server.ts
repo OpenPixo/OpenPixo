@@ -2690,6 +2690,8 @@ export async function startServer({
     generateMedia: (args) => generateMedia({ ...args, desktopFrameRenderer, openpixoHosted: openPixoHosted }),
     openpixoHosted: openPixoHosted,
     artBudget: artBudgetLedger,
+    // `GET /api/media/capabilities` lists credits as a way to make a kind only when signed in.
+    hasCloudSession: () => openPixoAccount.hasSession(),
     mediaTasks: mediaTaskStore.mediaTasks,
     createMediaTask: mediaTaskStore.createMediaTask,
     persistMediaTask: mediaTaskStore.persistMediaTask,

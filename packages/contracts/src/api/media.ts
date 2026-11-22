@@ -1,4 +1,5 @@
 import type { MediaImageSheetRequest, MediaSheetPiece, MediaSheetResult } from './media-sheet.js';
+import type { ArtSpendingMode } from './art-budget.js';
 /** A provider voice choice used by the speech asset picker. */
 export interface AudioVoiceOption {
   name: string;
@@ -113,9 +114,45 @@ export interface MediaProviderAvailability {
   reason?: string;
 }
 
+/**
+ * A kind the signed-in user can also make with credits. Hosted runs come after every
+ * own tool; an agent's request is paid from the project's art budget.
+ */
+export interface MediaCapabilityHosted {
+  paidWith: 'credits';
+  /** Neutral hosted service ids; never an upstream vendor. */
+  services: string[];
+  /** Reached only through recipes, never `media generate` (the looping sprite clip). */
+  recipesOnly?: true;
+}
+
+export interface MediaCapabilityStatus {
+  /** A tool of the user's own makes this kind, so nothing is spent. */
+  configured: boolean;
+  providers: string[];
+  /** Present only when signed in to the cloud. */
+  hosted?: MediaCapabilityHosted;
+}
+
+/**
+ * The project's art budget as an agent's hosted request meets it. `unset`: only the
+ * user can set one; `off`: the user chose no credits; `set`: spend within it, in
+ * `ask` mode only what the user approved on an art card.
+ */
+export interface MediaCapabilitiesArtBudget {
+  state: 'unset' | 'off' | 'set';
+  limitCredits?: number;
+  remainingCredits?: number;
+  mode: ArtSpendingMode;
+  /** Credits left on an art card approval this caller may still spend from. */
+  approvedCredits?: number;
+}
+
 /** Configured provider coverage, without credentials or endpoint details. */
 export interface GetMediaCapabilitiesResponse {
-  capabilities: Record<string, { configured: boolean; providers: string[] }>;
+  capabilities: Record<string, MediaCapabilityStatus>;
+  /** Signed in: credits are available. `artBudget` is null when the request names no project. */
+  hosted?: { paidWith: 'credits'; artBudget: MediaCapabilitiesArtBudget | null };
 }
 
 /**

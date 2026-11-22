@@ -2,11 +2,11 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Express, Request, RequestHandler, Response } from 'express';
-import type { GetMediaCapabilitiesResponse, Recipe } from '@openpixo/contracts';
+import type { ArtBudgetApproval, ArtSpendingMode, GetMediaCapabilitiesResponse, ProjectArtBudget, Recipe } from '@openpixo/contracts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as xaiTokens from '../../src/integrations/xai-tokens.js';
 import { readMaskedConfig, type MaskedConfigResponse } from '../../src/media/config.js';
-import { AUDIO_MODELS_BY_KIND, hostedAudioKind, MEDIA_PROVIDERS, type MediaModel } from '../../src/media/models.js';
+import { AUDIO_MODELS_BY_KIND, hostedAudioKind, IMAGE_MODELS, MEDIA_PROVIDERS, MODEL3D_MODELS, VIDEO_MODELS, type MediaModel } from '../../src/media/models.js';
 import { configuredRecipeProviders, modelsForRecipe, RecipeNoModelError, selectRecipeModel } from '../../src/recipes/models.js';
 import { registerMediaRoutes } from '../../src/routes/media.js';
 
@@ -67,9 +67,19 @@ function config(providers: MaskedConfigResponse['providers'] = {}): MaskedConfig
   return { providers, aliases: { effective: {}, env: {}, stored: {} } };
 }
 
+interface CapabilitiesExtras {
+  /** Replaces the test catalogue, e.g. with the real one. */
+  catalogue?: Record<string, unknown>;
+  media?: Record<string, unknown>;
+  auth?: Record<string, unknown>;
+  projectStore?: Record<string, unknown>;
+  request?: Partial<Request>;
+}
+
 async function capabilitiesResponse(
   readConfig: typeof readMaskedConfig = vi.fn(async () => config()),
   audio: typeof audioModels = audioModels,
+  extras: CapabilitiesExtras = {},
 ) {
   const root = await temporaryRoot();
   const dataRoot = await temporaryRoot();
@@ -90,18 +100,20 @@ async function capabilitiesResponse(
     },
     paths: { PROJECT_ROOT: root, PROJECTS_DIR: root, RUNTIME_DATA_DIR: dataRoot },
     ids: { randomUUID: () => 'unused' },
-    auth: functionProxy(),
+    auth: functionProxy(extras.auth),
     media: functionProxy({
       MEDIA_PROVIDERS,
       IMAGE_MODELS: imageModels,
       VIDEO_MODELS: videoModels,
       MODEL3D_MODELS: [model('gateway-3d', 'media-gateway', ['image-to-3d'])],
       AUDIO_MODELS_BY_KIND: audio,
+      ...extras.catalogue,
       readMaskedConfig: readConfig,
+      ...extras.media,
     }),
     appConfig: functionProxy(),
     nativeDialogs: functionProxy(),
-    projectStore: functionProxy(),
+    projectStore: functionProxy(extras.projectStore),
     projectFiles: functionProxy(),
     conversations: functionProxy(),
     research: functionProxy(),
@@ -119,7 +131,7 @@ async function capabilitiesResponse(
     setHeader(name: string, value: unknown) { headers.set(name.toLowerCase(), value); return this; },
     json(value: unknown) { body = value; return this; },
   };
-  await handler({} as Request, response as unknown as Response, noop);
+  await handler({ query: {}, get: () => undefined, ...extras.request } as unknown as Request, response as unknown as Response, noop);
   return { root, dataRoot, statusCode, headers, body: body as GetMediaCapabilitiesResponse };
 }
 
@@ -259,6 +271,121 @@ describe('GET /api/media/capabilities', () => {
 
     expect(response.statusCode).toBe(500);
     expect(response.body).toEqual({ error: 'Unable to read media capabilities' });
+  });
+});
+
+// C11: a signed-in credits user was told animation was impossible, because only own
+// tools counted. Hosted kinds are listed beside them, never as `configured`.
+describe('GET /api/media/capabilities for a signed-in credits user', () => {
+  const realCatalogue = { IMAGE_MODELS, VIDEO_MODELS, MODEL3D_MODELS };
+
+  function budget(limitCredits: number, usedCredits = 0): ProjectArtBudget {
+    return { limitCredits, spentCredits: usedCredits, reservedCredits: 0, usedCredits, remainingCredits: Math.max(0, limitCredits - usedCredits) };
+  }
+
+  function ledger(budgets: Record<string, ProjectArtBudget | null>, mode: ArtSpendingMode = 'ask', approval: ArtBudgetApproval | null = null) {
+    return {
+      read: vi.fn((projectId: string) => budgets[projectId] ?? null),
+      readMode: vi.fn((_projectId: string) => mode),
+      readApproval: vi.fn((_projectId: string) => approval),
+    };
+  }
+
+  const projects = { getProject: (_db: unknown, id: string) => (['game-1', 'game-2'].includes(id) ? { id, metadata: {} } : undefined) };
+
+  function signedIn(extras: CapabilitiesExtras = {}, artBudget = ledger({})) {
+    return capabilitiesResponse(vi.fn(async () => config()), AUDIO_MODELS_BY_KIND as typeof audioModels, {
+      catalogue: realCatalogue,
+      projectStore: projects,
+      ...extras,
+      media: { hasCloudSession: async () => true, artBudget, ...extras.media },
+    });
+  }
+
+  it('leaves a signed-out answer exactly as it was', async () => {
+    const response = await capabilitiesResponse(vi.fn(async () => config()), AUDIO_MODELS_BY_KIND as typeof audioModels, {
+      catalogue: realCatalogue,
+      media: { hasCloudSession: async () => false, artBudget: ledger({ 'game-1': budget(100) }) },
+      request: { query: { projectId: 'game-1' } },
+      projectStore: projects,
+    });
+    expect(response.body.hosted).toBeUndefined();
+    expect(response.body.capabilities['i2v-loop']).toEqual({ configured: false, providers: [] });
+    for (const status of Object.values(response.body.capabilities)) expect(status.hosted).toBeUndefined();
+  });
+
+  it('lists the hosted looping clip for i2v-loop, through recipes only, without calling it configured', async () => {
+    const response = await signedIn();
+    expect(response.statusCode).toBe(200);
+    expect(response.body.capabilities['i2v-loop']).toEqual({
+      configured: false,
+      providers: [],
+      hosted: { paidWith: 'credits', services: ['openpixo-walk-video'], recipesOnly: true },
+    });
+    expect(response.body.hosted).toEqual({ paidWith: 'credits', artBudget: null });
+  });
+
+  it('lists hosted image, audio and every 3D quality on credits', async () => {
+    const { capabilities } = (await signedIn()).body;
+    expect(capabilities.t2i?.hosted).toEqual({ paidWith: 'credits', services: ['openpixo-image'] });
+    expect(capabilities.i2i?.hosted).toEqual({ paidWith: 'credits', services: ['openpixo-image-edit'] });
+    expect(capabilities.sfx?.hosted?.services).toEqual(['openpixo-sfx']);
+    expect(capabilities.tts?.hosted?.services).toEqual(['openpixo-voice']);
+    expect(capabilities.music?.hosted?.services).toEqual(['openpixo-music']);
+    expect([...capabilities['image-to-3d']?.hosted?.services ?? []].sort()).toEqual(['openpixo-model3d', 'openpixo-model3d-draft', 'openpixo-model3d-high']);
+    for (const [capability, status] of Object.entries(capabilities)) {
+      expect(status.configured).toBe(false);
+      expect(status.providers).not.toContain('openpixo');
+      if (capability !== 'i2v-loop') expect(status.hosted?.recipesOnly).toBeUndefined();
+    }
+  });
+
+  it('never names the upstream media vendor', async () => {
+    const text = JSON.stringify((await signedIn()).body);
+    expect(text).not.toMatch(/\bfal\b|fal-ai|fal\.ai|elevenlabs|minimax|tripo|hunyuan|seedance|kling/iu);
+  });
+
+  it('reports the token project\'s budget and spending mode to an agent', async () => {
+    const approval: ArtBudgetApproval = { approvedCredits: 30, usedCredits: 10, remainingCredits: 20, runId: null, approvedAt: 1 };
+    const art = ledger({ 'game-1': budget(200, 50), 'game-2': budget(999) }, 'ask', approval);
+    const response = await signedIn({
+      auth: { optionalToolGrantFromRequest: () => ({ projectId: 'game-1', runId: 'run-1' }) },
+      // A token's own project wins over one the caller names.
+      request: { query: { projectId: 'game-2' } },
+    }, art);
+    expect(response.body.hosted).toEqual({
+      paidWith: 'credits',
+      artBudget: { state: 'set', limitCredits: 200, remainingCredits: 150, mode: 'ask', approvedCredits: 20 },
+    });
+    expect(art.read).toHaveBeenCalledWith('game-1');
+    expect(art.read).not.toHaveBeenCalledWith('game-2');
+  });
+
+  it('does not offer an approval another run already claimed', async () => {
+    const approval: ArtBudgetApproval = { approvedCredits: 30, usedCredits: 0, remainingCredits: 30, runId: 'run-other', approvedAt: 1 };
+    const response = await signedIn({
+      auth: { optionalToolGrantFromRequest: () => ({ projectId: 'game-1', runId: 'run-1' }) },
+    }, ledger({ 'game-1': budget(100) }, 'auto', approval));
+    expect(response.body.hosted?.artBudget).toEqual({ state: 'set', limitCredits: 100, remainingCredits: 100, mode: 'auto' });
+  });
+
+  it('says when the budget is not set yet, or set to no credits', async () => {
+    const unset = await signedIn({ request: { query: { projectId: 'game-1' } } }, ledger({}));
+    expect(unset.body.hosted?.artBudget).toEqual({ state: 'unset', mode: 'ask' });
+    const off = await signedIn({ request: { query: { projectId: 'game-1' } } }, ledger({ 'game-1': budget(0) }));
+    expect(off.body.hosted?.artBudget).toEqual({ state: 'off', limitCredits: 0, remainingCredits: 0, mode: 'ask' });
+  });
+
+  it('names no budget for a project that does not exist', async () => {
+    const response = await signedIn({ request: { query: { projectId: 'missing' } } }, ledger({ missing: budget(100) }));
+    expect(response.body.hosted).toEqual({ paidWith: 'credits', artBudget: null });
+  });
+
+  it('treats a failed session check as signed out', async () => {
+    const response = await signedIn({ media: { hasCloudSession: async () => { throw new Error('offline'); } } });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.hosted).toBeUndefined();
+    expect(response.body.capabilities['i2v-loop']).toEqual({ configured: false, providers: [] });
   });
 });
 
