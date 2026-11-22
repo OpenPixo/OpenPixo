@@ -285,6 +285,7 @@ import {
   POST_TOOL_RESUME_CONTINUATION_PROMPT,
   decidePostToolResumeRecovery,
   decideSafeRunRetry,
+  providerBusyLogLine,
 } from './run-retry-policy.js';
 import { createRunPerRequestUsageLedger, foldEventIntoPerRequestUsageLedger, scanRunEventsForUsageAnalytics } from './run-analytics-observability.js';
 import {
@@ -5057,9 +5058,10 @@ export async function startServer({
         // close/error so it emits terminal retry telemetry (run_retry_finished
         // with retry_result: 'failed') and sets run.retryFinalResult, instead
         // of finishing directly and leaving run_finished to report the fallback
-        // retry_final_result: 'not_attempted'. retryAttemptCount is already 1
-        // here, so decideSafeRunRetry suppresses with attempt_limit_reached and
-        // cannot trigger another restart loop.
+        // retry_final_result: 'not_attempted'. Every automatic retry raises
+        // retryAttemptCount and each policy caps it (one attempt, or
+        // PROVIDER_BUSY_RETRY_MAX_ATTEMPTS for a busy provider), so this
+        // cannot become an unbounded restart loop.
         finishWithRetryDecision('failed', 1, null);
       });
     };
@@ -5095,6 +5097,19 @@ export async function startServer({
         if (run.cancelRequested || design.runs.isTerminal(run.status)) return;
         spawnWhenQuiescent();
       }, wait);
+    };
+    // Daemon log line for an automatic retry of a run the model provider
+    // turned away as busy; silent for every other cause (C19).
+    const logProviderBusyRetry = (decision, failure) => {
+      const line = providerBusyLogLine({
+        runId: run.id,
+        outcome: 'retrying',
+        failure,
+        attempt: decision.retryAttemptIndex,
+        maxAttempts: decision.retryMaxAttempts,
+        delayMs: decision.retryDelayMs,
+      });
+      if (line) console.warn(line);
     };
     const finalizeRetryTelemetry = (status, decision, failure, errorCode) => {
       const attemptCount = run.retryAttemptCount ?? 0;
@@ -5273,6 +5288,7 @@ export async function startServer({
           retry_reason: postToolResumeDecision.retryReason,
           retry_delay_ms: postToolResumeDecision.retryDelayMs,
         });
+        logProviderBusyRetry(postToolResumeDecision, failure);
         run.nativeSessionContinuePending = {
 
           sessionId: liveSessionId,
@@ -5310,6 +5326,7 @@ export async function startServer({
           retry_reason: decision.retryReason,
           retry_delay_ms: decision.retryDelayMs,
         });
+        logProviderBusyRetry(decision, failure);
         scheduleRetryRestart(decision.retryDelayMs);
         return true;
       }
@@ -5349,6 +5366,19 @@ export async function startServer({
         committedWorkSeen &&
         isResumableFailure(failure);
       run.resumable = resumableFailure;
+      // A busy provider used up its automatic attempts: say so in the daemon
+      // log, which otherwise has no line for a failed run (C19).
+      if (result === 'failed') {
+        const busyFailureLine = providerBusyLogLine({
+          runId: run.id,
+          outcome: 'failed',
+          failure,
+          attempt: run.retryAttemptCount ?? 0,
+          maxAttempts: run.retryMaxAttempts ?? decision.retryMaxAttempts,
+          resumable: resumableFailure,
+        });
+        if (busyFailureLine) console.warn(busyFailureLine);
+      }
       // Surface the daemon's failure classification (already computed for
       // retry-policy + telemetry) on the run so statusBody / the SSE `end` frame
       // carry it to the chat, which maps failureDetail -> a specific named

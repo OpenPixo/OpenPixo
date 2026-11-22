@@ -2215,6 +2215,7 @@ export interface Dict {
    */
   'chat.runError.title.modelCapabilityUnsupported': string;
   'chat.runError.title.upstreamUnavailable': string;
+  'chat.runError.title.providerBusy': string;
   'chat.runError.title.toolLoop': string;
   'chat.runError.title.outputInvalid': string;
   'chat.runError.title.runtimeConfig': string;
@@ -2272,6 +2273,7 @@ export interface Dict {
   'chat.runError.modelWindowLimitMessage': string;
   'chat.runError.modelWindowLimitMessageNoTime': string;
   'chat.runError.upstreamUnavailableMessage': string;
+  'chat.runError.providerBusyMessage': string;
   'chat.runError.toolLoopMessage': string;
   'chat.runError.outputInvalidMessage': string;
   'chat.runError.runtimeConfigMessage': string;
@@ -3449,6 +3451,7 @@ export interface Dict {
   'chat.edge.retrying': string;
   'chat.edge.retryingRateLimitedTitle': string;
   'chat.edge.retryingRateLimitedDescription': string;
+  'chat.edge.retryingProviderBusyDescription': string;
   'qf.visualNext': string;
   'qf.visualPrev': string;
   'qf.visualRandom': string;

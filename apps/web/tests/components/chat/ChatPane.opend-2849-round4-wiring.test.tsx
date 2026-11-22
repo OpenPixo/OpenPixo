@@ -71,12 +71,12 @@ function renderChat(props: Partial<React.ComponentProps<typeof ChatPane>>) {
 }
 
 describe('S09a · 限流重试的那一行', () => {
-  const view = (retryCause?: 'rate_limit'): ChatReconnectView => ({
+  const view = (retryCause?: 'rate_limit' | 'provider_busy', max = 1): ChatReconnectView => ({
     reason: 'agent-retry',
     runId: 'run-1',
     conversationId: 'conv-1',
     attempt: 1,
-    max: 1,
+    max,
     exhausted: false,
     manualRetry: false,
     offline: false,
@@ -88,6 +88,16 @@ describe('S09a · 限流重试的那一行', () => {
     const row = screen.getByTestId('chat-reconnect');
     expect(row.textContent).toContain('chat.edge.retryingRateLimitedTitle');
     expect(row.textContent).toContain('chat.edge.retryingRateLimitedDescription');
+  });
+
+  // C19:服务商繁忙的重试要等几十秒、试好几次 —— 那一行说清在等对方,活不会丢。
+  it('带 retryCause=provider_busy 时说服务商在忙,并带上第几次 / 共几次', () => {
+    renderChat({ messages: [finishedTurn], reconnect: view('provider_busy', 4) });
+    const row = screen.getByTestId('chat-reconnect');
+    expect(row.textContent).toContain('chat.edge.retrying');
+    expect(row.textContent).toContain('1/4');
+    expect(row.textContent).toContain('chat.edge.retryingProviderBusyDescription');
+    expect(row.textContent).not.toContain('RateLimited');
   });
 
   it('不带原因时仍是 chat.edge.retrying', () => {
