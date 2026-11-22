@@ -32,7 +32,7 @@ import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAut
 
 import { composeGameSystemPrompt, gamePromptProjectInputs, promptEngineProfile } from './game/prompt.js';
 import { connectedImageTools, runMediaExecutionForPrompt, usableMediaProviders } from './game/media-contract.js';
-import { artBudgetRunFacts, ArtBudgetLedger } from './game/art-budget.js';
+import { artBudgetRunEndHook, artBudgetRunFacts, ArtBudgetLedger } from './game/art-budget.js';
 import { registerArtBudgetRoutes } from './routes/art-budget.js';
 import { registerAgentImageModelRoutes } from './routes/agent-image-model.js';
 import { getArtStyle, getProjectArtStyle, listArtStyles } from './styles/service.js';
@@ -2373,6 +2373,8 @@ export async function startServer({
         }
         if (status !== 'failed' && status !== 'canceled') return;
       },
+      // What a run that could not finish left of an art approval waits for the next run.
+      onTerminal: artBudgetRunEndHook(artBudgetLedger),
     }),
     analytics: analyticsService,
     getAppVersion: currentAppVersion,

@@ -52,17 +52,26 @@ export interface ArtBudgetAccountFacts {
 }
 
 /**
- * What the user approved on the latest art card. It pays for one run: the first run
- * that spends from it claims it, and no other run can. A new approval replaces it.
+ * What the user approved on the latest art card. One run spends from it at a time:
+ * the first run that spends from it claims it, and no other run can. If that run
+ * fails, or its paid art did not all deliver, the rest carries over to the next run,
+ * which finishes the same list; a clean finish or the user's stop keeps it with the
+ * run. However many runs it pays, it pays no more than the user approved. A new
+ * approval replaces it, carried over or not.
  */
 export interface ArtBudgetApproval {
   approvedCredits: number;
-  /** Charges the claiming run made against it, reserved or settled. */
+  /** Charges every run that held it made against it, reserved or settled. */
   usedCredits: number;
   remainingCredits: number;
-  /** Null until a run spends from it. */
+  /** The run spending from it now; null until a run claims it, or after one left the rest over. */
   runId: string | null;
   approvedAt: number;
+  /**
+   * An earlier turn started this list and could not finish it, so the rest waits for
+   * the next turn. Absent from older daemons.
+   */
+  carriedOver?: boolean;
 }
 
 /** GET /api/projects/:id/art-budget, and the reply to changing it. */

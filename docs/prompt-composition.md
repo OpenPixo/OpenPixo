@@ -309,8 +309,9 @@ Owner decision (2026-11-11): each project has a spending mode, `ask` (the defaul
 approved on an art card: the agent ends its reply with `<art-request credits="N">` (syntax and parser
 in `api/art-request.ts`, taught by "Asking before spending" in the media contract), the chat draws it
 with an Approve button, and the click calls `POST /api/projects/:id/art-budget/approve`, which refuses
-an agent's token. One approval pays for one run, the first that spends from it, up to N and within the
-budget. A refused request gets the `approve-art` next step, which tells the agent to end with a card
+an agent's token. One approval pays one run at a time, the first that spends from it, up to N and within
+the budget; when that run could not finish the list, the rest carries over and the next turn's note says
+to finish it without a new card. A refused request gets the `approve-art` next step, which tells the agent to end with a card
 rather than report an error. Planning's style samples need no card. In `auto` mode the agent says what
 it is making and makes it within the budget. The mode and any open approval travel in the per-turn note
 (`renderArtBudgetTurnNote`'s `spending`); the card rules are stable text, present whenever something
