@@ -2,7 +2,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {
   API_ERROR_CODES, IMAGE_LOOK_FILE_EXTENSIONS, IMAGE_LOOK_MAX_FILE_BYTES, IMAGE_LOOK_QUESTION_MAX_CHARS, OPENPIXO_AGENT_IMAGE_VIEWER_MODEL,
-  type ImageLookRequest, type ImageLookResponse,
+  type CloudToolCloudRequest, type CloudToolResponse, type ImageLookRequest, type ImageLookResponse,
 } from '@openpixo/contracts';
 import { record } from '../account/supabase.js';
 import type { OpenPixoAgentGateway } from './gateway.js';
@@ -116,4 +116,24 @@ export async function lookThroughGateway(gateway: OpenPixoAgentGateway, runId: s
     creditsCharged: result.usage?.creditsCharged ?? 0,
     costMicrocredits: result.usage?.costMicrocredits ?? 0,
   };
+}
+
+/** The cloud's tool answer: `{ answer }`, nothing else. */
+export function cloudToolAnswer(response: unknown): string {
+  const answer = record(response).answer;
+  return typeof answer === 'string' ? answer.trim() : '';
+}
+
+/**
+ * One cloud tool call for a running hosted run (`pixo tool`, and `pixo look` once the cloud holds
+ * the look prompt). The cloud keeps the tool's instructions; only the question, the input and the
+ * short answer cross the daemon.
+ */
+export async function cloudToolThroughGateway(gateway: OpenPixoAgentGateway, runId: string, tool: string,
+  body: CloudToolCloudRequest, signal: AbortSignal): Promise<CloudToolResponse> {
+  const result = await gateway.toolRequest(runId, tool, Buffer.from(JSON.stringify(body)), signal);
+  if (!result.ok) throw new ImageLookError(result.status, lookErrorCode(result.code, result.status), result.message);
+  const answer = cloudToolAnswer(result.body);
+  if (!answer) throw new ImageLookError(502, 'UPSTREAM_UNAVAILABLE', 'The tool gave no answer. Ask again with a more specific question.');
+  return { answer, creditsCharged: result.usage?.creditsCharged ?? 0, costMicrocredits: result.usage?.costMicrocredits ?? 0 };
 }

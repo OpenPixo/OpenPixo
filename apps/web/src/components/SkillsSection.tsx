@@ -7,6 +7,7 @@ import {
   localizeSkillName,
 } from '../i18n/content';
 import { Icon } from './Icon';
+import { CloudSkillsPanel } from './CloudSkillsPanel';
 import type { AppConfig } from '../types';
 import type { SkillSummary } from '@openpixo/contracts';
 import {
@@ -769,6 +770,7 @@ export function SkillsSection({ cfg, setCfg, onSkillsRefresh, onSkillsChanged }:
           })}
         </div>
       )}
+      <CloudSkillsPanel />
     </section>
   );
 }

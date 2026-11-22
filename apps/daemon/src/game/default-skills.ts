@@ -9,6 +9,11 @@ export interface DefaultProjectSkillInput {
   disabledSkills?: readonly string[] | null | undefined;
   /** Skills this project already handles itself: added, switched off, or selected for the turn. */
   excludeIds?: readonly string[];
+  /**
+   * Cloud skills, passed only for a run on OpenPixo's hosted models. A local skill with the same id
+   * wins, and they follow the same engine and switch-off rules.
+   */
+  cloud?: readonly SkillInfo[];
 }
 
 /**
@@ -20,15 +25,19 @@ export interface DefaultProjectSkillInput {
  * engines (`pixo.engines`) is left out of a project on any other engine.
  */
 export function selectDefaultProjectSkills({
-  catalog, engine, disabledSkills, excludeIds = [],
+  catalog, engine, disabledSkills, excludeIds = [], cloud = [],
 }: DefaultProjectSkillInput): SkillInfo[] {
   const off = new Set([...(disabledSkills ?? []), ...excludeIds]);
   const knownEngine = engine && engine !== 'unknown' ? engine : null;
-  return catalog.filter((skill) => {
+  const local = catalog.filter((skill) => {
     if (skill.id.includes(':') || off.has(skill.id)) return false;
     if (skill.source !== 'user' && skill.mode !== 'utility') return false;
     return skillFitsEngine(skill, knownEngine);
   });
+  const localIds = new Set(catalog.map((skill) => skill.id));
+  const fromCloud = cloud.filter((skill) => !localIds.has(skill.id) && !skill.id.includes(':') && !off.has(skill.id)
+    && skillFitsEngine(skill, knownEngine));
+  return [...local, ...fromCloud];
 }
 
 /**

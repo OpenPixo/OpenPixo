@@ -466,12 +466,14 @@ import { registerOpenPixoAccountCallback, registerOpenPixoAccountRoutes } from '
 import { registerExchangeRatesRoutes } from './routes/exchange-rates.js';
 import { ExchangeRates } from './exchange-rates/service.js';
 import { registerOpenPixoAgentProxy, registerOpenPixoAgentRoutes } from './routes/openpixo-agent.js';
-import { OPENPIXO_AGENT_TOKEN_ENV, OpenPixoAgentGateway } from './openpixo-agent/gateway.js';
+import { agentRunContext, OPENPIXO_AGENT_TOKEN_ENV, OpenPixoAgentGateway } from './openpixo-agent/gateway.js';
 import {
   buildOpenPixoAgentOpenCodeConfig, OPENPIXO_AGENT_ID, openpixoAgentChoice, openpixoAgentEffort, openpixoAgentModel,
   openpixoAgentModelArg, openpixoAgentModelOffered, openpixoAgentUsesImageViewer, setOpenPixoAgentCatalogReader,
 } from './openpixo-agent/runtime.js';
 import { registerImageLookRoutes } from './routes/image-look.js';
+import { registerCloudSkillsRoutes } from './cloud-skills/routes.js';
+import { CloudSkillsService } from './cloud-skills/service.js';
 import { chooseOpenPixoAutoRunModel } from './openpixo-agent/auto-model.js';
 import { contextLimitsForRun } from './runtimes/context-limits.js';
 import { gameRecipePromptEntries } from './recipes/catalog.js';
@@ -733,6 +735,8 @@ const CHAT_ARTIFACT_QUOTA = resolveChatArtifactQuota(process.env);
 const ARTIFACTS_DIR = path.join(RUNTIME_DATA_DIR, 'artifacts');
 const PROJECTS_DIR = path.join(RUNTIME_DATA_DIR, 'projects');
 const USER_SKILLS_DIR = path.join(RUNTIME_DATA_DIR, 'skills');
+// Skills OpenPixo serves from its cloud; only hosted-model runs use them (`cloud-skills/service.ts`).
+const CLOUD_SKILLS_DIR = path.join(RUNTIME_DATA_DIR, 'cloud-skills');
 const PLUGIN_REGISTRY_ROOTS = registryRootsForDataDir(RUNTIME_DATA_DIR);
 // Disk cache + same-origin proxy for external preview media (cross-border CDN
 // images/videos referenced by plugin example.html). See plugin-asset-cache.ts.
@@ -2041,6 +2045,11 @@ export async function startServer({
     roots: { skillRoots: SKILL_ROOTS, templateRoots: DESIGN_TEMPLATE_ROOTS, allRoots: ALL_SKILL_LIKE_ROOTS },
     skills: { listSkills, findSkillById },
   });
+  const cloudSkills = new CloudSkillsService({
+    dir: CLOUD_SKILLS_DIR, account: openPixoAccount,
+    localSkillIds: async () => (await listAllSkillLikeEntries()).map((skill) => skill.id),
+  });
+  cloudSkills.start();
 
   // Chrome may strip the port from the Origin header on same-origin GET
   // requests. Only use this as a fallback for safe, idempotent GET requests;
@@ -3300,6 +3309,7 @@ export async function startServer({
     createMarketplaceFetcher,
     marketplaceRegistryIdFromUrl,
   });
+  registerCloudSkillsRoutes(app, { http: httpDeps, cloudSkills });
   registerStoreRoutes(app, {
     db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, account: openPixoAccount,
     builtInSkills: async () => builtInSkills(await listAllSkills(), (await readAppConfig(RUNTIME_DATA_DIR)).disabledSkills),
@@ -3760,6 +3770,8 @@ export async function startServer({
     mediaExecution,
     byokMediaDefaults,
     imageLook = false,
+    hostedRun = false,
+    cloudTools = [],
     projectExtensions: suppliedProjectExtensions = null,
   }) => {
     const project =
@@ -3968,11 +3980,14 @@ export async function startServer({
       agentImageModel: appConfigForPrompt?.agentImageModel,
       userInstructions, projectInstructions,
       ...(imageLook ? { imageLook: true } : {}),
+      ...(cloudTools.length ? { cloudTools } : {}),
     };
     const prompt = composeGameSystemPrompt(systemPromptInputs);
     const defaultSkills = projectId && cwd && streamFormat !== 'plain'
       ? selectDefaultProjectSkills({
           catalog: await listAllSkills(),
+          // Cloud skills are for OpenPixo's hosted models only.
+          ...(hostedRun ? { cloud: await cloudSkills.skillsForHostedRun() } : {}),
           engine: planEngineProfile?.engine,
           disabledSkills: appConfigForPrompt?.disabledSkills,
           excludeIds: [
@@ -3988,6 +4003,7 @@ export async function startServer({
     // `listSkills()` scan in `startChatRun`.
     return {
       prompt,
+      engine: planEngineProfile?.engine ?? null,
       activeSkillDir,
       activeSkillDirs: activeSkillDirs,
       defaultSkills,
@@ -4023,6 +4039,8 @@ export async function startServer({
         mediaExecution: await runMediaExecutionForPrompt(run?.mediaExecution, PROJECT_ROOT, artBudgetFacts.budgetImages, artBudgetFacts.budgetUnset),
         byokMediaDefaults,
         imageLook: openpixoAgentImageLook,
+        hostedRun: Boolean(openpixoAgentRunModel),
+        cloudTools: openpixoAgentRunModel && toolTokenGrant ? await cloudSkills.toolsForHostedRun() : [],
         // Plan §3.M2 / §3.V1 — forward the run's snapshot id so the
         // prompt composer can splice in `## Active stage` blocks.
         // Default ON; set PIXO_BUNDLED_ATOM_PROMPTS=0 to opt out.
@@ -6230,7 +6248,8 @@ export async function startServer({
       let openpixoAgentEnv = {};
       if (openpixoAgentRun) {
         // Auto has no effort of its own: each model it picks runs at its default.
-        const token = openPixoAgentGateway.open(runId, (event) => send('agent', event), openpixoAgentAuto ? null : openpixoAgentEffort(reasoning));
+        const token = openPixoAgentGateway.open(runId, (event) => send('agent', event), openpixoAgentAuto ? null : openpixoAgentEffort(reasoning),
+          agentRunContext(promptContext.engine, gamePlanPending));
         runSecrets.push(token);
         openpixoAgentEnv = { [OPENPIXO_AGENT_TOKEN_ENV]: token };
         const previousGatewayFinalize = run.onFinalize;
@@ -7536,6 +7555,7 @@ export async function startServer({
   const recipeExecutor = registerRecipeRoutes(app, { db, http: httpDeps, paths: { ...pathDeps, BUNDLED_PLUGINS_DIR }, authorizeProjectRequest, authorizeProjectToolRequest, mediaTasks: mediaTaskStore, resources: { listAllSkills },
     artBudget: { ledger: artBudgetLedger, openpixoHosted: openPixoHosted, hasSession: () => openPixoAccount.hasSession() }, gameFunnel });
   registerImageLookRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectToolRequest, gateway: openPixoAgentGateway,
+    cloudTools: () => cloudSkills.toolsForHostedRun(),
     recipeCandidateFile: (projectId, file) => recipeExecutor.stagedFileAt(projectId, file) });
 
   registerRunRoutes(app, {

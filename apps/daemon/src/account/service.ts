@@ -8,6 +8,7 @@ import { AGENT_RESPONSE_TIMEOUT_MS, agentModels, agentRunUsage, assertAgentRunKe
 import {
   assertJobId, assertQuoteId, assertServiceId, CLOUD_REQUEST_ID, generationJob, generationParams, generationQuote, generationReference, generationServices,
 } from './cloud-media.js';
+import { AGENT_CONTEXT, CLOUD_ITEM_NAME, cloudSkillCatalog, cloudToolList } from '../cloud-skills/wire.js';
 import { checkoutResponse, creditsCatalog, creditsLedger, creditsSummary, entitlementsResponse, planChangeQuote, planChangeResponse, portalResponse, storeDownloadResponse, storePurchaseResponse } from './credits.js';
 import { AccountError, accountError } from './errors.js';
 import { onlineResetResponse, onlineStatusResponse } from './online-cloud.js';
@@ -602,15 +603,40 @@ export class OpenPixoAccountService {
    * One chat-completions request for the in-app agent, sent with the signed-in
    * user's session. The raw cloud response is returned for the caller to relay.
    */
-  async agentCompletion(runKey: string, body: Uint8Array, signal: AbortSignal): Promise<Response> {
+  async agentCompletion(runKey: string, body: Uint8Array, signal: AbortSignal, context?: string | null): Promise<Response> {
+    return this.agentPost('chat/completions', runKey, body, signal, {
+      Accept: 'text/event-stream, application/json',
+      ...(context && AGENT_CONTEXT.test(context) ? { 'x-openpixo-context': context } : {}),
+    });
+  }
+
+  /** One cloud tool call (`pixo tool`) on the run's key; the raw response is returned like a completion's. */
+  async agentTool(runKey: string, tool: string, body: Uint8Array, signal: AbortSignal): Promise<Response> {
+    if (!CLOUD_ITEM_NAME.test(tool) || tool.length > 64) throw new AccountError('CLOUD_UNAVAILABLE');
+    return this.agentPost(`tools/${tool}`, runKey, body, signal, { Accept: 'application/json' });
+  }
+
+  private async agentPost(route: string, runKey: string, body: Uint8Array, signal: AbortSignal, headers: Record<string, string>): Promise<Response> {
     await this.canSignIn();
     const session = await this.currentSession();
     if (!session) throw new AccountError('ACCOUNT_SIGNED_OUT');
     const revision = this.revision;
-    const response = await this.cloud().agentStream('chat/completions', body, session.accessToken,
-      { 'x-openpixo-run': assertAgentRunKey(runKey), Accept: 'text/event-stream, application/json' }, signal, AGENT_RESPONSE_TIMEOUT_MS);
+    const response = await this.cloud().agentStream(route, body, session.accessToken,
+      { 'x-openpixo-run': assertAgentRunKey(runKey), ...headers }, signal, AGENT_RESPONSE_TIMEOUT_MS);
     if (response.status === 401 && this.session?.accessToken === session.accessToken) await this.clearSession(revision);
     return response;
+  }
+
+  /** The cloud's tool list for the hosted agent; needs a session. */
+  async agentTools() {
+    this.assertConfigured();
+    return cloudToolList(await this.withSession(token => this.cloud().agent('tools', 'GET', undefined, token)));
+  }
+
+  /** Every cloud skill and a short-lived grant to download them. Free for any signed-in account. */
+  async skillCatalog() {
+    this.assertConfigured();
+    return cloudSkillCatalog(await this.edge('skill-catalog', 'POST', {}));
   }
 
   /** The cloud's own origin, which alone may use plain http and storage headers. */

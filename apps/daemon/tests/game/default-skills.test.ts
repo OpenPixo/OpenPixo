@@ -43,6 +43,16 @@ describe('selectDefaultProjectSkills', () => {
     ];
     expect(ids(selectDefaultProjectSkills({ catalog }))).toEqual(['mine']);
   });
+
+  it('adds cloud skills after the local ones, lets a local skill of the same id win, and applies the same switches', () => {
+    const catalog = [skill('kept'), skill('shared')];
+    const cloud = [skill('shared', { source: 'user', dir: '/cloud/shared' }), skill('pacing', { source: 'user' }),
+      skill('godot-pacing', { source: 'user', engines: ['godot'] }), skill('off', { source: 'user' })];
+    const chosen = selectDefaultProjectSkills({ catalog, cloud, engine: 'phaser', disabledSkills: ['off'] });
+    expect(ids(chosen)).toEqual(['kept', 'shared', 'pacing']);
+    expect(chosen.find((entry) => entry.id === 'shared')!.dir).toBe('/catalog/shared');
+    expect(ids(selectDefaultProjectSkills({ catalog }))).toEqual(['kept', 'shared']);
+  });
 });
 
 describe('the shipped catalogue', () => {

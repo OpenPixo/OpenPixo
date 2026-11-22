@@ -28,6 +28,8 @@ import { confirmOpenPixoHosted, describeQuote, isOpenPixoHostedModel, OPENPIXO_C
 import { runCharacterCli } from './recipes/character-cli.js';
 import { runAssetCli } from './assets/asset-cli.js';
 import { runLookCli } from './openpixo-agent/look-cli.js';
+import { runToolCli } from './openpixo-agent/cloud-tool-cli.js';
+import { runCloudSkillsCli } from './cloud-skills/cli.js';
 import { runDoctorCli } from './cli-doctor.js';
 import { runProjectNextStepsCli } from './projects/next-steps-cli.js';
 import { GAME_SETUP_CLI_FLAGS, runProjectGameSetupCli } from './game/setup-cli.js';
@@ -335,6 +337,8 @@ const SUBCOMMAND_MAP = {
   character: runCharacterCli,
   asset: runAssetCli,
   look: runLookCli,
+  tool: runToolCli,
+  'cloud-skills': runCloudSkillsCli,
   game: (args) => runGameTuningDispatch(args, runGameCli),
   extensions: runProjectExtensionsCli,
   agent: (args) => {
@@ -751,6 +755,12 @@ function printRootHelp() {
 
   ${PRODUCT_CLI_NAME} look <image> --question <text> [--prompt-file <path|->] [--json]
       Ask one question about one image; the OpenPixo-credits agent sees images this way.
+
+  ${PRODUCT_CLI_NAME} tool list | tool <id> [--file <image>] [--text-file <path|->] --question <text> [--json]
+      Ask one of OpenPixo's cloud tools a question; works only with OpenPixo's models.
+
+  ${PRODUCT_CLI_NAME} cloud-skills list|sync [--json]
+      See or update the skills OpenPixo serves from its cloud for its own models.
 
   ${PRODUCT_CLI_NAME} publish [status|remove] [--project <id>] [--title <text>] [--accept-terms] [--no-build] [--json]
       Put a web game on a public link anyone can play, update it, or take it down. Only when the creator asks.

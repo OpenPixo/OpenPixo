@@ -4,6 +4,7 @@ import { INTEGRATIONS } from '../settings-nav.js';
 import { PRODUCT_CLI_NAME, PRODUCT_NAME } from '../product.js';
 import { ART_BUDGET_ESTIMATE_CREDITS } from '../api/art-budget.js';
 import type { GameExperience } from '../api/app-config.js';
+import type { CloudToolInfo } from '../api/cloud-skills.js';
 import type { ChatSessionMode } from '../api/chat.js';
 import type { EngineCommand, EngineProfile, GameEngineId } from '../api/game-project.js';
 import type { ProjectArtStylePromptInput } from '../api/styles.js';
@@ -70,6 +71,8 @@ export interface GameProjectPromptInput {
    * OpenPixo-credits agent when the cloud offers its image viewer). Absent or false: unchanged.
    */
   imageLook?: boolean | undefined;
+  /** Cloud tools this hosted run may call with `pixo tool` (look has its own block). */
+  cloudTools?: readonly CloudToolInfo[] | undefined;
   /** Recipes available to this project; the recipe block is omitted when absent or empty. */
   recipes?: ReadonlyArray<GameRecipePromptEntry> | undefined;
   planToolNote?: string | null | undefined;
@@ -833,6 +836,24 @@ PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN look <path> --question "..."\`.
 - Report what the look answered, not what you expected to see. If a look fails, say the image was not inspected.`;
 }
 
+export const GAME_CLOUD_TOOLS_BLOCK_HEADING = '## Cloud tools';
+
+/**
+ * The cloud tools a hosted run may call, one line each. Each call answers in a few lines, so a
+ * tool costs this conversation far less than a skill file would. `look` has its own block.
+ */
+export function renderCloudToolsBlock(tools: readonly CloudToolInfo[] | undefined): string {
+  const listed = [...(tools ?? [])].filter((tool) => tool.id !== 'look').sort((a, b) => a.id.localeCompare(b.id));
+  if (!listed.length) return '';
+  return [
+    GAME_CLOUD_TOOLS_BLOCK_HEADING,
+    '',
+    `Ask a cloud tool one specific question when its description fits the task: \`"$PIXO_NODE_BIN" "$PIXO_BIN" tool <id> --question "<question>"\`, adding \`--file <image>\` for an image tool or \`--text-file <path>\` for a text tool. It prints a short answer on this task's credits. Pass only what it needs to judge.`,
+    '',
+    ...listed.map((tool) => `- \`${tool.id}\` (${tool.input}): ${tool.description}`),
+  ].join('\n');
+}
+
 /**
  * All projects use their engine and files. A new project plans in chat first.
  * Block order is fixed: base rules, engine profile, project art style, game setup, the user's
@@ -861,6 +882,8 @@ export function composeOpenPixoGamePrompt(input: GameProjectPromptInput): string
   if (planBlock) parts.push(planBlock);
   parts.push(renderGameShapeBlock(canRunTools));
   if (canRunTools && input.imageLook) parts.push(renderImageLookBlock());
+  const cloudToolsBlock = canRunTools ? renderCloudToolsBlock(input.cloudTools) : '';
+  if (cloudToolsBlock) parts.push(cloudToolsBlock);
   if (canRunTools) parts.push(input.mediaContractBlock?.trim() ?? renderGameMediaGenerationContract({ engineProfile: input.engineProfile }));
   const recipesBlock = canRunTools && !planning ? renderGameRecipesBlock(input.recipes) : '';
   if (recipesBlock) parts.push(recipesBlock);

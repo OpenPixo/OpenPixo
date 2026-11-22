@@ -36,7 +36,10 @@ const MAX_CUTS_IN_A_ROW = 3;
 const TOO_MANY_CUTS_MESSAGE = 'This answer keeps running past the time limit of one hosted model response. Ask for a smaller step, or use another model.';
 
 export interface AgentCloud {
-  agentCompletion(runKey: string, body: Uint8Array, signal: AbortSignal): Promise<globalThis.Response>;
+  /** `context` is the run's {@link agentRunContext} tag, sent with the agent's own requests only. */
+  agentCompletion(runKey: string, body: Uint8Array, signal: AbortSignal, context?: string | null): Promise<globalThis.Response>;
+  /** One cloud tool call (`pixo tool`); absent on a cloud client that has none. */
+  agentTool?(runKey: string, tool: string, body: Uint8Array, signal: AbortSignal): Promise<globalThis.Response>;
   /** A relayed request or a finished run may have moved the balance. */
   creditsChanged?(): void;
 }
@@ -55,6 +58,17 @@ interface RunState {
   onUsage: (event: OpenPixoAgentUsageEvent) => void;
   reasoningEffort: OpenPixoAgentReasoningEffort | null;
   cutsInARow: number;
+  context: string | null;
+}
+
+/**
+ * What the cloud is told about a run so it can add its own instructions for this kind of game:
+ * the engine and whether the game is still being planned. Both are public words; the instructions
+ * stay in the cloud. The same run always sends the same tag, so the prompt cache holds.
+ */
+export function agentRunContext(engine: string | null | undefined, planning: boolean): string {
+  const known = typeof engine === 'string' && /^[a-z0-9-]{1,32}$/u.test(engine) ? engine : 'unknown';
+  return `engine=${known}; phase=${planning ? 'planning' : 'building'}`;
 }
 
 /**
@@ -124,12 +138,13 @@ export class OpenPixoAgentGateway {
   constructor(private readonly cloud: AgentCloud) {}
 
   /** Starts a run's gateway access and returns its token for the agent's environment. */
-  open(runId: string, onUsage: (event: OpenPixoAgentUsageEvent) => void, reasoningEffort: OpenPixoAgentReasoningEffort | null = null): string {
+  open(runId: string, onUsage: (event: OpenPixoAgentUsageEvent) => void, reasoningEffort: OpenPixoAgentReasoningEffort | null = null,
+    context: string | null = null): string {
     // A retried attempt of the same run keeps its token and running totals.
     const existing = this.runs.get(runId);
-    if (existing) { existing.onUsage = onUsage; existing.reasoningEffort = reasoningEffort; return existing.token.toString(); }
+    if (existing) { existing.onUsage = onUsage; existing.reasoningEffort = reasoningEffort; existing.context = context; return existing.token.toString(); }
     const token = randomBytes(32).toString('base64url');
-    this.runs.set(runId, { token: Buffer.from(token), usage: emptyUsage(runId), terminalError: null, onUsage, reasoningEffort, cutsInARow: 0 });
+    this.runs.set(runId, { token: Buffer.from(token), usage: emptyUsage(runId), terminalError: null, onUsage, reasoningEffort, cutsInARow: 0, context });
     return token;
   }
 
@@ -230,6 +245,17 @@ export class OpenPixoAgentGateway {
    * requests, and a refusal no retry can fix fails the run the same way. The body is never logged.
    */
   async sideRequest(runId: string, body: Uint8Array, signal: AbortSignal): Promise<GatewaySideRequestResult> {
+    return this.side(runId, () => this.cloud.agentCompletion(runId, body, signal));
+  }
+
+  /** One cloud tool call for a running hosted run, billed and refused like {@link sideRequest}. */
+  async toolRequest(runId: string, tool: string, body: Uint8Array, signal: AbortSignal): Promise<GatewaySideRequestResult> {
+    const call = this.cloud.agentTool;
+    if (!call) return { ok: false, status: 503, code: 'UPSTREAM_UNAVAILABLE', message: 'Cloud tools are not available.' };
+    return this.side(runId, () => call.call(this.cloud, runId, tool, body, signal));
+  }
+
+  private async side(runId: string, send: () => Promise<globalThis.Response>): Promise<GatewaySideRequestResult> {
     const state = this.runs.get(runId);
     if (!state) return { ok: false, status: 409, code: 'CONFLICT', message: 'This run has no OpenPixo-credits agent.' };
     if (state.terminalError) return { ok: false, status: 409, code: state.terminalError.code, message: state.terminalError.message };
@@ -239,7 +265,7 @@ export class OpenPixoAgentGateway {
     };
     let upstream: globalThis.Response;
     try {
-      upstream = await this.cloud.agentCompletion(runId, body, signal);
+      upstream = await send();
     } catch (error) {
       const failure = error instanceof AccountError ? error : new AccountError('CLOUD_UNAVAILABLE');
       return fail(failure.code, failure.message, failure.status);
@@ -281,7 +307,7 @@ export class OpenPixoAgentGateway {
     res.on('close', () => { if (!res.writableEnded) abort.abort(); });
     let upstream: globalThis.Response;
     try {
-      upstream = await this.cloud.agentCompletion(runId, withReasoningEffort(body, state.reasoningEffort), abort.signal);
+      upstream = await this.cloud.agentCompletion(runId, withReasoningEffort(body, state.reasoningEffort), abort.signal, state.context);
     } catch (error) {
       const failure = error instanceof AccountError ? error : new AccountError('CLOUD_UNAVAILABLE');
       return this.refuse(state, res, failure.code, failure.message, failure.status);

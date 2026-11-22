@@ -1476,6 +1476,17 @@ export interface Dict {
   'settings.updateStatusReadyUnknown': string;
   'settings.updateStatusInstalling': string;
   'settings.skillsHint': string;
+  'settings.cloudSkillsTitle': string;
+  'settings.cloudSkillsHint': string;
+  'settings.cloudSkillsSync': string;
+  'settings.cloudSkillsSyncing': string;
+  'settings.cloudSkillsSignIn': string;
+  'settings.cloudSkillsEmpty': string;
+  'settings.cloudSkillsShadowed': string;
+  'settings.cloudToolsTitle': string;
+  'settings.cloudSkillsSyncedAt': string;
+  'settings.cloudSkillsNeverSynced': string;
+  'settings.cloudSkillsUnavailable': string;
   'settings.skillsNew': string;
   'settings.skillsEdit': string;
   'settings.skillsDelete': string;

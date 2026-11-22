@@ -56,6 +56,7 @@ const SECTION_INPUTS = {
     'runtimeToolPrompt',
     // Follows the hosted model and the cloud catalogue: whether the run sees images through `pixo look`.
     'imageLook',
+    'cloudTools',
   ],
   'client-system': ['clientSystemPrompt'],
 } as const satisfies Readonly<Record<string, readonly string[]>>;

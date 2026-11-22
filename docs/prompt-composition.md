@@ -351,6 +351,28 @@ still lists the viewer as text only keeps sending pictures to a model that reads
 tool token, reads a project file, a verification image or a staged recipe candidate of that game,
 fits it like the agent's own pictures and sends it with the question through the run's gateway
 state, so its usage joins the run's hosted totals and out of credits fails the run as usual.
+Once the cloud lists a tool with id `look`, the route sends the question and image to that tool
+instead, and the look instructions live in the cloud; an older cloud still gets the app's own body.
+
+## Cloud skills, cloud tools and the run context tag (hosted agent)
+
+Owner decision (2026-11-23): OpenPixo may write skills, tools and instructions that stay in its
+private cloud and are used only on runs with OpenPixo's hosted models. Local skills are unchanged.
+
+- **Cloud skills** (`cloud-skills/service.ts`) are downloaded for any signed-in account into
+  `RUNTIME_DATA_DIR/cloud-skills/`, outside the skill roots, so Settings never edits them. On a hosted
+  run, `selectDefaultProjectSkills` adds them (`cloud`) to the default index after the local skills;
+  a local skill with the same id wins. They are indexed like any other skill: one line each, the
+  file read only when a task needs it.
+- **Cloud tools** are listed by the cloud. A hosted run with a tool token gets
+  `GameProjectPromptInput.cloudTools`, and the composer adds `## Cloud tools` after the look block,
+  one line per tool, sorted (`look` is left out: it has its own block). It is a stable input attributed
+  to the `runtime` section. `pixo tool <id>` calls `POST /api/tools/cloud`, which answers in a few lines
+  on the run's credits.
+- **Run context tag:** the daemon gateway sends every agent request of a hosted run with
+  `x-openpixo-context: engine=<id>; phase=planning|building` (`agentRunContext`), fixed for the run.
+  The cloud may add its own instructions for that engine and phase to the system prompt; they never
+  pass through the app. Because the tag only changes between runs, the prompt cache holds within one.
 
 ## OpenCode system prompt and step limit (hosted agent)
 
