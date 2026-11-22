@@ -33,12 +33,17 @@
  *      event so it flows through `sendAgentEvent`'s classifier.
  *
  * OpenPixo-owned threads opt into experimentalApi for persistent paginated history.
- * Codex 0.146.0 only locks paginated histories across processes when archiving;
- * its default legacy history can be archived while another process writes it.
  * Streaming itself does not require the experimental capability.
+ *
+ * Threads are never archived. Upstream archived every owned thread after each
+ * turn so its internal prompts stayed out of the Codex task list, which made
+ * every next turn begin with `thread/unarchive`. Codex refuses to resume an
+ * archived thread, even by rollout path, and its unarchive grows with the
+ * user's whole Codex history: past 30 s on ~77 GB, so every resumed turn
+ * failed once and was retried (C6, 2026-11-22). Threads that earlier versions
+ * archived are restored once, on their next turn, and then stay restored.
  */
 import { createCodexAppServerNormalizer } from './normalize.js';
-import { codexHistoryCapabilities } from './thread-cleanup.js';
 import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
 import type { AgentApprovalMode, CodexApprovalDecision, CodexApprovalRequest } from '@openpixo/contracts';
@@ -46,15 +51,6 @@ import type { AgentApprovalMode, CodexApprovalDecision, CodexApprovalRequest } f
 type JsonObject = Record<string, unknown>;
 
 export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
-
-const closedThreadProof = Symbol('closed owned Codex thread');
-
-/** Issued only by this session after its child closes; never reconstructed from a user ID. */
-export interface CodexClosedThreadCleanup {
-  readonly threadId: string;
-  readonly historyMode: 'paginated' | 'legacy';
-  readonly [closedThreadProof]: true;
-}
 
 export interface CodexAppServerSessionOptions {
   child: {
@@ -78,7 +74,11 @@ export interface CodexAppServerSessionOptions {
   sandboxMode: CodexSandboxMode;
   approvalMode?: AgentApprovalMode;
   resumeSessionId?: string | null;
-  /** Internal daemon policy; never infer ownership from a thread title. */
+  /**
+   * Internal daemon policy: request paginated history for new threads and
+   * restore an owned thread an earlier version archived. Never infer
+   * ownership from a thread title.
+   */
   manageThreadVisibility?: boolean;
   /** The daemon validated this resume handle against its captured session record. */
   resumeSessionOwned?: boolean;
@@ -104,8 +104,6 @@ export interface CodexAppServerSession {
   completedSuccessfully(): boolean;
   getDurableSessionId(): string | null;
   getLastSessionPath(): string | null;
-  /** Once-only cleanup authority, unavailable until this exact child has closed. */
-  takeClosedThreadCleanup(): CodexClosedThreadCleanup | null;
   stats(): { unknownNotifications: number; unknownItems: number };
 }
 
@@ -127,12 +125,21 @@ const REASONING_SUMMARY = 'detailed';
 
 /**
  * How long restoring an archived owned thread may take before the turn fails.
- * Unarchive scans the user's whole Codex history: 3,063 ms on a 72 GB
- * `sessions` folder with codex-cli 0.160.0 (2026-11-11), where the old 1.5 s
- * bound failed the second turn of every conversation. A turn is about to spend
- * minutes anyway, so wait generously; the bound only catches a hung server.
+ * Unarchive grows with the user's whole Codex history: 3,063 ms on a 72 GB
+ * `sessions` folder (codex-cli 0.160.0, 2026-11-11), more than 30 s on ~77 GB
+ * / 1,100+ rollouts (2026-11-22). It now happens at most once per thread, and
+ * a turn is about to spend minutes anyway, so wait; the bound only catches a
+ * hung server and stays under the daemon's 10-minute inactivity watchdog.
  */
-const UNARCHIVE_TIMEOUT_MS = 30_000;
+const UNARCHIVE_TIMEOUT_MS = 5 * 60_000;
+
+/** Paginated history reached app-server in 0.146.0; older and unknown servers keep their default. */
+function supportsPaginatedHistory(userAgent: unknown): boolean {
+  const version = typeof userAgent === 'string'
+    ? /^[^/\s]+\/(\d+)\.(\d+)\.(\d+)(?:\s|$)/u.exec(userAgent) : null;
+  if (!version) return false;
+  return Number(version[1]) > 0 || Number(version[2]) >= 146;
+}
 
 /** `default` is the daemon's synthetic "user did not choose" sentinel. */
 function chosen(value: string | null | undefined): string | null {
@@ -197,11 +204,8 @@ export function attachCodexAppServerSession(
   let handleReported = false;
   let terminalReceived = false;
   let childClosed = false;
-  let cleanupThread: CodexClosedThreadCleanup | null = null;
-  let canArchiveSafely = false;
-  let supportsPaginatedHistory = false;
-  let protectsLegacyHistory = false;
-  let archiveTimer: ReturnType<typeof setTimeout> | undefined;
+  let requestPaginatedHistory = false;
+  let unarchiveTimer: ReturnType<typeof setTimeout> | undefined;
   const ownsThread = !resumeSessionId || opts.resumeSessionOwned === true;
   let patchStreaming = false;
 
@@ -390,14 +394,6 @@ export function attachCodexAppServerSession(
       const id = typeof thread?.id === 'string' ? thread.id : null;
       if (id) {
         threadId = id;
-        canArchiveSafely = opts.manageThreadVisibility === true
-          && (protectsLegacyHistory || (supportsPaginatedHistory && thread?.historyMode === 'paginated'));
-        if (canArchiveSafely && ownsThread && id.trim()
-          && (!resumeSessionId || id === resumeSessionId)) {
-          cleanupThread = Object.freeze({ threadId: id,
-            historyMode: thread?.historyMode === 'paginated' ? 'paginated' : 'legacy',
-            [closedThreadProof]: true as const });
-        }
         const path = typeof thread?.path === 'string' ? thread.path : '';
         if (path) rolloutPath = path;
         // `thread/start` is followed by a `thread/started` notification, but
@@ -422,13 +418,18 @@ export function attachCodexAppServerSession(
             reportFatal(message);
             return;
           }
-          archiveTimer = setTimeout(() => {
+          // Only a thread an earlier version archived reaches here; once
+          // restored it is never archived again, so this runs once per thread.
+          const unarchiveStartedAt = Date.now();
+          unarchiveTimer = setTimeout(() => {
             reportFatal('codex app-server thread/unarchive timed out');
             shutdown();
           }, UNARCHIVE_TIMEOUT_MS);
           request('thread/unarchive', { threadId: resumeSessionId }, () => {
-            clearTimeout(archiveTimer);
-            archiveTimer = undefined;
+            clearTimeout(unarchiveTimer);
+            unarchiveTimer = undefined;
+            onAgentEvent({ type: 'diagnostic', name: 'codex_thread_unarchived',
+              durationMs: Date.now() - unarchiveStartedAt });
             request('thread/resume', { ...shared, threadId: resumeSessionId }, onThread);
           }, undefined, (unarchiveError) => {
             onAgentEvent({ type: 'diagnostic', name: 'codex_thread_unarchive_failed',
@@ -442,7 +443,7 @@ export function attachCodexAppServerSession(
       );
       return;
     }
-    request('thread/start', supportsPaginatedHistory ? { ...shared, historyMode: 'paginated' } : shared, onThread);
+    request('thread/start', requestPaginatedHistory ? { ...shared, historyMode: 'paginated' } : shared, onThread);
   }
 
   /** Emit the thread id on the session-capture channel, at most once. */
@@ -453,7 +454,7 @@ export function attachCodexAppServerSession(
   }
 
   function handleFrame(frame: JsonObject): void {
-    // Preserve archive replies after a terminal event, but never reopen a canceled turn.
+    // Never reopen a finished or canceled turn.
     if (turnEnded || childClosed) return;
     if (!cliReadySeen) {
       cliReadySeen = true;
@@ -514,17 +515,7 @@ export function attachCodexAppServerSession(
       const turn = isRecord(params.turn) ? params.turn : null;
       turnSucceeded = turn?.status !== 'failed';
       onTurnComplete?.();
-      if (canArchiveSafely && ownsThread && threadId
-        && (!resumeSessionId || threadId === resumeSessionId)) {
-        // The upstream archive operation checks its cross-process writer lock.
-        // A competing resume therefore refuses cleanup instead of losing history.
-        archiveTimer = setTimeout(shutdown, 1_500);
-        request('thread/archive', { threadId }, shutdown, undefined, (error) => {
-          onAgentEvent({ type: 'diagnostic', name: 'codex_thread_archive_failed',
-            message: rpcErrorText('thread/archive', error) });
-          shutdown();
-        });
-      } else shutdown();
+      shutdown();
     }
   }
 
@@ -543,7 +534,7 @@ export function attachCodexAppServerSession(
     if (turnEnded) return;
     clearApprovals(false);
     turnEnded = true;
-    if (archiveTimer) clearTimeout(archiveTimer);
+    if (unarchiveTimer) clearTimeout(unarchiveTimer);
     const stdin = child.stdin;
     if (!stdin || stdin.destroyed) return;
     try {
@@ -576,7 +567,7 @@ export function attachCodexAppServerSession(
   child.once?.('close', () => {
     childClosed = true;
     clearApprovals(false);
-    if (archiveTimer) clearTimeout(archiveTimer);
+    if (unarchiveTimer) clearTimeout(unarchiveTimer);
     pending.clear();
   });
 
@@ -591,13 +582,10 @@ export function attachCodexAppServerSession(
       capabilities: { experimentalApi: opts.manageThreadVisibility === true, requestAttestation: false },
     },
     (result) => {
-      // Verified with the official 0.146.0 and 0.153.4 binaries: paginated
-      // history has cross-process archive locks in both; legacy only in the
-      // latter. Never convert an existing legacy history or archive it on an
-      // older server. Unknown servers retain the existing resumable behavior.
-      const capabilities = codexHistoryCapabilities(result.userAgent);
-      supportsPaginatedHistory = opts.manageThreadVisibility === true && capabilities.paginated;
-      protectsLegacyHistory = opts.manageThreadVisibility === true && capabilities.legacy;
+      // New threads use paginated history where the server has it. An
+      // existing history is resumed as it is and never converted.
+      requestPaginatedHistory = opts.manageThreadVisibility === true
+        && supportsPaginatedHistory(result.userAgent);
       patchStreaming = supportsPatchStreaming(result.userAgent);
       notify('initialized', {});
       openThread();
@@ -627,12 +615,6 @@ export function attachCodexAppServerSession(
     },
     getLastSessionPath(): string | null {
       return rolloutPath;
-    },
-    takeClosedThreadCleanup(): CodexClosedThreadCleanup | null {
-      if (!childClosed || terminalReceived) return null;
-      const receipt = cleanupThread;
-      cleanupThread = null;
-      return receipt;
     },
     stats() {
       return normalizer.stats();
