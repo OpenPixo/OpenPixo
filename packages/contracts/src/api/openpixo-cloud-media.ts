@@ -178,6 +178,11 @@ export interface OpenPixoGenerationReferenceRequest {
   mime: 'image/png' | 'image/jpeg' | 'image/webp';
   bytes: number;
   delivery?: OpenPixoGenerationDelivery;
+  /**
+   * The app never saw its last upload of this image confirmed: hand out a new upload link
+   * whatever is registered. Clouds before this field ignore it.
+   */
+  fresh?: boolean;
 }
 
 export interface OpenPixoGenerationReferenceResponse {

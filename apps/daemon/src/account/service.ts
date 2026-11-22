@@ -546,11 +546,15 @@ export class OpenPixoAccountService {
     return generationQuote(await this.edge('generation-quote', 'POST', { service: assertServiceId(service), params: generationParams(params) }));
   }
 
-  /** Registers a reference image by hash; returns an upload URL only when the file is not there yet. */
-  async generationReference(sha256: string, mime: 'image/png' | 'image/jpeg' | 'image/webp', bytes: number) {
+  /**
+   * Registers a reference image by hash; returns an upload URL only when the file is not there yet.
+   * `fresh` says this app's last upload of it was never confirmed, so a cloud that knows the flag
+   * hands out a new link instead of trusting its registration. An older cloud ignores it.
+   */
+  async generationReference(sha256: string, mime: 'image/png' | 'image/jpeg' | 'image/webp', bytes: number, options: { fresh?: boolean } = {}) {
     this.assertConfigured();
     if (!/^[0-9a-f]{64}$/u.test(sha256) || !Number.isSafeInteger(bytes) || bytes < 1) throw new AccountError('GENERATION_PARAMS_INVALID');
-    const result = generationReference(await this.edge('generation-reference', 'POST', { sha256, mime, bytes, delivery: 'direct' }));
+    const result = generationReference(await this.edge('generation-reference', 'POST', { sha256, mime, bytes, delivery: 'direct', ...(options.fresh ? { fresh: true } : {}) }));
     if (result.sha256 !== sha256) throw new AccountError('CLOUD_UNAVAILABLE');
     return result;
   }

@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { gzipSync } from 'node:zlib';
+import { crc32, gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OPENPIXO_MODEL3D_PROMPT } from '@openpixo/contracts';
 import { generationJob, generationParams, generationServices } from '../../src/account/cloud-media.js';
@@ -771,5 +771,190 @@ describe('cloud-media routes', () => {
     expect(status.body).toMatchObject({ jobId: JOB_ID, state: 'succeeded', creditsCharged: 2 });
     expect(JSON.stringify(status.body)).not.toContain('secret-signed');
     expect((await h.json('/cloud-media/jobs/not-a-uuid')).body.error.code).toBe('GENERATION_JOB_NOT_FOUND');
+  });
+});
+
+/** A real PNG: signature, a 1x1 IHDR, a small IDAT and IEND, so its bytes can be extended safely. */
+function realPng(seed: number): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(4); head.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'latin1'), data])));
+    return Buffer.concat([head, Buffer.from(type, 'latin1'), data, crc]);
+  };
+  const ihdr = Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]);
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr),
+    chunk('IDAT', Buffer.alloc(80, seed)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+const QUOTE_BODY = (service = 'openpixo-image-edit') => ({ quoteId: QUOTE_ID, service, credits: 7, priceVersion: 3, paramsDigest: 'a'.repeat(64),
+  expiresAt: '2026-11-03T00:10:00.000Z', available: 98, breakdown: { base: 7, longPrompt: 0, extraReferences: 0 } });
+const CLOUD_503 = { status: 503, body: { error: { code: 'CLOUD_UNAVAILABLE', message: 'Hosted generation is unavailable. Try again.' } } };
+
+// C17 (castle run, 2026-11-22): the cloud counted a reference as there once it handed out the
+// upload link, so one lost upload made every later quote on that picture fail until it expired.
+describe('a reference whose upload was never confirmed', () => {
+  it('asks the cloud for a fresh upload link next time, instead of trusting the registration', async () => {
+    let putsOk = false;
+    let puts = 0;
+    const { h, hosted } = await setup({ vendor: () => { puts++; return new Response(null, { status: putsOk ? 200 : 503 }); } });
+    const registrations: Array<Record<string, unknown>> = [];
+    h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => {
+      registrations.push(request.body);
+      // The poisoned cloud: once registered, it answers "already there" unless told otherwise.
+      return { body: { sha256: request.body.sha256, uploadUrl: registrations.length === 1 || request.body.fresh === true ? 'https://upload.example/put?sig=s' : null } };
+    });
+    await expect(hosted.uploadReferences([{ bytes: PNG, mime: 'image/png' }])).rejects.toMatchObject({ code: 'CLOUD_UNAVAILABLE' });
+    putsOk = true;
+    const before = puts;
+    expect(await hosted.uploadReferences([{ bytes: PNG, mime: 'image/png' }])).toEqual([SHA]);
+    expect(registrations[0]).not.toHaveProperty('fresh');
+    expect(registrations[1]).toMatchObject({ sha256: SHA, fresh: true });
+    expect(puts - before).toBe(1);
+    // Confirmed now, so the next time trusts the cloud again.
+    await hosted.uploadReferences([{ bytes: PNG, mime: 'image/png' }]);
+    expect(registrations[2]).not.toHaveProperty('fresh');
+  });
+
+  it('re-uploads once a reference the cloud called uploaded when the quote then fails', async () => {
+    let uploaded = false;
+    const { h, hosted } = await setup({ vendor: () => { uploaded = true; return new Response(null, { status: 200 }); } });
+    const registrations: Array<Record<string, unknown>> = [];
+    h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => {
+      registrations.push(request.body);
+      return { body: { sha256: request.body.sha256, uploadUrl: request.body.fresh === true ? 'https://upload.example/put?sig=s' : null } };
+    });
+    let quotes = 0;
+    h.cloud.handlers.set('POST /functions/v1/generation-quote', () => { quotes++; return uploaded ? { body: QUOTE_BODY() } : CLOUD_503; });
+    await expect(hosted.quote('openpixo-image-edit', PARAMS, [{ bytes: PNG, mime: 'image/png' }])).resolves.toMatchObject({ quoteId: QUOTE_ID });
+    expect(uploaded).toBe(true);
+    expect(registrations.map(body => body.fresh === true)).toEqual([false, true]);
+    expect(quotes).toBe(2);
+  });
+
+  it('sends a byte-different copy of the picture when the cloud keeps refusing it, and generates from the copy it quoted', async () => {
+    const picture = realPng(5);
+    const original = createHash('sha256').update(picture).digest('hex');
+    const uploads: Buffer[] = [];
+    const { h, hosted, submits } = await setup({ states: ['succeeded'], vendor: (_url, init) => { uploads.push(Buffer.from(init!.body as Uint8Array)); return new Response(null, { status: 200 }); } });
+    const registrations: Array<Record<string, unknown>> = [];
+    h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => {
+      registrations.push(request.body);
+      // An older cloud ignores `fresh` and fails every registration of the poisoned picture.
+      if (request.body.sha256 === original) return CLOUD_503;
+      return { body: { sha256: request.body.sha256, uploadUrl: uploads.length ? null : 'https://upload.example/put?sig=s' } };
+    });
+    const quoted: unknown[] = [];
+    h.cloud.handlers.set('POST /functions/v1/generation-quote', (request) => { quoted.push((request.body.params as { references?: unknown }).references); return { body: QUOTE_BODY() }; });
+    await hosted.quote('openpixo-image-edit', PARAMS, [{ bytes: picture, mime: 'image/png' }]);
+    expect(registrations.slice(0, 2).map(body => [body.sha256, body.fresh === true])).toEqual([[original, false], [original, true]]);
+    const replacement = String(registrations[2]!.sha256);
+    expect(replacement).not.toBe(original);
+    expect(uploads).toHaveLength(1);
+    expect(createHash('sha256').update(uploads[0]!).digest('hex')).toBe(replacement);
+    // Still the same picture: a PNG that ends in IEND, with only a text chunk added.
+    expect(uploads[0]!.subarray(0, 8)).toEqual(picture.subarray(0, 8));
+    expect(uploads[0]!.subarray(-12).toString('latin1', 4, 8)).toBe('IEND');
+    expect(uploads[0]!.includes(Buffer.from('tEXt', 'latin1'))).toBe(true);
+    expect(quoted).toEqual([[replacement]]);
+    await hosted.generate({ ...args(), service: 'openpixo-image-edit', references: [{ bytes: picture, mime: 'image/png' }] });
+    expect(submits[0]!.body).toMatchObject({ params: { references: [replacement] } });
+  });
+
+  it('re-uploads once, under the same hash and request id, a reference the cloud called uploaded when the submit fails', async () => {
+    let uploaded = false;
+    const { h, hosted, submits } = await setup({ states: ['succeeded'], vendor: () => { uploaded = true; return new Response(null, { status: 200 }); } });
+    const registrations: Array<Record<string, unknown>> = [];
+    h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => {
+      registrations.push(request.body);
+      return { body: { sha256: request.body.sha256, uploadUrl: request.body.fresh === true ? 'https://upload.example/put?sig=s' : null } };
+    });
+    h.cloud.handlers.set('POST /functions/v1/generation-submit', (request) => { submits.push(request); return uploaded ? { body: job('running') } : CLOUD_503; });
+    await hosted.generate({ ...args(), service: 'openpixo-image-edit', references: [{ bytes: PNG, mime: 'image/png' }] });
+    expect(registrations.map(body => [body.sha256, body.fresh === true])).toEqual([[SHA, false], [SHA, true]]);
+    expect(submits.map(request => request.body.idempotencyKey)).toEqual(['studio-request-0001', 'studio-request-0001']);
+    expect(submits.map(request => (request.body.params as { references: unknown }).references)).toEqual([[SHA], [SHA]]);
+  });
+});
+
+// C14 (castle run): one "temporarily unavailable" before any charge ended an 8-clip batch.
+describe('a cloud that does not take a request before anything is charged', () => {
+  it('tries the quote again on its own', async () => {
+    const { h, hosted } = await setup();
+    let quotes = 0;
+    h.cloud.handlers.set('POST /functions/v1/generation-quote', () => (++quotes < 3 ? { disconnect: true } : { body: QUOTE_BODY('openpixo-image') }));
+    await expect(hosted.quote('openpixo-image', PARAMS)).resolves.toMatchObject({ quoteId: QUOTE_ID });
+    expect(quotes).toBe(3);
+  });
+
+  it('gives up after a few tries in words that say nothing was charged and a retry is safe', async () => {
+    const { h, hosted } = await setup();
+    let quotes = 0;
+    h.cloud.handlers.set('POST /functions/v1/generation-quote', () => { quotes++; return CLOUD_503; });
+    const failure = await refusal(hosted.quote('openpixo-image', PARAMS)) as unknown as Error & { code: string; status: number };
+    expect(quotes).toBe(3);
+    expect(failure).toMatchObject({ code: 'CLOUD_UNAVAILABLE', status: 503 });
+    expect(failure.message).toMatch(/nothing was charged/iu);
+    expect(failure.message).toMatch(/safe to send the same request again/iu);
+    expect(failure.message).not.toMatch(/contact support/iu);
+  });
+
+  it('does not repeat a quote the cloud refused outright', async () => {
+    const { h, hosted } = await setup();
+    let quotes = 0;
+    h.cloud.handlers.set('POST /functions/v1/generation-quote', () => { quotes++; return { status: 402, body: { error: { code: 'INSUFFICIENT_CREDITS', message: 'x' } } }; });
+    await expect(hosted.quote('openpixo-image', PARAMS)).rejects.toMatchObject({ code: 'INSUFFICIENT_CREDITS' });
+    expect(quotes).toBe(1);
+  });
+
+  it('tries a dropped reference registration again before a paid generate, under the one request id', async () => {
+    const { h, hosted, submits } = await setup({ states: ['succeeded'], vendor: () => new Response(null, { status: 200 }) });
+    let registrations = 0;
+    h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => (++registrations === 1 ? { disconnect: true }
+      : { body: { sha256: request.body.sha256, uploadUrl: 'https://upload.example/put?sig=s' } }));
+    await hosted.generate({ ...args(), service: 'openpixo-image-edit', references: [{ bytes: PNG, mime: 'image/png' }] });
+    expect(registrations).toBe(2);
+    expect(submits.map(request => request.body.idempotencyKey)).toEqual(['studio-request-0001']);
+  });
+});
+
+// C16 (castle run): hosted failures left nothing in the log, so nobody could tell why a clip failed.
+describe('what a hosted failure leaves in the log', () => {
+  it('logs the cloud code, the HTTP status and the cloud request id', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    cleanup.push(() => warn.mockRestore());
+    const { h, hosted } = await setup();
+    h.cloud.handlers.set('POST /functions/v1/generation-quote', () => ({ status: 500, headers: { 'sb-request-id': 'cloud-req-42' }, body: { error: { code: 'CLOUD_UNAVAILABLE', message: 'x' } } }));
+    await expect(hosted.quote('openpixo-image', PARAMS)).rejects.toMatchObject({ code: 'CLOUD_UNAVAILABLE' });
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain('quote');
+    expect(logged).toContain('500');
+    expect(logged).toContain('CLOUD_UNAVAILABLE');
+    expect(logged).toContain('cloud-req-42');
+    expect(logged).toContain('openpixo-image');
+  });
+
+  it('logs a failed reference upload by its status, never its link', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    cleanup.push(() => warn.mockRestore());
+    const { h, hosted } = await setup({ vendor: () => new Response(null, { status: 403 }) });
+    h.cloud.handlers.set('POST /functions/v1/generation-reference', (request) => ({ body: { sha256: request.body.sha256, uploadUrl: 'https://v3.fal.media/upload?sig=secret' } }));
+    await expect(hosted.uploadReferences([{ bytes: PNG, mime: 'image/png' }])).rejects.toMatchObject({ code: 'CLOUD_UNAVAILABLE' });
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain('403');
+    expect(logged).not.toMatch(/fal|secret|upload\?/iu);
+  });
+
+  it('logs a failed job by its code, job id and request id, and tells the agent to reword a refused prompt', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    cleanup.push(() => warn.mockRestore());
+    const { h, hosted } = await setup();
+    h.cloud.handlers.set('GET /functions/v1/generation-status', () => ({ body: job('failed', { errorCode: 'CONTENT_BLOCKED' }) }));
+    const failure = await refusal(hosted.generate(args()));
+    expect(failure).toMatchObject({ code: 'OPENPIXO_CONTENT_BLOCKED', status: 422, retryable: false });
+    expect(failure.message).toMatch(/Change the prompt/u);
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain('CONTENT_BLOCKED');
+    expect(logged).toContain(JOB_ID);
+    expect(logged).toContain('studio-request-0001');
   });
 });
