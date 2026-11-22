@@ -14,10 +14,18 @@ function projectGitEnv(index: string | undefined): NodeJS.ProcessEnv {
   return env;
 }
 
+/**
+ * Also for a game's own repository, whatever the user's settings: deep asset paths past Windows'
+ * 260 characters, no per-file line-ending warnings (thousands on a game, and `safecrlf=true` would
+ * refuse the snapshot outright), and no file monitor deciding from an index extension what changed.
+ * None of these changes what is recorded.
+ */
 const PROJECT_GIT_CONFIG = [
   '-c', 'core.splitIndex=false', '-c', 'core.sparseCheckout=false', '-c', 'index.sparse=false',
-  '-c', 'commit.gpgSign=false',
+  '-c', 'commit.gpgSign=false', '-c', 'core.longpaths=true', '-c', 'core.safecrlf=false', '-c', 'core.fsmonitor=false',
 ];
+
+const PROJECT_GIT_TIMEOUT_MS = 30_000;
 
 /** `gitDir` keeps the repository outside the project: the folder is only its work tree. */
 function projectGitArgs(folder: string, args: string[], gitDir: string | undefined): string[] {
@@ -25,10 +33,10 @@ function projectGitArgs(folder: string, args: string[], gitDir: string | undefin
 }
 
 /** A project's Git process cannot inherit a shell integration's alternate worktree or index. */
-export function runProjectGit(folder: string, args: string[], options: { index?: string | undefined; input?: string | undefined; signal?: AbortSignal | undefined; gitDir?: string | undefined } = {}): Promise<string> {
+export function runProjectGit(folder: string, args: string[], options: { index?: string | undefined; input?: string | undefined; signal?: AbortSignal | undefined; gitDir?: string | undefined; timeoutMs?: number | undefined } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = execFile('git', projectGitArgs(folder, args, options.gitDir), { cwd: folder, env: projectGitEnv(options.index), windowsHide: true, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-      timeout: 30_000, signal: options.signal }, (error, stdout, stderr) => {
+      timeout: options.timeoutMs ?? PROJECT_GIT_TIMEOUT_MS, signal: options.signal }, (error, stdout, stderr) => {
       if (error) reject(Object.assign(error, { stderr })); else resolve(stdout);
     });
     child.stdin?.on('error', () => {});
@@ -40,7 +48,7 @@ export function runProjectGit(folder: string, args: string[], options: { index?:
 export function runProjectGitBytes(folder: string, args: string[], options: { maxBuffer: number; signal?: AbortSignal | undefined; gitDir?: string | undefined }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = execFile('git', projectGitArgs(folder, args, options.gitDir), { cwd: folder, env: projectGitEnv(undefined), windowsHide: true, encoding: 'buffer',
-      maxBuffer: options.maxBuffer, timeout: 30_000, signal: options.signal }, (error, stdout, stderr) => {
+      maxBuffer: options.maxBuffer, timeout: PROJECT_GIT_TIMEOUT_MS, signal: options.signal }, (error, stdout, stderr) => {
       if (error) reject(Object.assign(error, { stderr: stderr.toString('utf8') })); else resolve(stdout);
     });
     child.stdin?.on('error', () => {});
