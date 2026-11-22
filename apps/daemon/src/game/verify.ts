@@ -9,6 +9,7 @@ import { missingGameToolGuidance } from './verify-tools.js';
 import { executeGameProcess, GameCommandTimeout, VERIFY_LOG_LIMIT } from './verify-process.js';
 import { saveGameFrame } from './frame-store.js';
 import { godotMovieArgs } from './playtest-godot.js';
+import { godotHomeEnv } from './godot-home.js';
 import { createGodotErrorCollector, godotProjectUsesCSharp } from './playtest-diagnostics.js';
 export { gameLocalUrl, VERIFY_LOG_LIMIT } from './verify-process.js';
 export type GameWebCapture = (input: GameWebCaptureRequest) => Promise<GameWebCaptureResult>;
@@ -48,6 +49,7 @@ export async function verifyGame(options: {
   await mkdir(artifactDir, { recursive: true });
   let executed = false, unavailable = false;
   const projectUsesCSharp = profile.engine === 'godot' ? await godotProjectUsesCSharp(options.projectDir) : true;
+  const engineEnv = profile.engine === 'godot' ? await godotHomeEnv(artifactDir) : {};
   for (const name of names) {
     const command = profile.commands[name], logRef = randomUUID(), started = Date.now();
     const step: GameVerifyStep = { name, argv: [...(command?.argv ?? [])], exitCode: null, durationMs: 0, logRef, timedOut: false, status: 'skipped' };
@@ -75,7 +77,7 @@ export async function verifyGame(options: {
       }
       step.argv = argv; executed = true;
       const outcome = await executeGameProcess<GameWebCaptureResult | undefined>({ projectDir: options.projectDir, command, argv,
-        executable: tools.get(argv[0]!)!, output: append,
+        executable: tools.get(argv[0]!)!, output: append, env: engineEnv,
         ...(name === 'run' && web ? { action: async ({ urlReady, remainingMs }) => {
           const url = await urlReady;
           return request.screenshot ? options.captureWeb!({ url, timeoutMs: remainingMs(), waitMs: 1000 }) : undefined;

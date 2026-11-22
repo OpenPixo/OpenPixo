@@ -6,6 +6,7 @@ import { gamePlaytestPreset, parseGamePlaytestRequest, type EngineProfile, type 
 import { assertGamePlaytestProvenance, playtestGame, godotMovieArgs } from '../../src/game/playtest.js';
 import { registerGameVerifyResult } from '../../src/game/verify-store.js';
 import { normalizeGamePlaytestReport } from '../../src/game/playtest-store.js';
+import { GODOT_HOME_DIRNAME } from '../../src/game/godot-home.js';
 
 let root: string, projectDir: string, artifactDir: string;
 // A PNG a real decoder accepts: frames are re-encoded, not stored byte for byte.
@@ -90,7 +91,8 @@ it('samples Godot frames and treats SCRIPT ERROR on stdout as failure even after
   const result = await playtestGame({ profile: profile(['node', script], 'godot'), projectDir, artifactDir,
     request: { durationMs: 100 }, resolveTool: () => process.execPath });
   expect(result).toMatchObject({ status: 'failed', playtest: { frames: [{ width: 1 }], fps: null, pageErrors: [expect.stringContaining('SCRIPT ERROR')] } });
-  expect((await readdir(artifactDir)).every(file => file.includes('.'))).toBe(true);
+  // The movie folder is gone; Godot's own folders stay for the next run.
+  expect((await readdir(artifactDir)).every(file => file.includes('.') || file === GODOT_HOME_DIRNAME)).toBe(true);
 });
 
 it('returns Godot SCRIPT ERROR diagnostics even when it exits before producing any frames', async () => {
@@ -135,4 +137,19 @@ it('keeps Godot honest: pointer scripts are reported as unsupported input instea
     request: gamePlaytestPreset('clickGrid') });
   expect(result).toMatchObject({ status: 'unavailable', playtest: { inputSupported: false, reasonCode: 'SCRIPT_UNSUPPORTED', preset: 'clickGrid' } });
   expect(resolveTool).not.toHaveBeenCalled();
+});
+
+// C20 (2026-11-21): Godot wrote its user folder in the profile, outside Codex's sandbox, so
+// every Godot playtest asked the user for approval.
+it.runIf(process.platform === 'win32' || process.platform === 'linux')("records Godot with its own folders in the game's verification data", async () => {
+  const script = path.join(projectDir, 'env.cts');
+  await writeFile(script, `const fs=require('node:fs'); const p=process.argv[process.argv.indexOf('--write-movie')+1]; fs.writeFileSync(p.replace('.png','00001.png'), Buffer.from('${png}','base64'));
+    console.log('ENV=' + JSON.stringify({ APPDATA: process.env.APPDATA ?? null, XDG_DATA_HOME: process.env.XDG_DATA_HOME ?? null }));`);
+  const result = await playtestGame({ profile: profile(['node', script], 'godot'), projectDir, artifactDir,
+    request: { durationMs: 100 }, resolveTool: () => process.execPath });
+  expect(result.status).toBe('passed');
+  const line = (await readFile(path.join(artifactDir, result.steps[0]!.logRef + '.log'), 'utf8')).split(/\r?\n/).find(entry => entry.startsWith('ENV='))!;
+  const home = path.join(artifactDir, GODOT_HOME_DIRNAME);
+  expect(JSON.parse(line.slice(4))).toMatchObject(process.platform === 'win32'
+    ? { APPDATA: path.join(home, 'Roaming') } : { XDG_DATA_HOME: path.join(home, 'data') });
 });
