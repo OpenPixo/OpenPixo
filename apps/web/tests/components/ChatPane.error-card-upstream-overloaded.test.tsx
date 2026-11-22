@@ -155,9 +155,10 @@ describe('上游过载(R-051 / S10)在报错卡上有自己的文案', () => {
     }
   });
 
+  // `provider_high_demand` 有了自己的「服务商繁忙」卡(C19),文案断言见
+  // `ChatPane.error-card-provider-busy.test.tsx`;这里只留 `upstream_5xx`。
   it.each([
     ['upstream_5xx'],
-    ['provider_high_demand'],
   ])('%s → 服务暂时不可用,不是通用「任务执行失败」', (failureDetail) => {
     const { container } = renderChat(failedMessage(failureDetail));
     const description = descriptionOf(container);

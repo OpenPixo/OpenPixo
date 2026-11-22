@@ -56,9 +56,10 @@ export interface ReconnectProps {
   /**
    * 自动重跑的原因(只对 `agent-retry` 有意义)。`rate_limit` 时那一行说产品
    * 《报错文案》S09a 那一格:「模型服务请求繁忙」+ 正文(OPEND-2849)。不传 = 原因
-   * 不是限流或不知道,照旧说「正在重试」。
+   * 不是限流或不知道,照旧说「正在重试」。`provider_busy`(服务商繁忙,C19)时标题
+   * 仍是「正在重试 N/M」,下面补一句对方在忙、做好的不会丢。
    */
-  retryCause?: 'rate_limit';
+  retryCause?: 'rate_limit' | 'provider_busy';
   /** 次数用尽:停止自动重连,交回给人(22-3)。 */
   exhausted?: boolean;
   /** 手动点击后的乐观反馈，尚不是传输层实际连接尝试。 */
@@ -125,6 +126,7 @@ export function Reconnect({
    */
   const showCount = max > 1;
   const rateLimitedRetry = reason === 'agent-retry' && retryCause === 'rate_limit';
+  const providerBusyRetry = reason === 'agent-retry' && retryCause === 'provider_busy';
 
   return (
     <div className={styles.row} data-testid="chat-reconnect">
@@ -147,6 +149,13 @@ export function Reconnect({
           ? (
             <span className={styles.description}>
               {t('chat.edge.retryingRateLimitedDescription')}
+            </span>
+          )
+          : null}
+        {providerBusyRetry
+          ? (
+            <span className={styles.description}>
+              {t('chat.edge.retryingProviderBusyDescription')}
             </span>
           )
           : null}

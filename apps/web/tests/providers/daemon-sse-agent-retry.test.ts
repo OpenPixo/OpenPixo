@@ -143,6 +143,21 @@ describe('传输层把 run_retry_attempted 转成 UI 读数', () => {
     expect(seen[0]).toEqual({ attempt: 1, max: 1, phase: 'retrying', cause: 'rate_limit' });
   });
 
+  // C19:服务商繁忙时 daemon 会隔几十秒重试好几次,那一行要说清是在等对方。
+  it('因服务商繁忙触发的重试带上 cause=provider_busy', async () => {
+    const seen = await runStream([
+      sseEvent(1, 'run_retry_attempted', {
+        ...REAL_RETRY_FRAME,
+        retry_attempt_index: 2,
+        retry_max_attempts: 4,
+        failure_category: 'upstream_unavailable',
+        failure_detail: 'provider_high_demand',
+      }),
+      sseEvent(2, 'end', { status: 'failed', code: 1 }),
+    ]);
+    expect(seen[0]).toEqual({ attempt: 2, max: 4, phase: 'retrying', cause: 'provider_busy' });
+  });
+
   it('一条重试帧都没有的普通流不发任何读数', async () => {
     const seen = await runStream([
       sseEvent(1, 'start', { bin: 'amr' }),

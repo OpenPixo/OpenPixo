@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS,
+  MAX_PROVIDER_BUSY_RETRY_DELAY_MS,
   MAX_RETRY_BACKOFF_DELAY_MS,
+  PROVIDER_BUSY_RETRY_BASE_DELAY_MS,
+  PROVIDER_BUSY_RETRY_MAX_ATTEMPTS,
   RATE_LIMIT_RETRY_BASE_DELAY_MS,
   SAFE_RUN_RETRY_STRATEGY,
   NATIVE_SESSION_CONTINUE_STRATEGY,
@@ -10,6 +13,8 @@ import {
   computeRetryBackoffMs,
   decidePostToolResumeRecovery,
   decideSafeRunRetry,
+  isProviderBusyFailure,
+  providerBusyLogLine,
   type RunRetryPolicyInput,
 } from '../src/run-retry-policy.js';
 
@@ -476,6 +481,161 @@ describe('decidePostToolResumeRecovery', () => {
       retryMaxAttempts: 2,
       retryStrategy: NATIVE_SESSION_CONTINUE_STRATEGY,
     });
+  });
+});
+
+// C19: a Codex run failed after ~20 minutes of work because the model provider
+// answered "high demand"; one immediate retry hit the same wall. A busy
+// provider clears in minutes, not milliseconds, so this one detail gets a
+// larger budget and a backoff that spreads the attempts over a couple of
+// minutes. Every other category keeps its single attempt.
+describe('provider busy (provider_high_demand) retries', () => {
+  const busyBeforeOutput = {
+    failure_category: 'upstream_unavailable',
+    failure_detail: 'provider_high_demand',
+    failure_stage: 'first_token_wait',
+    retryable: true,
+  } as const;
+  const busyAfterTools = {
+    ...busyBeforeOutput,
+    failure_stage: 'post_tool_resume',
+  } as const;
+
+  it('retries a busy provider more than once before the run fails', () => {
+    for (let attemptCount = 0; attemptCount < PROVIDER_BUSY_RETRY_MAX_ATTEMPTS; attemptCount += 1) {
+      expect(decide({ failure: busyBeforeOutput, attemptCount })).toMatchObject({
+        shouldRetry: true,
+        retryAttemptIndex: attemptCount + 1,
+        retryMaxAttempts: PROVIDER_BUSY_RETRY_MAX_ATTEMPTS,
+      });
+    }
+    expect(PROVIDER_BUSY_RETRY_MAX_ATTEMPTS).toBeGreaterThan(1);
+    expect(
+      decide({ failure: busyBeforeOutput, attemptCount: PROVIDER_BUSY_RETRY_MAX_ATTEMPTS }),
+    ).toMatchObject({
+      shouldRetry: false,
+      retrySuppressedReason: 'attempt_limit_reached',
+      retryMaxAttempts: PROVIDER_BUSY_RETRY_MAX_ATTEMPTS,
+    });
+  });
+
+  it('keeps every other transient detail at a single attempt', () => {
+    expect(decide({ attemptCount: 1 })).toMatchObject({
+      shouldRetry: false,
+      retrySuppressedReason: 'attempt_limit_reached',
+      retryMaxAttempts: DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS,
+    });
+    expect(decidePostToolResume({ continuationAttemptCount: 1 })).toBeNull();
+  });
+
+  it('waits longer before each attempt, spreading them over a couple of minutes', () => {
+    const ceilings = [] as number[];
+    const floors = [] as number[];
+    for (let attemptCount = 0; attemptCount < PROVIDER_BUSY_RETRY_MAX_ATTEMPTS; attemptCount += 1) {
+      const high = decide({ failure: busyBeforeOutput, attemptCount, random: () => 1 });
+      const low = decide({ failure: busyBeforeOutput, attemptCount, random: () => 0 });
+      if (!high.shouldRetry || !low.shouldRetry) throw new Error('expected a retry');
+      ceilings.push(high.retryDelayMs);
+      floors.push(low.retryDelayMs);
+    }
+    for (let i = 1; i < ceilings.length; i += 1) {
+      expect(ceilings[i]!).toBeGreaterThan(ceilings[i - 1]!);
+    }
+    expect(ceilings[0]).toBe(PROVIDER_BUSY_RETRY_BASE_DELAY_MS);
+    expect(Math.max(...ceilings)).toBeLessThanOrEqual(MAX_PROVIDER_BUSY_RETRY_DELAY_MS);
+    const shortestTotal = floors.reduce((sum, delay) => sum + delay, 0);
+    const longestTotal = ceilings.reduce((sum, delay) => sum + delay, 0);
+    expect(shortestTotal).toBeGreaterThanOrEqual(60_000);
+    expect(longestTotal).toBeLessThanOrEqual(180_000);
+  });
+
+  it('continues the native session after tools more than once, with the same backoff', () => {
+    const delays = [] as number[];
+    for (
+      let continuationAttemptCount = 0;
+      continuationAttemptCount < PROVIDER_BUSY_RETRY_MAX_ATTEMPTS;
+      continuationAttemptCount += 1
+    ) {
+      const decision = decidePostToolResume({
+        failure: busyAfterTools,
+        continuationAttemptCount,
+        totalRetryAttemptCount: continuationAttemptCount,
+        random: () => 1,
+      });
+      expect(decision).toMatchObject({
+        shouldRetry: true,
+        retryAttemptIndex: continuationAttemptCount + 1,
+        retryMaxAttempts: PROVIDER_BUSY_RETRY_MAX_ATTEMPTS,
+        retryStrategy: NATIVE_SESSION_CONTINUE_STRATEGY,
+      });
+      delays.push(decision!.retryDelayMs);
+    }
+    expect(delays[0]).toBe(PROVIDER_BUSY_RETRY_BASE_DELAY_MS);
+    for (let i = 1; i < delays.length; i += 1) {
+      expect(delays[i]!).toBeGreaterThan(delays[i - 1]!);
+    }
+    expect(decidePostToolResume({
+      failure: busyAfterTools,
+      continuationAttemptCount: PROVIDER_BUSY_RETRY_MAX_ATTEMPTS,
+      totalRetryAttemptCount: PROVIDER_BUSY_RETRY_MAX_ATTEMPTS,
+    })).toBeNull();
+  });
+
+  it('keeps an immediate continuation for other post-tool failures', () => {
+    expect(decidePostToolResume({ random: () => 1 })).toMatchObject({ retryDelayMs: 0 });
+  });
+
+  it('recognises only the busy-provider detail', () => {
+    expect(isProviderBusyFailure(busyBeforeOutput)).toBe(true);
+    expect(isProviderBusyFailure({ ...busyBeforeOutput, failure_detail: 'upstream_5xx' })).toBe(false);
+    expect(isProviderBusyFailure(undefined)).toBe(false);
+  });
+});
+
+describe('providerBusyLogLine', () => {
+  const failure = {
+    failure_category: 'upstream_unavailable',
+    failure_detail: 'provider_high_demand',
+    failure_stage: 'post_tool_resume',
+    retryable: true,
+  } as const;
+
+  it('names the run, the cause and the attempt when it retries', () => {
+    expect(providerBusyLogLine({
+      runId: 'run-123',
+      outcome: 'retrying',
+      failure,
+      attempt: 2,
+      maxAttempts: 4,
+      delayMs: 20_000,
+    })).toBe(
+      '[runs] model provider busy; retrying run=run-123 attempt=2/4 in=20s'
+        + ' category=upstream_unavailable detail=provider_high_demand stage=post_tool_resume',
+    );
+  });
+
+  it('names the run, the cause and the attempts used when it fails', () => {
+    expect(providerBusyLogLine({
+      runId: 'run-123',
+      outcome: 'failed',
+      failure,
+      attempt: 4,
+      maxAttempts: 4,
+      resumable: true,
+    })).toBe(
+      '[runs] model provider busy; run failed run=run-123 attempts=4/4'
+        + ' category=upstream_unavailable detail=provider_high_demand stage=post_tool_resume resumable=true',
+    );
+  });
+
+  it('says nothing for other failures', () => {
+    expect(providerBusyLogLine({
+      runId: 'run-123',
+      outcome: 'failed',
+      failure: { ...failure, failure_detail: 'upstream_5xx' },
+      attempt: 1,
+      maxAttempts: 1,
+    })).toBeNull();
   });
 });
 

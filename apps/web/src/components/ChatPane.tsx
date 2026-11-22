@@ -654,7 +654,7 @@ export function ChatPane({
   onResendUserMessage,
   onEditUserMessage,
   composerSlashActions,
-
+  onResumeRun,
 
   onStop,
   onRemoveQueuedSend,
@@ -1580,6 +1580,15 @@ export function ChatPane({
     runFailureUi?.leadsWithNewConversation === true && !!onNewConversation && !accessErrorCopy;
   // With two recovery actions, wrap them as a pair so neither is stranded alone.
   const RecoveryActions = settingsLeadsCard || newConversationLeadsCard ? RunErrorCardActionGroup : Fragment;
+  // Whether this card continues the failed run in place of retrying it: the
+  // row opts in (a busy provider), the daemon kept the run's session, and the
+  // host can resume. Retry would start the turn over and drop that work.
+  const resumeLeadsCard =
+    runFailureUi?.continuesWhenResumable === true
+    && retryAssistant?.resumable === true
+    && !!onResumeRun
+    && !accessErrorCopy;
+  const showContactSupport = runFailureUi?.omitsContactSupport !== true || !!accessErrorCopy;
 
 
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
@@ -1587,9 +1596,10 @@ export function ChatPane({
 
   const visibleRecoveryActionTypes = useMemo(() => {
     const actions: TrackingRunRecoveryActionType[] = [];
-    if (displayError && retryAssistant && onRetry) actions.push('manual_retry');
+    if (displayError && retryAssistant && resumeLeadsCard) actions.push('resume_run');
+    else if (displayError && retryAssistant && onRetry) actions.push('manual_retry');
     return actions;
-  }, [displayError, retryAssistant, onRetry]);
+  }, [displayError, retryAssistant, onRetry, resumeLeadsCard]);
   const recoveryAnalyticsProps = useCallback((
     assistantMessage: ChatMessage,
     actionType: TrackingRunRecoveryActionType,
@@ -3621,21 +3631,39 @@ export function ChatPane({
                     description={displayError}
                     actions={(
                       <>
-                        {/* OPEND-2807: two standing actions and one runtime action. */}
-                        <RunErrorCardAction
-                          type="button"
-                          className="pixo-tooltip"
-                          variant="secondary"
-                          data-testid="chat-error-contact-support"
-                          data-tooltip={t('chat.runError.contactSupportCta')}
-                          onClick={() => setSupportDialogOpen(true)}
-                        >
-                          <Icon name="headset" size={11} />
-                          {t('chat.runError.contactSupportCta')}
-                        </RunErrorCardAction>
+                        {/* OPEND-2807: two standing actions and one runtime action.
+                            A busy-provider card leaves support off (C19). */}
+                        {showContactSupport ? (
+                          <RunErrorCardAction
+                            type="button"
+                            className="pixo-tooltip"
+                            variant="secondary"
+                            data-testid="chat-error-contact-support"
+                            data-tooltip={t('chat.runError.contactSupportCta')}
+                            onClick={() => setSupportDialogOpen(true)}
+                          >
+                            <Icon name="headset" size={11} />
+                            {t('chat.runError.contactSupportCta')}
+                          </RunErrorCardAction>
+                        ) : null}
                         <ExportLogsAction />
                         <RecoveryActions>
-                          {retryAssistant && onRetry ? (
+                          {resumeLeadsCard && retryAssistant ? (
+                            <RunErrorCardAction
+                              type="button"
+                              variant="primary"
+                              data-testid="chat-error-resume"
+                              disabled={recoveryActionsDisabled}
+                              onClick={() => {
+                                trackRecoveryClick(retryAssistant, 'resume_run');
+                                onResumeRun?.(retryAssistant);
+                              }}
+                            >
+                              <Icon name="refresh" size={11} />
+                              {t('chat.resumeRunCta')}
+                            </RunErrorCardAction>
+                          ) : null}
+                          {retryAssistant && onRetry && !resumeLeadsCard ? (
                             <RunErrorCardAction
                               type="button"
                               variant={settingsLeadsCard || newConversationLeadsCard ? 'secondary' : 'primary'}

@@ -140,10 +140,20 @@ describe('文案修订不能更改错误成因和恢复能力', () => {
     expect(copy.ui.primaryAction).toBe('retry');
   });
 
-  it('上游过载保持模型服务不可用语义', () => {
-    const copy = failureCopy('AGENT_EXECUTION_FAILED', 'provider_high_demand');
+  it('上游 5xx 保持模型服务不可用语义', () => {
+    const copy = failureCopy('AGENT_EXECUTION_FAILED', 'upstream_5xx');
     expect(copy.title).toBe('模型服务暂不可用');
     expect(copy.body).toBe('当前模型暂不可用，请稍后再试，或更换模型。');
+  });
+
+  // C19:服务商繁忙不是「模型不可用」—— 活都还在,过一会儿接着做。
+  it('服务商繁忙说清是对方忙、做好的部分还在，并保留重试', () => {
+    const copy = failureCopy('AGENT_EXECUTION_FAILED', 'provider_high_demand');
+    expect(copy.title).toBe('模型服务商繁忙');
+    expect(copy.body).toBe('模型服务商这会儿太忙，自动重试了几次仍没接通。已经做好的部分都保留着，过一分钟再继续就行。');
+    expect(copy.ui.primaryAction).toBe('retry');
+    expect(copy.ui.continuesWhenResumable).toBe(true);
+    expect(copy.ui.omitsContactSupport).toBe(true);
   });
 
   
