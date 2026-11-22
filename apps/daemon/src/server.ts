@@ -246,7 +246,6 @@ import {
   codexResolvedSandboxMode,
 } from './runtimes/defs/codex.js';
 import { attachCodexAppServerSession } from './agent-protocol/codex-app-server/session.js';
-import { createCodexThreadCleanupOwner, type CodexCleanupInvocation } from './agent-protocol/codex-app-server/cleanup-owner.js';
 import {
   ensureDetectedRuntimeVersions,
   getDetectedRuntimeVersions,
@@ -2348,7 +2347,6 @@ export async function startServer({
     currentAppVersionInfo()?.version ?? UNKNOWN_APP_VERSION;
   const { analyticsService } = telemetry;
   const gameFunnel = createGameFunnelRecorder({ analytics: analyticsService, dataDir: RUNTIME_DATA_DIR, appVersion: currentAppVersion, newInsertId });
-  const codexThreadCleanupOwner = createCodexThreadCleanupOwner();
   const design = {
     runs: createChatRunService({
       createSseResponse,
@@ -6166,11 +6164,6 @@ export async function startServer({
     let writePromptToChildStdin = false;
     let promptDeliveredAtSpawn = false;
     let spawnedAgentEnv = null;
-    let codexCleanupInvocation: CodexCleanupInvocation | null = null;
-    let completeCodexEvidenceCollection = () => {};
-    const codexEvidenceCollected = def.id === 'codex'
-      ? new Promise<void>((resolve) => { completeCodexEvidenceCollection = resolve; })
-      : undefined;
     // The stream handler is block-scoped to its parser branch, but the OpenCode
     // post-run child export runs in the shared close handler below — after the
     // stream that produced the candidates is gone.
@@ -6264,13 +6257,6 @@ export async function startServer({
         args,
         env,
       });
-      if (def.streamFormat === CODEX_APP_SERVER_STREAM_FORMAT) {
-        codexCleanupInvocation = {
-          command: invocation.command, args: [...invocation.args], env: { ...env }, cwd: effectiveCwd,
-          ...(invocation.windowsVerbatimArguments !== undefined
-            ? { windowsVerbatimArguments: invocation.windowsVerbatimArguments } : {}),
-        };
-      }
       lifecycle.mark('launch_preflight_end');
       lifecycle.mark('process_spawn_start');
       // A whole-prompt stdin prompt (plain text, or the runtime's own
@@ -7010,17 +6996,6 @@ export async function startServer({
       protocolSession = codexSession;
       run.codexApprovalSession = codexSession;
       run.approvalSession = codexRunApprovalSession(codexSession);
-      if (codexCleanupInvocation) {
-        const cleanupRunId = run.id;
-        // Attach installs the session's physical-close proof first. This
-        // listener is independent of the later retry-generation close guard.
-        codexThreadCleanupOwner.bind(child, codexSession, codexCleanupInvocation, (result) => {
-          const details = { runId: cleanupRunId, ...result };
-          if (result.status === 'archived' && result.treeVerified !== false) {
-            console.info('[codex] closed-thread cleanup completed', details);
-          } else console.warn('[codex] closed-thread cleanup incomplete', details);
-        }, codexEvidenceCollected);
-      }
     } else if (def.streamFormat === 'json-event-stream') {
       // Pipe through sendAgentEvent so the OpenCode `type:'error'` frame
       // (now emitted as a real error event by json-event-stream.ts after
@@ -7111,7 +7086,6 @@ export async function startServer({
       unregisterChatAgentEventSink();
       if (run.pendingTerminalFinish) return;
       if (protocolSession) beginProtocolAttemptTermination('protocol_child_close');
-      completeCodexEvidenceCollection();
 
       // Resume-target-missing recovery runs BEFORE the generic fatal/stream-error
       // short-circuits. The signal arrives differently per adapter: codex reports
@@ -7471,9 +7445,6 @@ export async function startServer({
       }
       const retried = finishWithRetryDecision(status, code, signal);
       } finally {
-        // Superseded attempts and early/error exits also release their own
-        // receipt. The cleanup owner separately fences the shutdown deadline.
-        completeCodexEvidenceCollection();
         cleanupExtensionPlan();
       }
     });
@@ -7680,12 +7651,6 @@ export async function startServer({
         await projectAssetRoutes.close();
         const shutdownGraceMs = resolveChatRunShutdownGraceMs();
         await design.runs.shutdownActive({ graceMs: shutdownGraceMs });
-        // Cleanup runs independently of user terminal classification. Give
-        // confirmed closed writers at most three additional seconds at shutdown.
-        const cleanupDrain = await codexThreadCleanupOwner.drain(shutdownGraceMs);
-        if (cleanupDrain.pending > 0) {
-          console.warn('[codex] closed-thread cleanup shutdown deadline reached', cleanupDrain);
-        }
         await terminalService.shutdownActive();
         await design.analytics.shutdown();
       })();
