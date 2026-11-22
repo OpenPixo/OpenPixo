@@ -8,6 +8,7 @@ import { missingGameToolGuidance } from './verify-tools.js';
 import { executeGameProcess, GameCommandTimeout, VERIFY_LOG_LIMIT } from './verify-process.js';
 import { saveGameFrame, saveGamePlaytestOverview } from './frame-store.js';
 import { godotMovieArgs } from './playtest-godot.js';
+import { godotHomeEnv } from './godot-home.js';
 export { godotMovieArgs } from './playtest-godot.js';
 import { createGodotErrorCollector, godotProjectUsesCSharp } from './playtest-diagnostics.js';
 
@@ -64,7 +65,8 @@ export async function playtestGame(options: {
     if (!web) { movieDir = path.join(artifactDir, randomUUID()); await mkdir(movieDir); argv = godotMovieArgs(argv, path.join(movieDir, 'frame.png'), request.durationMs); }
     step.argv = argv;
     const timeoutMs = Math.min(120_000, command.timeoutMs + request.durationMs + 5000);
-    const outcome = await executeGameProcess<GameWebCaptureResult>({ projectDir: options.projectDir, command: { ...command, timeoutMs }, argv, executable, output: append,
+    const env = web ? {} : await godotHomeEnv(artifactDir);
+    const outcome = await executeGameProcess<GameWebCaptureResult>({ projectDir: options.projectDir, command: { ...command, timeoutMs }, argv, executable, output: append, env,
       ...(web ? { action: async ({ urlReady, remainingMs }) => {
         const url = await urlReady; return options.captureWeb!({ url, timeoutMs: remainingMs(), waitMs: 0, playtest: request });
       } } : {}) });

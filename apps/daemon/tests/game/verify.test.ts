@@ -7,6 +7,7 @@ import express, { type Response } from 'express';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { EngineProfile } from '@openpixo/contracts';
 import { gameToolResolver, verifyGame, VERIFY_LOG_LIMIT } from '../../src/game/verify.js';
+import { GODOT_HOME_DIRNAME } from '../../src/game/godot-home.js';
 import { gameVerifyArtifact, registerGameVerifyResult } from '../../src/game/verify-store.js';
 import { registerGameVerifyRoutes, type RegisterGameVerifyRoutesDeps } from '../../src/routes/game-verify.js';
 import { toolTokenRegistry } from '../../src/tool-tokens.js';
@@ -37,6 +38,9 @@ beforeEach(async () => {
       const file = process.argv[movie + 1];
       fs.writeFileSync(file.replace('.png', '00000001.png'), Buffer.from('${png}', 'base64'));
       fs.writeFileSync(file.replace('.png', '00000030.png'), Buffer.from('${png}', 'base64'));
+    } else if (mode === 'envdump') {
+      const names = ['APPDATA', 'LOCALAPPDATA', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'];
+      console.log('ENV=' + JSON.stringify(Object.fromEntries(names.map(name => [name, process.env[name] ?? null]))));
     } else if (mode === 'godotnet') {
       // Captured from Godot 4.7.1 .NET on a machine without the .NET SDK (owner run, 2026-11-16).
       console.log('Godot Engine v4.7.1.stable.mono.official.a13da4feb - https://godotengine.org');
@@ -45,7 +49,7 @@ beforeEach(async () => {
       if (process.env.PIXO_VERIFY_TEST_GAME_ERROR) console.error('SCRIPT ERROR: Parse Error: Identifier "speed" not declared in the current scope.');
     } else { process.stdout.write('x'.repeat(${VERIFY_LOG_LIMIT + 1024})); }
   `);
-  for (const mode of ['ok', 'fail', 'timeout', 'server', 'godot', 'godotnet']) {
+  for (const mode of ['ok', 'fail', 'timeout', 'server', 'godot', 'godotnet', 'envdump']) {
     const file = path.join(bin, `${mode}${process.platform === 'win32' ? '.cmd' : ''}`);
     await writeFile(file, process.platform === 'win32'
       ? `@echo off\r\n"${process.execPath}" "${script}" ${mode} %*\r\n`
@@ -185,7 +189,8 @@ it('captures the last Godot movie frame and registers absolute paths and run lin
   expect(result.screenshots).toEqual([{ ref: expect.any(String), width: 1, height: 1, path: expect.stringContaining(artifactDir) }]);
   const registered = await registerGameVerifyResult(artifactDir, result, 'agent-run');
   expect(registered).toMatchObject({ runId: 'agent-run', screenshots: [{ path: result.screenshots[0]!.path }] });
-  expect((await readdir(artifactDir)).some(file => !file.includes('.'))).toBe(false);
+  // The movie folder is gone; Godot's own folders stay for the next run.
+  expect((await readdir(artifactDir)).some(file => !file.includes('.') && file !== GODOT_HOME_DIRNAME)).toBe(false);
   await expect(gameVerifyArtifact(artifactDir, '../outside', 'log')).rejects.toThrow();
   expect(await readdir(projectDir)).toEqual([]);
 });
@@ -253,4 +258,59 @@ it('runs CLI verification locally with PIXO_PROJECT_ID and returns registered ab
   expect(result).toMatchObject({ status: 'passed', runId: 'agent-run', screenshots: [{ path: expect.stringContaining(artifactDir) }] });
   expect(path.isAbsolute(result.screenshots[0].path)).toBe(true);
   expect(request.mock.calls.map(call => String(call[0]).split('/').at(-1))).toEqual(['context', 'register']);
+});
+
+const loggedEnv = async (logRef: string) => JSON.parse((await readFile(path.join(artifactDir, `${logRef}.log`), 'utf8'))
+  .split(/\r?\n/).find(line => line.startsWith('ENV='))!.slice(4)) as Record<string, string | null>;
+
+// C20 (2026-11-21): Codex asked approval for nearly every Godot check, because Godot wrote its
+// editor settings, logs and user:// folder in the user profile, outside the sandbox.
+it.runIf(process.platform === 'win32' || process.platform === 'linux')(
+  "runs Godot with its own folders in the game's verification data, other engines with the user's", async () => {
+    const result = await run(profile({ check: command('envdump') }, 'godot'), { steps: ['check'] });
+    expect(result.status).toBe('passed');
+    const home = path.join(artifactDir, GODOT_HOME_DIRNAME);
+    const env = await loggedEnv(result.steps[0]!.logRef);
+    if (process.platform === 'win32') expect(env).toMatchObject({ APPDATA: path.join(home, 'Roaming'), LOCALAPPDATA: path.join(home, 'Local') });
+    else expect(env).toMatchObject({ XDG_DATA_HOME: path.join(home, 'data'), XDG_CONFIG_HOME: path.join(home, 'config'), XDG_CACHE_HOME: path.join(home, 'cache') });
+    const web = await run(profile({ check: command('envdump') }), { steps: ['check'] });
+    const unchanged = await loggedEnv(web.steps[0]!.logRef);
+    expect(unchanged.APPDATA ?? null).toBe(process.env.APPDATA ?? null);
+    expect(unchanged.XDG_DATA_HOME ?? null).toBe(process.env.XDG_DATA_HOME ?? null);
+  });
+
+// Agents wrapped the command to keep its JSON (`| Out-File`, `> x.json; $LASTEXITCODE`, `$r=...`), and each
+// new shape needed a new approval. `--report` saves the same JSON, so the command can stay plain.
+it('saves the JSON report with --report and still prints the summary', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (url, init) => {
+    if (String(url).endsWith('/context')) return Response.json({ profile: profile({ check: command('ok') }), projectDir, artifactDir, toolPaths: {}, webCaptureAvailable: false });
+    if (String(url).endsWith('/register')) return Response.json(await registerGameVerifyResult(artifactDir, JSON.parse(String(init?.body)).result));
+    throw new Error(String(url));
+  }));
+  const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const report = path.join(projectDir, 'checks', 'verify.json');
+  await runGameCli(['verify', '--project', 'game', '--steps', 'check', '--report', report, '--daemon-url', 'http://127.0.0.1:7456']);
+  const saved = JSON.parse(await readFile(report, 'utf8'));
+  expect(saved).toMatchObject({ status: 'passed', steps: [{ name: 'check', exitCode: 0 }] });
+  const text = log.mock.calls.flat().join('\n');
+  expect(text).toContain('Verification: passed');
+  expect(text).toContain(`Report: ${report}`);
+
+  // With --json, stdout stays the one JSON document and the file holds the same one.
+  log.mockClear();
+  const stdout = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+  await runGameCli(['verify', '--project', 'game', '--steps', 'check', '--report', report, '--json', '--daemon-url', 'http://127.0.0.1:7456']);
+  expect(stdout).toHaveBeenCalledOnce();
+  expect(JSON.parse(String(stdout.mock.calls[0]?.[0]))).toEqual(JSON.parse(await readFile(report, 'utf8')));
+  expect(log).not.toHaveBeenCalled();
+});
+
+it('saves a failure to --report as well, so the agent reads why it did not run', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ error: { message: 'project not found' } }, { status: 404 })));
+  vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  const report = path.join(projectDir, 'verify.json');
+  await runGameCli(['verify', '--project', 'game', '--report', report, '--daemon-url', 'http://127.0.0.1:7456']);
+  expect(JSON.parse(await readFile(report, 'utf8'))).toEqual({ error: { message: 'project not found' } });
+  expect(process.exitCode).toBe(1);
+  process.exitCode = undefined;
 });

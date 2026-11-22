@@ -132,7 +132,8 @@ export function resolveResearchCommandContract(
 /**
  * Folders a project run's own `pixo` commands write outside the project:
  * `game verify` and `game playtest` keep logs and screenshots under the
- * project's verify folder in daemon data, and `game install-deps` keeps the
+ * project's verify folder in daemon data (and Godot's own user folders, see
+ * `game/godot-home.ts`), and `game install-deps` keeps the
  * package manager's store and cache in the shared package cache, so they never
  * land in the game folder. Created up front, because a sandbox can only grant a
  * folder that exists; a folder that cannot be created is left out.
