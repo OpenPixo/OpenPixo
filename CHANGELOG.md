@@ -1,5 +1,39 @@
 # Changelog
 
+## OpenPixo 1.0.10
+
+- **Style samples that look like real games.** While planning, the art step draws key screens with a lit play area, a quieter background and detail where it matters, and you can ask for as many rounds of samples as you need.
+- **Side-scroller animation.** Walk, idle and attack animations for games seen from the side, made from one picture of your character. The AI now knows these animations can be made with credits instead of saying it can't.
+- **Two story starters.** New Godot and Phaser visual novels that already play, ready to rewrite into your own story.
+- **Steer a running Codex turn.** 「引导对话」 now puts your message into the turn Codex is working on, and it keeps going. Where the AI can't take a message mid-turn, the button says **Stop and send** and asks first.
+- **Fewer interruptions with Codex.** Godot checks and playtests no longer ask for approval each time, and each new turn in a long Codex conversation starts about a minute sooner. OpenPixo's Codex conversations now also show in your own Codex app's thread list.
+- **Busy model, calm message.** When the AI provider is overloaded, OpenPixo retries a few times by itself. If it still can't connect, it says your work is saved and offers **Continue**.
+- **Art you approved is not asked for twice.** If a turn could not make all the art you approved, the rest carries over to the next turn.
+- **Steadier credits art.** A reference picture whose upload failed once now heals on the next try, and a short cloud hiccup is retried before anything is charged.
+- Pictures the AI puts in its reply show in the chat.
+- Version history stays fast in large game folders, and builds, engine caches and very large files are left out of it.
+- A signed-in Codex is no longer missed on a slow check, so you are not asked to pay for art Codex can draw.
+- Chinese folder names from the folder picker stay intact, and a folder OpenPixo can't use says why.
+- A calmer, more consistent look across the app.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- **画风样图更像真正的游戏。** 规划时的画风步骤会画出主画面：游玩区域有光，背景退后，细节放在该有的地方；样图想重画几轮都可以。
+- **横版动画。** 横版游戏可以用一张角色图做出行走、待机和攻击动画。AI 现在知道这些动画能用积分生成，不会再说做不了。
+- **两个剧情游戏模板。** 新增 Godot 和 Phaser 视觉小说模板，打开就能玩，可以直接改成你自己的故事。
+- **引导正在运行的 Codex。** 「引导对话」现在会把你的消息送进 Codex 正在做的这一轮，它会接着做。AI 不能中途接收消息时，按钮显示「停止并发送」，并先问你一次。
+- **用 Codex 时打断更少。** Godot 检查和试玩不再每次都要你批准；长对话里每一轮新开始大约快一分钟。OpenPixo 的 Codex 对话现在也会出现在你自己的 Codex 应用的对话列表里。
+- **模型繁忙时说清楚。** AI 服务商太忙时，OpenPixo 会自己重试几次；仍然连不上时，会告诉你已经做好的部分都保留着，并给出「继续」。
+- **批准过的美术不会再问一次。** 如果这一轮没能做完你批准的美术，剩下的额度会留给下一轮。
+- **积分生图更稳。** 参考图上传失败过一次后，下次会自动修好；云端短暂出错时，会在扣费前先自动重试。
+- AI 在回复里放的图片会显示在对话中。
+- 大型游戏文件夹里的版本记录保持流畅，打包输出、引擎缓存和超大文件不再记录进去。
+- 已登录的 Codex 不会因为检查慢而被漏掉，不会再让你为 Codex 能免费画的图付费。
+- 用文件夹选择器选的中文文件夹名不再出错；OpenPixo 用不了某个文件夹时会说明原因。
+- 整个应用的界面更安静、更一致。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.9
 
 - **A clearer first screen.** Two ways in, each saying what it costs: **OpenPixo credits** (recommended, nothing to install, sign in inside) or **your own AI accounts**, which now says plainly it is not free and needs a terminal. Unless Codex or Claude Code is already signed in on your computer, a short check asks for a paid AI account and a terminal before setup starts, with a way back to credits.
