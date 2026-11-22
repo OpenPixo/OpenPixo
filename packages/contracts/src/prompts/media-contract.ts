@@ -376,6 +376,9 @@ export function renderArtBudgetTurnNote(budget: { limitCredits: number; usedCred
   const approval = spending.approval;
   if (approval && approval.runId === null && approval.remainingCredits > 0) {
     const left = Math.min(approval.remainingCredits, budget.remainingCredits);
+    if (approval.carriedOver) {
+      return `Art budget this turn: ${figures}. This project asks before spending. An earlier turn did not finish the art the user approved on your last art card (${approval.approvedCredits} credits, ${approval.usedCredits} used, ${left} can still be spent): make the rest of that list now, without a new art card, and skip what was already made. End with a new card only for art beyond that list.`;
+    }
     return `Art budget this turn: ${figures}. This project asks before spending, and the user approved up to ${approval.approvedCredits} credits on your last art card (${left} can still be spent): make that art now, and end with a new card for anything more.`;
   }
   return `Art budget this turn: ${figures}. This project asks before spending, and no art is approved for this turn: before making art paid from the budget, end your reply with an art card ("Asking before spending" in the media section).`;

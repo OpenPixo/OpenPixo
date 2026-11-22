@@ -23,6 +23,11 @@ import {
  * The spending mode and the latest art-card approval sit beside it for the same
  * reason. In `ask` mode a charge also needs that approval, checked and claimed in
  * the same transaction as the budget.
+ *
+ * An approval is held by one run at a time. When that run cannot finish the art
+ * (see `approvalCarriesOver`), what it left waits for the next run instead of
+ * staying with the finished one. Every run that held it is recorded, so what the
+ * approval used counts all of them and it never pays more than the user approved.
  */
 
 export type ArtBudgetChargeStatus = 'reserved' | 'spent' | 'released';
@@ -65,6 +70,49 @@ export type ReserveArtBudgetResult =
   | { ok: false; reason: 'budget'; budget: ProjectArtBudget | null }
   | { ok: false; reason: 'approval'; budget: ProjectArtBudget; approval: ArtBudgetApproval | null };
 
+/** How a run ended, as the run registry reports it. */
+export interface ArtRunEnd {
+  projectId: string | null | undefined;
+  runId: string;
+  status: string;
+  cancelOrigin?: string | null | undefined;
+}
+
+/**
+ * Whether what a run left of the approval it held carries over to the next run, so a
+ * retry finishes the approved list without a new card (C15, 2026-11-21):
+ *
+ * - a failure carries over: the turn did not get to finish the art;
+ * - so does a daemon shutdown, which is not the user stopping the turn;
+ * - a clean finish carries over only when one of the run's paid art requests did
+ *   not deliver: the cloud refused it while pricing (`noteArtFailure`), gave the
+ *   credits back, or had not answered by the end. Otherwise the turn made what it
+ *   meant to and the rest stays with it, as before;
+ * - the user's stop, a project cleanup or a cancel of unknown origin never does:
+ *   the user ended that batch, so new art waits for a new card.
+ */
+export function approvalCarriesOver(end: Pick<ArtRunEnd, 'status' | 'cancelOrigin'>, artFailed: boolean): boolean {
+  if (end.status === 'failed') return true;
+  if (end.status === 'canceled') return end.cancelOrigin === 'daemon_shutdown';
+  return end.status === 'succeeded' && artFailed;
+}
+
+/**
+ * The run registry's terminal hook. Synchronous and never throws: it runs inside the
+ * registry's own terminal transition, which a ledger problem must not break.
+ */
+export function artBudgetRunEndHook(ledger: ArtBudgetLedger) {
+  return (run: { id?: unknown; projectId?: unknown; cancelOrigin?: unknown } | null | undefined, status: string): void => {
+    try {
+      if (!run || typeof run.id !== 'string' || typeof run.projectId !== 'string') return;
+      ledger.runEnded({ projectId: run.projectId, runId: run.id, status,
+        cancelOrigin: typeof run.cancelOrigin === 'string' ? run.cancelOrigin : null });
+    } catch (error) {
+      console.warn('[art-budget] could not settle an approval at the end of a run', error);
+    }
+  };
+}
+
 /** Whether this run may spend from the approval at all, before any price is known. */
 export function approvalUsableBy(approval: ArtBudgetApproval | null, runId: string | null): approval is ArtBudgetApproval {
   return approval !== null && runId !== null && (approval.runId === null || approval.runId === runId) && approval.remainingCredits > 0;
@@ -102,6 +150,17 @@ export function migrateArtBudget(db: Database.Database): void {
       credits INTEGER NOT NULL CHECK (credits > 0),
       approved_at INTEGER NOT NULL,
       run_id TEXT
+    );
+    -- Every run that held the current approval. Their charges all count against it,
+    -- so a remainder carried over to the next run is never paid twice. A new
+    -- approval clears it. art_failed: one of the run's paid requests failed in the
+    -- cloud since it last claimed the approval (claimed_at).
+    CREATE TABLE IF NOT EXISTS project_art_approval_runs (
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      run_id TEXT NOT NULL,
+      claimed_at INTEGER NOT NULL,
+      art_failed INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (project_id, run_id)
     );
   `);
 }
@@ -173,25 +232,90 @@ export class ArtBudgetLedger {
   }
 
   /**
-   * The latest art card the user approved. What it used is what its claiming run
-   * reserved or spent since the approval; a released charge gives its share back.
+   * The latest art card the user approved. What it used is what every run that held
+   * it reserved or spent since the approval; a released charge gives its share back.
+   * An approval that a run held and none holds now was carried over.
    */
   readApproval(projectId: string): ArtBudgetApproval | null {
     const row = this.db.prepare('SELECT credits, approved_at, run_id FROM project_art_approvals WHERE project_id = ?')
       .get(projectId) as { credits: number; approved_at: number; run_id: string | null } | undefined;
     if (!row) return null;
-    const usedCredits = row.run_id === null ? 0 : (this.db.prepare(`SELECT COALESCE(SUM(credits), 0) AS credits FROM project_art_budget_charges
-      WHERE project_id = ? AND run_id = ? AND status IN ('reserved','spent') AND created_at >= ?`)
-      .get(projectId, row.run_id, row.approved_at) as { credits: number }).credits;
+    // The holder counts even without a row of its own: an approval claimed before
+    // holders were recorded has none.
+    const usedCredits = (this.db.prepare(`SELECT COALESCE(SUM(credits), 0) AS credits FROM project_art_budget_charges
+      WHERE project_id = ? AND status IN ('reserved','spent') AND created_at >= ?
+        AND (run_id = ? OR run_id IN (SELECT run_id FROM project_art_approval_runs WHERE project_id = ?))`)
+      .get(projectId, row.approved_at, row.run_id, projectId) as { credits: number }).credits;
+    const carriedOver = row.run_id === null
+      && this.db.prepare('SELECT 1 FROM project_art_approval_runs WHERE project_id = ? LIMIT 1').get(projectId) !== undefined;
     return { approvedCredits: row.credits, usedCredits, remainingCredits: Math.max(0, row.credits - usedCredits),
-      runId: row.run_id, approvedAt: row.approved_at };
+      runId: row.run_id, approvedAt: row.approved_at, carriedOver };
   }
 
-  /** Replaces any earlier approval, claimed or not. */
+  /** Replaces any earlier approval, claimed, carried over or not: approvals never add up. */
   approve(projectId: string, credits: number): void {
-    this.db.prepare(`INSERT INTO project_art_approvals (project_id, credits, approved_at, run_id) VALUES (?, ?, ?, NULL)
-      ON CONFLICT(project_id) DO UPDATE SET credits = excluded.credits, approved_at = excluded.approved_at, run_id = NULL`)
-      .run(projectId, credits, this.now());
+    this.db.transaction(() => {
+      this.db.prepare(`INSERT INTO project_art_approvals (project_id, credits, approved_at, run_id) VALUES (?, ?, ?, NULL)
+        ON CONFLICT(project_id) DO UPDATE SET credits = excluded.credits, approved_at = excluded.approved_at, run_id = NULL`)
+        .run(projectId, credits, this.now());
+      this.db.prepare('DELETE FROM project_art_approval_runs WHERE project_id = ?').run(projectId);
+    }).immediate();
+  }
+
+  /**
+   * One of this run's paid art requests failed in the cloud before anything was
+   * reserved, so its turn may end without the art it was approved for. Only the run
+   * holding the approval is noted. Such a failure leaves no charge behind to tell.
+   */
+  noteArtFailure(projectId: string, runId: string): void {
+    this.db.transaction(() => {
+      if (!this.holdsApproval(projectId, runId)) return;
+      this.recordHolder(projectId, runId, false);
+      this.db.prepare('UPDATE project_art_approval_runs SET art_failed = 1 WHERE project_id = ? AND run_id = ?').run(projectId, runId);
+    }).immediate();
+  }
+
+  /**
+   * A run ended. If it held the approval and `approvalCarriesOver` says so, what it
+   * left waits for the next run, which claims it as it would a new approval. The run
+   * stays recorded, so its charges keep counting against the approval.
+   */
+  runEnded(end: ArtRunEnd): void {
+    const { projectId, runId } = end;
+    if (typeof projectId !== 'string' || !projectId) return;
+    this.db.transaction(() => {
+      if (!this.holdsApproval(projectId, runId)) return;
+      const holder = this.recordHolder(projectId, runId, false);
+      const undelivered = holder.art_failed === 1 || this.db.prepare(`SELECT 1 FROM project_art_budget_charges
+        WHERE project_id = ? AND run_id = ? AND status IN ('released','reserved') AND created_at >= ? LIMIT 1`)
+        .get(projectId, runId, holder.claimed_at) !== undefined;
+      if (!approvalCarriesOver(end, undelivered)) return;
+      if ((this.readApproval(projectId)?.remainingCredits ?? 0) <= 0) return;
+      this.db.prepare('UPDATE project_art_approvals SET run_id = NULL WHERE project_id = ? AND run_id = ?').run(projectId, runId);
+    }).immediate();
+  }
+
+  private holdsApproval(projectId: string, runId: string): boolean {
+    const row = this.db.prepare('SELECT run_id FROM project_art_approvals WHERE project_id = ?').get(projectId) as { run_id: string | null } | undefined;
+    return row?.run_id != null && row.run_id === runId;
+  }
+
+  /**
+   * Records `runId` as a holder of the current approval. A fresh claim starts the
+   * run's attempt over, so a run resumed after a failure is judged on what it does
+   * from then on. A claim made before holders were recorded dates from the approval.
+   */
+  private recordHolder(projectId: string, runId: string, claiming: boolean): { claimed_at: number; art_failed: number } {
+    if (claiming) {
+      this.db.prepare(`INSERT INTO project_art_approval_runs (project_id, run_id, claimed_at, art_failed) VALUES (?, ?, ?, 0)
+        ON CONFLICT(project_id, run_id) DO UPDATE SET claimed_at = excluded.claimed_at, art_failed = 0`).run(projectId, runId, this.now());
+    } else {
+      this.db.prepare(`INSERT INTO project_art_approval_runs (project_id, run_id, claimed_at, art_failed)
+        SELECT project_id, ?, approved_at, 0 FROM project_art_approvals WHERE project_id = ?
+        ON CONFLICT(project_id, run_id) DO NOTHING`).run(runId, projectId);
+    }
+    return this.db.prepare('SELECT claimed_at, art_failed FROM project_art_approval_runs WHERE project_id = ? AND run_id = ?')
+      .get(projectId, runId) as { claimed_at: number; art_failed: number };
   }
 
   /**
@@ -224,6 +348,8 @@ export class ArtBudgetLedger {
         if (!approvalUsableBy(approval, input.runId) || approval.remainingCredits < input.credits) return { ok: false, reason: 'approval', budget, approval };
         if (approval.runId === null) {
           this.db.prepare('UPDATE project_art_approvals SET run_id = ? WHERE project_id = ? AND run_id IS NULL').run(input.runId, input.projectId);
+          // `approvalUsableBy` admits no run without an id.
+          this.recordHolder(input.projectId, input.runId as string, true);
         }
       }
       const at = this.now();
