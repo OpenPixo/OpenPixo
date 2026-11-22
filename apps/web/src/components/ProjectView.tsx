@@ -35,7 +35,7 @@ import { validateHtmlArtifact } from '../artifacts/validate';
 import { resolvePersistedArtifactHtml } from '../artifacts/recover';
 import { createArtifactParser } from '../artifacts/parser';
 import { useI18n } from '../i18n';
-import { type DaemonAgentReconnectState, type DaemonAgentRetryState, type DaemonReconnectState, fetchChatRunStatus, GENERIC_DAEMON_DISCONNECT_CODE, GENERIC_DAEMON_DISCONNECT_MESSAGE, listActiveChatRuns, listProjectRuns, reattachDaemonRun, streamViaDaemon } from '../providers/daemon';
+import { type DaemonAgentReconnectState, type DaemonAgentRetryState, type DaemonReconnectState, fetchChatRunStatus, GENERIC_DAEMON_DISCONNECT_CODE, GENERIC_DAEMON_DISCONNECT_MESSAGE, listActiveChatRuns, listProjectRuns, QUEUED_SEND_CANCEL_REASON, reattachDaemonRun, steerChatRun, streamViaDaemon } from '../providers/daemon';
 import {
   type ChatReconnectSignal,
   type ChatReconnectView,
@@ -65,7 +65,7 @@ import {
 import { resolveRecoveryActionBlockReason } from '../runtime/chat/recovery-gating';
 import { listNamesConversation, routedConversationVerdict } from '../runtime/chat/routed-conversation';
 import { loadConversationTranscript } from '../state/load-conversation-transcript';
-import { CONVERSATION_COMPACT_COMMAND, nativeCodexProviderForConfig, type ChatRunPurpose } from '@openpixo/contracts';
+import { agentSupportsMidTurnSteering, CONVERSATION_COMPACT_COMMAND, nativeCodexProviderForConfig, type ChatRunPurpose } from '@openpixo/contracts';
 import type { ChatRunStatusResponse, ProjectCheckpoint, RewindConversationResponse } from '@openpixo/contracts';
 import { watchedRunId } from '../runtime/chat/stale-run';
 import { useStaleRunWatchdog } from '../hooks/useStaleRunWatchdog';
@@ -2088,6 +2088,16 @@ export function ProjectView({
     () => messages.some((m) => m.role === 'assistant' && isActiveRunStatus(m.runStatus)),
     [messages],
   );
+  /** The run this conversation's latest active turn belongs to, for 「引导对话」. */
+  const currentConversationActiveRun = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index]!;
+      if (message.role === 'assistant' && isActiveRunStatus(message.runStatus) && message.runId) {
+        return { runId: message.runId, agentId: message.agentId ?? null };
+      }
+    }
+    return null;
+  }, [messages]);
   const currentConversationHasRecoverableArtifact = useMemo(
     () => messages.some((message) => hasRecoverableArtifactMessage(message)),
     [messages],
@@ -3410,6 +3420,17 @@ export function ProjectView({
   const agentsById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent])),
     [agents],
+  );
+  /**
+   * The daemon's answer for the agent running this conversation's turn: can a
+   * queued message go into that turn (「引导对话」) or only stop-and-send?
+   * Needs a known run to steer; without one the row stops and sends.
+   */
+  const currentConversationMidTurnSteering = Boolean(
+    currentConversationActiveRun
+    && agentSupportsMidTurnSteering(
+      agentsById.get(currentConversationActiveRun.agentId ?? config.agentId ?? '') ?? null,
+    ),
   );
 
   // Keep the @-picker's source of truth fresh: every refreshSignal bump
@@ -7149,16 +7170,20 @@ export function ProjectView({
   // canceled, and drop the streaming state. Defined here — ahead of the
   // queued-send handlers — because "send now" interrupts the active run to
   // make room for the prioritized send.
-  const handleStop = useCallback(() => {
+  const handleStop = useCallback((options?: { reason?: typeof QUEUED_SEND_CANCEL_REASON }) => {
     const stoppedAt = Date.now();
-{}
+    // Stop is also wired straight to click handlers, so only the one named
+    // reason counts; anything else (an event object) is a plain Stop.
+    const cancelReason = options && typeof options === 'object' && options.reason === QUEUED_SEND_CANCEL_REASON
+      ? QUEUED_SEND_CANCEL_REASON
+      : undefined;
 
     cancelSendTextBuffer(true);
     cancelReattachTextBuffers(true);
-    cancelRef.current?.abort();
+    cancelRef.current?.abort(cancelReason);
     cancelRef.current = null;
     for (const controller of reattachCancelControllersRef.current.values()) {
-      controller.abort();
+      controller.abort(cancelReason);
     }
     reattachCancelControllersRef.current.clear();
     abortRef.current?.abort();
@@ -7214,8 +7239,10 @@ export function ProjectView({
         supersededRunsRef.current.add(controller);
       }
       // handleStop releases the interrupted turn's comments back to 'open'.
+      // The `queued_send` reason makes the daemon record this turn as
+      // interrupted to send the new message, not as a plain Stop (C18).
       prioritizeQueuedChatSend(id);
-      handleStop();
+      handleStop({ reason: QUEUED_SEND_CANCEL_REASON });
       return;
     }
     void (async () => {
@@ -7225,30 +7252,50 @@ export function ProjectView({
   }, [ currentConversationBusy, handleStop, prioritizeQueuedChatSend, removeQueuedChatSend, startQueuedChatSend]);
 
   /*
-   * B11 「引导对话」 —— 队列行领头那颗按钮走的就是上面的
-   * `sendQueuedChatSendNow`(OPEND-2602)。
+   * 队列行领头那颗按钮有三副面孔(C18,`runtime/chat/queue-leading-action.ts`):
    *
-   * 它原来走的是「一个字都不打断,把消息写进 agent 子进程还开着的 stdin」
-   * (`steerChatRun`)。产品 2026-09-03 裁决把这条路整个撤了,两件实测事实:
-   *   · 当前只有 `claude` 的 `promptInputFormat` 是 `stream-json`;
-   *   · 拿装机的真 claude 2.1.259 做对照:轮次跑到一半写进 stdin 的 user 帧
-   *     CLI 完全没处理(等 180s 进程活着不动),同一条在 `result` 帧之后写进去
-   *     才正常起第二轮 —— 而 daemon 恰恰在 `usage` 那一档就关了 stdin。
+   *   · 「停止并发送」/「立即发送」走上面的 `sendQueuedChatSendNow`(OPEND-2602):
+   *     在跑就先掐掉这一轮(带 `queued_send` 理由)再发,没在跑就直接发。那条路
+   *     处理好了三件难事(把被顶掉的 run 记进 `supersededRunsRef`;把卡在
+   *     `applying` 的预览批注复位;靠自动启动效应避免两轮重叠)。
+   *   · 「引导对话」走下面的 `steerQueuedChatSend`:把这条放进**正在跑的这一轮**
+   *     (`POST /api/runs/:id/steer`),这一轮不停、做过的不丢。只有 daemon 说
+   *     这个 agent 接得住(`AgentInfo.midTurnSteering`,今天是 app-server 上的
+   *     Codex,`turn/steer`)时才出这副面孔。
    *
-   * 现在它按下去干的事是**中断当前这一轮,然后立刻发出这条**,也就是
-   * `sendQueuedChatSendNow` 在会话 busy 时走的那条路 —— 复用它,而不是
-   * 另起一条:那条已经处理好三件难的事(把被顶掉的 run 记进 `supersededRunsRef`,
-   * 免得 daemon 迟到的终止回调污染新一轮;把卡在 `applying` 的预览批注复位;
-   * 靠自动启动效应避免两轮重叠)。会话没在跑时它就是直接发,同一个函数的
-   * 另一条分支。
-   *
-   * 这里曾经还有一道 `canSteerCurrentTurn` 门,用来决定按钮画「引导对话」
-   * 还是退回一颗无标签的「立即发送」。产品 2026-09-08 当面把它裁掉了 ——
-   * 「引导对话就是原本的立即发送啊,只不过我们换了个名字跟 codex 客户端
-   * 对齐了下」。门两边喂的本来就是同一个 `sendQueuedChatSendNow`,所以门一撤
-   * 按钮行为一个字没变,变的只是它不再改名。交付稿里也只有「引导对话」
-   * 那一颗(`729fa43ce7:docs/design/chat-panel-next.html` 组件 17)。
+   * 2026-09-03 撤掉的是 Claude Code 那条 stdin 路:实测 claude 2.1.259 轮次中途写进
+   * stdin 的 user 帧完全没被处理。daemon 现在也不再对 Claude 说「接得住」。
    */
+  const steerQueuedChatSend = useCallback((id: string) => {
+    const item = queuedChatSendsRef.current.find((candidate) => candidate.id === id);
+    const runId = currentConversationActiveRun?.runId;
+    if (!item || !runId) return;
+    void (async () => {
+      const result = await steerChatRun({ runId, text: item.prompt });
+      if (result.ok) {
+        removeQueuedChatSend(id);
+        // The daemon already stored this as a user message after delivery;
+        // show it now instead of waiting for the next transcript read.
+        const now = Date.now();
+        setMessages((curr) => [
+          ...curr,
+          {
+            id: result.messageId || randomUUID(),
+            role: 'user',
+            content: item.prompt,
+            createdAt: now,
+            startedAt: now,
+            endedAt: now,
+          },
+        ]);
+        return;
+      }
+      // The turn ended before it could take the message: the row stays queued
+      // and goes out as the next turn, the way a queued message always does.
+      if (result.code === 'RUN_STEERING_CLOSED') return;
+      setError(t(result.code === 'RUN_STEERING_UNSUPPORTED' ? 'chat.queuedSteerUnsupported' : 'chat.queuedSteerFailed'));
+    })();
+  }, [currentConversationActiveRun, removeQueuedChatSend, t]);
 
   useEffect(() => {
     if (currentConversationBusy) {
@@ -8103,14 +8150,17 @@ export function ProjectView({
             onRemoveQueuedSend: discardQueuedChatSend,
             onUpdateQueuedSend: updateQueuedChatSend,
             onReorderQueuedSends: reorderCurrentConversationQueuedChatSends,
-            // B11 「引导对话」: one button, always offered. The handler already
-            // branches on `currentConversationBusy` into stop-then-resend, so
-            // there is nothing left for a visibility gate to decide.
+            // The queue row's leading button: 「停止并发送」 / 「立即发送」 go
+            // through `sendQueuedChatSendNow`; 「引导对话」 only where the daemon
+            // says the running turn can take the message (C18).
             onSendQueuedNow: sendQueuedChatSendNow,
+            onSteerQueuedSend: steerQueuedChatSend,
+            queuedMidTurnSteering: currentConversationMidTurnSteering,
+            queuedTurnInFlight: currentConversationBusy,
             onAssistantFeedback: handleAssistantFeedback,
           }
         : undefined,
-    [activeConversationId, conversationLoadError, currentConversationActionDisabled, currentConversationActionBlockReason, retryPending, supersededErrorAssistantIds, currentConversationQueuedItems, currentConversationSendDisabled, currentConversationLoading, currentConversationControlStreaming, error, errorSourceAssistantId, handleAssistantFeedback, handleRetry, handleComposerSend, handleStop, messages, discardQueuedChatSend, reorderCurrentConversationQueuedChatSends, sendQueuedChatSendNow, updateQueuedChatSend],
+    [currentConversationBusy, currentConversationMidTurnSteering, steerQueuedChatSend, activeConversationId, conversationLoadError, currentConversationActionDisabled, currentConversationActionBlockReason, retryPending, supersededErrorAssistantIds, currentConversationQueuedItems, currentConversationSendDisabled, currentConversationLoading, currentConversationControlStreaming, error, errorSourceAssistantId, handleAssistantFeedback, handleRetry, handleComposerSend, handleStop, messages, discardQueuedChatSend, reorderCurrentConversationQueuedChatSends, sendQueuedChatSendNow, updateQueuedChatSend],
   );
 
   // Signal that pushes a draft into the chat composer (the "Import repo" CTA).
@@ -9096,6 +9146,9 @@ export function ProjectView({
               onUpdateQueuedSend={updateQueuedChatSend}
               onReorderQueuedSends={reorderCurrentConversationQueuedChatSends}
               onSendQueuedNow={sendQueuedChatSendNow}
+              onSteerQueuedSend={steerQueuedChatSend}
+              queuedMidTurnSteering={currentConversationMidTurnSteering}
+              queuedTurnInFlight={currentConversationBusy}
               onRequestOpenFile={requestConversationOpenFile}
               onRequestPluginDetails={handleOpenContextPluginDetails}
               onRequestPluginFolderAgentAction={handlePluginFolderAgentAction}

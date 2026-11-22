@@ -26,13 +26,15 @@ afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-async function runCapabilities(args: string[], status = 200) {
+async function runCapabilities(args: string[], status = 200, options: { body?: GetMediaCapabilitiesResponse; url?: string; projectId?: string } = {}) {
+  const body = options.body ?? capabilities;
+  const expectedUrl = options.url ?? 'http://offline.invalid/api/media/capabilities';
   const fetchMock = 'data:text/javascript,' + encodeURIComponent(`
     globalThis.fetch = async (url, init) => {
-      if (String(url) !== 'http://offline.invalid/api/media/capabilities') throw new Error('Unexpected media endpoint: ' + url);
+      if (String(url) !== ${JSON.stringify(expectedUrl)}) throw new Error('Unexpected media endpoint: ' + url);
       if ((init?.method ?? 'GET') !== 'GET') throw new Error('Expected GET');
       if (new Headers(init?.headers).get('authorization') !== 'Bearer test-tool-token') throw new Error('Missing tool token');
-      return new Response(${JSON.stringify(JSON.stringify(capabilities))}, { status: ${status}, headers: { 'content-type': 'application/json' } });
+      return new Response(${JSON.stringify(JSON.stringify(body))}, { status: ${status}, headers: { 'content-type': 'application/json' } });
     };
   `);
   try {
@@ -46,7 +48,7 @@ async function runCapabilities(args: string[], status = 200) {
         ...process.env,
         NODE_OPTIONS: '',
         PIXO_DATA_DIR: dataDir,
-        PIXO_PROJECT_ID: '',
+        PIXO_PROJECT_ID: options.projectId ?? '',
         PIXO_TOOL_TOKEN: 'test-tool-token',
       },
     });
@@ -77,10 +79,40 @@ describe('pixo media capabilities', () => {
     ]);
   });
 
+  // C11: credits are a way to make a kind, so the line says so instead of "not configured".
+  it('shows hosted kinds on credits and the project art budget', async () => {
+    const body: GetMediaCapabilitiesResponse = {
+      capabilities: {
+        t2i: { configured: true, providers: ['codex-cli'], hosted: { paidWith: 'credits', services: ['openpixo-image'] } },
+        'i2v-loop': { configured: false, providers: [], hosted: { paidWith: 'credits', services: ['openpixo-walk-video'], recipesOnly: true } },
+        t2v: { configured: false, providers: [] },
+      },
+      hosted: { paidWith: 'credits', artBudget: { state: 'set', limitCredits: 200, remainingCredits: 150, mode: 'ask' } },
+    };
+    const result = await runCapabilities([], 200, { body, projectId: 'game-1', url: 'http://offline.invalid/api/media/capabilities?projectId=game-1' });
+    expect(result, result.stderr).toMatchObject({ code: 0, stderr: '' });
+    expect(result.stdout.trim().split('\n')).toEqual([
+      't2i: configured (codex-cli); also on credits (openpixo-image)',
+      'i2v-loop: on credits (openpixo-walk-video, through recipes only)',
+      't2v: not configured',
+      'art budget: 150 of 200 credits left, mode ask (spend only what the user approves on an art card)',
+    ]);
+  });
+
+  it('says when the art budget still has to be set by the user', async () => {
+    const body: GetMediaCapabilitiesResponse = {
+      capabilities: { 'i2v-loop': { configured: false, providers: [], hosted: { paidWith: 'credits', services: ['openpixo-walk-video'], recipesOnly: true } } },
+      hosted: { paidWith: 'credits', artBudget: { state: 'unset', mode: 'ask' } },
+    };
+    const result = await runCapabilities(['--project', 'game-1'], 200, { body, url: 'http://offline.invalid/api/media/capabilities?projectId=game-1' });
+    expect(result, result.stderr).toMatchObject({ code: 0, stderr: '' });
+    expect(result.stdout.trim().split('\n').at(-1)).toBe('art budget: not set; only the user can set one, above the message box');
+  });
+
   it('offers help without fetching readiness', async () => {
     const result = await runCapabilities(['--help'], 503);
     expect(result, result.stderr).toMatchObject({ code: 0, stderr: '' });
-    expect(result.stdout).toContain('media capabilities [--json]');
+    expect(result.stdout).toContain('media capabilities [--project <id>] [--json]');
   });
 
   it('fails when the daemon cannot report readiness', async () => {

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import express, { type Response as ExpressResponse } from 'express';
@@ -95,4 +95,17 @@ it('lists presets as clean JSON without a project and rejects contradictory pres
     expect(JSON.parse(String(output.mock.calls[0]?.[0]))).toHaveProperty('error.message');
     expect(process.exitCode).toBe(1);
   }
+});
+// C20 (2026-11-21): agents piped or redirected the JSON to keep it; `--report` saves it instead.
+it('saves the playtest JSON with --report next to the printed summary', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'pixo-playtest-cli-')); roots.push(root);
+  vi.stubEnv('PIXO_TOOL_TOKEN', '');
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ status: 'passed', steps: [], screenshots: [], missingTools: [], playtest: report })));
+  const lines: string[] = [];
+  vi.spyOn(console, 'log').mockImplementation((line: string) => { lines.push(line); });
+  const file = path.join(root, 'checks', 'playtest.json');
+  await runGameCli(['playtest', '--project', 'game', '--duration', '0.1', '--report', file, '--daemon-url', 'http://127.0.0.1:7456']);
+  expect(JSON.parse(await readFile(file, 'utf8'))).toMatchObject({ status: 'passed', playtest: report });
+  expect(lines.join('\n')).toContain('Playtest: passed');
+  expect(lines).toContain('Report: ' + file);
 });

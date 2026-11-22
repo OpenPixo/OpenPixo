@@ -10,7 +10,8 @@ import type {
 // Counts automatic same-run retry attempts, not the initial run. Issue #3543
 // scopes the first implementation to at most one automatic same-run retry, so
 // the default caps retries at a single attempt (attemptCount >= 1 suppresses
-// with attempt_limit_reached).
+// with attempt_limit_reached). A busy provider is the one exception, see
+// PROVIDER_BUSY_RETRY_MAX_ATTEMPTS.
 export const DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS = 1;
 export const SAFE_RUN_RETRY_STRATEGY: TrackingRunRetryStrategy = 'same_run_transient';
 export const NATIVE_SESSION_CONTINUE_STRATEGY: TrackingRunRetryStrategy =
@@ -32,24 +33,68 @@ export const TRANSIENT_RETRY_BASE_DELAY_MS = 500;
 export const RETRY_BACKOFF_MULTIPLIER = 2;
 export const MAX_RETRY_BACKOFF_DELAY_MS = 8_000;
 
-function backoffBaseDelayMs(category: TrackingRunFailureCategory | undefined): number {
-  return category === 'rate_limit'
-    ? RATE_LIMIT_RETRY_BASE_DELAY_MS
-    : TRANSIENT_RETRY_BASE_DELAY_MS;
+// A provider that says it is under high demand (`provider_high_demand`) is
+// busy for minutes, not milliseconds: one immediate retry hits the same wall
+// (C19 — a Codex run lost ~20 minutes of momentum to exactly that). This one
+// detail gets its own budget and a backoff that spreads the attempts over a
+// couple of minutes: with equal jitter the waits are 5–10s, 10–20s, 20–40s and
+// 30–60s, about one to two minutes in total. Every other failure keeps
+// DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS and the short backoff above.
+export const PROVIDER_BUSY_RETRY_MAX_ATTEMPTS = 4;
+export const PROVIDER_BUSY_RETRY_BASE_DELAY_MS = 10_000;
+export const MAX_PROVIDER_BUSY_RETRY_DELAY_MS = 60_000;
+
+/** The model provider answered that it is too busy to take the request. */
+export function isProviderBusyFailure(
+  failure: {
+    failure_category?: TrackingRunFailureCategory | undefined;
+    failure_detail?: TrackingRunFailureDetail | undefined;
+  } | null | undefined,
+): boolean {
+  return failure?.failure_category === 'upstream_unavailable' &&
+    failure.failure_detail === 'provider_high_demand';
+}
+
+function backoffSchedule(
+  category: TrackingRunFailureCategory | undefined,
+  detail: TrackingRunFailureDetail | undefined,
+): { baseMs: number; capMs: number } {
+  if (isProviderBusyFailure({ failure_category: category, failure_detail: detail })) {
+    return { baseMs: PROVIDER_BUSY_RETRY_BASE_DELAY_MS, capMs: MAX_PROVIDER_BUSY_RETRY_DELAY_MS };
+  }
+  return {
+    baseMs: category === 'rate_limit'
+      ? RATE_LIMIT_RETRY_BASE_DELAY_MS
+      : TRANSIENT_RETRY_BASE_DELAY_MS,
+    capMs: MAX_RETRY_BACKOFF_DELAY_MS,
+  };
+}
+
+/**
+ * How many automatic attempts this failure may use when the caller did not
+ * set a limit. A busy provider gets more; everything else keeps one.
+ */
+function defaultMaxAttemptsFor(failure: RunRetryFailureSignal | undefined): number {
+  return isProviderBusyFailure(failure)
+    ? PROVIDER_BUSY_RETRY_MAX_ATTEMPTS
+    : DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS;
 }
 
 // Pure, deterministic when `random` is supplied. `attemptIndex` is 1-based (the
 // index of the attempt about to be scheduled), so the first retry uses the base
 // delay and each subsequent attempt doubles it up to the cap. Equal jitter
-// returns a value in [delay/2, delay].
+// returns a value in [delay/2, delay]. `detail` selects the busy-provider
+// schedule; without it the category alone decides, as before.
 export function computeRetryBackoffMs(
   attemptIndex: number,
   category: TrackingRunFailureCategory | undefined,
   random: () => number = Math.random,
+  detail?: TrackingRunFailureDetail,
 ): number {
+  const { baseMs, capMs } = backoffSchedule(category, detail);
   const exponent = Math.max(0, Math.floor(attemptIndex) - 1);
-  const raw = backoffBaseDelayMs(category) * RETRY_BACKOFF_MULTIPLIER ** exponent;
-  const capped = Math.min(raw, MAX_RETRY_BACKOFF_DELAY_MS);
+  const raw = baseMs * RETRY_BACKOFF_MULTIPLIER ** exponent;
+  const capped = Math.min(raw, capMs);
   const half = capped / 2;
   const sample = random();
   const jitter = Number.isFinite(sample) ? Math.min(1, Math.max(0, sample)) : 0;
@@ -106,7 +151,8 @@ export interface PostToolResumeRecoveryInput {
   sideEffects?: RunRetrySideEffectState;
   supportsNativeSessionContinue: boolean;
   hasNativeSession: boolean;
-
+  // Injectable jitter source for deterministic tests; defaults to Math.random.
+  random?: () => number;
 }
 
 export function decidePostToolResumeRecovery(
@@ -118,8 +164,11 @@ export function decidePostToolResumeRecovery(
   const totalRetryAttemptCount = normalizeAttemptCount(
     input.totalRetryAttemptCount,
   );
-  const retryMaxAttempts = normalizeMaxAttempts(input.maxAttempts);
   const failure = input.failure;
+  const retryMaxAttempts = normalizeMaxAttempts(
+    input.maxAttempts,
+    defaultMaxAttemptsFor(failure),
+  );
   const sideEffects = input.sideEffects ?? {};
   const isPostToolTransientFailure =
     failure?.failure_stage === 'post_tool_resume' &&
@@ -154,7 +203,17 @@ export function decidePostToolResumeRecovery(
       totalRetryAttemptCount + retryMaxAttempts - continuationAttemptCount,
     retryStrategy: NATIVE_SESSION_CONTINUE_STRATEGY,
     retryReason: 'post_tool_resume',
-    retryDelayMs: 0,
+    // A stalled tool result or a dropped stream continues at once, as before.
+    // A busy provider is asked again only after the busy backoff, counted by
+    // how many continuations this run has already spent.
+    retryDelayMs: isProviderBusyFailure(failure)
+      ? computeRetryBackoffMs(
+          continuationAttemptCount + 1,
+          failure?.failure_category,
+          input.random,
+          failure?.failure_detail,
+        )
+      : 0,
   };
 }
 
@@ -163,8 +222,11 @@ function normalizeAttemptCount(attemptCount: number): number {
   return Math.floor(attemptCount);
 }
 
-function normalizeMaxAttempts(maxAttempts: number | undefined): number {
-  if (maxAttempts === undefined) return DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS;
+function normalizeMaxAttempts(
+  maxAttempts: number | undefined,
+  fallback: number = DEFAULT_SAFE_RUN_RETRY_MAX_ATTEMPTS,
+): number {
+  if (maxAttempts === undefined) return fallback;
   if (!Number.isFinite(maxAttempts) || maxAttempts < 0) return 0;
   return Math.floor(maxAttempts);
 }
@@ -228,7 +290,10 @@ export function decideSafeRunRetry(
   input: RunRetryPolicyInput,
 ): RunRetryPolicyDecision {
   const attemptCount = normalizeAttemptCount(input.attemptCount);
-  const retryMaxAttempts = normalizeMaxAttempts(input.maxAttempts);
+  const retryMaxAttempts = normalizeMaxAttempts(
+    input.maxAttempts,
+    defaultMaxAttemptsFor(input.failure),
+  );
   const retryAttemptIndex = attemptCount + 1;
   const base = {
     retryAttemptIndex,
@@ -275,6 +340,42 @@ export function decideSafeRunRetry(
       retryAttemptIndex,
       failure.failure_category,
       input.random,
+      failure.failure_detail,
     ),
   };
+}
+
+export interface ProviderBusyLogInput {
+  runId: string;
+  outcome: 'retrying' | 'failed';
+  failure: RunRetryFailureSignal | null | undefined;
+  /** retrying: the attempt about to start; failed: the automatic attempts used. */
+  attempt: number;
+  maxAttempts: number;
+  delayMs?: number;
+  resumable?: boolean;
+}
+
+/**
+ * The daemon log line for a run the model provider turned away as busy, or
+ * null for any other failure. It carries the run id, the classification and
+ * the attempt count only: no prompt, no upstream text, no provider or model
+ * names, so it is safe to keep in a log a user may send us.
+ */
+export function providerBusyLogLine(input: ProviderBusyLogInput): string | null {
+  const failure = input.failure;
+  if (!failure || !isProviderBusyFailure(failure)) return null;
+  const cause = [
+    `category=${failure.failure_category}`,
+    `detail=${failure.failure_detail}`,
+    ...(failure.failure_stage ? [`stage=${failure.failure_stage}`] : []),
+  ].join(' ');
+  if (input.outcome === 'retrying') {
+    const seconds = Math.max(0, Math.round((input.delayMs ?? 0) / 1000));
+    return `[runs] model provider busy; retrying run=${input.runId}` +
+      ` attempt=${input.attempt}/${input.maxAttempts} in=${seconds}s ${cause}`;
+  }
+  return `[runs] model provider busy; run failed run=${input.runId}` +
+    ` attempts=${input.attempt}/${input.maxAttempts} ${cause}` +
+    (input.resumable === undefined ? '' : ` resumable=${input.resumable}`);
 }

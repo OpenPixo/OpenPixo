@@ -48,9 +48,11 @@ function artBudgetLines(body: ArtBudgetResponse): string {
   lines.push(mode === 'ask' ? 'Spending: asks before spending (art cards).' : 'Spending: spends within the budget without asking.');
   const approval = body.approval;
   if (approval) {
-    lines.push(approval.runId === null
-      ? `Approved: ${approval.approvedCredits} credits, waiting for the next turn.`
-      : `Approved: ${approval.approvedCredits} credits, ${approval.usedCredits} used by a turn, ${approval.remainingCredits} left for that turn.`);
+    lines.push(approval.runId !== null
+      ? `Approved: ${approval.approvedCredits} credits, ${approval.usedCredits} used by a turn, ${approval.remainingCredits} left for that turn.`
+      : approval.carriedOver
+        ? `Approved: ${approval.approvedCredits} credits; an earlier turn stopped after using ${approval.usedCredits}, and ${approval.remainingCredits} carry over to the next turn.`
+        : `Approved: ${approval.approvedCredits} credits, waiting for the next turn.`);
   }
   return lines.join('\n');
 }

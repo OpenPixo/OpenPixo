@@ -440,7 +440,10 @@ export type DaemonAgentPayload =
 export interface ChatSseRunRetryAttemptedPayload {
   /** Which automatic attempt this is, 1-based. */
   retry_attempt_index: number;
-  /** How many automatic attempts this run is allowed. 1 today. */
+  /**
+   * How many automatic attempts this run is allowed: 1, or more when the
+   * model provider said it is busy (`provider_high_demand`).
+   */
   retry_max_attempts: number;
   /**
    * The failure category that triggered this retry (the daemon's run-failure
@@ -449,6 +452,12 @@ export interface ChatSseRunRetryAttemptedPayload {
    * S09a, OPEND-2849). Optional because older daemons may omit it.
    */
   failure_category?: string;
+  /**
+   * The finer-grained failure detail. The chat reads `'provider_high_demand'`
+   * to say the model provider is busy and the work so far is kept while the
+   * daemon waits to try again. Optional because older daemons may omit it.
+   */
+  failure_detail?: string;
 }
 
 /**

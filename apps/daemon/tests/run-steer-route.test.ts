@@ -1,22 +1,23 @@
 // B11 「引导对话」 — POST /api/runs/:id/steer at the daemon HTTP boundary.
 //
-// The queue row's third button used to be "send now", which STOPS the running
-// turn and re-sends. Steering is the opposite: the turn keeps running and the
-// message is written onto the child's still-open stdin, so the model reads it
-// without losing the work it has already done.
+// Steering is the opposite of stop-and-send: the turn keeps running and the
+// message is added to it, so the model reads it without losing the work it has
+// already done. Codex over app-server does this through `turn/steer`.
 //
-// This spec drives the real thing end to end — a fake `claude` that parks on a
-// `stop_reason: 'tool_use'` frame (stdin stays open, exactly the moment
-// steering is worth the most), reads the injected JSONL frame off stdin, and
-// records what it actually received. Nothing here inspects daemon internals:
-// the proof that the message reached the model is a file the CHILD wrote.
+// This spec drives the real thing end to end — a fake `codex app-server` that
+// parks mid-turn, receives the `turn/steer` request and records what it was
+// given. Nothing here inspects daemon internals: the proof that the message
+// reached the agent is a file the CHILD wrote.
 //
 // Covered:
-//   - injection into a live stream-json turn, and the message landing in the
-//     conversation so a reload still shows what the user said;
-//   - refusal once the turn ended and stdin closed (no silent drop);
-//   - refusal on a runtime that never keeps stdin open (fake `codex`);
-//   - refusal of an empty message and of an unknown run.
+//   - steering a live Codex turn, and the message landing in the conversation
+//     so a reload still shows what the user said;
+//   - refusal once the turn ended (no silent drop);
+//   - refusal on Claude Code, whose stdin stays open but which does not act on
+//     a message written mid-turn (fake `claude`), with nothing recorded;
+//   - refusal of an empty message and of an unknown run;
+//   - a stop that delivers a queued message is recorded as `queued_send`, not
+//     as a plain Stop.
 
 import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -38,6 +39,7 @@ type RunStatus = {
   id: string;
   status: string;
   exitCode: number | null;
+  cancelOrigin?: string | null;
 };
 
 const TERMINAL = new Set(['succeeded', 'failed', 'canceled']);
@@ -50,6 +52,7 @@ describe('POST /api/runs/:id/steer', () => {
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     PIXO_TELEMETRY_RELAY_URL: process.env.PIXO_TELEMETRY_RELAY_URL,
+    PIXO_CODEX_TRANSPORT: process.env.PIXO_CODEX_TRANSPORT,
   };
   let started: StartedServer | null = null;
   let binDir: string | null = null;
@@ -57,7 +60,11 @@ describe('POST /api/runs/:id/steer', () => {
   afterEach(async () => {
     await Promise.resolve(started?.shutdown?.());
     if (started?.server) {
-      await new Promise<void>((resolve) => started?.server.close(() => resolve()));
+      const listener = started.server;
+      await new Promise<void>((resolve) => {
+        listener.close(() => resolve());
+        listener.closeAllConnections?.();
+      });
     }
     started = null;
     if (binDir) await rm(binDir, { recursive: true, force: true });
@@ -68,28 +75,25 @@ describe('POST /api/runs/:id/steer', () => {
     }
   });
 
-  it('injects a mid-turn message into a running stream-json turn and keeps it in history', async () => {
-    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-b11-steer-bin-'));
+  it('steers a running Codex turn through turn/steer and keeps it in history', async () => {
+    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-b11-steer-codex-'));
     const readyPath = path.join(binDir, 'ready');
     const sinkPath = path.join(binDir, 'steered.txt');
-    const bin = await writeSteerableClaude(binDir, 'claude-steerable', readyPath, sinkPath);
+    const bin = await writeSteerableCodex(binDir, readyPath, sinkPath);
 
     clearTelemetryEnv();
+    process.env.PIXO_CODEX_TRANSPORT = 'app-server';
     started = await startServer({ port: 0, returnServer: true }) as StartedServer;
-    await putConfig(started.url, { CLAUDE_BIN: bin });
+    await putConfig(started.url, 'codex', { CODEX_BIN: bin, CODEX_HOME: binDir });
 
     const project = await createProject(started.url);
-    const runId = await startRun(started.url, project, 'draft the pricing page');
+    const runId = await startRun(started.url, project, 'draft the pricing page', 'codex');
 
-    // The child parked on a tool_use frame: the turn is live and stdin is open.
-    await waitForFile(readyPath, 10_000);
+    // The fake started its turn and is waiting: the turn is live.
+    await waitForFile(readyPath, 15_000);
 
     const steerText = 'actually make the hero copy shorter';
-    const steer = await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/steer`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: steerText }),
-    });
+    const steer = await postSteer(started.url, runId, steerText);
     expect(steer.status).toBe(200);
     const steerBody = await steer.json() as {
       ok: boolean;
@@ -104,10 +108,15 @@ describe('POST /api/runs/:id/steer', () => {
     expect(TERMINAL.has(steerBody.run.status)).toBe(false);
 
     // The load-bearing assertion: the CHILD PROCESS wrote this file, so the
-    // frame really travelled down stdin rather than being swallowed by the
-    // daemon. Without it, "delivered: true" would only prove we called write().
+    // message really reached codex rather than being swallowed by the daemon.
     await waitForFile(sinkPath, 10_000);
-    expect((await readFile(sinkPath, 'utf8')).trim()).toBe(steerText);
+    expect(JSON.parse(await readFile(sinkPath, 'utf8'))).toEqual({
+      threadId: 'steer-thread-1',
+      expectedTurnId: 'steer-turn-1',
+      input: [{ type: 'text', text: steerText, text_elements: [] }],
+    });
+    // Steering never interrupts the turn.
+    expect(existsSync(path.join(binDir, 'interrupted'))).toBe(false);
 
     const finished = await waitForTerminal(started.url, runId);
     expect(finished.status).toBe('succeeded');
@@ -120,20 +129,8 @@ describe('POST /api/runs/:id/steer', () => {
     expect(steered?.role).toBe('user');
     expect(steered?.id).toBe(steerBody.messageId);
 
-    // Chronology is preserved: the steer sits AFTER the assistant turn it
-    // steered, which is when the user actually said it.
-    const assistantIndex = messages.findIndex((message) => message.role === 'assistant');
-    const steeredIndex = messages.findIndex((message) => message.content === steerText);
-    expect(assistantIndex).toBeGreaterThanOrEqual(0);
-    expect(steeredIndex).toBeGreaterThan(assistantIndex);
-
-    // Once the turn ended cleanly stdin is closed. A second steer must be
-    // refused with a readable code instead of writing into a dead pipe.
-    const late = await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/steer`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: 'too late' }),
-    });
+    // Once the turn ended, a second steer is refused with a readable code.
+    const late = await postSteer(started.url, runId, 'too late');
     expect(late.status).toBe(409);
     const lateBody = await late.json() as { error: { code: string } };
     expect(lateBody.error.code).toBe('RUN_STEERING_CLOSED');
@@ -141,70 +138,87 @@ describe('POST /api/runs/:id/steer', () => {
     // …and the refused message must not have been written to history.
     const afterRefusal = await listMessages(started.url, project);
     expect(afterRefusal.some((message) => message.content === 'too late')).toBe(false);
-  }, 45_000);
+  }, 60_000);
 
-  it('refuses a runtime whose stdin is closed together with the opening prompt', async () => {
-    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-b11-steer-codex-'));
-    const readyPath = path.join(binDir, 'codex-ready');
-    const bin = await writeIdleCodex(binDir, 'codex-idle', readyPath);
+  it('refuses Claude Code: its stdin stays open, but a mid-turn message is not acted on', async () => {
+    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-b11-steer-claude-'));
+    const readyPath = path.join(binDir, 'ready');
+    const sinkPath = path.join(binDir, 'steered.txt');
+    const bin = await writeParkedClaude(binDir, readyPath, sinkPath);
 
     clearTelemetryEnv();
     started = await startServer({ port: 0, returnServer: true }) as StartedServer;
-    await putConfig(started.url, { CODEX_BIN: bin, CODEX_HOME: binDir });
+    await putConfig(started.url, 'claude', { CLAUDE_BIN: bin });
 
     const project = await createProject(started.url);
-    const runId = await startRun(started.url, project, 'anything', 'codex');
-    await waitForFile(readyPath, 10_000);
+    const runId = await startRun(started.url, project, 'anything', 'claude');
+    await waitForFile(readyPath, 15_000);
 
-    const steer = await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/steer`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: 'steer me' }),
-    });
+    const steer = await postSteer(started.url, runId, 'steer me');
     expect(steer.status).toBe(409);
     const body = await steer.json() as { error: { code: string } };
     // A permanent property of the runtime, not a transient state — the caller
-    // is meant to stop advertising the affordance, not retry.
+    // is meant to offer stop-and-send instead, not retry.
     expect(body.error.code).toBe('RUN_STEERING_UNSUPPORTED');
 
-    // Nothing was written to the conversation for a refused steer.
+    // Nothing reached the child and nothing was written to the conversation.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(existsSync(sinkPath)).toBe(false);
     const messages = await listMessages(started.url, project);
     expect(messages.some((message) => message.content === 'steer me')).toBe(false);
 
     await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST' });
-  }, 45_000);
+  }, 60_000);
 
   it('rejects an unknown run and an empty message', async () => {
     clearTelemetryEnv();
+    process.env.PIXO_CODEX_TRANSPORT = 'app-server';
     started = await startServer({ port: 0, returnServer: true }) as StartedServer;
 
-    const missing = await fetch(`${started.url}/api/runs/no-such-run/steer`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: 'hello' }),
-    });
+    const missing = await postSteer(started.url, 'no-such-run', 'hello');
     expect(missing.status).toBe(404);
 
     binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-b11-steer-empty-'));
     const readyPath = path.join(binDir, 'ready');
-    const sinkPath = path.join(binDir, 'steered.txt');
-    const bin = await writeSteerableClaude(binDir, 'claude-steerable', readyPath, sinkPath);
-    await putConfig(started.url, { CLAUDE_BIN: bin });
+    const bin = await writeSteerableCodex(binDir, readyPath, path.join(binDir, 'steered.txt'));
+    await putConfig(started.url, 'codex', { CODEX_BIN: bin, CODEX_HOME: binDir });
     const project = await createProject(started.url);
-    const runId = await startRun(started.url, project, 'draft something');
-    await waitForFile(readyPath, 10_000);
+    const runId = await startRun(started.url, project, 'draft something', 'codex');
+    await waitForFile(readyPath, 15_000);
 
-    const empty = await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/steer`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: '   ' }),
-    });
+    const empty = await postSteer(started.url, runId, '   ');
     expect(empty.status).toBe(400);
     const emptyBody = await empty.json() as { error: { code: string } };
     expect(emptyBody.error.code).toBe('BAD_REQUEST');
 
     await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST' });
-  }, 45_000);
+  }, 60_000);
+
+  it('records a stop that sends a queued message as queued_send, not as a plain Stop', async () => {
+    binDir = await mkdtemp(path.join(os.tmpdir(), 'pixo-b11-queued-stop-'));
+    const readyPath = path.join(binDir, 'ready');
+    const bin = await writeSteerableCodex(binDir, readyPath, path.join(binDir, 'steered.txt'));
+
+    clearTelemetryEnv();
+    process.env.PIXO_CODEX_TRANSPORT = 'app-server';
+    started = await startServer({ port: 0, returnServer: true }) as StartedServer;
+    await putConfig(started.url, 'codex', { CODEX_BIN: bin, CODEX_HOME: binDir });
+    const project = await createProject(started.url);
+    const runId = await startRun(started.url, project, 'draft something', 'codex');
+    await waitForFile(readyPath, 15_000);
+
+    const cancel = await fetch(`${started.url}/api/runs/${encodeURIComponent(runId)}/cancel`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ origin: 'queued_send' }),
+    });
+    expect(cancel.status).toBe(200);
+    const body = await cancel.json() as { run: RunStatus };
+    expect(body.run.cancelOrigin).toBe('queued_send');
+    const finished = await waitForTerminal(started.url, runId);
+    expect(finished.status).toBe('canceled');
+    expect(finished.cancelOrigin).toBe('queued_send');
+  }, 60_000);
 });
 
 function clearTelemetryEnv(): void {
@@ -216,30 +230,84 @@ function clearTelemetryEnv(): void {
   delete process.env.PIXO_TELEMETRY_RELAY_URL;
 }
 
+/** A node script as an executable the daemon can spawn on every platform. */
+async function executable(dir: string, name: string, source: string): Promise<string> {
+  const script = path.join(dir, `${name}.cjs`);
+  await writeFile(script, source, 'utf8');
+  if (process.platform === 'win32') {
+    const cmd = path.join(dir, `${name}.cmd`);
+    await writeFile(cmd, `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`);
+    return cmd;
+  }
+  await chmod(script, 0o755);
+  return script;
+}
+
 /**
- * A `claude` stand-in that behaves the way steering needs the real one to:
- * it commits a `tool_use` frame (so the daemon leaves stdin open), then keeps
- * reading JSONL frames. The first frame is the daemon's opening prompt; the
- * second is the steer, which it records to `sinkPath` before finishing the
- * turn. `readyPath` is written once the opening prompt has been consumed, so
- * the test never races the spawn.
+ * A `codex app-server` stand-in. It starts the turn and waits. A `turn/steer`
+ * is recorded to `sinkPath`, accepted, and the turn then finishes with an
+ * answer. A `turn/interrupt` ends the turn as interrupted.
  */
-async function writeSteerableClaude(
-  dir: string,
-  name: string,
-  readyPath: string,
-  sinkPath: string,
-): Promise<string> {
-  const bin = path.join(dir, name);
-  await writeFile(bin, `#!/usr/bin/env node
+async function writeSteerableCodex(dir: string, readyPath: string, sinkPath: string): Promise<string> {
+  return executable(dir, 'codex-steerable', `#!/usr/bin/env node
+const fs = require('node:fs');
+const path = require('node:path');
+const readline = require('node:readline');
+const args = process.argv.slice(2);
+if (args.includes('--version')) { console.log('codex-cli 0.160.0'); process.exit(0); }
+if (args.includes('--help')) { console.log('Usage: codex app-server --json --sandbox --add-dir --model'); process.exit(0); }
+if (args.includes('login')) { console.log('Logged in'); process.exit(0); }
+if (args[0] !== 'app-server') process.exit(0);
+const send = (frame) => process.stdout.write(JSON.stringify(frame) + '\\n');
+const THREAD = 'steer-thread-1';
+const TURN = 'steer-turn-1';
+const finish = (status) => {
+  if (status === 'completed') {
+    send({ method: 'item/completed', params: { threadId: THREAD, item: { type: 'agentMessage', id: 'message-1', text: 'Shorter hero copy, done.' } } });
+  }
+  send({ method: 'turn/completed', params: { threadId: THREAD, turn: { id: TURN, status, items: [] } } });
+};
+readline.createInterface({ input: process.stdin }).on('line', (line) => {
+  const frame = JSON.parse(line);
+  if (frame.method === 'initialize') send({ id: frame.id, result: { userAgent: 'codex/0.160.0' } });
+  else if (frame.method === 'thread/start' || frame.method === 'thread/resume') {
+    send({ id: frame.id, result: { thread: { id: THREAD, historyMode: 'paginated' } } });
+  }
+  else if (frame.method === 'thread/archive') send({ id: frame.id, result: {} });
+  else if (frame.method === 'turn/start') {
+    send({ id: frame.id, result: { turn: { id: TURN } } });
+    send({ method: 'turn/started', params: { threadId: THREAD, turn: { id: TURN } } });
+    fs.writeFileSync(${JSON.stringify(readyPath)}, 'ready');
+  }
+  else if (frame.method === 'turn/steer') {
+    fs.writeFileSync(${JSON.stringify(sinkPath)}, JSON.stringify(frame.params));
+    send({ id: frame.id, result: { turnId: TURN } });
+    finish('completed');
+  }
+  else if (frame.method === 'turn/interrupt') {
+    fs.writeFileSync(path.join(${JSON.stringify(dir)}, 'interrupted'), 'yes');
+    send({ id: frame.id, result: {} });
+    finish('interrupted');
+  }
+  else if (typeof frame.id === 'number' && typeof frame.method === 'string') {
+    send({ id: frame.id, result: {} });
+  }
+}).on('close', () => process.exit(0));
+setTimeout(() => process.exit(0), 50000);
+`);
+}
+
+/**
+ * A `claude` stand-in parked on a `tool_use` frame, the moment its stdin is
+ * open. It records any frame after the opening prompt to `sinkPath`.
+ */
+async function writeParkedClaude(dir: string, readyPath: string, sinkPath: string): Promise<string> {
+  return executable(dir, 'claude-parked', `#!/usr/bin/env node
 const fs = require('node:fs');
 function w(s) { fs.writeSync(1, s); }
 if (process.argv.includes('--version')) { w('claude-code 1.0.0-b11-steer\\n'); process.exit(0); }
 if (process.argv.includes('--help')) { w('Usage: claude -p [--include-partial-messages] [--add-dir DIR]\\n'); process.exit(0); }
-
 w(JSON.stringify({ type: 'system', subtype: 'init', model: 'claude-b11-steer', session_id: 's-b11' }) + '\\n');
-// stop_reason 'tool_use' is a mid-turn pause, not a turn boundary: the daemon
-// must leave stdin open here. This is the state steering targets.
 w(JSON.stringify({
   type: 'assistant',
   parent_tool_use_id: null,
@@ -249,7 +317,6 @@ w(JSON.stringify({
     stop_reason: 'tool_use',
   },
 }) + '\\n');
-
 let buffer = '';
 let framesSeen = 0;
 process.stdin.setEncoding('utf8');
@@ -260,64 +327,16 @@ process.stdin.on('data', (chunk) => {
     const line = buffer.slice(0, index);
     buffer = buffer.slice(index + 1);
     if (!line.trim()) continue;
-    let frame;
-    try { frame = JSON.parse(line); } catch { continue; }
-    const text = frame && frame.message && Array.isArray(frame.message.content)
-      ? (frame.message.content.find((part) => part && part.type === 'text') || {}).text
-      : undefined;
     framesSeen += 1;
-    if (framesSeen === 1) {
-      // The opening prompt. Announce readiness and keep waiting.
-      fs.writeFileSync(${JSON.stringify(readyPath)}, 'ready');
-      continue;
-    }
-    // A steering frame arrived mid-turn.
-    fs.writeFileSync(${JSON.stringify(sinkPath)}, String(text == null ? '' : text) + '\\n');
-    w(JSON.stringify({
-      type: 'assistant',
-      parent_tool_use_id: null,
-      message: {
-        id: 'msg-final',
-        content: [{ type: 'text', text: 'acknowledged: ' + String(text) }],
-        stop_reason: 'end_turn',
-      },
-    }) + '\\n');
-    w(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'done' }) + '\\n');
-    setTimeout(() => process.exit(0), 30);
-    return;
+    if (framesSeen === 1) { fs.writeFileSync(${JSON.stringify(readyPath)}, 'ready'); continue; }
+    fs.writeFileSync(${JSON.stringify(sinkPath)}, line);
   }
 });
-// Never finish on our own: the test drives the ending through the steer.
-setTimeout(() => process.exit(0), 40000);
-`, 'utf8');
-  await chmod(bin, 0o755);
-  return bin;
+setTimeout(() => process.exit(0), 50000);
+`);
 }
 
-/**
- * A `codex` stand-in that stays alive without producing a turn. codex is a
- * `promptInputFormat: 'text'` runtime — the daemon ends its stdin together
- * with the opening prompt — so a live run of it is the honest "unsupported
- * runtime" fixture.
- */
-async function writeIdleCodex(dir: string, name: string, readyPath: string): Promise<string> {
-  const bin = path.join(dir, name);
-  await writeFile(bin, `#!/usr/bin/env node
-const fs = require('node:fs');
-if (process.argv.includes('--version')) { fs.writeSync(1, 'codex-cli 0.0.0-b11\\n'); process.exit(0); }
-if (process.argv.includes('--help')) { fs.writeSync(1, 'Usage: codex exec\\n'); process.exit(0); }
-if (process.argv.includes('login')) { fs.writeSync(1, 'Logged in\\n'); process.exit(0); }
-process.stdin.resume();
-process.stdin.on('data', () => {});
-fs.writeFileSync(${JSON.stringify(readyPath)}, 'ready');
-setTimeout(() => process.exit(0), 40000);
-`, 'utf8');
-  await chmod(bin, 0o755);
-  return bin;
-}
-
-async function putConfig(url: string, agentEnv: Record<string, string>): Promise<void> {
-  const agentId = agentEnv.CLAUDE_BIN ? 'claude' : 'codex';
+async function putConfig(url: string, agentId: 'claude' | 'codex', agentEnv: Record<string, string>): Promise<void> {
   const response = await fetch(`${url}/api/app-config`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
@@ -352,7 +371,7 @@ async function startRun(
   url: string,
   project: { projectId: string; conversationId: string },
   message: string,
-  agentId = 'claude',
+  agentId: 'claude' | 'codex',
 ): Promise<string> {
   const response = await fetch(`${url}/api/runs`, {
     method: 'POST',
@@ -375,6 +394,14 @@ async function startRun(
   expect(response.status).toBe(202);
   const body = await response.json() as { runId: string };
   return body.runId;
+}
+
+function postSteer(url: string, runId: string, text: string): Promise<Response> {
+  return fetch(`${url}/api/runs/${encodeURIComponent(runId)}/steer`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
 }
 
 async function waitForFile(target: string, timeoutMs: number): Promise<void> {

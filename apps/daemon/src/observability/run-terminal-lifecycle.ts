@@ -49,7 +49,7 @@ export function deriveRunTerminationOrigin(input: {
   cancelOrigin?: TrackingRunCancelOrigin | null;
   terminalTrigger?: TrackingRunTerminalTrigger | null;
 }): RunTerminationOrigin {
-  if (input.cancelOrigin === 'user_stop') return 'user_cancel';
+  if (input.cancelOrigin === 'user_stop' || input.cancelOrigin === 'queued_send') return 'user_cancel';
   if (input.cancelOrigin === 'project_cleanup') return 'project_cleanup';
   if (
     input.terminalTrigger === 'first_output_deadline'

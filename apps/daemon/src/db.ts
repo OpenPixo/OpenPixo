@@ -2822,6 +2822,7 @@ function normalizeForkedIntoForStorage(value: unknown): string | null {
  */
 const CANCEL_ORIGINS = new Set([
   'user_stop',
+  'queued_send',
   'project_cleanup',
   'daemon_shutdown',
   'unknown',

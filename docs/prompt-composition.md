@@ -309,8 +309,9 @@ Owner decision (2026-11-11): each project has a spending mode, `ask` (the defaul
 approved on an art card: the agent ends its reply with `<art-request credits="N">` (syntax and parser
 in `api/art-request.ts`, taught by "Asking before spending" in the media contract), the chat draws it
 with an Approve button, and the click calls `POST /api/projects/:id/art-budget/approve`, which refuses
-an agent's token. One approval pays for one run, the first that spends from it, up to N and within the
-budget. A refused request gets the `approve-art` next step, which tells the agent to end with a card
+an agent's token. One approval pays one run at a time, the first that spends from it, up to N and within
+the budget; when that run could not finish the list, the rest carries over and the next turn's note says
+to finish it without a new card. A refused request gets the `approve-art` next step, which tells the agent to end with a card
 rather than report an error. Planning's style samples need no card. In `auto` mode the agent says what
 it is making and makes it within the budget. The mode and any open approval travel in the per-turn note
 (`renderArtBudgetTurnNote`'s `spending`); the card rules are stable text, present whenever something
@@ -486,6 +487,8 @@ are absent. Do not duplicate that text in another composer.
 The verification block teaches `pixo game playtest --script <file|-> --duration <seconds> --json` for gameplay and interaction changes. The shared `GamePlaytestRequest` accepts bounded wait/key/click/move/mouseDown/mouseUp/drag/capture steps, a duration of at most 30 seconds, and a capture interval; at most 24 frames are retained. Pointer coordinates use a 1280×720 viewport. `move` hovers or aims, paired `mouseDown`/`mouseUp` steps hold and release the left button, and `drag` specifies `from`, `to` and optional `durationMs` for a smooth left-button gesture.
 
 `pixo game playtest --list-presets --json` lists observe, runJump, wasd, clickGrid, drag, random and monkey. `pixo game playtest --preset <id> [--seed <n>] --json` expands a shared preset instead of reading `--script`. Random and monkey accept a seed from 0 to 4294967295; the report records even an automatically chosen seed so the same preset and seed replay the same inputs. Agents select or customize inputs to exercise the changed behavior, then inspect frames, console/page errors and measured rAF min/average FPS before reporting results. Godot movie capture has no input replay and reports no measured FPS. The engine profile says so up front (`ENGINE_PLAYTEST_FACTS` in `openpixo-game.ts`, a `- Playtest:` line for Godot, Unity, Unreal and Bevy), so the agent does not learn it from `SCRIPT_UNSUPPORTED`: for Godot it adds an autotest autoload that acts only under `OS.has_feature("movie")`, presses input actions from code and reports a miss with `push_error`, which the host's Godot error scan turns into a failed playtest. That scan ignores the .NET build's own `.NET` startup errors (a missing .NET SDK) for a project without C# (`playtest-diagnostics.ts`), in `game verify` and `game playtest` alike.
+
+The verification block also says to run each check as its own plain command and to keep its JSON with `--report <file>`, never by chaining, piping, redirecting or assigning it (C20, 2026-11-21: Codex wrapped each Godot check in a new shell shape, so every one asked the user for approval). The cause of those approvals is fixed in the host, not the prompt: a Godot check or playtest gets its own editor-settings, log and `user://` folders under the game's verification artifacts (`apps/daemon/src/game/godot-home.ts`), which the agent's sandbox may write, instead of the user profile, which it may not.
 
 Playtesting reuses verification artifacts. The desktop host only drives a loopback page; agent project commands stay in the CLI child and use the existing verification context/capture/register endpoints. UI and normal CLI callers use `POST /api/projects/:id/game/playtest`. An unavailable renderer or engine is reported explicitly, and does not count as a passing check.
 

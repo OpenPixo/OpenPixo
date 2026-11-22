@@ -317,6 +317,8 @@ After changing code, scenes, or assets, verify through the host:
 
 PowerShell: \`& $env:PIXO_NODE_BIN $env:PIXO_BIN game verify ...\`. Use \`--steps check\` for a quick pass while iterating, and the full form with \`--screenshot\` once the change is visible on screen (sprites, UI, layout, camera, effects).
 
+Run each check as its own plain command, as written above: do not chain it with other commands, pipe or redirect its output, or assign it to a variable. To keep the JSON in a file, add \`--report <file>\`; the command saves the same JSON it prints.
+
 A check takes seconds. A run with a screenshot, and every playtest, starts the game from scratch and takes 30 to 60 seconds that the user sits waiting, so plan for one per change.
 
 - Read the JSON: \`status\` is \`passed\`, \`failed\`, or \`unavailable\`; each step has \`exitCode\` and \`timedOut\`; \`missingTools\` names engine tools the host could not find.

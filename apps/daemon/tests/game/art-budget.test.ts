@@ -1314,6 +1314,47 @@ describe('the art budget', () => {
       expect((await finished(await agentGenerate(bearer, 'first'))).status).toBe('done');
     });
 
+    /*
+     * C15 (鸦堡 run): an 80-credit card for 8 clips, 1 made, the next one refused by the
+     * cloud while pricing, the turn ended normally. The retry had to ask for the same 7
+     * clips again. Now the rest waits for the next turn, which finishes the batch.
+     */
+    it('lets the next run finish an approved batch after a paid request failed in the cloud', async () => {
+      const id = project();
+      expect((await setLimit(id, 100)).status).toBe(200);
+      expect((await approveArt(id, 12)).status).toBe(200);
+      expect((await finished(await agentGenerate(token(id, 'run-a'), 'idle'))).status).toBe('done');
+      const original = cloud.api.generationQuote;
+      cloud.api.generationQuote = async () => { throw new AccountError('CLOUD_UNAVAILABLE'); };
+      const failed = await agentGenerate(token(id, 'run-a'), 'combo 1');
+      cloud.api.generationQuote = original;
+      expect(failed.status).toBe(503);
+      harness.ledger.runEnded({ projectId: id, runId: 'run-a', status: 'succeeded' });
+      expect((await state(id)).approval).toMatchObject({ approvedCredits: 12, usedCredits: 4, remainingCredits: 8, runId: null, carriedOver: true });
+      const retry = token(id, 'run-b');
+      expect((await finished(await agentGenerate(retry, 'combo 1'))).status).toBe('done');
+      expect((await finished(await agentGenerate(retry, 'combo 2'))).status).toBe('done');
+      const over = await agentGenerate(retry, 'combo 3');
+      expect((await errorOf(over)).code).toBe('ART_APPROVAL_REQUIRED');
+      expect(cloud.charged).toBe(12);
+    });
+
+    it('keeps an approval with a turn that finished without trouble', async () => {
+      const id = project();
+      expect((await setLimit(id, 100)).status).toBe(200);
+      expect((await approveArt(id, 12)).status).toBe(200);
+      expect((await finished(await agentGenerate(token(id, 'run-a'), 'idle'))).status).toBe('done');
+      // A refusal the agent caused is its own to fix, not a failed batch.
+      const original = cloud.api.generationQuote;
+      cloud.api.generationQuote = async () => { throw new AccountError('GENERATION_PARAMS_INVALID'); };
+      expect((await agentGenerate(token(id, 'run-a'), 'bad')).status).toBe(400);
+      cloud.api.generationQuote = original;
+      harness.ledger.runEnded({ projectId: id, runId: 'run-a', status: 'succeeded' });
+      expect((await state(id)).approval).toMatchObject({ runId: 'run-a', remainingCredits: 8, carriedOver: false });
+      const other = await agentGenerate(token(id, 'run-b'), 'combo 1');
+      expect((await errorOf(other)).message).toContain('earlier turn');
+    });
+
     it('approves no more than the budget has left, and the budget stays the limit', async () => {
       const id = project();
       expect((await approveArt(id, 4)).status).toBe(409);
@@ -1434,6 +1475,22 @@ describe('the art budget', () => {
       expect(await state(id)).toMatchObject({ mode: 'ask', approval: { approvedCredits: 8 } });
       expect(GAME_PLAN_USAGE).toContain('approve-art --credits <n>');
       expect(GAME_PLAN_USAGE).toContain('--mode ask|auto');
+    });
+
+    it('says in plain text what a stopped turn left of an approval for the next one', async () => {
+      const id = project();
+      expect((await cli(['plan', 'budget', '--project', id, '--credits', '100', '--mode', 'ask'])).exitCode).toBe(0);
+      expect((await approveArt(id, 12)).status).toBe(200);
+      await finished(await agentGenerate(token(id, 'run-a'), 'idle'));
+      harness.ledger.runEnded({ projectId: id, runId: 'run-a', status: 'failed' });
+      const chunks: string[] = [];
+      const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => { chunks.push(String(chunk)); return true; });
+      try {
+        await runGamePlanCli(['plan', 'budget', '--project', id, '--daemon-url', harness.base]);
+      } finally {
+        spy.mockRestore();
+      }
+      expect(chunks.join('')).toContain('Approved: 12 credits; an earlier turn stopped after using 4, and 8 carry over to the next turn.');
     });
 
     it('rejects a malformed amount before calling the daemon', async () => {

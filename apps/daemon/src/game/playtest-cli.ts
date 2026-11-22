@@ -7,9 +7,10 @@ import { resolveDaemonUrl } from '../daemon-url.js';
 import { decodeAgentTextBytes } from '../text-file-decoding.js';
 import { gameToolResolver } from './verify.js';
 import { playtestGame } from './playtest.js';
+import { gameReportPathFromArgs, writeGameErrorReport, writeGameReport } from './cli-report.js';
 
 export const GAME_PLAYTEST_USAGE = PRODUCT_CLI_NAME + ' game playtest [--project <id>] [--script <file|-> | --preset <'
-  + GAME_PLAYTEST_PRESET_IDS.join('|') + '> [--seed <0..4294967295>]] [--duration <seconds: 0.1..30>] [--json]\n'
+  + GAME_PLAYTEST_PRESET_IDS.join('|') + '> [--seed <0..4294967295>]] [--duration <seconds: 0.1..30>] [--json] [--report <file>]\n'
   + PRODUCT_CLI_NAME + ' game playtest --list-presets [--json]';
 
 /** Expand --preset/--seed through the same pure preset functions the UI uses. A seeded preset without
@@ -63,12 +64,13 @@ export async function readGamePlaytestScript(file: string): Promise<unknown> {
 }
 export async function runGamePlaytestCli(args: string[]): Promise<void> {
   const json = args.includes('--json');
+  const reportFile = gameReportPathFromArgs(args);
   try {
     if (args.includes('--help') || args.includes('-h')) { console.log(GAME_PLAYTEST_USAGE); return; }
     const { values } = parseArgs({ args: args.slice(1), options: {
       project: { type: 'string' }, script: { type: 'string' }, duration: { type: 'string' },
       preset: { type: 'string' }, seed: { type: 'string' }, 'list-presets': { type: 'boolean' },
-      json: { type: 'boolean' }, 'daemon-url': { type: 'string' },
+      json: { type: 'boolean' }, report: { type: 'string' }, 'daemon-url': { type: 'string' },
     } });
     if (values['list-presets']) { printGamePlaytestPresets(json); return; }
     if (values.preset !== undefined && values.script !== undefined) throw new Error('Use either --script or --preset, not both');
@@ -98,6 +100,7 @@ export async function runGamePlaytestCli(args: string[]): Promise<void> {
         ...(context.webCaptureAvailable ? { captureWeb: input => api<GameWebCaptureResult>('verify/capture', input) } : {}) });
       result = await api<GamePlaytestResult>('verify/register', { result: local, runId: context.runId ?? process.env.PIXO_RUN_ID });
     } else result = await api<GamePlaytestResult>('playtest', request);
+    const saved = await writeGameReport(values.report, result);
     if (json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     else {
       console.log('Playtest: ' + result.status + ' (' + result.playtest.durationMs + ' ms)');
@@ -111,10 +114,12 @@ export async function runGamePlaytestCli(args: string[]): Promise<void> {
       for (const error of result.playtest.pageErrors) console.log(error);
       for (const message of result.playtest.console) console.log(message.level + ': ' + message.text);
       for (const step of result.steps) console.log('Log: ' + step.logRef + (step.message ? '\n' + step.message : ''));
+      if (saved) console.log('Report: ' + saved);
     }
     if (result.status !== 'passed') process.exitCode = result.status === 'unavailable' ? 2 : 1;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    await writeGameErrorReport(reportFile, { message });
     if (json) process.stdout.write(JSON.stringify({ error: { message } }) + '\n'); else process.stderr.write(message + '\n');
     process.exitCode = 1;
   }

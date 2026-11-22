@@ -26,9 +26,9 @@ it('places each new message in front without discarding older queued messages', 
     expect.stringContaining(one.prompt), expect.stringContaining(four.prompt),
   ]));
   expect(banners.find((banner) => banner.getAttribute('data-depth') === '0')?.textContent).toContain(four.prompt);
-  expect(screen.getAllByRole('button', { name: '引导对话' })).toHaveLength(1);
+  expect(screen.getAllByRole('button', { name: '立即发送' })).toHaveLength(1);
   fireEvent.focus(screen.getByRole('region'));
-  expect(screen.getAllByRole('button', { name: '引导对话' })).toHaveLength(4);
+  expect(screen.getAllByRole('button', { name: '立即发送' })).toHaveLength(4);
 });
 
 it('keeps the expanded stack open while the pointer crosses the space between banners', () => {
@@ -54,7 +54,7 @@ it('preserves send, edit and remove callbacks for every expanded message', () =>
   render(view([one, two, three, four], handlers));
   fireEvent.focus(screen.getByRole('region'));
   const first = within(screen.getAllByTestId('chat-queued-send-row')[0]!);
-  fireEvent.click(first.getByRole('button', { name: '引导对话' }));
+  fireEvent.click(first.getByRole('button', { name: '立即发送' }));
   fireEvent.click(first.getByRole('button', { name: '编辑' }));
   fireEvent.click(first.getByRole('button', { name: '移除' }));
   expect(handlers.onSendNow).toHaveBeenCalledWith(one.id);

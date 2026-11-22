@@ -1,7 +1,8 @@
 import fs from 'node:fs';
-import type { Express } from 'express';
+import type { Express, Request } from 'express';
 import type {
   GetMediaCapabilitiesResponse,
+  MediaCapabilitiesArtBudget,
   HyperFramesScaffoldRequest,
   HyperFramesScaffoldResponse,
   MediaExecutionPolicy,
@@ -13,7 +14,9 @@ import type { AnalyticsContext } from '../analytics.js';
 import { defaultMediaExecutionPolicy, mediaPolicyDenial } from '../media/policy.js';
 import { formatMediaTaskDiagnostic, mediaFailureLogDetail } from '../media/diagnostics.js';
 import { findMediaModel, hostedAudioKind, hostedAudioParams, hostedModelSurface, type MediaModel } from '../media/models.js';
-import { ImageOutputSizeError, OPENPIXO_MEDIA_PROVIDER_ID, hostedResolution, resolveImageOutputSize } from '@openpixo/contracts';
+import { ImageOutputSizeError, OPENPIXO_MEDIA_PROVIDER_ID, hostedResolution, isOpenPixoVideoService, resolveImageOutputSize } from '@openpixo/contracts';
+import type { ArtBudgetLedger } from '../game/art-budget.js';
+import { isAgentToken } from '../http/tool-request-auth.js';
 import { AccountError } from '../account/errors.js';
 import { CLOUD_REQUEST_ID } from '../account/cloud-media.js';
 import { accountError } from '../account/errors.js';
@@ -240,6 +243,31 @@ export function resolveLegacyMediaRouteGrant(input: {
 }
 
 export { mediaTaskErrorFromFailure };
+
+/**
+ * The art budget as an agent's hosted request would meet it. A budget of 0 is the
+ * user choosing no credits; an approval counts only while this caller may still claim
+ * it (no run has, or this run did) and only in `ask` mode, where it is what may be spent.
+ */
+export function capabilitiesArtBudget(
+  ledger: Pick<ArtBudgetLedger, 'read' | 'readMode' | 'readApproval'> | undefined,
+  projectId: string,
+  runId: string | null,
+): MediaCapabilitiesArtBudget | null {
+  if (typeof ledger?.read !== 'function') return null;
+  const mode = ledger.readMode(projectId);
+  const budget = ledger.read(projectId);
+  if (!budget) return { state: 'unset', mode };
+  const approval = mode === 'ask' ? ledger.readApproval(projectId) : null;
+  const claimable = approval && approval.remainingCredits > 0 && (approval.runId === null || approval.runId === runId);
+  return {
+    state: budget.limitCredits === 0 ? 'off' : 'set',
+    limitCredits: budget.limitCredits,
+    remainingCredits: budget.remainingCredits,
+    mode,
+    ...(claimable ? { approvedCredits: approval.remainingCredits } : {}),
+  };
+}
 
 export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) {
   const { db, design } = ctx;
@@ -887,14 +915,44 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
     }
   });
 
-  app.get('/api/media/capabilities', async (_req, res) => {
+  /**
+   * What a signed-in user can also make with credits, written into `capabilities`
+   * beside the own tools (C11: an agent reading only `configured` told a credits user
+   * animation was impossible). `configured` stays "an own tool makes it", because the
+   * Generate box reads it as "nothing is spent". Signed out, nothing is added.
+   */
+  const hostedMediaCapabilities = async (
+    req: Request,
+    models: readonly MediaModel[],
+    capabilities: GetMediaCapabilitiesResponse['capabilities'],
+  ): Promise<GetMediaCapabilitiesResponse['hosted'] | undefined> => {
+    const hasCloudSession = ctx.media.hasCloudSession;
+    if (typeof hasCloudSession !== 'function' || !await Promise.resolve(hasCloudSession()).catch(() => false)) return undefined;
+    for (const model of models) {
+      if (model.provider !== OPENPIXO_MEDIA_PROVIDER_ID) continue;
+      for (const capability of model.caps) {
+        const status = capabilities[capability] ??= { configured: false, providers: [] };
+        const entry = status.hosted ??= { paidWith: 'credits', services: [] };
+        if (!entry.services.includes(model.id)) entry.services.push(model.id);
+        // The looping clip runs only inside the animation recipes.
+        if (isOpenPixoVideoService(model.id)) entry.recipesOnly = true;
+      }
+    }
+    // An agent's token names its own project; any other caller may name one.
+    const grant = optionalToolGrantFromRequest(req) ?? null;
+    const named = typeof req.query?.projectId === 'string' ? req.query.projectId : '';
+    const projectId = grant ? grant.projectId : isAgentToken(req) ? '' : named;
+    return { paidWith: 'credits', artBudget: projectId && getProject(db, projectId) ? capabilitiesArtBudget(ctx.media.artBudget, projectId, grant?.runId ?? null) : null };
+  };
+
+  app.get('/api/media/capabilities', async (req, res) => {
     try {
       // A panel waits on this answer, so it reads the last Codex detection instead of
       // launching the CLI. Expired detections refresh themselves in the background.
       const config = await readMaskedConfig(PROJECT_ROOT, { refreshCredentials: false, cachedAgentDetection: true, dataDir: RUNTIME_DATA_DIR });
       const providers = configuredRecipeProviders(config, false);
       const capabilities: GetMediaCapabilitiesResponse['capabilities'] = {};
-      const models = [...IMAGE_MODELS, ...VIDEO_MODELS, ...MODEL3D_MODELS, ...Object.values(AUDIO_MODELS_BY_KIND).flat()];
+      const models: MediaModel[] = [...IMAGE_MODELS, ...VIDEO_MODELS, ...MODEL3D_MODELS, ...Object.values(AUDIO_MODELS_BY_KIND).flat() as MediaModel[]];
       for (const model of models) {
         for (const capability of model.caps) {
           const status = capabilities[capability] ??= { configured: false, providers: [] };
@@ -904,8 +962,9 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
           }
         }
       }
+      const hosted = await hostedMediaCapabilities(req, models, capabilities);
       res.setHeader('Cache-Control', 'no-store');
-      res.json({ capabilities } satisfies GetMediaCapabilitiesResponse);
+      res.json({ capabilities, ...(hosted ? { hosted } : {}) } satisfies GetMediaCapabilitiesResponse);
     } catch {
       res.status(500).json({ error: 'Unable to read media capabilities' });
     }

@@ -32,7 +32,7 @@ import { executionProfileFromStreamFormat, gamePlanIsPending, isOpenPixoAgentAut
 
 import { composeGameSystemPrompt, gamePromptProjectInputs, promptEngineProfile } from './game/prompt.js';
 import { connectedImageTools, runMediaExecutionForPrompt, usableMediaProviders } from './game/media-contract.js';
-import { artBudgetRunFacts, ArtBudgetLedger } from './game/art-budget.js';
+import { artBudgetRunEndHook, artBudgetRunFacts, ArtBudgetLedger } from './game/art-budget.js';
 import { registerArtBudgetRoutes } from './routes/art-budget.js';
 import { registerAgentImageModelRoutes } from './routes/agent-image-model.js';
 import { getArtStyle, getProjectArtStyle, listArtStyles } from './styles/service.js';
@@ -92,8 +92,7 @@ import {
   runtimeEmissionCountsAsAgentProgress,
   resolveChatRunShutdownGraceMs,
 } from './runtimes/chat-run-lifecycle.js';
-// Shared with `POST /api/runs/:id/steer` so the opening prompt and a B11
-// mid-turn steering frame are encoded by the same writer.
+// The stream-json `user` frame for Claude's opening prompt.
 import { encodeStreamJsonUserMessage } from './runtimes/run-steering.js';
 import {
   normalizeRunContextSelection,
@@ -246,7 +245,6 @@ import {
   codexResolvedSandboxMode,
 } from './runtimes/defs/codex.js';
 import { attachCodexAppServerSession } from './agent-protocol/codex-app-server/session.js';
-import { createCodexThreadCleanupOwner, type CodexCleanupInvocation } from './agent-protocol/codex-app-server/cleanup-owner.js';
 import {
   ensureDetectedRuntimeVersions,
   getDetectedRuntimeVersions,
@@ -286,6 +284,7 @@ import {
   POST_TOOL_RESUME_CONTINUATION_PROMPT,
   decidePostToolResumeRecovery,
   decideSafeRunRetry,
+  providerBusyLogLine,
 } from './run-retry-policy.js';
 import { createRunPerRequestUsageLedger, foldEventIntoPerRequestUsageLedger, scanRunEventsForUsageAnalytics } from './run-analytics-observability.js';
 import {
@@ -2348,7 +2347,6 @@ export async function startServer({
     currentAppVersionInfo()?.version ?? UNKNOWN_APP_VERSION;
   const { analyticsService } = telemetry;
   const gameFunnel = createGameFunnelRecorder({ analytics: analyticsService, dataDir: RUNTIME_DATA_DIR, appVersion: currentAppVersion, newInsertId });
-  const codexThreadCleanupOwner = createCodexThreadCleanupOwner();
   const design = {
     runs: createChatRunService({
       createSseResponse,
@@ -2373,6 +2371,8 @@ export async function startServer({
         }
         if (status !== 'failed' && status !== 'canceled') return;
       },
+      // What a run that could not finish left of an art approval waits for the next run.
+      onTerminal: artBudgetRunEndHook(artBudgetLedger),
     }),
     analytics: analyticsService,
     getAppVersion: currentAppVersion,
@@ -2690,6 +2690,8 @@ export async function startServer({
     generateMedia: (args) => generateMedia({ ...args, desktopFrameRenderer, openpixoHosted: openPixoHosted }),
     openpixoHosted: openPixoHosted,
     artBudget: artBudgetLedger,
+    // `GET /api/media/capabilities` lists credits as a way to make a kind only when signed in.
+    hasCloudSession: () => openPixoAccount.hasSession(),
     mediaTasks: mediaTaskStore.mediaTasks,
     createMediaTask: mediaTaskStore.createMediaTask,
     persistMediaTask: mediaTaskStore.persistMediaTask,
@@ -5055,9 +5057,10 @@ export async function startServer({
         // close/error so it emits terminal retry telemetry (run_retry_finished
         // with retry_result: 'failed') and sets run.retryFinalResult, instead
         // of finishing directly and leaving run_finished to report the fallback
-        // retry_final_result: 'not_attempted'. retryAttemptCount is already 1
-        // here, so decideSafeRunRetry suppresses with attempt_limit_reached and
-        // cannot trigger another restart loop.
+        // retry_final_result: 'not_attempted'. Every automatic retry raises
+        // retryAttemptCount and each policy caps it (one attempt, or
+        // PROVIDER_BUSY_RETRY_MAX_ATTEMPTS for a busy provider), so this
+        // cannot become an unbounded restart loop.
         finishWithRetryDecision('failed', 1, null);
       });
     };
@@ -5093,6 +5096,19 @@ export async function startServer({
         if (run.cancelRequested || design.runs.isTerminal(run.status)) return;
         spawnWhenQuiescent();
       }, wait);
+    };
+    // Daemon log line for an automatic retry of a run the model provider
+    // turned away as busy; silent for every other cause (C19).
+    const logProviderBusyRetry = (decision, failure) => {
+      const line = providerBusyLogLine({
+        runId: run.id,
+        outcome: 'retrying',
+        failure,
+        attempt: decision.retryAttemptIndex,
+        maxAttempts: decision.retryMaxAttempts,
+        delayMs: decision.retryDelayMs,
+      });
+      if (line) console.warn(line);
     };
     const finalizeRetryTelemetry = (status, decision, failure, errorCode) => {
       const attemptCount = run.retryAttemptCount ?? 0;
@@ -5271,6 +5287,7 @@ export async function startServer({
           retry_reason: postToolResumeDecision.retryReason,
           retry_delay_ms: postToolResumeDecision.retryDelayMs,
         });
+        logProviderBusyRetry(postToolResumeDecision, failure);
         run.nativeSessionContinuePending = {
 
           sessionId: liveSessionId,
@@ -5308,6 +5325,7 @@ export async function startServer({
           retry_reason: decision.retryReason,
           retry_delay_ms: decision.retryDelayMs,
         });
+        logProviderBusyRetry(decision, failure);
         scheduleRetryRestart(decision.retryDelayMs);
         return true;
       }
@@ -5347,6 +5365,19 @@ export async function startServer({
         committedWorkSeen &&
         isResumableFailure(failure);
       run.resumable = resumableFailure;
+      // A busy provider used up its automatic attempts: say so in the daemon
+      // log, which otherwise has no line for a failed run (C19).
+      if (result === 'failed') {
+        const busyFailureLine = providerBusyLogLine({
+          runId: run.id,
+          outcome: 'failed',
+          failure,
+          attempt: run.retryAttemptCount ?? 0,
+          maxAttempts: run.retryMaxAttempts ?? decision.retryMaxAttempts,
+          resumable: resumableFailure,
+        });
+        if (busyFailureLine) console.warn(busyFailureLine);
+      }
       // Surface the daemon's failure classification (already computed for
       // retry-policy + telemetry) on the run so statusBody / the SSE `end` frame
       // carry it to the chat, which maps failureDetail -> a specific named
@@ -6166,11 +6197,6 @@ export async function startServer({
     let writePromptToChildStdin = false;
     let promptDeliveredAtSpawn = false;
     let spawnedAgentEnv = null;
-    let codexCleanupInvocation: CodexCleanupInvocation | null = null;
-    let completeCodexEvidenceCollection = () => {};
-    const codexEvidenceCollected = def.id === 'codex'
-      ? new Promise<void>((resolve) => { completeCodexEvidenceCollection = resolve; })
-      : undefined;
     // The stream handler is block-scoped to its parser branch, but the OpenCode
     // post-run child export runs in the shared close handler below — after the
     // stream that produced the candidates is gone.
@@ -6264,13 +6290,6 @@ export async function startServer({
         args,
         env,
       });
-      if (def.streamFormat === CODEX_APP_SERVER_STREAM_FORMAT) {
-        codexCleanupInvocation = {
-          command: invocation.command, args: [...invocation.args], env: { ...env }, cwd: effectiveCwd,
-          ...(invocation.windowsVerbatimArguments !== undefined
-            ? { windowsVerbatimArguments: invocation.windowsVerbatimArguments } : {}),
-        };
-      }
       lifecycle.mark('launch_preflight_end');
       lifecycle.mark('process_spawn_start');
       // A whole-prompt stdin prompt (plain text, or the runtime's own
@@ -7010,17 +7029,11 @@ export async function startServer({
       protocolSession = codexSession;
       run.codexApprovalSession = codexSession;
       run.approvalSession = codexRunApprovalSession(codexSession);
-      if (codexCleanupInvocation) {
-        const cleanupRunId = run.id;
-        // Attach installs the session's physical-close proof first. This
-        // listener is independent of the later retry-generation close guard.
-        codexThreadCleanupOwner.bind(child, codexSession, codexCleanupInvocation, (result) => {
-          const details = { runId: cleanupRunId, ...result };
-          if (result.status === 'archived' && result.treeVerified !== false) {
-            console.info('[codex] closed-thread cleanup completed', details);
-          } else console.warn('[codex] closed-thread cleanup incomplete', details);
-        }, codexEvidenceCollected);
-      }
+      // B11 「引导对话」: `turn/steer` puts a user message into this running turn.
+      run.steeringTarget = {
+        acceptsInput: () => codexSession.acceptsSteering(),
+        deliver: (text) => codexSession.steer(text),
+      };
     } else if (def.streamFormat === 'json-event-stream') {
       // Pipe through sendAgentEvent so the OpenCode `type:'error'` frame
       // (now emitted as a real error event by json-event-stream.ts after
@@ -7111,7 +7124,6 @@ export async function startServer({
       unregisterChatAgentEventSink();
       if (run.pendingTerminalFinish) return;
       if (protocolSession) beginProtocolAttemptTermination('protocol_child_close');
-      completeCodexEvidenceCollection();
 
       // Resume-target-missing recovery runs BEFORE the generic fatal/stream-error
       // short-circuits. The signal arrives differently per adapter: codex reports
@@ -7471,9 +7483,6 @@ export async function startServer({
       }
       const retried = finishWithRetryDecision(status, code, signal);
       } finally {
-        // Superseded attempts and early/error exits also release their own
-        // receipt. The cleanup owner separately fences the shutdown deadline.
-        completeCodexEvidenceCollection();
         cleanupExtensionPlan();
       }
     });
@@ -7680,12 +7689,6 @@ export async function startServer({
         await projectAssetRoutes.close();
         const shutdownGraceMs = resolveChatRunShutdownGraceMs();
         await design.runs.shutdownActive({ graceMs: shutdownGraceMs });
-        // Cleanup runs independently of user terminal classification. Give
-        // confirmed closed writers at most three additional seconds at shutdown.
-        const cleanupDrain = await codexThreadCleanupOwner.drain(shutdownGraceMs);
-        if (cleanupDrain.pending > 0) {
-          console.warn('[codex] closed-thread cleanup shutdown deadline reached', cleanupDrain);
-        }
         await terminalService.shutdownActive();
         await design.analytics.shutdown();
       })();

@@ -33,6 +33,7 @@ export type RunFailureMessageKey =
   | 'chat.runError.modelWindowLimitMessage'
   | 'chat.runError.modelWindowLimitMessageNoTime'
   | 'chat.runError.upstreamUnavailableMessage'
+  | 'chat.runError.providerBusyMessage'
   | 'chat.runError.toolLoopMessage'
   | 'chat.runError.outputInvalidMessage'
   | 'chat.runError.runtimeConfigMessage'
@@ -212,6 +213,7 @@ export type RunFailureTitleKey =
   // 三句话不能共用一个键,否则谁改都盖到别人头上。
   | 'chat.runError.title.modelCapabilityUnsupported'
   | 'chat.runError.title.upstreamUnavailable'
+  | 'chat.runError.title.providerBusy'
   | 'chat.runError.title.toolLoop'
   | 'chat.runError.title.outputInvalid'
   | 'chat.runError.title.runtimeConfig'
@@ -283,6 +285,22 @@ export interface RunFailureUi {
    * conversation again, so only a fresh one can get past them.
    */
   leadsWithNewConversation?: boolean;
+
+  /**
+   * When the failed run is resumable and the host can resume it, the card's
+   * primary action is 〔Continue the run〕 in place of 〔Retry〕: the work so far
+   * is kept in the agent's session, and starting over would throw it away.
+   * Opt-in per row; the fixed action row (G16) is unchanged for every other
+   * failure. A host without a resume handler keeps Retry.
+   */
+  continuesWhenResumable?: boolean;
+
+  /**
+   * Leave 〔Contact support〕 off this card. For failures that are nobody's
+   * fault and pass on their own (a busy model provider), where offering
+   * support reads as "something is broken". 〔Export logs〕 stays.
+   */
+  omitsContactSupport?: boolean;
 }
 
 
@@ -958,10 +976,19 @@ const AGENT_AGNOSTIC_DETAIL_FAILURE_UI: Record<string, RunFailureUi> = {
     'chat.runError.title.upstreamUnavailable',
     'chat.runError.upstreamUnavailableMessage',
   ),
-  provider_high_demand: retryWithGuidance(
-    'chat.runError.title.upstreamUnavailable',
-    'chat.runError.upstreamUnavailableMessage',
-  ),
+  // C19 · the provider said it is under high demand. The daemon has already
+  // retried it several times with a growing wait (`run-retry-policy.ts`), so by
+  // the time this card shows the provider has been busy for minutes. Nothing is
+  // wrong with the model, the account or the app, and the work so far is kept:
+  // say exactly that, lead with continuing, and keep support off the card.
+  provider_high_demand: {
+    ...retryWithGuidance(
+      'chat.runError.title.providerBusy',
+      'chat.runError.providerBusyMessage',
+    ),
+    continuesWhenResumable: true,
+    omitsContactSupport: true,
+  },
   // S18 · risk control suspended the account (catalogue R-064: "card — contact
   // support, no Retry"). Retrying a suspended account fails the same way.
   // Ladder rung 4, and deliberately no switch card: a suspended account has the

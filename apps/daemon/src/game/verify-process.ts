@@ -24,11 +24,22 @@ async function killTree(child: ChildProcess, spawnedAtMs: number): Promise<void>
   if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid, { spawnedAtMs });
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
 }
+/** Windows variable names ignore case, so an addition replaces `Appdata` as well as `APPDATA`. */
+function withEnv(base: NodeJS.ProcessEnv, additions: Record<string, string>): NodeJS.ProcessEnv {
+  const names = new Set(Object.keys(additions).map(name => name.toUpperCase()));
+  const env: NodeJS.ProcessEnv = {};
+  for (const [name, value] of Object.entries(base)) {
+    if (!(process.platform === 'win32' ? names.has(name.toUpperCase()) : Object.hasOwn(additions, name))) env[name] = value;
+  }
+  return { ...env, ...additions };
+}
 export class GameCommandTimeout extends Error { constructor() { super('Engine command timed out'); } }
 
 /** Shared process/URL/timeout/cleanup implementation. No shell interpolation. */
 export async function executeGameProcess<T = never>(options: {
   projectDir: string; command: EngineCommand; executable: string; argv?: string[]; output: (chunk: Buffer) => void;
+  /** Added to the inherited environment, replacing a variable of the same name. */
+  env?: Record<string, string>;
   action?: (input: { urlReady: Promise<string>; remainingMs: () => number }) => Promise<T>;
 }): Promise<{ exitCode: number | null; value?: T }> {
   const { command } = options;
@@ -40,6 +51,7 @@ export async function executeGameProcess<T = never>(options: {
   const invocation = createCommandInvocation({ command: options.executable, args: argv.slice(1) });
   const spawnedAtMs = Date.now();
   const child = spawn(invocation.command, invocation.args, { cwd, stdio: ['ignore', 'pipe', 'pipe'],
+    ...(options.env && Object.keys(options.env).length ? { env: withEnv(process.env, options.env) } : {}),
     detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: invocation.windowsVerbatimArguments });
   let tail = '', closedAlready = false;
   let foundUrl!: (url: string) => void;

@@ -14,7 +14,7 @@ import type { AgentEvent, ChatMessage } from '../types';
 import { contextUsageParts, nativeCodexProviderForConfig, renderCompactedConversationSummary, splitAtCompaction, type ChatRunPurpose } from '@openpixo/contracts';
 
 
-import type { ApiErrorResponse, ChatAnalyticsHints, ChatRunCreateResponse, ChatRunListResponse, ChatRunStatus, ChatRunStatusResponse, ChatRequest, ChatSessionMode, ChatSseEvent, ChatSseStartPayload, DaemonAgentPayload, ByokChatProviderConfig, MediaExecutionPolicy, ResearchOptions, RunCancelOrigin, RunContextSelection, SseErrorPayload } from '@openpixo/contracts';
+import type { ApiErrorResponse, ChatAnalyticsHints, ChatRunCancelRequest, ChatRunCreateResponse, ChatRunListResponse, ChatRunStatus, ChatRunStatusResponse, ChatRequest, ChatSessionMode, ChatSseEvent, ChatSseStartPayload, DaemonAgentPayload, ByokChatProviderConfig, MediaExecutionPolicy, ResearchOptions, RunCancelOrigin, RunContextSelection, SseErrorPayload } from '@openpixo/contracts';
 import type { StreamHandlers } from './anthropic';
 
 
@@ -39,6 +39,7 @@ import { IN_FLIGHT_TOOL_INPUT_MARKER, IN_FLIGHT_TOOL_OUTPUT_KEY } from '../runti
  */
 const RUN_CANCEL_ORIGINS = new Set<string>([
   'user_stop',
+  'queued_send',
   'project_cleanup',
   'daemon_shutdown',
   'unknown',
@@ -46,6 +47,25 @@ const RUN_CANCEL_ORIGINS = new Set<string>([
 
 function isRunCancelOrigin(value: unknown): value is RunCancelOrigin {
   return typeof value === 'string' && RUN_CANCEL_ORIGINS.has(value);
+}
+
+/**
+ * Abort reason for a run's cancel signal when the user stopped the turn to
+ * send a queued message now (the queue row's 「停止并发送」). The cancel request
+ * then names `queued_send`, so the turn is recorded as interrupted for the new
+ * message rather than as a plain Stop.
+ */
+export const QUEUED_SEND_CANCEL_REASON = 'queued_send';
+
+/** `POST /api/runs/:id/cancel` init for a cancel signal aborted with `reason`. */
+function runCancelRequestInit(reason: unknown): RequestInit {
+  if (reason !== QUEUED_SEND_CANCEL_REASON) return { method: 'POST' };
+  const body: ChatRunCancelRequest = { origin: 'queued_send' };
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
 }
 
 
@@ -352,9 +372,11 @@ export interface DaemonAgentRetryState {
   /**
    * 这次重跑是因为什么。只在 daemon 判为限流(`failure_category: 'rate_limit'`,
    * 逐字取自 `run_retry_attempted`)时带上 —— 那一行要改说「模型服务请求繁忙」
-   * (产品《报错文案》S09a,OPEND-2849)。其他原因不带,那一行照旧说「正在重试」。
+   * (产品《报错文案》S09a,OPEND-2849)。服务商繁忙(`failure_detail:
+   * 'provider_high_demand'`)带 `provider_busy`:daemon 会隔几十秒重试好几次,
+   * 那一行补一句「对方在忙,做好的不会丢」(C19)。其他原因不带,照旧说「正在重试」。
    */
-  cause?: 'rate_limit';
+  cause?: 'rate_limit' | 'provider_busy';
 }
 
 /** Upstream reconnect progress emitted by an agent runtime (not browser SSE). */
@@ -1350,10 +1372,10 @@ async function consumeDaemonPhysicalRun({
   const cancelRun = () => {
     if (canceled) return;
     canceled = true;
-    void fetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
-      method: 'POST',
-      ...({}),
-    })
+    void fetch(
+      `/api/runs/${encodeURIComponent(runId)}/cancel`,
+      runCancelRequestInit(cancelSignal?.reason),
+    )
       .then(async (resp) => {
         // 读应答而不是「我发了这个请求所以一定是用户按的」:这一层不替服务端
         // 下结论。服务端说不出来(旧 daemon、失败、非 200)就什么都不报,
@@ -1597,7 +1619,11 @@ async function consumeDaemonPhysicalRun({
                 attempt,
                 max: Number.isFinite(max) && max > 0 ? max : attempt,
                 phase: 'retrying',
-                ...(data.failure_category === 'rate_limit' ? { cause: 'rate_limit' as const } : {}),
+                ...(data.failure_category === 'rate_limit'
+                  ? { cause: 'rate_limit' as const }
+                  : data.failure_detail === 'provider_high_demand'
+                    ? { cause: 'provider_busy' as const }
+                    : {}),
               });
             }
             continue;

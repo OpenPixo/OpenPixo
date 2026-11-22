@@ -13,6 +13,7 @@ import { probeAgentAuthStatus } from './auth.js';
 import { agentCapabilities } from './capabilities.js';
 import { installMetaForAgent } from './metadata.js';
 import { vendorSignInWithoutCli } from './vendor-sign-in.js';
+import { agentAdvertisesMidTurnSteering } from './run-steering.js';
 import {
   forgetUnusableExecutables,
   rememberUnusableExecutable,
@@ -762,6 +763,7 @@ async function probe(
     available: true,
     path: launch.selectedPath,
     version: outcome.version,
+    midTurnSteering: agentAdvertisesMidTurnSteering(def, outcome.version),
     ...(auth
       ? {
           authStatus: auth.status,

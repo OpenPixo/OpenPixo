@@ -38,11 +38,24 @@ const ERRORS: Record<OpenPixoAccountErrorCode, { status: number; message: string
 
 const CLOUD_SERVICE_MESSAGE = 'OpenPixo cloud could not complete this request. Try again, and contact support if it keeps happening.';
 
+/**
+ * What the cloud's answer said about a failure, for the daemon's log only: the HTTP status, the
+ * cloud's own error code and the cloud's request id. Never a message, a body or a URL.
+ */
+export interface CloudFailure {
+  /** Null when no answer arrived at all. */
+  status: number | null;
+  code: string | null;
+  requestId: string | null;
+}
+
 /** Provider messages and exception causes must never cross the local API boundary. */
 export class AccountError extends Error {
   readonly status: number;
-  constructor(readonly code: OpenPixoAccountErrorCode, readonly retryAfterSec?: number, readonly reason?: 'service') {
-    super(reason === 'service' ? CLOUD_SERVICE_MESSAGE : ERRORS[code].message);
+  /** Set by the cloud client; logged, never sent to the UI, the CLI or an agent. */
+  cloud?: CloudFailure;
+  constructor(readonly code: OpenPixoAccountErrorCode, readonly retryAfterSec?: number, readonly reason?: 'service', message?: string) {
+    super(message ?? (reason === 'service' ? CLOUD_SERVICE_MESSAGE : ERRORS[code].message));
     this.status = ERRORS[code].status;
   }
   response(): OpenPixoAccountErrorResponse {
@@ -89,6 +102,16 @@ export class PublishCloudError extends Error {
 /** The cloud answered, but with a failure or a reply that cannot be read. The same code keeps retries unchanged. */
 export function cloudServiceError(): AccountError {
   return new AccountError('CLOUD_UNAVAILABLE', undefined, 'service');
+}
+
+/** One log line's worth about a failed cloud call: its code, and what the cloud's answer said. */
+export function describeCloudFailure(error: unknown): string {
+  if (!(error instanceof AccountError)) return error instanceof Error ? error.name : typeof error;
+  const cloud = error.cloud;
+  const answer = !cloud ? (error.reason === 'service' ? 'the cloud\'s answer could not be read' : 'not from a cloud answer')
+    : cloud.status === null ? 'no answer from the cloud'
+      : `cloud answered ${cloud.status}${cloud.code ? ` ${cloud.code}` : ''}${cloud.requestId ? `, cloud request ${cloud.requestId}` : ''}`;
+  return `${error.code} (${answer})`;
 }
 
 export function accountError(error: unknown): AccountError {

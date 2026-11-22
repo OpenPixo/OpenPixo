@@ -63,3 +63,11 @@ it('says what a playtest costs, confirms changes with it and diagnoses from the 
   expect(block).toContain('A stage or a game is playable only when');
   expect(block).toContain('A fix or a change to one part needs only the playtest of the part it changed, not this whole loop.');
 });
+
+it('runs every check as one plain command and saves its JSON with --report, never through a shell wrapper', () => {
+  const block = renderGameVerificationBlock();
+  // Codex chained, piped, redirected and assigned each check (`| Out-File`, `> x.json; $LASTEXITCODE`,
+  // `$r=...`), so no approval rule matched and the user approved about 45 of them in one session (C20, 2026-11-21).
+  expect(block).toContain('Run each check as its own plain command, as written above: do not chain it with other commands, pipe or redirect its output, or assign it to a variable.');
+  expect(block).toContain('To keep the JSON in a file, add `--report <file>`');
+});

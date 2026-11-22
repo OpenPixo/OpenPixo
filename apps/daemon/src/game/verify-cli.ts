@@ -6,8 +6,9 @@ import { gameToolResolver, verifyGame } from './verify.js';
 import { GAME_RUN_USAGE, runGameRunCli } from './run-cli.js';
 import { GAME_PLAYTEST_USAGE, runGamePlaytestCli } from './playtest-cli.js';
 import { GAME_PLAN_USAGE, runGamePlanCli } from './plan-cli.js';
+import { gameReportPathFromArgs, writeGameErrorReport, writeGameReport } from './cli-report.js';
 
-const USAGE = `${PRODUCT_CLI_NAME} game verify [--project <id>] [--steps check,build,run] [--screenshot] [--json]\n${GAME_RUN_USAGE}`;
+const USAGE = `${PRODUCT_CLI_NAME} game verify [--project <id>] [--steps check,build,run] [--screenshot] [--json] [--report <file>]\n${GAME_RUN_USAGE}`;
 
 /** Verification runs in the agent's CLI child; game lifecycle stays daemon-owned. */
 export async function runGameCli(args: string[]): Promise<void> {
@@ -16,12 +17,13 @@ export async function runGameCli(args: string[]): Promise<void> {
   if (args[0] === 'plan' || args[0] === 'scaffold') { await runGamePlanCli(args); return; }
   if (['run', 'run-status', 'stop'].includes(args[0] ?? '')) { await runGameRunCli(args); return; }
   let json = args.includes('--json');
+  const reportFile = gameReportPathFromArgs(args);
   try {
     if (args.includes('--help') || args.includes('-h') || args.length === 0) { console.log(USAGE + '\n' + GAME_PLAYTEST_USAGE + '\n' + GAME_PLAN_USAGE + '\n' + (await import('./export-cli.js')).GAME_EXPORT_USAGE); return; }
     if (args[0] !== 'verify') throw new Error(`Usage: ${USAGE}`);
     const { values } = parseArgs({ args: args.slice(1), options: {
       project: { type: 'string' }, steps: { type: 'string' }, screenshot: { type: 'boolean' }, json: { type: 'boolean' },
-      'daemon-url': { type: 'string' },
+      report: { type: 'string' }, 'daemon-url': { type: 'string' },
     } });
     json = values.json === true;
     const projectId = values.project ?? process.env.PIXO_PROJECT_ID;
@@ -48,6 +50,7 @@ export async function runGameCli(args: string[]): Promise<void> {
     });
     const registration: GameVerifyRegisterRequest = { result, ...(runId ? { runId } : {}) };
     const registered = await api<GameVerifyResult>('/register', registration);
+    const saved = await writeGameReport(values.report, registered);
     if (json) process.stdout.write(`${JSON.stringify(registered, null, 2)}\n`);
     else {
       console.log(`Verification: ${registered.status}`);
@@ -61,10 +64,12 @@ export async function runGameCli(args: string[]): Promise<void> {
         if (guidance.installUrl) console.log(`Download ${guidance.name}: ${guidance.installUrl}`);
       }
       for (const shot of registered.screenshots) console.log(`Screenshot: ${shot.path}`);
+      if (saved) console.log(`Report: ${saved}`);
     }
     if (registered.status === 'failed') process.exitCode = 1;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    await writeGameErrorReport(reportFile, { message });
     if (json) process.stdout.write(`${JSON.stringify({ error: { message } })}\n`);
     else process.stderr.write(`${message}\n`);
     process.exitCode = 1;

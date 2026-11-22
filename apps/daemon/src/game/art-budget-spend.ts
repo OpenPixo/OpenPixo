@@ -94,6 +94,14 @@ function approvalNeeded(approval: ArtBudgetApproval | null, runId: string | null
   return refuse(409, ART_APPROVAL_REQUIRED, `This project asks before spending credits. ${state} ${ask}`);
 }
 
+/**
+ * The cloud, not the agent, stopped this request: a wrong prompt or option is the
+ * agent's to fix in the same turn, anything else may end the turn without the art.
+ */
+function failedInCloud(refusal: HostedRefusal): boolean {
+  return refusal.status !== 400 && refusal.code !== 'GENERATION_PARAMS_INVALID';
+}
+
 function ratio(aspect: string): number {
   const [width, height] = aspect.split(':').map(Number);
   return width! / height!;
@@ -256,12 +264,18 @@ export async function prepareAgentHostedRequest(input: AgentHostedRequestInput):
   if (!budget || budget.limitCredits === 0) {
     return refuse(confirm.status, confirm.code, `This ${asset} would spend credits, and this project has no art budget. Only the user can set one.`);
   }
+  const runId = grant.runId ?? null;
+  // Leaves no charge behind, so the run's approval is told: if this ends the turn,
+  // the art it was approved for carries over to the next one (`approvalCarriesOver`).
+  const refusedByCloud = (refusal: HostedRefusal): HostedRefusal => {
+    if (runId !== null && failedInCloud(refusal)) ledger.noteArtFailure(projectId, runId);
+    return refusal;
+  };
   const planned = await planHostedRequest(input);
-  if (!planned.ok) return planned;
+  if (!planned.ok) return refusedByCloud(planned);
   const { prompt, aspect, resolution, style, duration, references, warnings } = planned.plan;
 
   const fingerprint = fingerprintOf(service, prompt, aspect, references, style, duration, input.variant, resolution);
-  const runId = grant.runId ?? null;
   // In ask mode only an approved art card pays. Planning's style samples are the
   // exception: the plan gate ahead of this already holds them to a few images.
   const requireApproval = ledger.readMode(projectId) === 'ask' && !gamePlanIsPending(input.metadata);
@@ -284,7 +298,7 @@ export async function prepareAgentHostedRequest(input: AgentHostedRequestInput):
     quote = await hosted.quote(service, { prompt, ...(aspect ? { aspect: aspect as OpenPixoGenerationAspect } : {}), ...(resolution ? { resolution } : {}),
       ...(style !== undefined ? { style } : {}), ...(duration !== undefined ? { duration } : {}) }, references);
   } catch (error) {
-    return fromCloud(error);
+    return refusedByCloud(fromCloud(error));
   }
   // No await between the budget check and the charge: see `ArtBudgetLedger.reserve`.
   const reserved = ledger.reserve({ projectId, runId, fingerprint, quoteId: quote.quoteId, service, credits: quote.credits,

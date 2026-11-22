@@ -29,7 +29,7 @@ import {
   RESTART_ERROR_CODE,
   RESTART_ERROR_MESSAGE,
 } from './run-restart-recovery.js';
-import { classifyRunSteering, writeSteeringUserMessage } from './run-steering.js';
+import { classifyRunSteering } from './run-steering.js';
 import {
   beginPosthogTerminalDelivery,
   finalizePosthogTerminalDelivery,
@@ -1390,6 +1390,7 @@ export function createChatRunService({
     run.approvalSession?.stop?.();
     run.approvalSession = undefined;
     run.codexApprovalSession = undefined;
+    run.steeringTarget = undefined;
     const resumedAt = Date.now();
     const rechargeWaitDurationMs = Math.max(0, resumedAt - run.updatedAt);
     // Invalidate the cleanup timer scheduled for the prior terminal attempt.
@@ -2454,27 +2455,25 @@ export function createChatRunService({
    *
    * `runtimeAccepts` comes from the caller's resolved runtime def
    * (`runtimeAcceptsMidTurnInput`) because the runs service has no agent
-   * registry of its own. Everything else about admissibility lives in
-   * `classifyRunSteering`, so the HTTP route and the CLI cannot drift.
+   * registry of its own. Whether the turn is open to input is the run's
+   * `steeringTarget`, attached by the spawn branch that owns the turn's input
+   * (today the Codex app-server session). Everything else about admissibility
+   * lives in `classifyRunSteering`, so the HTTP route and the CLI cannot drift.
    *
-   * Returns the refusal instead of throwing: a child racing to exit between the
-   * verdict and the write is an ordinary outcome here, not a daemon fault.
+   * Returns the refusal instead of throwing: a turn ending between the verdict
+   * and the delivery is an ordinary outcome here, not a daemon fault.
    */
-  const steer = (run, text, runtimeAccepts) => {
+  const steer = async (run, text, runtimeAccepts) => {
+    const target = run.steeringTarget;
     const verdict = classifyRunSteering({
       runtimeAccepts: !!runtimeAccepts,
       terminal: TERMINAL_RUN_STATUSES.has(run.status),
-      stdinOpen: !!run.stdinOpen,
+      inputOpen: !!target?.acceptsInput?.(),
     });
     if (!verdict.ok) return verdict;
-    const write = writeSteeringUserMessage(run.child?.stdin, text);
-    if (!write.delivered) {
-      // The pipe died between the verdict and the write. Record the truth so
-      // the next caller gets the same answer, and refuse rather than pretending.
-      run.stdinOpen = false;
-      return { ok: false, refusal: 'stdin_closed' };
-    }
-    if (write.backpressure) run.stdinBackpressure = true;
+    const delivery = await target.deliver(text);
+    if (delivery === 'unsupported') return { ok: false, refusal: 'runtime_unsupported' };
+    if (delivery !== 'delivered') return { ok: false, refusal: 'stdin_closed' };
     run.updatedAt = Date.now();
     // Observability only — the delivered text is durable as a `role: 'user'`
     // message in the conversation, written by the route.
@@ -2484,7 +2483,7 @@ export function createChatRunService({
       at: run.updatedAt,
     });
     persistState(run);
-    return { ok: true, backpressure: write.backpressure };
+    return { ok: true };
   };
 
   // A same-run retry can be waiting out its backoff window (server.ts
@@ -2503,7 +2502,7 @@ export function createChatRunService({
     run.approvalSession?.stop?.();
     run.cancelOrigin = origin;
     run.updatedAt = Date.now();
-    if (origin === 'user_stop') observeDiagnosticLifecycle(run, 'user_cancel', run.updatedAt);
+    if (origin === 'user_stop' || origin === 'queued_send') observeDiagnosticLifecycle(run, 'user_cancel', run.updatedAt);
     clearPendingRetryRestart(run);
     if (!run.child) {
       closeRunStdin(run);

@@ -6,6 +6,7 @@ import { toolTokenRegistry } from '../tool-tokens.js';
 import { getProject } from '../db.js';
 import { recordRestoredProjectFileVersion } from '../project-file-versions.js';
 import { resolveProjectDir } from '../projects.js';
+import { warnCheckpointFailureOnce } from '../projects/checkpoint-failure-log.js';
 import { checkpointStore } from '../projects/checkpoint-store.js';
 import { CheckpointError, ProjectCheckpoints } from '../projects/checkpoints.js';
 import type { HttpDeps, PathDeps, RouteDeps } from '../server-context.js';
@@ -79,7 +80,8 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
       if (error instanceof CheckpointError) {
         sendApiError(res, checkpointErrorStatus(error.code), error.code, error.message);
       } else {
-        console.warn('[checkpoints] project operation failed', { projectId, action, error: checkpointFailureForLog(error) });
+        warnCheckpointFailureOnce((message, detail) => console.warn(message, detail), `${projectId}:${action}`,
+          '[checkpoints] project operation failed', { projectId, action }, error);
         sendApiError(res, 500, 'CHECKPOINT_FAILED', 'Could not complete the checkpoint operation');
       }
     }
@@ -91,21 +93,6 @@ export function registerProjectCheckpointRoutes(app: Express, ctx: RegisterProje
   app.get(`${base}/:checkpointId/file`, requireLocalDaemonRequest, (req, res) => respond(req, res, 'file'));
   app.post(`${base}/:checkpointId/restore`, requireLocalDaemonRequest, (req, res) => respond(req, res, 'restore'));
   app.post(`${base}/enable`, requireLocalDaemonRequest, (req, res) => respond(req, res, 'enable'));
-}
-
-/**
- * A failed `git add` prints one line-ending warning per file before the real error; on a game with
- * thousands of assets that buried the cause under ~2,000 lines per failure. Keep Git's errors only.
- */
-function checkpointFailureForLog(error: unknown): unknown {
-  if (!(error instanceof Error)) return error;
-  const stderr = (error as { stderr?: unknown }).stderr;
-  const lines = typeof stderr === 'string'
-    ? stderr.split(/\r?\n/u).filter(line => line.trim() && !/^warning: in the working copy of /u.test(line))
-    : [];
-  // A Git process the daemon stopped (the 30 s timeout) prints nothing; these say so.
-  const { code, killed, signal } = error as { code?: unknown; killed?: unknown; signal?: unknown };
-  return { message: error.message.split('\n')[0]?.slice(0, 300), stderr: lines.slice(-20).join('\n'), code, killed, signal };
 }
 
 /** The files are already back by now, so a history that cannot be updated never fails the undo. */
