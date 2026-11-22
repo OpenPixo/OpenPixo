@@ -37,10 +37,12 @@ This pre-run selection fallback does not retry a failed run with another agent.
 ## Claude Code
 
 Claude uses `-p --input-format stream-json --output-format stream-json --verbose`.
-The composed prompt is one JSONL user message. Stdin remains open for
-`POST /api/runs/:id/steer`, then closes after a clean terminal turn boundary;
-a mid-tool `tool_use` stop reason does not close it. Native sessions continue
-with the CLI's session flags.
+The composed prompt is one JSONL user message. Stdin remains open until a
+clean terminal turn boundary; a mid-tool `tool_use` stop reason does not close
+it. Claude is not a steering runtime: a user frame written mid-turn is not acted
+on (measured on claude 2.1.259), so `POST /api/runs/:id/steer` refuses it and
+the chat offers 「停止并发送」. Native sessions continue with the CLI's session
+flags.
 
 `runtimes/claude-stream.ts` translates text, thinking, tool calls, results,
 usage and terminal state. Real CLI recordings in
@@ -59,7 +61,10 @@ artifact, not a native tool-result answer path.
 The default transport launches the installed CLI's built-in `codex app-server`
 over stdio JSON-RPC. New sessions use `thread/start`; later turns resume the
 thread and send `turn/start`. Codex approvals and project MCP configuration use
-the existing native RPC integration.
+the existing native RPC integration. `POST /api/runs/:id/steer` (「引导对话」)
+sends `turn/steer` with the running turn's id, so a queued message joins that
+turn without stopping it; a server without `turn/steer` is refused as
+unsupported. `exec --json` cannot steer.
 
 Early file previews use `item/fileChange/patchUpdated`. The daemon enables
 `features.apply_patch_streaming_events` only for a stable server version at

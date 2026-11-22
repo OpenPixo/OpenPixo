@@ -162,25 +162,33 @@ export interface AgentInfo {
    * stdin open, which is the only way a further message can reach the model
    * mid-turn. Undefined means `'text'`.
    *
-   * Read it through `agentSupportsMidTurnSteering` rather than comparing the
-   * literal, so the rule lives in one place.
+   * An open stdin is not steering: whether a message reaches a running turn is
+   * `midTurnSteering` below.
    */
   promptInputFormat?: 'text' | 'stream-json';
+  /**
+   * The daemon's answer to "can a message be put into this agent's running
+   * turn and acted on there" (B11 「引导对话」), from the same rule
+   * `POST /api/runs/:id/steer` applies (`apps/daemon/src/runtimes/run-steering.ts`).
+   * True for Codex over app-server (`turn/steer`). Undefined or false means the
+   * only way to deliver a message now is to stop the turn and send it.
+   *
+   * Read it through `agentSupportsMidTurnSteering`.
+   */
+  midTurnSteering?: boolean;
 }
 
 /**
  * Whether B11 「引导对话」 (steer the running turn) can work on this agent at all.
  *
- * Steering writes a further JSONL `user` frame onto the agent child's stdin
- * while the turn is still running. Only a `stream-json` runtime leaves stdin
- * open past the opening prompt; for every other runtime the daemon has already
- * closed it, so the write would be silently lost. UI surfaces must gate the
- * affordance on this instead of assuming every agent can be steered.
+ * UI surfaces gate the affordance on this instead of on an agent's name: when
+ * it is false the queue row offers 「停止并发送」 (stop the turn, then send),
+ * which is what a click actually does for that agent.
  */
 export function agentSupportsMidTurnSteering(
-  agent: Pick<AgentInfo, 'promptInputFormat'> | null | undefined,
+  agent: Pick<AgentInfo, 'midTurnSteering'> | null | undefined,
 ): boolean {
-  return agent?.promptInputFormat === 'stream-json';
+  return agent?.midTurnSteering === true;
 }
 
 export interface AgentsResponse {

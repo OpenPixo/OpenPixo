@@ -22,6 +22,11 @@
 //      真的被 abort,而且队列里那条真的作为**第二次** `streamViaDaemon` 发了出去;
 //      同时 `steerChatRun` 一次都没被调用。
 //
+// C18(2026-11-21)之后:这条「中断 + 立即发送」路的名字是「停止并发送」,停的时候
+// 带 `queued_send` 理由;只有 daemon 说这个 agent 接得住中途消息
+// (`AgentInfo.midTurnSteering`,app-server 上的 Codex)时,才另给一条真正的引导路
+// (`onSteerQueuedSend` → `steerChatRun`),那条不停、不重发。
+//
 // `ChatPane` 在这一层是 mock 的(它自带半个应用),所以这里操作的是
 // **ProjectView 交给 ChatPane 的那几个 prop**;两段靠同一个 prop 名接在一起。
 
@@ -67,6 +72,7 @@ vi.mock('../../src/providers/anthropic', () => ({ streamMessage: vi.fn() }));
 vi.mock('../../src/providers/daemon', () => ({
   GENERIC_DAEMON_DISCONNECT_CODE: 'DAEMON_STREAM_DISCONNECTED',
   GENERIC_DAEMON_DISCONNECT_MESSAGE: 'daemon stream disconnected before run completed',
+  QUEUED_SEND_CANCEL_REASON: 'queued_send',
   fetchChatRunStatus: vi.fn(),
   listActiveChatRuns: vi.fn().mockResolvedValue([]),
   listProjectRuns: vi.fn().mockResolvedValue([]),
@@ -153,6 +159,9 @@ type MockChatPaneProps = {
   queuedItems?: Array<{ id: string; prompt: string }>;
   onSend?: (prompt: string, attachments: [],) => unknown;
   onSendQueuedNow?: (id: string) => void;
+  onSteerQueuedSend?: (id: string) => void;
+  queuedMidTurnSteering?: boolean;
+  queuedTurnInFlight?: boolean;
 };
 
 vi.mock('../../src/components/ChatPane', () => ({
@@ -189,6 +198,15 @@ vi.mock('../../src/components/ChatPane', () => ({
         >
           steer
         </button>
+        <div data-testid="mid-turn-steering">{props.queuedMidTurnSteering ? 'yes' : 'no'}</div>
+        <button
+          type="button"
+          data-testid="real-steer-click"
+          disabled={!first || !props.onSteerQueuedSend}
+          onClick={() => first && props.onSteerQueuedSend?.(first.id)}
+        >
+          real steer
+        </button>
       </div>
     );
   },
@@ -203,8 +221,8 @@ const mockedLoadTabs = vi.mocked(loadTabs);
 const mockedFetchProjectFiles = vi.mocked(fetchProjectFiles);
 
 /**
- * `codex` —— 25 个「中途不读 stdin」的 runtime 之一。这一页选它不是随手挑的:
- * 旧实现下 `agentSupportsMidTurnSteering(codex)` 是 `false`,按钮压根不出现。
+ * `codex` as the daemon lists it when its transport cannot steer (exec --json,
+ * or an older daemon that does not say): stop-and-send is the only way.
  */
 const CODEX: AgentInfo = {
   id: 'codex',
@@ -213,10 +231,13 @@ const CODEX: AgentInfo = {
   promptInputFormat: 'text',
 } as AgentInfo;
 
+/** `codex` over app-server: the daemon says its running turn takes a message (`turn/steer`). */
+const CODEX_STEERS: AgentInfo = { ...CODEX, midTurnSteering: true } as AgentInfo;
+
 /**
- * 另一头的样本 —— `claude` 是原来唯二过得了那道关的 runtime 之一。
- * 留着它是为了照出**反过来接错**的那种回归(比如判据被写成
- * `!== 'stream-json'`):新规矩是两头都出现,一头绿一头红都算没接对。
+ * `claude` keeps stdin open (`stream-json`) but the daemon does not list it as
+ * steerable: a mid-turn frame is not acted on. An open stdin must not light up
+ * 「引导对话」.
  */
 const CLAUDE: AgentInfo = {
   id: 'claude',
@@ -347,10 +368,32 @@ describe('OPEND-2602:队列里的「引导对话」按下去中断当前运行',
   it.each([
     ['codex(promptInputFormat: text)', CODEX],
     ['claude(promptInputFormat: stream-json)', CLAUDE],
-  ])('%s 都给出这颗按钮', async (_name, agent) => {
+  ])('%s 都给出停止并发送,而且都不算「接得住中途消息」', async (_name, agent) => {
     await startRunAndQueueOne(agent as AgentInfo);
     expect(screen.getByTestId('steer-offered').textContent).toBe('yes');
     expect(typeof lastChatPaneProps().onSendQueuedNow).toBe('function');
+    // C18: the face comes from the daemon's answer, not from stdin format.
+    expect(screen.getByTestId('mid-turn-steering').textContent).toBe('no');
+    expect(lastChatPaneProps().queuedTurnInFlight).toBe(true);
+  });
+
+  it('daemon 说接得住时:引导对话把这条放进在跑的那一轮,不停、不重发', async () => {
+    mockedSteerChatRun.mockResolvedValue({ ok: true, messageId: 'steered-user-1' });
+    await startRunAndQueueOne(CODEX_STEERS);
+    await waitFor(() => expect(screen.getByTestId('mid-turn-steering').textContent).toBe('yes'));
+
+    const running = startedRuns[0]!;
+    fireEvent.click(screen.getByTestId('real-steer-click'));
+
+    await waitFor(() => expect(mockedSteerChatRun).toHaveBeenCalledWith({ runId: 'run-1', text: QUEUED_PROMPT }));
+    await waitFor(() => expect(screen.getByTestId('queued-count').textContent).toBe('0'));
+    // The running turn keeps going: not cancelled, no second run.
+    expect(running.cancelSignal?.aborted).toBe(false);
+    expect(startedRuns).toHaveLength(1);
+    // What the user said is in the transcript right away.
+    await waitFor(() => expect(lastChatPaneProps().messages?.some(
+      (message) => message.id === 'steered-user-1' && message.role === 'user' && message.content === QUEUED_PROMPT,
+    )).toBe(true));
   });
 
   it('点下去:在跑的那一轮被中断,队列里这条立刻作为新一轮发出去', async () => {
@@ -363,6 +406,9 @@ describe('OPEND-2602:队列里的「引导对话」按下去中断当前运行',
 
     // 一、在跑的那一轮真的被掐掉(不是「按钮变灰了」这种表面证据)。
     await waitFor(() => expect(interrupted.cancelSignal?.aborted).toBe(true));
+    // …and the stop says why, so the turn reads 「已中断」 for the new message
+    // instead of 「按你的操作停止」 (C18).
+    expect(interrupted.cancelSignal?.reason).toBe('queued_send');
 
     // 二、队列里那条真的作为**第二轮**发了出去,而且带的是它自己的话。
     await waitFor(() => expect(startedRuns).toHaveLength(2));

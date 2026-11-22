@@ -159,6 +159,8 @@ export type DetectedAgent = Omit<
   authMessage?: string;
   path?: string;
   version?: string | null;
+  /** B11: a message can be put into this agent's running turn (`run-steering.ts`). */
+  midTurnSteering?: boolean;
   diagnostics?: AgentDiagnostic[];
   /** See `AgentInfo.vendorSignInWithoutCli`. Set only on an unavailable agent. */
   vendorSignInWithoutCli?: true;

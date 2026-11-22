@@ -600,7 +600,8 @@ export interface ChatRunStatusResponse {
   cancelRequested?: boolean;
   /**
    * Actor or lifecycle path that requested cancellation. Only `user_stop`
-   * proves the user explicitly stopped this run; older daemons may omit it.
+   * (Stop) and `queued_send` (stopped to send a queued message) prove the user
+   * explicitly stopped this run; older daemons may omit it.
    */
   cancelOrigin?: RunCancelOrigin | null;
   /** Structured lifecycle or watchdog mechanism that forced termination. */
@@ -749,6 +750,15 @@ export interface ChatRunListResponse {
    * Optional: older daemons omit it, and absent means "unknown", not "none".
    */
   awaitingInputProjectIds?: string[];
+}
+
+/**
+ * `POST /api/runs/:id/cancel` body. Optional: no body is a plain Stop
+ * (`user_stop`). `queued_send` says the user stopped the turn to send a queued
+ * message now, so the transcript can say so instead of "stopped by you".
+ */
+export interface ChatRunCancelRequest {
+  origin?: 'queued_send';
 }
 
 export interface ChatRunCancelResponse {

@@ -97,6 +97,20 @@ export interface CodexAppServerSession {
   listApprovals(): CodexApprovalRequest[];
   respondApproval(requestId: string, decision: CodexApprovalDecision): boolean;
   /**
+   * B11 「引导对话」: whether the turn is running and can take another user
+   * message through `turn/steer`. False before codex named the turn and from
+   * the moment it completed, was cancelled or failed.
+   */
+  acceptsSteering(): boolean;
+  /**
+   * Add a user message to the running turn (`turn/steer`). The turn keeps its
+   * work; codex reads the message at its next step. Resolves `delivered` only
+   * when codex accepted it, `unsupported` when this codex build has no
+   * `turn/steer`, and `closed` for everything else (the turn moved on, the
+   * child went away, or codex did not answer in time).
+   */
+  steer(text: string): Promise<CodexSteerOutcome>;
+  /**
    * True once codex reported a turn that ended without failing. The run's close
    * classifier reads this so a shutdown that produces no exit code (a signalled
    * kill during teardown) is still recorded as a success.
@@ -133,6 +147,27 @@ const REASONING_SUMMARY = 'detailed';
  * minutes anyway, so wait generously; the bound only catches a hung server.
  */
 const UNARCHIVE_TIMEOUT_MS = 30_000;
+
+export type CodexSteerOutcome = 'delivered' | 'unsupported' | 'closed';
+
+/**
+ * codex answers `turn/steer` at once (it only queues the input on the active
+ * turn), so this bound only catches a server that stopped answering. A steer
+ * that times out is reported closed and is not written to the transcript.
+ */
+const STEER_TIMEOUT_MS = 10_000;
+
+/**
+ * A codex build that predates `turn/steer` refuses the method name itself:
+ * 0.160.0 answers an unknown method with -32600 "unknown variant `…`", and
+ * JSON-RPC's own code for it is -32601. Any other error means the method
+ * exists and this turn could not take the message.
+ */
+function isUnknownMethodError(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  if (error.code === -32601) return true;
+  return typeof error.message === 'string' && /unknown variant `turn\/steer`/u.test(error.message);
+}
 
 /** `default` is the daemon's synthetic "user did not choose" sentinel. */
 function chosen(value: string | null | undefined): string | null {
@@ -180,6 +215,7 @@ export function attachCodexAppServerSession(
 
   const normalizer = createCodexAppServerNormalizer(onAgentEvent, Date.now, cwd, () => threadId);
   const pending = new Map<number, (frame: JsonObject) => void>();
+  const steerWaiters = new Set<(outcome: CodexSteerOutcome) => void>();
   const approvals = new Map<string, { rpcId: string | number; request: CodexApprovalRequest; permissions?: JsonObject }>();
   const decoder = new StringDecoder('utf8');
   const filePathsByItem = new Map<string, string[]>();
@@ -303,7 +339,7 @@ export function attachCodexAppServerSession(
     onResult: (result: JsonObject) => void,
     onWritten?: () => void,
     onError?: (error: unknown) => void,
-  ): void {
+  ): boolean {
     const id = nextId++;
     pending.set(id, (frame) => {
       if (frame.error !== undefined) {
@@ -313,7 +349,45 @@ export function attachCodexAppServerSession(
       }
       onResult(isRecord(frame.result) ? frame.result : {});
     });
-    write({ jsonrpc: '2.0', id, method, params }, onWritten);
+    const written = write({ jsonrpc: '2.0', id, method, params }, onWritten);
+    if (!written) pending.delete(id);
+    return written;
+  }
+
+  function acceptsSteering(): boolean {
+    return Boolean(threadId && turnId) && promptSent && !aborted && !fatalReported
+      && !terminalReceived && !turnEnded && !childClosed;
+  }
+
+  /** Settle every steer still waiting for codex; used when no answer can come. */
+  function closePendingSteers(): void {
+    for (const settle of [...steerWaiters]) settle('closed');
+  }
+
+  function steer(text: string): Promise<CodexSteerOutcome> {
+    if (!acceptsSteering() || !threadId || !turnId) return Promise.resolve('closed');
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = (outcome: CodexSteerOutcome) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        steerWaiters.delete(settle);
+        resolve(outcome);
+      };
+      const timer = setTimeout(() => settle('closed'), STEER_TIMEOUT_MS);
+      steerWaiters.add(settle);
+      // `expectedTurnId` makes codex refuse the message if this turn already
+      // ended and another began, instead of steering a turn the user never saw.
+      const sent = request(
+        'turn/steer',
+        { threadId, expectedTurnId: turnId, input: [{ type: 'text', text, text_elements: [] }] },
+        () => settle('delivered'),
+        undefined,
+        (error) => settle(isUnknownMethodError(error) ? 'unsupported' : 'closed'),
+      );
+      if (!sent) settle('closed');
+    });
   }
 
   function notify(method: string, params: JsonObject): void {
@@ -543,6 +617,7 @@ export function attachCodexAppServerSession(
     if (turnEnded) return;
     clearApprovals(false);
     turnEnded = true;
+    closePendingSteers();
     if (archiveTimer) clearTimeout(archiveTimer);
     const stdin = child.stdin;
     if (!stdin || stdin.destroyed) return;
@@ -578,6 +653,7 @@ export function attachCodexAppServerSession(
     clearApprovals(false);
     if (archiveTimer) clearTimeout(archiveTimer);
     pending.clear();
+    closePendingSteers();
   });
 
   request(
@@ -619,6 +695,8 @@ export function attachCodexAppServerSession(
       return [...approvals.values()].map(({ request }) => ({ ...request, paths: [...request.paths] }));
     },
     respondApproval,
+    acceptsSteering,
+    steer,
     completedSuccessfully(): boolean {
       return turnEnded && turnSucceeded && !fatalReported;
     },

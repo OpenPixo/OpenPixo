@@ -29,12 +29,15 @@
  *   · 「没有在跑的一轮时退回纯图标的『发送』」—— 那副退回态整个撤了
  *     (同一次裁决:「引导对话就是原本的立即发送」),稿子里也从来没有它。
  *
+ * C18(2026-11-21):在跑的一轮接不住这条时,这颗不再叫「引导对话」,而叫
+ * 「停止并发送」,并且先确认再停(见 `queue-leading-action-faces.test.tsx`)。
+ *
  * `chat.queuedSteerInterrupts` 这条文案本身没有删(和它同族的
  * `Unsupported` / `Closed` / `Failed` / `TextOnly` 一样是**休眠件**),
  * 中英措辞由 `tests/i18n/queue-steer-terminology.test.ts` 继续钉着。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { } from '@openpixo/contracts';
 
@@ -44,7 +47,7 @@ import { en } from '../../../src/i18n/locales/en';
 
 type StripProps = Parameters<typeof QueuedSendStrip>[0];
 
-const STEER_LABEL = en['chat.queuedSteer'];
+const STOP_AND_SEND_LABEL = en['chat.queuedStopAndSend'];
 
 function renderStrip(overrides: Partial<StripProps> = {}) {
   const props: StripProps = {
@@ -67,15 +70,19 @@ afterEach(cleanup);
 
 describe('OPEND-2602:队列行领头那颗按下去中断当前运行', () => {
   it('先证明这把尺子够得着 —— 按钮上那行可见文字在词典里非空', () => {
-    // 标尺是 undefined 的话,下面那条 `toBe(STEER_LABEL)` 会变成空断言。
-    expect(typeof STEER_LABEL).toBe('string');
-    expect((STEER_LABEL ?? '').length).toBeGreaterThan(0);
+    // 标尺是 undefined 的话,下面那条 `toBe(STOP_AND_SEND_LABEL)` 会变成空断言。
+    expect(typeof STOP_AND_SEND_LABEL).toBe('string');
+    expect((STOP_AND_SEND_LABEL ?? '').length).toBeGreaterThan(0);
   });
 
   it('带附件 / 带批注那一行也拿到这颗 —— 中断 + 重发把附件原样带走', () => {
     const onSendNow = vi.fn();
     renderStrip({
       onSendNow,
+      // C18: a turn is running that cannot take the message, so the button
+      // says what it does — 「停止并发送」 — and asks before stopping.
+      turnInFlight: true,
+      midTurnSteering: false,
       items: [
         { id: 'text-only', prompt: '再紧凑一点' },
         {
@@ -94,13 +101,17 @@ describe('OPEND-2602:队列行领头那颗按下去中断当前运行', () => {
     const steers = screen.getAllByTestId('chat-queued-send-steer');
     expect(steers).toHaveLength(3);
     for (const steer of steers) {
-      expect(steer.textContent?.trim()).toBe(STEER_LABEL);
+      expect(steer.textContent?.trim()).toBe(STOP_AND_SEND_LABEL);
     }
     // 退回态那颗无标签图标键已经撤了,一个都不许剩。
     expect(screen.queryAllByTestId('chat-queued-send-now')).toHaveLength(0);
 
-    // 而且带附件那一行点下去真的把**它自己**发出去,不是发了第一条。
+    // 而且带附件那一行点下去(确认之后)真的把**它自己**发出去,不是发了第一条。
     fireEvent.click(steers[1]!);
+    expect(onSendNow).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', {
+      name: en['chat.queuedStopAndSendConfirm'],
+    }));
     expect(onSendNow).toHaveBeenCalledTimes(1);
     expect(onSendNow).toHaveBeenCalledWith('with-attachment');
   });

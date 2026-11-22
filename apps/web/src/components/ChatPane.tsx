@@ -1,5 +1,6 @@
 import { PRODUCT_NAME, gamePlanIsPending } from '@openpixo/contracts';
-import { Button } from '@openpixo/components';
+import { Button, ConfirmDialog } from '@openpixo/components';
+import { queuedLeadingAction, type QueuedLeadingAction } from '../runtime/chat/queue-leading-action';
 import { genreValue, kickoffPrompt, setupToDraft } from './new-game/wizard-state';
 import { conversationMetaLabel } from '../runtime/chat/conversation-time';
 export { conversationMetaLabel } from '../runtime/chat/conversation-time';
@@ -279,13 +280,21 @@ interface Props {
   onUpdateQueuedSend?: (id: string, update: QueuedSendUpdate) => void;
   onReorderQueuedSends?: (orderedIds: string[]) => void;
   /**
-   * B11 「引导对话」: send this queued item now. When a turn is still running
-   * the host stops it first and sends this item as the next turn (OPEND-2602);
-   * when nothing is running it just sends. That branch is the host's, and it is
-   * the same one call either way — which is exactly why the queue row shows one
-   * button under one name (product ruling 2026-09-08).
+   * Send this queued item now. When a turn is still running the host stops it
+   * first and sends this item as the next turn (OPEND-2602) — the queue row
+   * then says 「停止并发送」 and asks first (C18); when nothing is running it
+   * just sends (「立即发送」).
    */
   onSendQueuedNow?: (id: string) => void;
+  /**
+   * B11 「引导对话」: put this queued item into the running turn, which keeps
+   * its work. Offered only when `queuedMidTurnSteering` is true.
+   */
+  onSteerQueuedSend?: (id: string) => void;
+  /** The daemon's `AgentInfo.midTurnSteering` for the agent running this conversation. */
+  queuedMidTurnSteering?: boolean;
+  /** A turn is running in this conversation (the queue row's leading face depends on it). */
+  queuedTurnInFlight?: boolean;
   /** Why steering is unavailable right now. Threaded but not rendered — see
    *  `QueuedSendStrip`'s docblock for why it is kept. */
   steerBlockedReason?: string | null;
@@ -661,6 +670,9 @@ export function ChatPane({
   onUpdateQueuedSend,
   onReorderQueuedSends,
   onSendQueuedNow,
+  onSteerQueuedSend,
+  queuedMidTurnSteering = false,
+  queuedTurnInFlight,
   steerBlockedReason,
   onRequestOpenFile,
   onRequestPluginDetails,
@@ -3799,12 +3811,22 @@ export function ChatPane({
                   }
                 : undefined}
               onReorder={onReorderQueuedSends}
-              /* One button, one event. The row's leading action used to report
-                 `send_now` or `steer` depending on which of the two faces was
-                 showing; the faces merged (2026-09-08 ruling), so the survivor
-                 reports `'steer'` — the name the button now carries. This
-                 surface no longer emits `send_now` at all. */
+              /* The leading button reports what it did: `steer` for a real
+                 mid-turn steer, `send_now` for 「立即发送」 and for a confirmed
+                 「停止并发送」 (C18). */
               onSendNow={onSendQueuedNow
+                ? (id) => {
+                    trackMessageQueueClick(analytics.track, {
+                      page_name: 'chat_panel',
+                      area: 'message_queue',
+                      element: 'send_now',
+                      project_id: projectId ?? '',
+                      queue_length: queuedItems.length,
+                    });
+                    onSendQueuedNow(id);
+                  }
+                : undefined}
+              onSteer={onSteerQueuedSend
                 ? (id) => {
                     trackMessageQueueClick(analytics.track, {
                       page_name: 'chat_panel',
@@ -3813,9 +3835,11 @@ export function ChatPane({
                       project_id: projectId ?? '',
                       queue_length: queuedItems.length,
                     });
-                    onSendQueuedNow(id);
+                    onSteerQueuedSend(id);
                   }
                 : undefined}
+              turnInFlight={queuedTurnInFlight ?? streaming}
+              midTurnSteering={queuedMidTurnSteering}
               steerBlockedReason={steerBlockedReason ?? null}
             />
             <div
@@ -4974,6 +4998,9 @@ function queuedTipPlacement(
   onRemove,
   onReorder,
   onSendNow,
+  onSteer,
+  turnInFlight = false,
+  midTurnSteering = false,
   steerBlockedReason,
   onExpandedChange,
 }: {
@@ -4986,12 +5013,23 @@ function queuedTipPlacement(
   onRemove?: (id: string) => void;
   onReorder?: (orderedIds: string[]) => void;
   /**
-   * Send this queued item now. Rendered as the row's leading 「引导对话」
-   * button — one button, always that name (product ruling 2026-09-08; see the
-   * long note at the render site). The host decides whether "now" means
-   * "interrupt the turn in flight first"; the strip never infers it.
+   * Send this queued item now. While a turn runs the host stops it first
+   * (「停止并发送」, behind a confirm step here); otherwise it just sends.
    */
   onSendNow?: (id: string) => void;
+  /**
+   * Put this queued item into the running turn (「引导对话」). Used only when
+   * `midTurnSteering` says the agent can take it; the turn keeps its work.
+   */
+  onSteer?: (id: string) => void;
+  /** A turn is running in this conversation right now. */
+  turnInFlight?: boolean;
+  /**
+   * The daemon's answer (`AgentInfo.midTurnSteering`): this agent's running
+   * turn can take a message. Picks the leading button's face with
+   * `queuedLeadingAction`; never inferred from the agent's name.
+   */
+  midTurnSteering?: boolean;
   /**
    * Why steering is unavailable right now (e.g. 「当前 agent 不支持中途插话」).
    *
@@ -5006,7 +5044,25 @@ function queuedTipPlacement(
 }) {
   const t = useT();
   const [dragState, setDragState] = useState<QueuedSendDragState | null>(null);
+  /** The row whose 「停止并发送」 is waiting for the user's confirm. */
+  const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
   const canReorder = Boolean(onReorder && items.length > 1);
+  const leadingLabelKey: Record<QueuedLeadingAction, 'chat.queuedSteer' | 'chat.queuedStopAndSend' | 'chat.queuedSendNow'> = {
+    steer: 'chat.queuedSteer',
+    'stop-and-send': 'chat.queuedStopAndSend',
+    'send-now': 'chat.queuedSendNow',
+  };
+  const actionFor = (item: QueuedSendItem): QueuedLeadingAction => {
+    const action = queuedLeadingAction({ turnInFlight, midTurnSteering, row: item });
+    // A host that wires no steer handler cannot steer; say what a click does.
+    return action === 'steer' && !onSteer ? 'stop-and-send' : action;
+  };
+  const runLeadingAction = (item: QueuedSendItem) => {
+    const action = actionFor(item);
+    if (action === 'steer') onSteer?.(item.id);
+    else if (action === 'stop-and-send') setConfirmStopId(item.id);
+    else onSendNow?.(item.id);
+  };
 
   const handleDragStart = (
     event: ReactDragEvent<HTMLButtonElement>,
@@ -5068,7 +5124,25 @@ function queuedTipPlacement(
     setDragState(null);
   };
 
+  const confirmItem = confirmStopId ? items.find((item) => item.id === confirmStopId) ?? null : null;
+
   return (
+    <>
+    {/* 「停止并发送」先问一句:这一轮会停下,没做完的步骤会中止。 */}
+    <ConfirmDialog
+      open={confirmItem !== null}
+      title={t('chat.queuedStopAndSendTitle')}
+      confirmLabel={t('chat.queuedStopAndSendConfirm')}
+      cancelLabel={t('chat.queuedCancel')}
+      onConfirm={() => {
+        const id = confirmStopId;
+        setConfirmStopId(null);
+        if (id) onSendNow?.(id);
+      }}
+      onCancel={() => setConfirmStopId(null)}
+    >
+      <p>{t('chat.queuedStopAndSendBody')}</p>
+    </ConfirmDialog>
     <QueuedSendStack
       containerRef={containerRef}
       onExpandedChange={onExpandedChange}
@@ -5126,57 +5200,44 @@ function queuedTipPlacement(
                   「编辑」用的是稿子的**魔杖**,不是铅笔。 */}
               <div className="chat-queued-send-actions">
                 {/* 领头这一颗 —— 稿子标的是「引导对话」(B11),排在这一组的
-                    最前面是 OPEND-2715 的裁决。
+                    最前面是 OPEND-2715 的裁决。一行里有且只有这一颗,永远带文字
+                    标签(稿子的 `.qops button.mod-steer`,`<svg/><span>`)。
 
-                    ## 为什么只有一颗
+                    ## 名字说的是按下去会发生什么(C18,2026-11-21)
 
-                    这里曾经是个二选一的三元式:有一轮可中断时画「引导对话」,
-                    没有时退回一颗只有图标的「立即发送」。产品 2026-09-08 当面
-                    裁掉了那个分叉:
-
-                      「引导对话就是原本的立即发送啊,只不过我们换了个名字
-                        跟 codex 客户端对齐了下」
-
-                    照着代码核过,这话是字面成立的 —— `ProjectView` 喂给两边的
-                    实参**是同一个函数** `sendQueuedChatSendNow`,它自己按
-                    `currentConversationBusy` 分支:在跑就先掐掉那一轮再发,
-                    没在跑就直接发。两副面孔换掉的只有名字、一个门
-                    (`canSteerCurrentTurn`)和埋点的 `element` 值,按下去发生的
-                    事一模一样。门和退回态因此一起撤掉。
-
-                    交付稿(`729fa43ce7:docs/design/chat-panel-next.html` 组件 17
-                    「Queue」)里也只有这一颗:三行队列样例每一行都是
-                    `<button class="mod-tip-e mod-steer" aria-label="引导对话"
-                    data-tip="引导对话"><svg/><span>引导对话</span></button>`,
-                    那颗无标签的图标键**稿子里根本不存在**。
-
-                    ## 名字
-
-                    带文字标签是稿子的 `.qops button.mod-steer`(`<svg/><span>`),
-                    不是装饰:队列行里三颗按钮挨着,只有它把自己干的事写在脸上。
-                    三处名字(`title` / `data-tooltip` / `aria-label`)按稿子的
-                    `data-tip` 逐字收敛回「引导对话」本身 —— 屏幕上写着一句、
-                    读屏念出另一句是 WCAG 2.5.3(Label in Name)那一条。
-                    早先挂在 hover 上的 `chat.queuedSteerInterrupts`
-                    (「会中断当前运行」)是稿子之外后加的,随这次收敛退场。
-
-                    这里不看 agent 能不能中途插话(中断对所有 agent 都成立),
-                    也不看这一行带不带附件:中断 + 重发走的是完整发送路径,
-                    附件和批注原样跟着走。 */}
-                <button
-                  type="button"
-                  className="chat-queued-send-action chat-queued-send-action-steer chat-queued-send-tooltip pixo-tooltip"
-                  title={t('chat.queuedSteer')}
-                  data-tooltip={t('chat.queuedSteer')}
-                  data-tooltip-placement={queuedTipPlacement(index, 'top')}
-                  aria-label={t('chat.queuedSteer')}
-                  data-testid="chat-queued-send-steer"
-                  onClick={() => onSendNow?.(item.id)}
-                  disabled={!onSendNow}
-                >
-                  <Icon name="arrow-up" size={13} />
-                  <span className="chat-queued-send-action-label">{t('chat.queuedSteer')}</span>
-                </button>
+                    2026-09-08 曾把它并成永远叫「引导对话」的一颗,而按下去在
+                    每个 agent 上都是「掐掉这一轮再发」—— 在 Codex 上那一轮随后
+                    被记成「已取消 · 本次运行已按你的操作停止」。现在由
+                    `queuedLeadingAction` 按 daemon 的答复(`AgentInfo.midTurnSteering`)
+                    挑三副面孔之一,不看 agent 的名字:
+                      · 引导对话:有一轮在跑、它接得住这条(纯文字),这一轮不停;
+                      · 停止并发送:有一轮在跑、但接不住这条,先确认,再停、再发
+                        (完整发送路径,附件和批注原样跟着走);
+                      · 立即发送:没有在跑的一轮,直接发。
+                    三处名字(`title` / `data-tooltip` / `aria-label`)与可见标签
+                    逐字相同 —— 屏幕上写着一句、读屏念出另一句是 WCAG 2.5.3
+                    (Label in Name)那一条。 */}
+                {(() => {
+                  const action = actionFor(item);
+                  const label = t(leadingLabelKey[action]);
+                  return (
+                    <button
+                      type="button"
+                      className="chat-queued-send-action chat-queued-send-action-steer chat-queued-send-tooltip pixo-tooltip"
+                      title={label}
+                      data-tooltip={label}
+                      data-tooltip-placement={queuedTipPlacement(index, 'top')}
+                      aria-label={label}
+                      data-testid="chat-queued-send-steer"
+                      data-action={action}
+                      onClick={() => runLeadingAction(item)}
+                      disabled={action === 'steer' ? !onSteer : !onSendNow}
+                    >
+                      <Icon name="arrow-up" size={13} />
+                      <span className="chat-queued-send-action-label">{label}</span>
+                    </button>
+                  );
+                })()}
                 {onEdit ? (
                   <button
                     type="button"
@@ -5209,6 +5270,7 @@ function queuedTipPlacement(
           ) };
         })}
     />
+    </>
   );
 }
 

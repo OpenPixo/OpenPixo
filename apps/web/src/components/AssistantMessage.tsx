@@ -1295,6 +1295,7 @@ function AssistantMessageImpl({
               fileScope={recordFileScope}
               onRetryImage={onRetryImage}
               runTerminal={isTerminalRunStatus(turnRunStatus)}
+              stoppedForQueuedSend={message.cancelOrigin === "queued_send"}
               checkpointAction={!streaming && isTerminalRunStatus(turnRunStatus) && projectId && message.runId
                 && entry.key === turnFlow.filter(item => item.kind === 'shell').at(-1)?.key
                 ? <RunCheckpointUndo projectId={projectId} runId={message.runId} /> : undefined}
@@ -1417,6 +1418,7 @@ function AssistantMessageImpl({
                   unfinishedTodoCount: unfinishedTodos.length,
                   hasEmptyResponse,
                   canceled: message.runStatus === "canceled",
+                  interruptedForQueuedSend: message.cancelOrigin === "queued_send",
                   preparing,
                   preparingStatus,
                   copyMarkdown,
@@ -1438,6 +1440,7 @@ function AssistantMessageImpl({
                 unfinishedTodoCount={unfinishedTodos.length}
                 hasEmptyResponse={hasEmptyResponse}
                 canceled={message.runStatus === "canceled"}
+                interruptedForQueuedSend={message.cancelOrigin === "queued_send"}
                 preparing={preparing}
                 preparingStatus={preparingStatus}
                 copyMarkdown={copyMarkdown}
@@ -2108,6 +2111,12 @@ interface AssistantFooterProps {
   unfinishedTodoCount?: number;
   hasEmptyResponse: boolean;
   canceled?: boolean;
+  /**
+   * C18: the user stopped this turn to send a queued message
+   * (`cancelOrigin: 'queued_send'`). The canceled wording then says it was
+   * interrupted for the new message, not "stopped at your request".
+   */
+  interruptedForQueuedSend?: boolean;
   // Pre-output phase: streaming but nothing rendered yet. The label shimmers
   // "Preparing…"; once content lands it flips to "Working".
   preparing?: boolean;
@@ -2142,6 +2151,7 @@ export function AssistantFooter({
   unfinishedTodoCount = 0,
   hasEmptyResponse,
   canceled = false,
+  interruptedForQueuedSend = false,
   preparing = false,
   preparingStatus = "preparing",
   copyMarkdown,
@@ -2216,7 +2226,7 @@ export function AssistantFooter({
               : hasEmptyResponse
               ? t("assistant.emptyResponseLabel")
               : canceled
-              ? t("assistant.canceledLabel")
+              ? t(interruptedForQueuedSend ? "assistant.interruptedForQueuedLabel" : "assistant.canceledLabel")
               : hasUnfinishedTodos
               ? t("assistant.unfinishedLabel")
               : t("assistant.doneLabel")}
@@ -2226,7 +2236,7 @@ export function AssistantFooter({
           {!streaming && !hasEmptyResponse && (canceled || (hasUnfinishedTodos && unfinishedTodoCount > 0)) ? (
             <span className="assistant-label-detail" data-testid="assistant-label-detail">
               {canceled
-                ? t("assistant.canceledDetail")
+                ? t(interruptedForQueuedSend ? "assistant.interruptedForQueuedDetail" : "assistant.canceledDetail")
                 : t("assistant.unfinishedDetail", { n: unfinishedTodoCount })}
             </span>
           ) : null}

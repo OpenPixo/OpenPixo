@@ -88,6 +88,9 @@ export type TrackingResult = 'success' | 'failed';
 export type TrackingRunResult = 'success' | 'failed' | 'cancelled';
 export type TrackingRunCancelOrigin =
   | 'user_stop'
+  // The user stopped this turn to send a queued message right away (the queue
+  // row's 「停止并发送」 on a runtime that cannot take a message mid-turn).
+  | 'queued_send'
   | 'project_cleanup'
   | 'daemon_shutdown'
   | 'unknown';

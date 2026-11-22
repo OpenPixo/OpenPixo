@@ -1,12 +1,13 @@
 /**
  * OPEND-2613 —— 队列那一族文案统一用产品术语:英文 steer,中文「引导」。
  *
- * 屏幕上今天只剩一句:队列行领头那颗按钮的名字 `chat.queuedSteer`,三处
- * (可见标签 / `title` / `data-tooltip` / `aria-label`)逐字相同,由
+ * 屏幕上:队列行领头那颗按钮在真能引导时叫 `chat.queuedSteer`(C18 起,只有
+ * daemon 说接得住中途消息时才是这副面孔),三处名字与可见标签逐字相同,由
  * `tests/components/chat/queue-steer-single-button.test.tsx` 量渲染结果。
+ * `Unsupported` / `Failed` 在一次引导被拒时作为报错文案上屏(C18)。
  *
- * 这一页管的是同一族里**当下没有消费方**的那几条:
- * `chat.queuedSteerInterrupts` / `Unsupported` / `Closed` / `Failed` / `TextOnly`。
+ * 这一页还管同一族里**当下没有消费方**的那几条:
+ * `chat.queuedSteerInterrupts` / `Closed` / `TextOnly`。
  * 其中 `Interrupts`(「会中断当前运行」)是 2026-09-08 那次并按钮之后转入休眠的
  * —— 它曾挂在引导键的 hover 上,而交付稿
  * (`729fa43ce7:docs/design/chat-panel-next.html` 组件 17)写的是
@@ -62,6 +63,27 @@ describe('OPEND-2613:队列「引导对话」一族的术语', () => {
         expect(dict[key], `${locale} ${key}`).not.toMatch(/插话|插話/);
       }
     }
+  });
+
+  it('C18:停止并发送 / 立即发送不是引导,不许借「引导」/ steer 的名字', () => {
+    // 2026-09-08 到 C18 之间,一颗永远叫「引导对话」的按钮在不能中途接消息的
+    // agent 上做的是「停掉再发」。名字许诺的事和按下去的事必须一致:停止并发送
+    // 要说出「停止」,而且不能叫引导。
+    const NOT_STEERING = [
+      'chat.queuedStopAndSend',
+      'chat.queuedStopAndSendTitle',
+      'chat.queuedStopAndSendConfirm',
+      'chat.queuedSendNow',
+    ] as const satisfies ReadonlyArray<keyof Dict>;
+    for (const key of NOT_STEERING) {
+      expect(zhCN[key], `zh-CN ${key}`).not.toMatch(/引导/);
+      expect(en[key], `en ${key}`).not.toMatch(/steer/i);
+    }
+    expect(zhCN['chat.queuedStopAndSend']).toContain('停止');
+    expect(en['chat.queuedStopAndSend']).toMatch(/stop/i);
+    // The interrupted-for-queued wording must not say the user merely stopped it.
+    expect(zhCN['assistant.interruptedForQueuedDetail']).not.toContain('按你的操作');
+    expect(zhCN['assistant.interruptedForQueuedDetail']).toContain('新消息');
   });
 
   it('说得出这个动作的那几条,中文用「引导」、英文用 steer', () => {

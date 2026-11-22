@@ -17,6 +17,7 @@ const translations: Record<string, string> = {
   'chat.queuedReorder': 'Drag to reorder',
   'chat.queuedEdit': 'Edit',
   'chat.queuedSteer': 'Steer',
+  'chat.queuedStopAndSend': 'Stop and send',
   'common.remove': 'Remove',
 };
 
@@ -72,7 +73,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderQueuedStrip(options: { sendable: boolean } = { sendable: true }) {
+function renderQueuedStrip(options: { sendable: boolean; steerable?: boolean } = { sendable: true }) {
   return render(
     <ChatPane
       messages={[]}
@@ -86,6 +87,8 @@ function renderQueuedStrip(options: { sendable: boolean } = { sendable: true }) 
       ]}
       onRemoveQueuedSend={vi.fn()}
       onSendQueuedNow={options.sendable ? vi.fn() : undefined}
+      onSteerQueuedSend={options.steerable ? vi.fn() : undefined}
+      queuedMidTurnSteering={options.steerable ?? false}
       onUpdateQueuedSend={vi.fn()}
       onReorderQueuedSends={vi.fn()}
       onEnsureProject={async () => 'project-1'}
@@ -116,18 +119,24 @@ function actionLabelsPerRow(container: HTMLElement): string[][] {
  * now" and the destructive one is always last, so delete is never the button
  * the pointer arrives at first.
  *
- * The leading slot used to have two faces — "steer" while a run was
- * interruptible, plain "send now" otherwise — and this file's job was partly to
- * prove the slot did not move between them. Product merged the faces on
- * 2026-09-08 ("引导对话就是原本的立即发送,只不过换了个名字跟 codex 对齐"), so
- * the same order now has to hold with the host offering the handler or not:
- * `onSteerQueuedSend` is gone, and a queued row reads the same either way.
- * `tests/components/chat/queue-steer-single-button.test.tsx` owns what that one
- * button is called; this file only owns where it sits.
+ * The leading slot has three faces (C18): "Steer" when the daemon says the
+ * running turn can take the message, "Stop and send" while a turn runs that
+ * cannot, "Send now" when nothing runs. Whatever the face, it sits first.
+ * `tests/components/chat/queue-leading-action-faces.test.tsx` owns what that
+ * one button is called; this file only owns where it sits.
  */
 describe('queued send row action order', () => {
-  it('leads with steer, whatever the run state', () => {
+  it('leads with stop-and-send while a turn runs that cannot take the message', () => {
     const { container } = renderQueuedStrip();
+
+    expect(actionLabelsPerRow(container)).toEqual([
+      ['Stop and send', 'Edit', 'Remove'],
+      ['Stop and send', 'Edit', 'Remove'],
+    ]);
+  });
+
+  it('leads with steer when the running turn can take the message', () => {
+    const { container } = renderQueuedStrip({ sendable: true, steerable: true });
 
     expect(actionLabelsPerRow(container)).toEqual([
       ['Steer', 'Edit', 'Remove'],
@@ -135,14 +144,14 @@ describe('queued send row action order', () => {
     ]);
   });
 
-  it('still leads with steer when the host offers no handler at all', () => {
-    // The button is disabled in this state, not renamed and not reordered —
-    // the escalation order is a layout fact, not a run-state one.
+  it('keeps the leading slot when the host offers no handler at all', () => {
+    // The button is disabled in this state, not reordered — the escalation
+    // order is a layout fact, not a run-state one.
     const { container } = renderQueuedStrip({ sendable: false });
 
     expect(actionLabelsPerRow(container)).toEqual([
-      ['Steer', 'Edit', 'Remove'],
-      ['Steer', 'Edit', 'Remove'],
+      ['Stop and send', 'Edit', 'Remove'],
+      ['Stop and send', 'Edit', 'Remove'],
     ]);
   });
 

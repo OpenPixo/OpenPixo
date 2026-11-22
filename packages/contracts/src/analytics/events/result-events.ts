@@ -388,7 +388,7 @@ export interface RunFinishedProps extends Omit<RunCreatedProps, 'area'> {
   area: 'chat_panel';
   result: TrackingRunResult;
   error_code?: string;
-  /** Only `user_stop` proves the user explicitly cancelled the run. */
+  /** Only `user_stop` and `queued_send` prove the user explicitly cancelled the run. */
   cancel_origin?: TrackingRunCancelOrigin;
   /** Lifecycle or watchdog mechanism that forced the terminal state. */
   terminal_trigger?: TrackingRunTerminalTrigger;

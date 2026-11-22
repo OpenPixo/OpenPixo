@@ -110,6 +110,12 @@ export interface ExecutionShellProps {
    * needs its confirmation callback in both shell and conclusion lanes.
    */
   pixoCardScope?: string;
+  /**
+   * C18: the user stopped this turn to send a queued message
+   * (`cancelOrigin: 'queued_send'`). A stopped head then says 「已中断」, not
+   * 「已取消」: the turn was interrupted for the new message, not cancelled.
+   */
+  stoppedForQueuedSend?: boolean;
 }
 
 export function ExecutionShell({
@@ -123,6 +129,7 @@ export function ExecutionShell({
   deferCollapsedBodies = true,
   concluded = false,
   pixoCardScope,
+  stoppedForQueuedSend = false,
 }: ExecutionShellProps): ReactElement {
   const t = useT();
   const running = shell.status === 'running' && !shell.stopped;
@@ -217,7 +224,7 @@ export function ExecutionShell({
        * 「已手动停止」—— 两处同时可见时(最后一轮)说的是同一件事的两句话,不是同一句
        * 话说两遍;而原来那个「进行中 vs 已取消」的**自相矛盾**正好被这一改消掉。
        */
-      return <span>{t('chat.record.canceled')}</span>;
+      return <span>{t(stoppedForQueuedSend ? 'chat.record.interrupted' : 'chat.record.canceled')}</span>;
     }
     if (running) {
       /**
