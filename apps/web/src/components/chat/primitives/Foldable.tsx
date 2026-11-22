@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useLifecycleOpen } from './auto-collapse-gate';
 import type { FoldableProps } from './contract';
 import { ChevronIcon } from './icons';
 import styles from './record.module.css';
@@ -72,11 +73,11 @@ export function Foldable({
    *
    * 不传 `lifecycleOpen` 的调用点走不到这里,行为和从前完全一样。
    * 传了 `open` 的受控方也走不到:折叠态在它自己手上(壳就是这么干的)。
+   *
+   * 自动收起要等读者回到底部才执行,免得对话变短把正在往下滚的读者甩上去
+   * (`auto-collapse-gate.ts`)。
    */
-  useEffect(() => {
-    if (lifecycleOpen == null || userToggled) return;
-    setSelfOpen(lifecycleOpen);
-  }, [lifecycleOpen, userToggled]);
+  useLifecycleOpen(lifecycleOpen, userToggled, setSelfOpen);
 
   /*
    * ⚠️ **`<details>` 的 `toggle` 事件不区分是谁掀开的**(OPEND-2557 的真因,在壳那一层

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  followIntentWhileDraggingScrollbar,
   isCompositorSnapBack,
+  isScrollbarPress,
   nextFollowIntent,
   upwardGestureCanEscapeBottom,
 } from '../../../src/runtime/chat/stick-to-bottom';
@@ -367,5 +369,31 @@ describe('isCompositorSnapBack', () => {
     expect(isCompositorSnapBack(previous, clamped, { ...downOnly, atScrollTop: 718.5 })).toBe(
       true,
     );
+  });
+});
+
+describe('chat scrollbar drag', () => {
+  it('recognises a press on the scrollbar, not on content', () => {
+    expect(isScrollbarPress({ targetIsScroller: true, offsetX: 662, clientWidth: 657 })).toBe(true);
+    expect(isScrollbarPress({ targetIsScroller: true, offsetX: 400, clientWidth: 657 })).toBe(false);
+    // A press on a message inside the log is never on the log's bar.
+    expect(isScrollbarPress({ targetIsScroller: false, offsetX: 662, clientWidth: 657 })).toBe(false);
+  });
+
+  it('a drag up while the reply grows is the user leaving the bottom', () => {
+    const following = { following: true, escaped: false };
+    const previous = { scrollTop: 1600, scrollHeight: 2000, clientHeight: 400 };
+    // The thumb moved up 120px in the same frame the reply grew 22px.
+    const dragged = { scrollTop: 1480, scrollHeight: 2022, clientHeight: 400 };
+
+    // The wheel/touch rule cannot see it: the height changed, so it reads as layout.
+    expect(nextFollowIntent(following, previous, dragged)).toEqual(following);
+    // While the bar is held, position decides.
+    expect(followIntentWhileDraggingScrollbar(dragged)).toEqual({ following: false, escaped: true });
+  });
+
+  it('letting go at the bottom resumes following', () => {
+    const atBottom = { scrollTop: 1622, scrollHeight: 2022, clientHeight: 400 };
+    expect(followIntentWhileDraggingScrollbar(atBottom)).toEqual({ following: true, escaped: false });
   });
 });

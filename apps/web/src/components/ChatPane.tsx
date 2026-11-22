@@ -8,9 +8,12 @@ import { QuoteBar } from './chat/QuoteBar';
 import { chatLogSelfResizeObserveDisabled } from '../runtime/chat-scroll-experiments';
 import { releaseChatScrollTakeover } from '../runtime/chat-scroll-takeover';
 import { shouldShowJumpToLatest } from '../runtime/chat/jump-to-latest';
+import { AutoCollapseGateContext, createAutoCollapseGate } from './chat/primitives/auto-collapse-gate';
 import {
   distanceFromBottom,
+  followIntentWhileDraggingScrollbar,
   isAtBottom as isSampleAtBottom,
+  isScrollbarPress,
   nextFollowIntent,
   upwardGestureCanEscapeBottom,
   type FollowIntent,
@@ -997,6 +1000,22 @@ export function ChatPane({
    * 每帧重问的话,门槛附近手抖一下,答案就跟着手来回翻。
    */
   const tailSpacerCollapsingRef = useRef(false);
+  /**
+   * The user is holding the log's scrollbar. While it is held the bottom pin
+   * writes nothing and the thumb's position alone decides the follow intent
+   * (`followIntentWhileDraggingScrollbar`).
+   */
+  const scrollbarDragRef = useRef(false);
+  /**
+   * When the execution record may fold finished work (`auto-collapse-gate.ts`):
+   * only when the fold cannot move the reader — following the bottom, or the
+   * new turn pinned to the top, and not holding the scrollbar or a selection.
+   */
+  const [autoCollapseGate] = useState(() => createAutoCollapseGate(() => (
+    !scrollbarDragRef.current
+    && !selectionFollowPausedRef.current
+    && (anchorActiveRef.current || followIntentRef.current.following)
+  )));
   /*
    * 「几何变了,去重算一次」的入口。它归下面那个 Resize/Mutation observer 的
    * effect 所有(帧的取消也写在那条 effect 的清理里),而 scroll 监听在**另一条**
@@ -2231,12 +2250,14 @@ export function ChatPane({
        */
       // 真实几何,不扣预留空白 —— 见 `readViewportSample` 的注释。
       const sample = readViewportSample(target);
-      followIntentRef.current = nextFollowIntent(
-        followIntentRef.current,
-        lastScrollSampleRef.current,
-        sample,
-        wheelWitnessRef.current,
-      );
+      followIntentRef.current = scrollbarDragRef.current
+        ? followIntentWhileDraggingScrollbar(sample)
+        : nextFollowIntent(
+          followIntentRef.current,
+          lastScrollSampleRef.current,
+          sample,
+          wheelWitnessRef.current,
+        );
       lastScrollSampleRef.current = sample;
       // 见证是一次性的:它只为**这一段**位移作数。留到下一段就可能替一次真正的
       // 用户上滑背书 —— 那是把跟随焊死,比它要修的 bug 更糟。
@@ -2335,14 +2356,49 @@ export function ChatPane({
       resetWheelWitness();
     }
 
+    /*
+     * Holding the scrollbar hands the log to the user until release: no bottom
+     * pin, and the thumb's position decides following (see
+     * `followIntentWhileDraggingScrollbar`). Release is heard on the window,
+     * because the pointer is usually off the bar by then.
+     */
+    function endScrollbarDrag() {
+      window.removeEventListener('pointerup', endScrollbarDrag, true);
+      window.removeEventListener('pointercancel', endScrollbarDrag, true);
+      window.removeEventListener('blur', endScrollbarDrag);
+      if (!scrollbarDragRef.current) return;
+      scrollbarDragRef.current = false;
+      const target = logRef.current;
+      if (!target) return;
+      const sample = readViewportSample(target);
+      followIntentRef.current = followIntentWhileDraggingScrollbar(sample);
+      lastScrollSampleRef.current = sample;
+      syncFollowState();
+    }
+    function onPointerDown(event: PointerEvent) {
+      onOtherInput();
+      const target = logRef.current;
+      if (!target || event.button !== 0) return;
+      if (!isScrollbarPress({
+        targetIsScroller: event.target === target,
+        offsetX: event.offsetX,
+        clientWidth: target.clientWidth,
+      })) return;
+      scrollbarDragRef.current = true;
+      window.addEventListener('pointerup', endScrollbarDrag, true);
+      window.addEventListener('pointercancel', endScrollbarDrag, true);
+      window.addEventListener('blur', endScrollbarDrag);
+    }
+
     rememberScrollSample(el);
     el.addEventListener('scroll', onScroll);
     el.addEventListener('wheel', onWheel, { passive: true });
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: true });
-    el.addEventListener('pointerdown', onOtherInput, { passive: true });
+    el.addEventListener('pointerdown', onPointerDown, { passive: true });
     el.addEventListener('keydown', onOtherInput, { passive: true });
     return () => {
+      endScrollbarDrag();
       // Capture final scroll state before unmount; the ref normally
       // tracks via onScroll, but programmatic scrolls or layout shifts
       // right before unmount can leave it stale.
@@ -2351,7 +2407,7 @@ export function ChatPane({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('pointerdown', onOtherInput);
+      el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('keydown', onOtherInput);
       /*
        * 这个节点不再是我们监听的那个了(面板卸载、日志被换掉)。挂在它身上的
@@ -2740,7 +2796,8 @@ export function ChatPane({
     return (
       followIntentRef.current.following &&
       !anchorActiveRef.current &&
-      !selectionFollowPausedRef.current
+      !selectionFollowPausedRef.current &&
+      !scrollbarDragRef.current
     );
   }
 
@@ -2788,6 +2845,8 @@ export function ChatPane({
       });
       return prev === next ? prev : next;
     });
+    // Folds held back while the reader was away run once they no longer move them.
+    autoCollapseGate.notify();
   }
 
   function handleQuoteSelectionActivityChange(active: boolean) {
@@ -3575,6 +3634,7 @@ export function ChatPane({
                   <OlderTurnsFold hiddenTurns={olderTurns.hiddenTurns} onReveal={revealOlderTurns} />
                 ) : null}
                 <SkillNamesProvider skills={skills}>
+                <AutoCollapseGateContext.Provider value={autoCollapseGate}>
                 <ChatRows
                   items={visibleChatRenderItems}
                   messages={displayMessages}
@@ -3627,6 +3687,7 @@ export function ChatPane({
                   }}
                   highlightedUserMessageId={chatRailHighlightedMessageId}
                 />
+                </AutoCollapseGateContext.Provider>
                 </SkillNamesProvider>
                 {displayError ? (
                   /*

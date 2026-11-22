@@ -15,7 +15,7 @@
  *    这一档沿用「进行中」,而下方那行「已手动停止」在历史回合上是 hover 才揭示的,
  *    于是一轮停掉的活在屏幕上常驻的唯一说法是「进行中」。判据见 `head` 里的注释。)
  */
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useRef, useState, type ReactElement } from 'react';
 import { useT } from '../../i18n';
 import { Icon } from '../Icon';
 import type { ExecutionShell as ShellData, ImageRow as ImageRowData, ShellItem, ThinkingTokens, TodoSegment } from '../../runtime/chat/contract';
@@ -26,6 +26,7 @@ import { groupThinking, isThinking, type GroupedShellItem } from '../../runtime/
 import { segmentRecord, type FoldedStepCounts } from '../../runtime/chat/fold-steps';
 import { toolIcon } from './primitives/icons';
 import type { RecordFileScope } from '../../runtime/chat/record-file-open';
+import { useLifecycleOpen } from './primitives/auto-collapse-gate';
 import { Foldable } from './primitives/Foldable';
 import { ImageRow } from './primitives/ImageRow';
 import { useThinkingFollow } from './primitives/useThinkingFollow';
@@ -176,9 +177,9 @@ export function ExecutionShell({
   const lifecycleOpen = (running && !concluded) || shell.stopped;
   const [open, setOpen] = useState(lifecycleOpen);
   const [userToggled, setUserToggled] = useState(false);
-  useEffect(() => {
-    if (!userToggled) setOpen(lifecycleOpen);
-  }, [lifecycleOpen, userToggled]);
+  // The fold at done waits for the reader to be back at the bottom
+  // (`auto-collapse-gate.ts`).
+  useLifecycleOpen(lifecycleOpen, userToggled, setOpen);
   /*
    * ⚠️ **`<details>` 的 `toggle` 事件不区分是谁掀开的**(OPEND-2557 的真因)。
    *

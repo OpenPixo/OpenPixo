@@ -104,6 +104,36 @@ export function isAtBottom(sample: ScrollSample): boolean {
   return distanceFromBottom(sample) <= AT_BOTTOM_TOLERANCE_PX;
 }
 
+/**
+ * Is this press on the scroller's own scrollbar rather than its content?
+ *
+ * The scrollbar sits past `clientWidth` (which excludes it); content never
+ * does. Only a press whose target is the scroller itself can be on its bar.
+ */
+export function isScrollbarPress(press: {
+  targetIsScroller: boolean;
+  offsetX: number;
+  clientWidth: number;
+}): boolean {
+  return press.targetIsScroller && press.offsetX >= press.clientWidth;
+}
+
+/**
+ * Follow intent while the user holds the scrollbar: where the thumb is, and
+ * nothing else.
+ *
+ * `nextFollowIntent` reads a move as the user's only when the content height
+ * held still, which wheel and touch can afford because each has its own
+ * escape path. A scrollbar drag has none, and while a reply streams the
+ * height changes on nearly every frame — so a drag upward from the bottom was
+ * taken for a layout correction, the bottom pin pulled the thumb back, and
+ * the bar felt stuck. While the bar is held, every move is the user's.
+ */
+export function followIntentWhileDraggingScrollbar(sample: ScrollSample): FollowIntent {
+  const following = isAtBottom(sample);
+  return { following, escaped: !following };
+}
+
 /** 近到可以重新跟上了。 */
 export function isNearBottom(sample: ScrollSample): boolean {
   if (sample.scrollHeight <= sample.clientHeight) return true;
