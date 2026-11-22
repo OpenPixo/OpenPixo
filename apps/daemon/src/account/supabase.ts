@@ -58,7 +58,7 @@ export class SupabaseClient {
       if (response.status === 204 && response.ok) return null;
       const data: unknown = await response.json().catch(() => null);
       if (response.ok) {
-        if (data === null) throw cloudServiceError();
+        if (data === null) throw withCloudFailure(cloudServiceError(), response, null);
         return data;
       }
       const value = record(data);
@@ -69,7 +69,7 @@ export class SupabaseClient {
       }
       const code = record(value.error).code;
       if (typeof code === 'string' && OPENPIXO_ACCOUNT_ERROR_CODES.includes(code as OpenPixoAccountErrorCode)) {
-        throw code === 'CLOUD_UNAVAILABLE' ? cloudServiceError() : new AccountError(code as OpenPixoAccountErrorCode);
+        throw withCloudFailure(code === 'CLOUD_UNAVAILABLE' ? cloudServiceError() : new AccountError(code as OpenPixoAccountErrorCode), response, code);
       }
       if (typeof code === 'string' && PUBLISH_ERROR_CODES.includes(code as PublishErrorCode)) {
         const { refusedFiles: refused, credits } = record(value.error);
@@ -77,10 +77,24 @@ export class SupabaseClient {
           Array.isArray(refused) ? refused.filter((file): file is string => typeof file === 'string' && file.length <= 1024).slice(0, 20) : undefined,
           code === 'PUBLISH_EXTRA_GAME_REQUIRED' && typeof credits === 'number' && Number.isSafeInteger(credits) && credits > 0 ? credits : undefined);
       }
-      throw response.status === 401 ? new AccountError('ACCOUNT_SIGNED_OUT') : cloudServiceError();
+      throw withCloudFailure(response.status === 401 ? new AccountError('ACCOUNT_SIGNED_OUT') : cloudServiceError(), response, code);
     } catch (error) {
       if (error instanceof AccountError || error instanceof SupabaseAuthError || error instanceof PublishCloudError) throw error;
-      throw new AccountError('CLOUD_UNAVAILABLE');
+      const unanswered = new AccountError('CLOUD_UNAVAILABLE');
+      unanswered.cloud = { status: null, code: null, requestId: null };
+      throw unanswered;
     }
   }
+}
+
+const CLOUD_CODE = /^[A-Z][A-Z0-9_]{0,63}$/u;
+const CLOUD_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/u;
+/** Where a cloud answer names its request; the first one present is kept. */
+const REQUEST_ID_HEADERS = ['sb-request-id', 'x-request-id', 'cf-ray'] as const;
+
+/** Notes what the answer said about the failure, for the log. The cloud's message stays out. */
+function withCloudFailure<T extends AccountError>(error: T, response: Response, code: unknown): T {
+  const requestId = REQUEST_ID_HEADERS.map(name => response.headers.get(name)?.trim() ?? '').find(value => CLOUD_REQUEST_ID.test(value)) ?? null;
+  error.cloud = { status: response.status, code: typeof code === 'string' && CLOUD_CODE.test(code) ? code : null, requestId };
+  return error;
 }

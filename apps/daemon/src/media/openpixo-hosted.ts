@@ -1,13 +1,14 @@
 import { createHash } from 'node:crypto';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { crc32 } from 'node:zlib';
 import type Database from 'better-sqlite3';
 import type {
   GeneratedProjectAssetFile, OpenPixoCloudGenerationJob, OpenPixoGenerationParams, OpenPixoGenerationQuote,
   OpenPixoGenerationReferenceResponse, OpenPixoGenerationServicesResponse, ProjectMetadata,
 } from '@openpixo/contracts';
 import { isOpenPixoModel3dService, OPENPIXO_MODEL3D_PROMPT } from '@openpixo/contracts';
-import { AccountError } from '../account/errors.js';
+import { AccountError, describeCloudFailure } from '../account/errors.js';
 import { kindFor, mimeFor, resolveProjectWritePath } from '../projects.js';
 import type { LiveMediaTask } from './task-store.js';
 
@@ -25,7 +26,7 @@ import type { LiveMediaTask } from './task-store.js';
  */
 
 export interface HostedCloud {
-  generationReference(sha256: string, mime: ReferenceMime, bytes: number): Promise<OpenPixoGenerationReferenceResponse>;
+  generationReference(sha256: string, mime: ReferenceMime, bytes: number, options?: { fresh?: boolean }): Promise<OpenPixoGenerationReferenceResponse>;
   generationQuote(service: string, params: OpenPixoGenerationParams): Promise<OpenPixoGenerationQuote>;
   generationSubmit(input: { quoteId: string; idempotencyKey: string; service: string; params: OpenPixoGenerationParams }): Promise<OpenPixoCloudGenerationJob>;
   generationJob(jobId: string): Promise<OpenPixoCloudGenerationJob>;
@@ -98,6 +99,16 @@ const MAX_REFERENCES = 4;
 /** Tries for one reference upload; a dropped one otherwise poisons that picture until the link expires. */
 const REFERENCE_UPLOAD_ATTEMPTS = 3;
 const REFERENCE_UPLOAD_RETRY_MS = 1_000;
+/**
+ * Tries for the steps before anything is charged: registering and uploading references, and the
+ * quote. None of them reserves credits, so trying again costs nothing; the paid submit has its own,
+ * unbounded retry under one request id in `follow`.
+ */
+const PRECHARGE_ATTEMPTS = 3;
+const PRECHARGE_RETRY_MS = [2_000, 6_000] as const;
+const PRECHARGE_GAVE_UP = `OpenPixo cloud did not take this request after ${PRECHARGE_ATTEMPTS} tries, so nothing was charged. It is safe to send the same request again in a minute.`;
+/** How long a note about an unconfirmed or replaced reference is kept; the cloud keeps a reference a day. */
+const REFERENCE_NOTE_TTL_MS = 2 * 24 * 60 * 60 * 1000;
 const EXTENSIONS = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'audio/mpeg': '.mp3', 'model/gltf-binary': '.glb', 'video/mp4': '.mp4' } as const;
 const PENDING = ['submitting', 'pending'] as const;
 
@@ -208,6 +219,62 @@ export function migrateOpenPixoCloudJobs(db: Database.Database): void {
   `);
   const columns = db.prepare('PRAGMA table_info(openpixo_cloud_jobs)').all() as Array<{ name: string }>;
   if (!columns.some(column => column.name === 'write_root')) db.exec('ALTER TABLE openpixo_cloud_jobs ADD COLUMN write_root TEXT');
+  // A reference picture this app could not prove reached the vendor (`unconfirmed`), or that it now
+  // sends as a byte-different copy (`variant` > 0), keyed by the hash of the picture itself.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS openpixo_cloud_references (
+      sha256 TEXT PRIMARY KEY,
+      variant INTEGER NOT NULL DEFAULT 0,
+      unconfirmed INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+}
+
+interface ReferenceNote { variant: number; unconfirmed: boolean }
+/** A reference picture the cloud called already uploaded, by the hash of the picture itself. */
+interface TrustedReference { sha256: string; bytes: Buffer; mime: string }
+/** What a generate does about references the cloud called uploaded, once the submit shows whether they were. */
+interface ReferenceChecks { confirm(): void; reupload(): Promise<void> }
+
+/**
+ * The same picture with a few bytes of text added, so it hashes differently: a PNG gets a `tEXt`
+ * chunk before IEND, a JPEG a comment after its start marker. Decoders skip both. An older cloud
+ * that keeps refusing one picture's hash (castle run, C17) takes the copy as a new reference.
+ * Null for a file this cannot extend safely (WebP, or a PNG with bytes after IEND).
+ */
+export function referenceCopy(bytes: Buffer, mime: string, variant: number): Buffer | null {
+  if (mime === 'image/png') {
+    const end = bytes.length - 12;
+    if (end < 8 || bytes.readUInt32BE(end) !== 0 || bytes.toString('latin1', end + 4, end + 8) !== 'IEND') return null;
+    const body = Buffer.from(`tEXtopenpixo\0reference copy ${variant}`, 'latin1');
+    const length = Buffer.alloc(4); length.writeUInt32BE(body.length - 4);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([bytes.subarray(0, end), length, body, crc, bytes.subarray(end)]);
+  }
+  if (mime === 'image/jpeg') {
+    const text = Buffer.from(`openpixo reference copy ${variant}`, 'latin1');
+    const marker = Buffer.from([0xff, 0xfe, 0, 0]); marker.writeUInt16BE(text.length + 2, 2);
+    return Buffer.concat([bytes.subarray(0, 2), marker, text, bytes.subarray(2)]);
+  }
+  return null;
+}
+
+/** A failure where the cloud did not take the request, so a later try may well work. */
+function cloudDidNotTake(error: unknown): error is AccountError {
+  return error instanceof AccountError && error.code === 'CLOUD_UNAVAILABLE';
+}
+
+/** The cloud answered with a failure, as opposed to never answering. */
+function cloudAnsweredFailure(error: unknown): boolean {
+  return cloudDidNotTake(error) && error.reason === 'service';
+}
+
+/** The same refusal, in words that tell a person or an agent that trying again is safe. */
+function prechargeGaveUp(error: AccountError): AccountError {
+  const final = new AccountError(error.code, error.retryAfterSec, error.reason, PRECHARGE_GAVE_UP);
+  if (error.cloud) final.cloud = error.cloud;
+  return final;
 }
 
 interface LinkRow {
@@ -306,49 +373,149 @@ export class OpenPixoHostedMedia {
    * and the generate that follows it agree on the exact references.
    */
   async uploadReferences(images: readonly HostedReferenceImage[]): Promise<string[]> {
+    return (await this.sendReferences(images, false)).hashes;
+  }
+
+  private referenceNote(sha256: string): ReferenceNote | null {
+    const row = this.options.db.prepare('SELECT variant, unconfirmed FROM openpixo_cloud_references WHERE sha256 = ?').get(sha256) as
+      { variant: number; unconfirmed: number } | undefined;
+    return row ? { variant: row.variant, unconfirmed: row.unconfirmed === 1 } : null;
+  }
+
+  private writeReferenceNote(sha256: string, note: ReferenceNote): void {
+    const now = this.now();
+    this.options.db.prepare('DELETE FROM openpixo_cloud_references WHERE updated_at < ?').run(now - REFERENCE_NOTE_TTL_MS);
+    if (note.variant === 0 && !note.unconfirmed) {
+      this.options.db.prepare('DELETE FROM openpixo_cloud_references WHERE sha256 = ?').run(sha256);
+      return;
+    }
+    this.options.db.prepare(`INSERT INTO openpixo_cloud_references (sha256, variant, unconfirmed, updated_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(sha256) DO UPDATE SET variant = excluded.variant, unconfirmed = excluded.unconfirmed, updated_at = excluded.updated_at`)
+      .run(sha256, note.variant, note.unconfirmed ? 1 : 0, now);
+  }
+
+  /**
+   * Stops trusting what the cloud says about a picture after the cloud failed on it. First the
+   * next registration asks for a fresh upload link; if that was already asked for and the cloud
+   * still fails, an older cloud is ignoring the request, so the picture moves to its next
+   * byte-different copy, which that cloud has never seen. A copy changes the hash, so only a
+   * quote may move to one: a generate must send exactly what was quoted.
+   */
+  private distrustReference(sha256: string, bytes: Buffer, mime: string, mayReplace: boolean): void {
+    const note = this.referenceNote(sha256) ?? { variant: 0, unconfirmed: false };
+    if (!note.unconfirmed) this.writeReferenceNote(sha256, { ...note, unconfirmed: true });
+    else if (mayReplace && referenceCopy(bytes, mime, note.variant + 1)) this.writeReferenceNote(sha256, { variant: note.variant + 1, unconfirmed: true });
+  }
+
+  /** The cloud used these references, so what it said about them held. */
+  private confirmReferences(trusted: readonly TrustedReference[]): void {
+    for (const reference of trusted) {
+      const note = this.referenceNote(reference.sha256);
+      if (note?.unconfirmed) this.writeReferenceNote(reference.sha256, { variant: note.variant, unconfirmed: false });
+    }
+  }
+
+  /**
+   * Registers and uploads reference images (keyed by SHA-256) and returns their hashes in order.
+   * The same files always yield the same hashes, so a quote and the generate that follows it
+   * agree on the exact references; a picture this app moved to a byte-different copy keeps
+   * sending that copy. `trusted` lists the pictures the cloud called already uploaded.
+   *
+   * A reference stays unconfirmed from the moment the cloud hands out its link until the upload
+   * is answered: the cloud may count it as there already, and one lost upload then made every
+   * later quote on that picture fail until the registration expired (castle run, C17).
+   */
+  private async sendReferences(images: readonly HostedReferenceImage[], mayReplace: boolean): Promise<{ hashes: string[]; trusted: TrustedReference[] }> {
     if (images.length > MAX_REFERENCES) throw new AccountError('GENERATION_PARAMS_INVALID');
     const origin = this.options.cloud.cloudOrigin();
     const hashes: string[] = [];
+    const trusted: TrustedReference[] = [];
     for (const image of images) {
       const mime = sniff(image.bytes);
       if (!mime || !isReferenceMime(mime) || mime !== image.mime || image.bytes.length > MAX_REFERENCE_BYTES) throw new AccountError('GENERATION_PARAMS_INVALID');
-      const sha256 = createHash('sha256').update(image.bytes).digest('hex');
-      const registered = await this.options.cloud.generationReference(sha256, mime, image.bytes.length);
+      const original = createHash('sha256').update(image.bytes).digest('hex');
+      const note = this.referenceNote(original);
+      const variant = note?.variant ?? 0;
+      const bytes = variant ? referenceCopy(image.bytes, mime, variant) ?? image.bytes : image.bytes;
+      if (bytes.length > MAX_REFERENCE_BYTES) throw new AccountError('GENERATION_PARAMS_INVALID');
+      const sent = bytes === image.bytes ? original : createHash('sha256').update(bytes).digest('hex');
+      const fresh = note?.unconfirmed === true;
+      let registered: OpenPixoGenerationReferenceResponse;
+      try { registered = await this.options.cloud.generationReference(sent, mime, bytes.length, fresh ? { fresh: true } : undefined); }
+      catch (error) {
+        console.warn(`[media] hosted reference registration failed${fresh ? ' (fresh link asked)' : ''}: ${describeCloudFailure(error)}`);
+        if (cloudAnsweredFailure(error)) this.distrustReference(original, image.bytes, mime, mayReplace);
+        throw error;
+      }
       if (registered.uploadUrl) {
         let url: URL;
         try { url = cloudGivenUrl(registered.uploadUrl, origin); } catch { throw new AccountError('CLOUD_UNAVAILABLE'); }
-        await this.putReference(url, mime, image.bytes, url.origin === origin);
+        this.writeReferenceNote(original, { variant, unconfirmed: true });
+        await this.putReference(url, mime, bytes, url.origin === origin);
+        this.writeReferenceNote(original, { variant, unconfirmed: false });
+      } else {
+        // Still unconfirmed if a fresh link was asked for and an older cloud said "there" anyway:
+        // only the quote or the job that uses it proves it.
+        trusted.push({ sha256: original, bytes: image.bytes, mime });
       }
-      hashes.push(sha256);
+      hashes.push(sent);
     }
-    return hashes;
+    return { hashes, trusted };
   }
 
   /**
    * Puts one reference on the link the cloud handed out, trying a dropped connection or a
-   * server error again on the same link. The cloud already counts the reference as uploaded
-   * when it hands out the link, so one lost upload made every later quote on that picture
-   * fail (鸦堡 run, 2026-11-21). A refusal (4xx) is final.
+   * server error again on the same link. A refusal (4xx) is final. Whatever happens, the
+   * caller keeps the reference unconfirmed until this returns.
    */
   private async putReference(url: URL, mime: string, bytes: Uint8Array, cloudStorage: boolean): Promise<void> {
     for (let attempt = 1; ; attempt += 1) {
       let response: Response | null = null;
+      let transport = '';
       // The transport's own words can carry the host, and this error reaches the task and the CLI.
       try {
         response = await this.fetcher(url, { method: 'PUT', redirect: 'error', signal: AbortSignal.timeout(120_000),
           headers: { 'Content-Type': mime, ...(cloudStorage ? { 'x-upsert': 'true' } : {}) }, body: new Uint8Array(bytes) });
-      } catch { response = null; }
+      } catch (error) { response = null; transport = deliveryFailureReason(error); }
       if (response?.ok) return;
       const retryable = !response || response.status >= 500 || response.status === 429;
+      // Only the status or the error's type: the link itself must never reach a log.
+      console.warn(`[media] hosted reference upload ${response ? `answered ${response.status}` : `failed: ${transport}`} (try ${attempt} of ${REFERENCE_UPLOAD_ATTEMPTS})`);
       if (!retryable || attempt >= REFERENCE_UPLOAD_ATTEMPTS) throw new AccountError('CLOUD_UNAVAILABLE');
-      await new Promise((resolve) => setTimeout(resolve, REFERENCE_UPLOAD_RETRY_MS * attempt));
+      await this.sleep(REFERENCE_UPLOAD_RETRY_MS * attempt);
+    }
+  }
+
+  /**
+   * Runs a step that charges nothing, trying it again when the cloud did not take it, and
+   * says in the end that a retry is safe. A refusal is passed on at once.
+   */
+  private async beforeCharge<T>(what: string, attempt: () => Promise<T>): Promise<T> {
+    for (let tries = 1; ; tries++) {
+      try { return await attempt(); }
+      catch (error) {
+        console.warn(`[media] hosted ${what} failed (try ${tries} of ${PRECHARGE_ATTEMPTS}): ${describeCloudFailure(error)}`);
+        if (!cloudDidNotTake(error)) throw error;
+        if (tries >= PRECHARGE_ATTEMPTS) throw prechargeGaveUp(error);
+        await this.sleep(PRECHARGE_RETRY_MS[Math.min(tries, PRECHARGE_RETRY_MS.length) - 1]!);
+      }
     }
   }
 
   /** Quotes exactly what `generate` will send, references included. Spends nothing. */
   async quote(service: string, params: OpenPixoGenerationParams, references: readonly HostedReferenceImage[] = []) {
-    const hashes = await this.uploadReferences(references);
-    return this.options.cloud.generationQuote(service, { ...pricedParams(service, params), ...(hashes.length ? { references: hashes } : {}) });
+    return this.beforeCharge(`quote for ${service}`, async () => {
+      const { hashes, trusted } = await this.sendReferences(references, true);
+      try {
+        const quote = await this.options.cloud.generationQuote(service, { ...pricedParams(service, params), ...(hashes.length ? { references: hashes } : {}) });
+        this.confirmReferences(trusted);
+        return quote;
+      } catch (error) {
+        // The cloud called these uploaded and then failed on the quote: they are the likeliest cause.
+        if (cloudAnsweredFailure(error)) for (const reference of trusted) this.distrustReference(reference.sha256, reference.bytes, reference.mime, true);
+        throw error;
+      }
+    });
   }
 
   /** The cloud's own catalogue: what each service costs and can render. */
@@ -356,8 +523,17 @@ export class OpenPixoHostedMedia {
 
   /** Submits the confirmed quote and follows the job to a delivered file or a failure. */
   async generate(args: HostedGenerateArgs) {
-    // Uploading happens before any job exists, so a failure here reserves nothing.
-    const hashes = await this.uploadReferences(args.references ?? []);
+    // Uploading happens before any job exists, so a failure here reserves nothing and is tried again.
+    const references = args.references ?? [];
+    const { hashes, trusted } = await this.beforeCharge(`reference upload for ${args.service}`, () => this.sendReferences(references, false));
+    const checks: ReferenceChecks | undefined = trusted.length ? {
+      confirm: () => this.confirmReferences(trusted),
+      // Same hashes, so the submit still matches its quote: only a fresh link, never a copy.
+      reupload: async () => {
+        for (const reference of trusted) this.distrustReference(reference.sha256, reference.bytes, reference.mime, false);
+        await this.sendReferences(references, false);
+      },
+    } : undefined;
     args = { ...args, params: { ...pricedParams(args.service, args.params), ...(hashes.length ? { references: hashes } : {}) } };
     const triedBefore = this.options.db.prepare('SELECT 1 FROM openpixo_cloud_jobs WHERE request_id = ? LIMIT 1').get(args.cloudRequestId) !== undefined;
     const writeRoot = args.writeRoot ?? null;
@@ -367,11 +543,13 @@ export class OpenPixoHostedMedia {
       .run(args.taskId, args.projectId, args.cloudRequestId, args.quoteId, args.service, JSON.stringify(args.params), args.output, writeRoot, this.now(), this.now());
     return this.follow({ task_id: args.taskId, project_id: args.projectId, cloud_job_id: null, request_id: args.cloudRequestId,
       quote_id: args.quoteId, service: args.service, params_json: JSON.stringify(args.params), output: args.output, state: 'submitting', write_root: writeRoot },
-    args.metadata, args.onProgress, args.onBytesWritten, triedBefore);
+    args.metadata, args.onProgress, args.onBytesWritten, triedBefore, checks);
   }
 
   private async follow(link: LinkRow, metadata: ProjectMetadata | undefined | null, onProgress?: (line: string) => void,
-    onBytesWritten?: HostedGenerateArgs['onBytesWritten'], triedBefore = true) {
+    onBytesWritten?: HostedGenerateArgs['onBytesWritten'], triedBefore = true, referenceChecks?: ReferenceChecks) {
+    let checks = referenceChecks;
+    let lastLogged = '';
     const progress = (line: string) => { try { onProgress?.(line); } catch { /* progress is advisory */ } };
     const params = JSON.parse(link.params_json) as OpenPixoGenerationParams;
     let job: OpenPixoCloudGenerationJob | null = null;
@@ -390,6 +568,9 @@ export class OpenPixoHostedMedia {
           jobId = job.jobId;
           this.update(link.task_id, { cloud_job_id: jobId, state: 'pending' });
           progress(`OpenPixo cloud job ${jobId}: ${job.creditsReserved} credits reserved`);
+          // The cloud took the job with these references, so they were there.
+          checks?.confirm();
+          checks = undefined;
         }
       } catch (error) {
         const code = error instanceof AccountError ? error.code : null;
@@ -397,6 +578,9 @@ export class OpenPixoHostedMedia {
         // job, so retry the idempotent submit. Any other refusal there reserved
         // nothing. Once a job exists, only its own terminal state ends the task.
         const retry = jobId ? code !== 'GENERATION_JOB_NOT_FOUND' : code === 'CLOUD_UNAVAILABLE' || code === 'ACCOUNT_SIGNED_OUT';
+        const described = `${jobId ? `hosted job ${jobId} status` : 'hosted submit'} (request ${link.request_id}, ${link.service}) failed: ${describeCloudFailure(error)}`;
+        // Once per change, so a long wait does not fill the log with the same line.
+        if (described !== lastLogged) { console.warn(`[media] ${described}${retry ? '; trying again' : ''}`); lastLogged = described; }
         if (!retry) {
           this.update(link.task_id, { state: 'failed', error_code: code ?? 'CLOUD_UNAVAILABLE' });
           if (!jobId && code && (REFUSED_AFTER_JOB_LOOKUP.has(code) || (!mayHaveReachedCloud && REFUSED_BEFORE_JOB_LOOKUP.has(code)))) {
@@ -405,6 +589,13 @@ export class OpenPixoHostedMedia {
           throw error;
         }
         mayHaveReachedCloud = true;
+        // The cloud called a reference uploaded and then failed on the submit: upload it again,
+        // once, under the same hash, and keep retrying the same request id as before.
+        if (!jobId && checks && cloudAnsweredFailure(error)) {
+          const reupload = checks.reupload;
+          checks = undefined;
+          await reupload().catch((failure: unknown) => console.warn(`[media] hosted reference re-upload failed: ${describeCloudFailure(failure)}`));
+        }
         if (code === 'ACCOUNT_SIGNED_OUT') progress('Sign in to OpenPixo again to finish this paid generation.');
         await this.sleep(code === 'ACCOUNT_SIGNED_OUT' ? 30_000 : delay);
         delay = Math.min(delay * 1.5, 15_000);
@@ -416,6 +607,7 @@ export class OpenPixoHostedMedia {
         else if (job.state !== 'succeeded' && job.state !== 'failed') progress(`OpenPixo cloud: ${job.state}`);
       }
       if (job.state === 'failed') {
+        console.warn(`[media] hosted job ${job.jobId} (request ${link.request_id}, ${link.service}) failed: ${job.errorCode ?? 'no code'}`);
         this.update(link.task_id, { state: 'failed', error_code: job.errorCode });
         // A failed job returned its whole reservation (`generation_fail`).
         this.settle(settlement => settlement.released(link.request_id));
