@@ -1,7 +1,7 @@
 import { getProject } from '../db.js';
 import { ensureProject } from '../projects.js';
 import type { RunAnalyticsFacts } from '../services/run-analytics-lifecycle.js';
-import { checkpointFailureForLog } from './checkpoint-failure-log.js';
+import { warnCheckpointFailureOnce } from './checkpoint-failure-log.js';
 import type { CheckpointStore } from './checkpoint-store.js';
 import { markCheckpointRunActive, ProjectCheckpoints } from './checkpoints.js';
 
@@ -57,19 +57,25 @@ export function createRunCheckpointHook(deps: RunCheckpointDependencies) {
         release = await markCheckpointRunActive(folder);
         const body = facts.body;
         const summary = typeof body.currentPrompt === 'string' ? body.currentPrompt : typeof body.message === 'string' ? body.message : '';
+        // A run waits for its snapshot at most this long. A big game's first one takes longer; it
+        // goes on without the run and makes the next snapshot quick (see ProjectCheckpoints).
         const checkpoint = await new ProjectCheckpoints(folder, AbortSignal.timeout(20_000), store).snapshot({
           runId: run.id, conversationId: run.conversationId ?? null, summary,
         });
         checkpointId = checkpoint?.id ?? null;
       }
-    } catch (error) { warn('[checkpoints] automatic snapshot failed; continuing agent run', { runId: run.id, error: checkpointFailureForLog(error) }); }
+    } catch (error) {
+      warnCheckpointFailureOnce(warn, folder ?? run.projectId, '[checkpoints] automatic snapshot failed; continuing agent run', { runId: run.id }, error);
+    }
 
     let completion: Promise<void> | undefined;
     const finish = (): Promise<void> => {
       completion ??= (async () => {
         try {
           if (folder && checkpointId) await new ProjectCheckpoints(folder, AbortSignal.timeout(20_000), store).finish(checkpointId);
-        } catch (error) { warn('[checkpoints] could not record completed run changes', { runId: run.id, error: checkpointFailureForLog(error) }); }
+        } catch (error) {
+          warnCheckpointFailureOnce(warn, folder ?? run.projectId ?? '', '[checkpoints] could not record completed run changes', { runId: run.id }, error);
+        }
         finally { release?.(); }
       })();
       return completion;

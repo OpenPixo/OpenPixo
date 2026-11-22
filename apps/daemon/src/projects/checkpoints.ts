@@ -4,7 +4,7 @@ import { checkpointStoreExcludes, exceedsCheckpointStoreLimits, type CheckpointS
 import { isReservedProjectFilePath, RESERVED_PROJECT_FILE_SEGMENTS } from '../project-reserved-paths.js';
 import { isPackageStorePath, PACKAGE_STORE_DIR_NAMES } from '../project-ignored-dirs.js';
 import { randomUUID } from 'node:crypto';
-import { access, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { access, copyFile, lstat, mkdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CHECKPOINT_DIFF_LIMITS } from '@openpixo/contracts';
 import type {
@@ -58,6 +58,37 @@ function isUnrecordedPath(raw: unknown): boolean {
  * scans the folder, which fails the whole snapshot. An agent's run writes them all the time.
  */
 const IN_FLIGHT_WRITE_EXCLUSIONS = [':(exclude,glob)**/*.pixo-*.tmp*'];
+
+/**
+ * Never read into a checkpoint, in a store or in a game's own repository, unless the project's own
+ * index tracks it. A Godot game made from a template is its own repository, so the store's
+ * `info/exclude` never applied to it (C23, 2026-11-21):
+ * - the editor's import caches, rebuilt from the sources at any time;
+ * - `*.tmp`, a file some program is still writing: a Godot export writes `<name>.pck<n>.tmp` and
+ *   holds it locked, which failed every checkpoint taken during an export;
+ * - `%SystemDrive%/` at the root, which Windows creates when a program the agent starts lacks that
+ *   variable (C22), full of cache files another process holds open;
+ * - any untracked file over `CHECKPOINT_MAX_UNTRACKED_FILE_BYTES`: an export (`.pck`, `.exe`),
+ *   a capture, a build archive. Each new one went into the game's `.git` as another 110 MB object.
+ */
+const ENGINE_CACHE_SEGMENTS = ['.godot', '.import'];
+const NEVER_RECORDED_EXCLUSIONS = [
+  ...ENGINE_CACHE_SEGMENTS.flatMap(name => [`:(exclude,glob)**/${name}`, `:(exclude,glob)**/${name}/**`]),
+  ':(exclude,glob)**/*.tmp', ':(exclude,glob)%SystemDrive%/**',
+];
+const SNAPSHOT_EXCLUSIONS = [...UNRECORDED_PATH_EXCLUSIONS, ...IN_FLIGHT_WRITE_EXCLUSIONS, ...NEVER_RECORDED_EXCLUSIONS];
+export const CHECKPOINT_MAX_UNTRACKED_FILE_BYTES = 50 * 1024 ** 2;
+
+/**
+ * The index of the last snapshot, kept beside the repository. Rebuilding the index from nothing
+ * made Git read every untracked byte again on every snapshot and every Changes-view read: 2.3 GB
+ * and ~25 s on a finished game, past the run hook's 20 s, and long enough to run into files the
+ * agent, the engine or the OS were writing. Starting from this index Git only reads what changed.
+ */
+const STAT_CACHE_FILE = 'openpixo-stat-cache';
+/** Reading a big game once, from nothing, is allowed to take this long. */
+const STAT_CACHE_BUILD_TIMEOUT_MS = 10 * 60_000;
+const statCacheBuilds = new Map<string, Promise<void>>();
 
 const WORKING_TREE_READ_ATTEMPTS = 3;
 
@@ -175,7 +206,15 @@ export class ProjectCheckpoints {
   }
 
   private async git(args: string[], index?: string, input?: string): Promise<string> {
-    return runProjectGit(this.folder, args, { index, input, signal: this.signal, gitDir: await this.gitDir() });
+    return this.gitWith(args, { index, input });
+  }
+
+  /** `detached`: work that outlives this caller (building the stat cache), on its own, longer clock. */
+  private async gitWith(args: string[], options: { index?: string | undefined; input?: string | undefined; detached?: boolean | undefined }): Promise<string> {
+    return runProjectGit(this.folder, args, {
+      index: options.index, input: options.input, gitDir: await this.gitDir(),
+      ...(options.detached ? { timeoutMs: STAT_CACHE_BUILD_TIMEOUT_MS } : { signal: this.signal }),
+    });
   }
 
   /** With `prepare`, a store that does not exist yet is created (a snapshot is about to need it). */
@@ -276,27 +315,123 @@ export class ProjectCheckpoints {
     finally { await removeDisposableIndex(index); }
   }
 
+  /**
+   * The project's files as they are now, as a tree. Starts from the last snapshot's index (see
+   * `STAT_CACHE_FILE`), so Git reads only files whose size or time changed. With no such index
+   * yet, one is built first; that read is not stopped when this caller gives up, so the next
+   * snapshot finds it, and callers meanwhile wait for the same build instead of starting another.
+   */
   private async workingTree(index: string): Promise<string> {
-    // Rebuild the disposable index from tracked entries, discarding stat-cache,
-    // assume-unchanged and skip-worktree bits. Tracked ignored files stay tracked.
-    const tracked = withoutReservedEntries(await this.git(['ls-files', '--stage', '-z']));
-    await this.git(['update-index', '-z', '--index-info'], index, tracked);
-    // A run keeps writing while the Changes view asks for its state, so a file can be cut short or
-    // vanish while Git reads it. That is the moment, not the project: read the folder again.
-    for (let attempt = 1; ; attempt++) {
-      try {
-        await this.git(['add', '-A', '--', '.', ...UNRECORDED_PATH_EXCLUSIONS, ...IN_FLIGHT_WRITE_EXCLUSIONS], index);
-        break;
-      } catch (error) {
-        if (attempt >= WORKING_TREE_READ_ATTEMPTS || !fileChangedWhileRead(error)) throw error;
-        await new Promise(resolve => setTimeout(resolve, 150 * attempt));
-      }
+    const cache = path.join(path.dirname(index), STAT_CACHE_FILE);
+    if (!await pathExists(cache)) await untilAborted(this.buildStatCache(cache), this.signal);
+    let seeded = false;
+    try { await copyFile(cache, index); seeded = true; } catch { /* Read from nothing below. */ }
+    try { await this.readFolderInto(index, { seeded }); }
+    catch (error) {
+      if (!(error as { unreadableSeed?: boolean }).unreadableSeed) throw error;
+      // A damaged cache is rebuilt, never trusted.
+      await rm(cache, { force: true }).catch(() => {});
+      await removeDisposableIndex(index);
+      return this.workingTree(index);
     }
     const tree = (await this.git(['write-tree'], index)).trim();
     if ((await this.git(['ls-tree', '-r', tree])).split('\n').some(entry => entry.startsWith('160000 '))) {
       throw new CheckpointError('CHECKPOINT_UNAVAILABLE', 'unsupported_repository');
     }
+    await keepStatCache(index, cache);
     return tree;
+  }
+
+  private buildStatCache(cache: string): Promise<void> {
+    let build = statCacheBuilds.get(cache);
+    if (!build) {
+      build = (async () => {
+        const building = `${cache}-${randomUUID()}`;
+        try {
+          await this.readFolderInto(building, { seeded: false, detached: true });
+          // Git writes no index for a folder with nothing to record; there is nothing to reuse then.
+          if (await pathExists(building)) await rename(building, cache);
+        } finally { await removeDisposableIndex(building); }
+      })().finally(() => statCacheBuilds.delete(cache));
+      statCacheBuilds.set(cache, build);
+      build.catch(() => { /* Its callers see the failure; one that left must not crash the daemon. */ });
+    }
+    return build;
+  }
+
+  /**
+   * Fills `index` with what a snapshot records: the project's tracked entries (without stat data,
+   * assume-unchanged or skip-worktree bits; tracked ignored files stay tracked) plus every file
+   * `git add -A` finds, minus `SNAPSHOT_EXCLUSIONS` and large untracked files. A `seeded` index
+   * already holds the last snapshot and keeps the stat data of entries that are still right.
+   */
+  private async readFolderInto(index: string, options: { seeded: boolean; detached?: boolean }): Promise<void> {
+    const git = (args: string[], target?: string, input?: string): Promise<string> => options.detached
+      ? this.gitWith(args, { index: target, input, detached: true }) : this.git(args, target, input);
+    // Independent reads, side by side: on Windows each Git start costs tens of milliseconds.
+    const [trackedRaw, untracked, seed] = await Promise.all([
+      git(['ls-files', '--stage', '-z']), this.untrackedFiles(git), options.seeded ? this.readSeed(index, git) : null,
+    ]);
+    const { large } = untracked;
+    const trackedListing = withoutReservedEntries(trackedRaw);
+    if (seed !== null) await this.reconcileSeed(index, trackedListing, untracked, seed, git);
+    else await git(['update-index', '-z', '--index-info'], index, trackedListing);
+    const pathspecFile = `${index}.pathspec`;
+    await writeFile(pathspecFile, `${['.', ...SNAPSHOT_EXCLUSIONS, ...[...large].map(file => `:(exclude,literal)${file}`)].join('\0')}\0`);
+    try {
+      // A run keeps writing while the Changes view asks for its state, so a file can be cut short or
+      // vanish while Git reads it. That is the moment, not the project: read the folder again.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await git(['add', '-A', `--pathspec-from-file=${pathspecFile}`, '--pathspec-file-nul'], index);
+          break;
+        } catch (error) {
+          if (attempt >= WORKING_TREE_READ_ATTEMPTS || !fileChangedWhileRead(error)) throw error;
+          await new Promise(resolve => setTimeout(resolve, 150 * attempt));
+        }
+      }
+    } finally { await rm(pathspecFile, { force: true }).catch(() => {}); }
+  }
+
+  /** The reused index's entries. A read that fails marks the index as damaged. */
+  private async readSeed(index: string, git: (args: string[], target?: string) => Promise<string>): Promise<string> {
+    try { return await git(['ls-files', '--stage', '-z'], index); }
+    catch (error) { throw Object.assign(error as Error, { unreadableSeed: true }); }
+  }
+
+  /**
+   * Turns the last snapshot's index into the one a fresh read would start from: the project's
+   * tracked entries as they are now, and of its other entries only those a fresh read would still
+   * pick up (untracked, not ignored, not excluded, under the size cap). What remains keeps its stat
+   * data, so `git add` skips it.
+   */
+  private async reconcileSeed(index: string, trackedListing: string, untracked: { all: ReadonlySet<string>; large: ReadonlySet<string> }, seedListing: string,
+    git: (args: string[], target?: string, input?: string) => Promise<string>): Promise<void> {
+    const tracked = trackedListing.split('\0').filter(Boolean);
+    const trackedPaths = new Set(tracked.map(entry => entry.slice(entry.indexOf('\t') + 1)));
+    const seed = seedListing.split('\0').filter(Boolean);
+    const seedEntries = new Set(seed);
+    const removed = [...new Set(seed.map(entry => entry.slice(entry.indexOf('\t') + 1)))]
+      .filter(file => !trackedPaths.has(file) && (!untracked.all.has(file) || untracked.large.has(file)));
+    if (removed.length) await git(['update-index', '-z', '--force-remove', '--stdin'], index, `${removed.join('\0')}\0`);
+    const changed = tracked.filter(entry => !seedEntries.has(entry));
+    if (changed.length) await git(['update-index', '-z', '--index-info'], index, `${changed.join('\0')}\0`);
+  }
+
+  /**
+   * The files a fresh `git add -A` would pick up besides tracked ones (not ignored, not excluded),
+   * and which of them are over the size cap, by size alone: nothing is read.
+   */
+  private async untrackedFiles(git: (args: string[]) => Promise<string>): Promise<{ all: Set<string>; large: Set<string> }> {
+    const listed = (await git(['ls-files', '--others', '--exclude-standard', '-z', '--', '.', ...SNAPSHOT_EXCLUSIONS])).split('\0').filter(Boolean);
+    const large = new Set<string>();
+    for (let start = 0; start < listed.length; start += 64) {
+      await Promise.all(listed.slice(start, start + 64).map(async file => {
+        try { if ((await lstat(path.join(this.folder, file))).size > CHECKPOINT_MAX_UNTRACKED_FILE_BYTES) large.add(file); }
+        catch { /* Gone already: `git add` sees that too. */ }
+      }));
+    }
+    return { all: new Set(listed), large };
   }
 
   private async changes(from: string, to: string): Promise<CheckpointFileChange[]> {
@@ -604,6 +739,29 @@ async function removeDisposableIndex(index: string): Promise<void> {
     try { await rm(file, { force: true, maxRetries: 3, retryDelay: 100 }); }
     catch { /* Best effort, see above. */ }
   }
+}
+
+/** Keeps a snapshot's index for the next one. Best effort: without it the next read is only slower. */
+async function keepStatCache(index: string, cache: string): Promise<void> {
+  const next = `${cache}-${randomUUID()}`;
+  try {
+    await copyFile(index, next);
+    await rename(next, cache);
+  } catch { await rm(next, { force: true }).catch(() => {}); }
+}
+
+/** Waits for shared work, but no longer than this caller's signal allows; the work itself goes on. */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return work;
+  signal.throwIfAborted();
+  return new Promise<T>((resolve, reject) => {
+    const abort = (): void => reject(signal.reason);
+    signal.addEventListener('abort', abort, { once: true });
+    work.then(
+      value => { signal.removeEventListener('abort', abort); resolve(value); },
+      (error: unknown) => { signal.removeEventListener('abort', abort); reject(error); },
+    );
+  });
 }
 
 function requireRelativePath(raw: string): string {
