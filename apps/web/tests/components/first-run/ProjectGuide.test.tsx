@@ -81,7 +81,11 @@ describe('who sees the walkthrough', () => {
 describe('playing and changing the game', () => {
   it('says how the game is doing before asking anyone to play it', () => {
     at('play');
-    const view = show({ run: 'starting' });
+    const view = show({ run: 'installing' });
+    // Over a minute on a computer without the packages: say what the wait is.
+    expect(card().textContent).toContain('Downloading what the game needs.');
+    expect(card().getAttribute('data-tone')).toBe('working');
+    view.rerender({ run: 'starting' });
     expect(card().textContent).toContain('The game is starting.');
     // Nothing to press while it starts; it cannot be played yet.
     expect(screen.queryByTestId('first-run-guide-next')).toBeNull();

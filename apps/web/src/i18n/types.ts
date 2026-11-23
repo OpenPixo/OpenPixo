@@ -61,6 +61,7 @@ export interface Dict {
   'guide.next': string;
   'guide.play.title': string;
   'guide.play.body': string;
+  'guide.play.installing': string;
   'guide.play.starting': string;
   'guide.play.stopped': string;
   'guide.play.failed': string;

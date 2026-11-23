@@ -154,7 +154,7 @@ export function GameView({
           <GameStage content={stage} onRun={runEnabled ? run.start : undefined} runDisabled={run.installing || !!run.busy} reloadKey={stageReload}
             startingLabel={runEnabled && (run.installing || run.run.status === 'starting') ? run.statusLabel : undefined}
             ring={stage.kind === 'live' ? guide?.stageRing ?? undefined : undefined} />
-          {guide ? guide.render(run.installing || run.run.status === 'starting' ? 'starting'
+          {guide ? guide.render(run.installing ? 'installing' : run.run.status === 'starting' ? 'starting'
             : run.run.status === 'running' ? 'running'
               : run.run.status === 'failed' || run.installation?.status === 'failed' ? 'failed' : 'stopped') : null}
         </div>

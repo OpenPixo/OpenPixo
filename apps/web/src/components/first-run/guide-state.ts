@@ -10,7 +10,7 @@ import { cloudCanSpend, readyAgentSource } from '../onboarding/setup-readiness';
 export const GUIDE_TUNING_KEY = 'jumpPower';
 
 /** How the sample game is doing, as the 游戏 view sees it. */
-export type GuideRun = 'stopped' | 'starting' | 'running' | 'failed';
+export type GuideRun = 'stopped' | 'installing' | 'starting' | 'running' | 'failed';
 
 /** How the user's request to the AI is going. */
 export type GuideAsk = 'todo' | 'working' | 'done' | 'failed';

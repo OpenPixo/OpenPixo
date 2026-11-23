@@ -104,12 +104,13 @@ export function useProjectGuide(input: ProjectGuideInput): ProjectGuide {
 
   function gameCard(run: GuideRun): ReactNode {
     if (step === 'play') {
-      const tone: GuideTone = run === 'failed' ? 'problem' : run === 'starting' ? 'working' : facts.played ? 'done' : 'todo';
+      const waiting = run === 'installing' || run === 'starting';
+      const tone: GuideTone = run === 'failed' ? 'problem' : waiting ? 'working' : facts.played ? 'done' : 'todo';
       const body = run === 'failed' ? t('guide.play.failed')
-        : run === 'starting' ? t('guide.play.starting')
+        : waiting ? t(run === 'installing' ? 'guide.play.installing' : 'guide.play.starting')
           : facts.played ? t('guide.play.done') : t(run === 'stopped' ? 'guide.play.stopped' : 'guide.play.body');
       return <GuideCard step="play" tone={tone} title={t('guide.play.title')} body={body}
-        actions={run === 'starting' ? null : facts.played ? next : nextQuiet} onSkip={skipFirstRunGuide} />;
+        actions={waiting ? null : facts.played ? next : nextQuiet} onSkip={skipFirstRunGuide} />;
     }
     if (step === 'tune') {
       return <GuideCard step="tune" tone={facts.tuned ? 'done' : 'todo'} title={t('guide.tune.title')}
