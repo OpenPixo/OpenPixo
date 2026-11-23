@@ -97,6 +97,7 @@ import { createSilentUpdatePreferenceWriter } from './state/silent-update-prefer
 import { applyAppearanceToDocument } from './state/appearance';
 import { isMacPlatform } from './utils/platform';
 import { randomUUID } from './utils/uuid';
+import { needsAgentPick, pickAvailableAgentId } from './utils/visibleAgents';
 import { armCompletionFeedbackOnFirstGesture } from './utils/notifications';
 
 
@@ -1454,13 +1455,12 @@ function AppInner() {
   useEffect(() => {
     if (!daemonConfigLoaded || agentsLoading) return;
     if (config.onboardingCompleted !== true) return;
-    if (config.agentId) return;
-    const firstAvailable = agents.find((a) => a.id === 'codex' && a.available)
-      ?? agents.find((a) => a.available);
-    if (!firstAvailable) return;
+    if (!needsAgentPick(config)) return;
+    const picked = pickAvailableAgentId(agents);
+    if (!picked) return;
     setConfig((prev) => {
-      if (prev.agentId) return prev;
-      const next: AppConfig = { ...prev, agentId: firstAvailable.id };
+      if (!needsAgentPick(prev)) return prev;
+      const next: AppConfig = { ...prev, agentId: picked };
       saveConfig(next);
       void syncConfigToDaemon(next);
       return next;
@@ -1469,8 +1469,7 @@ function AppInner() {
     daemonConfigLoaded,
     agentsLoading,
     agents,
-    config.agentId,
-    config.onboardingCompleted,
+    config,
   ]);
 
   const refreshProjectsStrict = useCallback(async () => {

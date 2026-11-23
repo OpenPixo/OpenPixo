@@ -1,4 +1,4 @@
-import type { AgentInfo } from '../types';
+import type { AgentInfo, AppConfig } from '../types';
 import { RETAINED_AGENT_IDS } from '@openpixo/contracts';
 
 
@@ -18,6 +18,24 @@ export function isVisibleLocalCliAgent(agent: Pick<AgentInfo, 'id'>): boolean {
 export function availableVisibleAgentCount(agents: AgentInfo[]): number {
   return agents.filter((agent) => isVisibleLocalCliAgent(agent) && agent.available)
     .length;
+}
+
+/**
+ * Whether no AI is saved yet. The hidden API-key runtime without a key counts as
+ * none: it cannot answer, and versions before 1.0.12 saved it for someone who
+ * finished setup without an AI, so buying credits later left them without one.
+ */
+export function needsAgentPick(config: Pick<AppConfig, 'mode' | 'agentId' | 'apiKey'>): boolean {
+  if (!config.agentId) return true;
+  return config.mode === 'daemon' && !isVisibleLocalCliAgent({ id: config.agentId }) && !config.apiKey.trim();
+}
+
+/** The AI to save for someone who has none: one that is signed in before one that is not, Codex first. */
+export function pickAvailableAgentId(agents: readonly AgentInfo[]): string | null {
+  const visible = agents.filter((agent) => agent.available && isVisibleLocalCliAgent(agent));
+  const ready = visible.filter((agent) => agent.authStatus !== 'missing');
+  const pool = ready.length ? ready : visible;
+  return (pool.find((agent) => agent.id === 'codex') ?? pool[0])?.id ?? null;
 }
 
 /** Resolve retired saved IDs without rewriting the user's stored preference. */
