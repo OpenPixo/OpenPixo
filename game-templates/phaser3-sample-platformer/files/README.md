@@ -17,6 +17,8 @@ Run `pnpm install`, then `pnpm dev`. Run `pnpm build` for a production build.
 ## Layout
 
 - `src/main.ts`: one scene containing the level, controls, score and win state.
+- `src/text.ts`: every word on screen, in English and Simplified Chinese; the game
+  follows the player's browser language.
 - `public/assets/player.png`: six 32 x 32 frames; idle frames 0-1, run frames 2-5.
 - `public/assets/ground.png`: repeating 32 x 32 ground/platform tile.
 - `public/assets/coin.png`: 16 x 16 collectible.
@@ -24,7 +26,7 @@ Run `pnpm install`, then `pnpm dev`. Run `pnpm build` for a production build.
 - `public/assets/jump.wav`, `coin.wav`: short mono PCM16 sound effects.
 - `index.html`: page and canvas styling; `package.json` / `tsconfig.json`: build setup.
 
-Try changing the platform coordinates, jump speed or coin locations in
+Try changing the platform coordinates, jump power or coin locations in
 `src/main.ts`, or edit one of the assets in OpenPixo's Assets panel and Studio.
 
 ## Original media

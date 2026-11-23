@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { words } from './text';
 import { tuning } from './tuning';
 
 const WIDTH = 800;
@@ -49,9 +50,9 @@ class PlatformerScene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = this.input.keyboard!.addKeys({ left: 'A', right: 'D', jump: 'W', restart: 'R', enter: 'ENTER' }) as typeof this.keys;
-    this.scoreText = this.add.text(20, 18, '', { fontFamily: 'monospace', fontSize: '22px', color: '#172b45' });
+    this.scoreText = this.label(20, 18, '', { fontSize: '22px', color: '#172b45' });
     this.updateScore();
-    this.add.text(20, 48, 'Arrows / A D: move   Up / W / Space: jump   R: restart', { fontFamily: 'monospace', fontSize: '13px', color: '#172b45' });
+    this.label(20, 48, words.controls, { fontSize: '15px', color: '#172b45' });
 
     const coins = this.physics.add.staticGroup();
     for (const [x, y] of COINS) coins.create(x, y, 'coin').setScale(1.5).refreshBody();
@@ -95,13 +96,20 @@ class PlatformerScene extends Phaser.Scene {
     this.player.play(direction === 0 ? 'idle' : 'run', true);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     if (jump && body.blocked.down) {
-      this.player.setVelocityY(tuning.jumpVelocity);
+      this.player.setVelocityY(-tuning.jumpPower);
       this.sound.play('jump', { volume: tuning.soundVolume });
     }
   }
 
   private updateScore(): void {
-    this.scoreText.setText(`Coins: ${this.score} / ${COINS.length}   Reach the flag!`);
+    this.scoreText.setText(words.status(this.score, COINS.length));
+  }
+
+  /** Words stay smooth while the pixel art stays crisp, at any window size. */
+  private label(x: number, y: number, text: string, style: Phaser.Types.GameObjects.Text.TextStyle): Phaser.GameObjects.Text {
+    const label = this.add.text(x, y, text, { fontFamily: words.font, ...style }).setResolution(2);
+    label.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    return label;
   }
 
   private win(): void {
@@ -111,11 +119,13 @@ class PlatformerScene extends Phaser.Scene {
     this.player.setVelocity(0).play('idle');
     this.physics.pause();
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, 470, 150, 0x172b45, 0.94);
-    this.add.text(WIDTH / 2, HEIGHT / 2, `You win!\nCoins: ${this.score} / ${COINS.length}\nSpace / Enter / click to restart`, {
-      fontFamily: 'monospace', fontSize: '23px', color: '#ffffff', align: 'center', lineSpacing: 10,
+    this.label(WIDTH / 2, HEIGHT / 2, words.won(this.score, COINS.length), {
+      fontSize: '23px', color: '#ffffff', align: 'center', lineSpacing: 10,
     }).setOrigin(0.5);
   }
 }
+
+document.title = words.title;
 
 new Phaser.Game({
   type: Phaser.AUTO,

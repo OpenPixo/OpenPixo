@@ -116,7 +116,8 @@ export function registerGameTemplateRoutes(app: Express, ctx: RegisterGameTempla
       // Folder registration owns its response; this creation route adds only its own result.
       const json = res.json;
       res.json = body => json.call(res, body && typeof body === 'object' && 'project' in body ? { ...body, git } : body);
-      const extraMetadata = setup?.ok ? { gameSetup: setup.setup, ...(styleId ? { artStyleId: styleId } : {}) } : undefined;
+      const extraMetadata = { templateId: input.templateId,
+        ...(setup?.ok ? { gameSetup: setup.setup, ...(styleId ? { artStyleId: styleId } : {}) } : {}) };
       try { return await ctx.folderImporter.importFolder(req, res, { baseDir, name: setup?.ok && setup.setup.title ? setup.setup.title : input.name }, authorized, extraMetadata); }
       finally { res.json = json; }
     } catch (error) {

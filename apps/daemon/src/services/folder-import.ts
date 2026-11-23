@@ -131,8 +131,8 @@ export function createFolderImporter(
     res: Response,
     input: ImportFolderRequest = req.body,
     authorization?: FolderImportAuthorization,
-    /** Creation-owned facts (game setup, art style) recorded with the project row. */
-    extraMetadata?: Pick<ProjectMetadata, 'gameSetup' | 'artStyleId'>,
+    /** Creation-owned facts (game template, game setup, art style) recorded with the project row. */
+    extraMetadata?: Pick<ProjectMetadata, 'templateId' | 'gameSetup' | 'artStyleId'>,
   ) {
 
     try {

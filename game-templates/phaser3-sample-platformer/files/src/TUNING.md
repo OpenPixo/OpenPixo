@@ -24,7 +24,7 @@ the selected value token, retaining the rest of the file's formatting.
 settings. Game code must read those settings; adding JSON alone does not
 connect a parameter to gameplay. Add new settings to the exported `tuning`
 object, then use them in your scene. This sample uses movement speed, jump
-velocity, Arcade gravity, the number of coin positions and sound volume.
+power, Arcade gravity, the number of coin positions and sound volume.
 
 Start the game once with **Run game**, then use **Apply and refresh playtest**
 in Tune to save changes and reload the running game in the panel. Changing a
