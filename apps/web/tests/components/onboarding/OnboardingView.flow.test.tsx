@@ -190,7 +190,7 @@ describe('OnboardingView · welcome', () => {
     expect(models.textContent).toContain('Every plan and credit pack includes');
     expect([...models.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
       'Claude Sonnet 5.5', 'GPT-6.1 Sol', 'GPT-6.1 Terra', 'GPT-6 Luna',
-      'Claude Haiku 5.5', 'DeepSeek V4.1 Flash', 'GLM 5.3 Flash', 'Tencent Hy4',
+      'Claude Haiku 5.5', 'DeepSeek V4.1 Flash', 'GLM 5.3 Flash', 'Tencent Hy4', 'Tencent Hy4 Flash',
     ]);
     // Every button leads to logging in.
     for (const card of [starter, pro, max]) expect(within(card).getByRole('button', { name: 'Log in' })).toBeTruthy();

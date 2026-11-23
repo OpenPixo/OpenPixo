@@ -13,13 +13,15 @@ const input = (model: string, imageLook?: boolean) => ((buildOpenPixoAgentOpenCo
 describe('hosted agent image viewer', () => {
   it('looks through the viewer only when the cloud offers it reading pictures, and never for the viewer itself', async () => {
     setOpenPixoAgentCatalogReader(async () => catalogue(row('openpixo-agent-flash', ['text', 'image']),
-      row(OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, ['text', 'image']), row('openpixo-agent-hy4', ['text'])));
+      row(OPENPIXO_AGENT_IMAGE_VIEWER_MODEL, ['text', 'image']), row('openpixo-agent-hy4', ['text']), row('openpixo-agent-hy4-flash', ['text'])));
     await fetchOpenPixoAgentModels();
     expect(openpixoAgentUsesImageViewer('openpixo-agent-flash')).toBe(true);
     expect(openpixoAgentUsesImageViewer('openpixo/openpixo-agent-hy4')).toBe(true);
+    expect(openpixoAgentUsesImageViewer('openpixo/openpixo-agent-hy4-flash')).toBe(true);
     expect(openpixoAgentUsesImageViewer(OPENPIXO_AGENT_IMAGE_VIEWER_MODEL)).toBe(false);
     // Looking, OpenCode is told the model reads text only, so no picture enters the conversation.
     expect(input('openpixo-agent-flash', true)).toEqual(['text']);
+    expect(input('openpixo-agent-hy4-flash', true)).toEqual(['text']);
     // Not looking, a model that reads pictures is sent them as before.
     expect(input('openpixo-agent-flash', false)).toEqual(['text', 'image']);
     expect(input('openpixo-agent-flash')).toEqual(['text', 'image']);

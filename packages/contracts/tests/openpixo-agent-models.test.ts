@@ -18,6 +18,7 @@ const CATALOGUE = [
   { id: 'openpixo-agent-flash', creditsPerMillionTokens: { inputCacheMiss: 60, inputCacheHit: 1.2, output: 240 } },
   { id: 'openpixo-agent-glm-5-3-flash', creditsPerMillionTokens: { inputCacheMiss: 30, inputCacheHit: 6, output: 100 } },
   { id: 'openpixo-agent-hy4', creditsPerMillionTokens: { inputCacheMiss: 166.8, inputCacheHit: 8.4, output: 500.2 } },
+  { id: 'openpixo-agent-hy4-flash', creditsPerMillionTokens: { inputCacheMiss: 14, inputCacheHit: 0.6, output: 56.2 } },
   { id: 'openpixo-agent-gpt-6-luna', creditsPerMillionTokens: { inputCacheMiss: 20, inputCacheHit: 2, inputCacheWrite: 25, output: 100 } },
   { id: 'openpixo-agent-gpt-6-1-sol', creditsPerMillionTokens: { inputCacheMiss: 400, inputCacheHit: 20, inputCacheWrite: 500, output: 2000 } },
 ];
@@ -36,6 +37,7 @@ describe('hosted model cost multiplier', () => {
       'openpixo-agent-flash': '1×',
       'openpixo-agent-glm-5-3-flash': '0.7×',
       'openpixo-agent-hy4': '2.6×',
+      'openpixo-agent-hy4-flash': '0.2×',
       'openpixo-agent-gpt-6-luna': '0.5×',
       'openpixo-agent-gpt-6-1-sol': '8.8×',
     });

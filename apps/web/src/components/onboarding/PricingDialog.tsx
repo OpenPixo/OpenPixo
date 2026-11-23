@@ -37,13 +37,13 @@ type HostedPrices = { image: number; sfx: number; model3d: number };
 export const PLAN_SHARED_GAMES: Record<PlanTier, number> = { starter: 10, pro: 30, studio: 50 };
 /**
  * The hosted agent models by their real names, in the order the window lists
- * them. Mirrors the cloud's agent catalogue (2026-11-19) for when the live list
+ * them. Mirrors the cloud's agent catalogue (2026-11-23) for when the live list
  * cannot be read, which is usual before sign-in; a live list wins. Who serves a
  * model is never shown.
  */
 export const HOSTED_AGENT_MODELS_FALLBACK: readonly string[] = [
   'Claude Sonnet 5.5', 'GPT-6.1 Sol', 'GPT-6.1 Terra', 'GPT-6 Luna',
-  'Claude Haiku 5.5', 'DeepSeek V4.1 Flash', 'GLM 5.3 Flash', 'Tencent Hy4',
+  'Claude Haiku 5.5', 'DeepSeek V4.1 Flash', 'GLM 5.3 Flash', 'Tencent Hy4', 'Tencent Hy4 Flash',
 ];
 
 /** Multiplayer rooms are listed from Pro up. */
