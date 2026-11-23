@@ -122,6 +122,22 @@ describe('game tuning discovery and deterministic writes', () => {
     expect(await readFile(path.join(root, 'player.gd'), 'utf8')).toBe(original + '# user edit\n');
   });
 
+  it('saves without a checkpoint on a computer that has no Git, as in a project that is not under Git', async () => {
+    const root = await project({ 'src/tuning.json': '{"jumpPower":{"value":460}}' });
+    const empty = await project({});
+    // Nothing on PATH: what a first-time user's computer without Git looks like.
+    vi.stubEnv('PATH', empty);
+    try {
+      const jump = (await discoverGameTuning(root)).parameters[0]!;
+      const result = await setGameTuningValue(root, { id: jump.id, value: 700, fileHash: jump.fileHash }, {
+        checkpointStore: { dir: path.join(empty, 'store') },
+      });
+      expect(result.parameter.value).toBe(700);
+      expect(result.checkpointId).toBeUndefined();
+      expect(await readFile(path.join(root, 'src/tuning.json'), 'utf8')).toBe('{"jumpPower":{"value":700}}');
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it('reads root/src tuning JSON and edits just value tokens, including escaped keys and repeated numbers', async () => {
     const source = '{\r\n  "speed": { "value": 220, "min": 0, "max": 600, "step": 10, "label": "Speed", "group": "Player" },\r\n  "jump\\\"height": { "value": 220, "min": 0 },\r\n  "enabled": { "value": true },\r\n  "title": { "value": "Ready" }\r\n}\r\n';
     const root = await project({ 'src/tuning.json': source, 'tuning.json': '{"gravity":{"value":1000}}' });

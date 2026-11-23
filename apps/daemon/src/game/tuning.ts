@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { GameTuningErrorCode, GameTuningListResponse, GameTuningParameter, GameTuningSetRequest, GameTuningSetResponse, GameTuningValue, GameTuningWarning } from '@openpixo/contracts';
 import { godotNumericColorComponents, scanGodotScenes, scanGodotScript, type TuningLocation } from './tuning-godot.js';
 import { scanWebTuning } from './tuning-json.js';
-import { ProjectCheckpoints } from '../projects/checkpoints.js';
+import { CheckpointError, ProjectCheckpoints } from '../projects/checkpoints.js';
 import type { CheckpointStore } from '../projects/checkpoint-store.js';
 
 const SKIP = new Set(['.git', '.godot', '.pixo', '.tmp', '.cache', 'node_modules', 'dist', 'build', 'coverage', '.next', 'Library', 'Temp']);
@@ -146,6 +146,16 @@ async function withLock<T>(key: string, action: () => Promise<T>): Promise<T> {
   try { return await current; } finally { if (locks.get(key) === current) locks.delete(key); }
 }
 
+/**
+ * Git is not installed, so this computer has no checkpoints to make, like a project
+ * that is not under Git (where `snapshot` answers null). One value is still safe to
+ * change: the panel keeps the value it loaded and can put it back. A checkpoint that
+ * should have worked and failed still aborts the edit.
+ */
+function noCheckpointsHere(error: unknown): boolean {
+  return error instanceof CheckpointError && error.code === 'CHECKPOINT_UNAVAILABLE' && error.message === 'git_unavailable';
+}
+
 /** Hash checks surround checkpoint creation. Only the literal's byte-equivalent UTF-8 span changes. */
 export async function setGameTuningValue(projectDir: string, request: GameTuningSetRequest, options: GameTuningWriteOptions = {}): Promise<GameTuningSetResponse> {
   if (!request || typeof request.id !== 'string' || typeof request.fileHash !== 'string' || !/^[\da-f]{64}$/.test(request.fileHash)) {
@@ -163,14 +173,16 @@ export async function setGameTuningValue(projectDir: string, request: GameTuning
     const source = result.sources.get(parameter.filePath)!;
     const next = source.slice(0, location.start) + literal + source.slice(location.end);
     if (next === source) return { parameter };
-    let checkpoint: { id?: string } | void;
+    let checkpoint: { id?: string } | void = undefined;
     try {
       // the single checkpoint integration point for every tuning source write.
       checkpoint = options.beforeWrite
         ? await options.beforeWrite({ projectDir: root, filePath: parameter.filePath, parameter, value: request.value })
         : await new ProjectCheckpoints(root, undefined, options.checkpointStore).snapshot({ summary: `Tune ${parameter.key} (${parameter.filePath}:${parameter.line})` }) ?? undefined;
     }
-    catch { throw new GameTuningError('TUNING_CHECKPOINT_FAILED', 'Checkpoint creation failed; the source was not changed'); }
+    catch (error) {
+      if (!noCheckpointsHere(error)) throw new GameTuningError('TUNING_CHECKPOINT_FAILED', 'Checkpoint creation failed; the source was not changed');
+    }
     const target = await safeFile(root, parameter.filePath);
     const temporary = path.join(path.dirname(target), `.pixo-tuning-${randomUUID()}.tmp`);
     try {
