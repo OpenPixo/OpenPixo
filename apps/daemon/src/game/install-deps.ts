@@ -1,6 +1,7 @@
 import { GAME_PACKAGE_LOCKS, gamePackageManager } from './package-manager.js';
 import { npmRegistryEnv } from './npm-registry.js';
 import { gamePackageCacheSetup } from './package-caches.js';
+import { withoutDaemonMode } from '../daemon-mode-env.js';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
@@ -31,6 +32,33 @@ export async function detectGamePackageManager(cwd: string): Promise<GamePackage
     })) files.add(file);
   }
   return gamePackageManager(declared, file => files.has(file));
+}
+
+/**
+ * Whether every package the game declares is installed, here or in a folder above
+ * (a workspace hoists). A `node_modules` alone is not enough: an install that left
+ * out the development dependencies looks installed and cannot start.
+ */
+export async function gameDependenciesInstalled(cwd: string): Promise<boolean> {
+  const isDirectory = (dir: string) => stat(dir).then(value => value.isDirectory(), () => false);
+  if (!await isDirectory(path.join(cwd, 'node_modules'))) return false;
+  let manifest: Record<string, unknown> = {};
+  try { manifest = await readPackageManifest(cwd); } catch { return true; /* nothing declared to check against */ }
+  const declared = ['dependencies', 'devDependencies'].flatMap(key => {
+    const group = manifest[key];
+    return group && typeof group === 'object' ? Object.keys(group) : [];
+  });
+  const roots: string[] = [];
+  for (let dir = cwd; ; dir = path.dirname(dir)) {
+    roots.push(path.join(dir, 'node_modules'));
+    if (dir === path.dirname(dir)) break;
+  }
+  for (const name of declared) {
+    let found = false;
+    for (const root of roots) if (await isDirectory(path.join(root, ...name.split('/')))) { found = true; break; }
+    if (!found) return false;
+  }
+  return true;
 }
 
 /** Canonicalize profile-owned cwd and refuse paths outside the project. */
@@ -99,7 +127,7 @@ async function executeInstall(packageManager: GamePackageManager, executable: st
   const child = spawn(invocation.command, invocation.args, {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
     windowsVerbatimArguments: invocation.windowsVerbatimArguments,
-    env: { ...process.env, ...registry, ...caches.env, PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH ?? ''}`, PIXO_DATA_DIR: dataDir },
+    env: { ...withoutDaemonMode(process.env), ...registry, ...caches.env, PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH ?? ''}`, PIXO_DATA_DIR: dataDir },
   });
   let timedOut = false;
   let cancelled = false;

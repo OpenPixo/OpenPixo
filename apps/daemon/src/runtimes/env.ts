@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { mergeProxyAwareEnv, resolveSystemProxyEnvAsync } from '@openpixo/platform';
+import { withoutDaemonMode } from '../daemon-mode-env.js';
 import { resolveProjectRelativePath } from '../home-expansion.js';
 import { expandConfiguredEnv } from './paths.js';
 import { resolveProjectRootFromNestedModule } from '../project-root.js';
@@ -100,7 +101,8 @@ export function spawnEnvForAgent(
   const env = mergeProxyAwareEnv(
     process.platform,
     systemProxyEnv,
-    baseEnv,
+    // An agent runs the game's package manager itself, so it must not inherit the daemon's mode.
+    withoutDaemonMode(baseEnv),
     expandedConfiguredEnv,
   );
   if (agentId === 'claude') {

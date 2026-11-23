@@ -1,13 +1,14 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { createCommandInvocation, forceStopWindowsProcessTree } from '@openpixo/platform';
 import type { EngineProfile, GameRunStatus } from '@openpixo/contracts';
 import { gameLocalUrl } from './verify.js';
 import { missingGameToolGuidance } from './verify-tools.js';
-import { prepareGameDependencyInstall, resolveGameCommandDirectory } from './install-deps.js';
+import { withoutDaemonMode } from '../daemon-mode-env.js';
+import { gameDependenciesInstalled, prepareGameDependencyInstall, resolveGameCommandDirectory } from './install-deps.js';
 
 export const GAME_RUN_LOG_LIMIT = 64 * 1024;
 const GAME_RUN_STOP_TIMEOUT_MS = 5000;
@@ -170,8 +171,7 @@ export class GameRunManager {
         }
         tool = dependencies.packageManager!;
         executable = installExecutable;
-        const installed = await stat(path.join(cwd, 'node_modules')).then(value => value.isDirectory(), () => false);
-        if (!installed) {
+        if (!await gameDependenciesInstalled(cwd)) {
           this.fail(entry, 'DEPENDENCIES_MISSING', 'Project dependencies are missing. Install them before running the game.');
           return;
         }
@@ -196,7 +196,7 @@ export class GameRunManager {
       const child = spawn(invocation.command, invocation.args, {
         cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
         windowsVerbatimArguments: invocation.windowsVerbatimArguments,
-        env: { ...process.env, PIXO_DATA_DIR: this.dataDir },
+        env: { ...withoutDaemonMode(process.env), PIXO_DATA_DIR: this.dataDir },
       });
       entry.child = child;
       child.once('exit', () => {

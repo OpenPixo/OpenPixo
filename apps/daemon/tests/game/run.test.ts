@@ -26,6 +26,7 @@ beforeEach(async () => {
     if (args[0] === 'install') { fs.mkdirSync(path.join(process.cwd(), 'node_modules'), { recursive: true }); console.log('dependencies ready'); process.exit(0); }
     fs.appendFileSync(path.join(data, 'starts.log'), 'started\\n');
     fs.writeFileSync(path.join(data, 'launch-args.json'), JSON.stringify(args));
+    fs.writeFileSync(path.join(data, 'launch-mode.json'), JSON.stringify(process.env.NODE_ENV ?? null));
     if (process.env.PIXO_GAME_RUN_TEST_MODE === 'exit') { console.error('game ended'); process.exit(0); }
     if (process.env.PIXO_GAME_RUN_TEST_MODE === 'fail') { console.error('game crashed'); process.exit(7); }
     const descendant = cp.spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'inherit' });
@@ -66,6 +67,29 @@ function manager(): GameRunManager {
 function context(engine: EngineProfile['engine'] = 'phaser', tool = 'npm'): GameRunContext {
   return { profile: profile(engine, tool), projectDir, resolveTool: gameToolResolver({ [tool]: fakeTool }) };
 }
+
+it('starts a game in its own mode, not the packaged daemon\u2019s', async () => {
+  await mkdir(path.join(projectDir, 'node_modules'));
+  vi.stubEnv('NODE_ENV', 'production');
+  const runs = manager();
+  await runs.start('game', async () => context());
+  await vi.waitFor(() => expect(runs.status('game').status).toBe('running'), { timeout: 10_000 });
+  expect(JSON.parse(await readFile(path.join(dataDir, 'launch-mode.json'), 'utf8'))).toBeNull();
+});
+
+it('asks for an install when only some of a game\u2019s packages are there', async () => {
+  // What the packaged app left behind: the game's own packages, without its tools.
+  await writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ dependencies: { phaser: '3.90.0' }, devDependencies: { vite: '7.1.12', '@types/node': '24' } }));
+  for (const name of ['phaser', '@types/node']) await mkdir(path.join(projectDir, 'node_modules', name), { recursive: true });
+  const runs = manager();
+  await runs.start('game', async () => context());
+  await vi.waitFor(() => expect(runs.status('game').status).toBe('failed'), { timeout: 10_000 });
+  expect(runs.status('game').reasonCode).toBe('DEPENDENCIES_MISSING');
+  // A workspace keeps shared packages in a folder above; that counts as installed.
+  await mkdir(path.join(root, 'node_modules', 'vite'), { recursive: true });
+  await runs.start('game', async () => context());
+  await vi.waitFor(() => expect(runs.status('game').status).toBe('running'), { timeout: 10_000 });
+});
 
 it('accepts only complete loopback HTTP URLs at the selected port', () => {
   expect(gameRunUrlFromOutput('Local: http://localhost:51')).toBeNull();
@@ -148,7 +172,7 @@ it('fails a silent web startup exactly at its profile deadline', async () => {
 
 it('runs the HTTP lifecycle once per project, bounds logs, and stops the entire tree on stop and daemon disposal', async () => {
   // Real pipes, server readiness, and process-tree termination are the behavior under test.
-  await mkdir(path.join(projectDir, 'node_modules'));
+  for (const name of ['phaser', 'vite']) await mkdir(path.join(projectDir, 'node_modules', name), { recursive: true });
   await writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ dependencies: { phaser: '3.90.0' }, devDependencies: { vite: '7' }, scripts: { dev: 'vite' } }));
   const db = openDatabase(root, { dataDir });
   insertProject(db, { id: 'game', name: 'Game', metadata: { baseDir: projectDir }, createdAt: 1, updatedAt: 1 });

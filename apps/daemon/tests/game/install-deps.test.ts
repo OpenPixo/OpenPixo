@@ -92,6 +92,24 @@ it('executes a local package-manager shim with fixed argv and captures its real 
   expect(JSON.parse(await readFile(path.join(project, 'args.json'), 'utf8'))).toEqual(['install']);
 });
 
+/*
+ * 2026-11-24, a packaged build on a computer without pnpm: the bundled npm installed
+ * 2 packages of a Phaser starter and `vite` was not found. The packaged daemon runs
+ * with NODE_ENV=production, which npm reads as "leave out the development dependencies".
+ */
+it('installs everything a game declares, whatever mode the daemon itself runs in', async () => {
+  const project = path.join(root, 'game'); await mkdir(project);
+  const script = path.join(root, 'fake-npm.cts');
+  await writeFile(script, `require('node:fs').writeFileSync('mode.json', JSON.stringify(Object.keys(process.env).filter(name => name.toUpperCase() === 'NODE_ENV')));`);
+  const tool = path.join(root, process.platform === 'win32' ? 'npm.cmd' : 'npm');
+  await writeFile(tool, process.platform === 'win32'
+    ? `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`
+    : `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
+  vi.stubEnv('NODE_ENV', 'production');
+  await installGameDependencies(project, path.join(root, 'data'), id => id === 'node' ? process.execPath : tool);
+  expect(JSON.parse(await readFile(path.join(project, 'mode.json'), 'utf8'))).toEqual([]);
+});
+
 it('keeps a pnpm install inside a game folder that sits under an unrelated pnpm workspace', async () => {
   await writeFile(path.join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'apps/*'\n");
   const game = path.join(root, 'scratch', 'my-game');

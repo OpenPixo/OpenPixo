@@ -15,6 +15,14 @@ import { spawnEnvForAgent } from '../../src/runtimes/env.js';
 import { withPlatform } from './helpers/test-helpers.js';
 
 describe('agent runtime tool environment', () => {
+  it('does not hand an agent the mode the packaged daemon runs in, but keeps one the user set for it', () => {
+    for (const agentId of ['codex', 'claude', 'opencode', 'openpixo-agent']) {
+      const env = spawnEnvForAgent(agentId, { PATH: '/bin', NODE_ENV: 'production', Node_Env: 'production' });
+      expect(Object.keys(env).filter((name) => name.toUpperCase() === 'NODE_ENV'), agentId).toEqual([]);
+    }
+    expect(spawnEnvForAgent('codex', { PATH: '/bin', NODE_ENV: 'production' }, { NODE_ENV: 'test' }).NODE_ENV).toBe('test');
+  });
+
 
 
   it('prefers explicit PIXO_NODE_BIN over the process executable', () => {

@@ -3,6 +3,7 @@ import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { createCommandInvocation, forceStopWindowsProcessTree } from '@openpixo/platform';
 import type { EngineCommand } from '@openpixo/contracts';
+import { withoutDaemonMode } from '../daemon-mode-env.js';
 
 export const VERIFY_LOG_LIMIT = 1024 * 1024;
 /** Only loopback HTTP dev servers may cross the privileged capture boundary. */
@@ -51,7 +52,7 @@ export async function executeGameProcess<T = never>(options: {
   const invocation = createCommandInvocation({ command: options.executable, args: argv.slice(1) });
   const spawnedAtMs = Date.now();
   const child = spawn(invocation.command, invocation.args, { cwd, stdio: ['ignore', 'pipe', 'pipe'],
-    ...(options.env && Object.keys(options.env).length ? { env: withEnv(process.env, options.env) } : {}),
+    env: withEnv(withoutDaemonMode(process.env), options.env ?? {}),
     detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: invocation.windowsVerbatimArguments });
   let tail = '', closedAlready = false;
   let foundUrl!: (url: string) => void;
