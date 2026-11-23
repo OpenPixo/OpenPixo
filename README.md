@@ -18,6 +18,7 @@
 </p>
 
 <p align="center">
+  <a href="https://openpixo.com"><b>Website</b></a> ·
   <a href="#installation">Installation</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture">Architecture</a> ·

@@ -18,6 +18,7 @@
 </p>
 
 <p align="center">
+  <a href="https://openpixo.com/zh"><b>官网</b></a> ·
   <a href="#安装">安装</a> ·
   <a href="#快速上手">快速上手</a> ·
   <a href="#架构">架构</a> ·
