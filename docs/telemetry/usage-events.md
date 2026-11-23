@@ -36,9 +36,11 @@ The web app has no autocapture, page views, session replay or person profiles.
 
 `apps/daemon/src/game/game-funnel.ts` records `game_created`,
 `game_plan_approved`, `game_verified`, `recipe_run_settled` and
-`recipe_candidates_adopted`. A request from `pixo` (the user's or an agent's)
-is counted under the installation id the user's yes created; without that id
-nothing is sent.
+`recipe_candidates_adopted`, plus `first_run_guide`: a move in the first-login
+walkthrough (its status and step), when a config write changes them. The consent
+question waits for the walkthrough to end, so a yes also counts where it stands.
+A request from `pixo` (the user's or an agent's) is counted under the installation
+id the user's yes created; without that id nothing is sent.
 
 ## Adding an event
 

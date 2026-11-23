@@ -1,5 +1,7 @@
 
 
+import type { FirstRunGuidePrefs } from './first-run-guide.js';
+
 export interface AgentModelPrefs {
   model?: string;
   reasoning?: string;
@@ -49,6 +51,8 @@ export interface AppConfigPrefs {
   onboardingCompleted?: boolean;
   /** Asked on the first new game. Absent or null: not asked yet. */
   gameExperience?: GameExperience | null;
+  /** The first-login walkthrough. Absent: never offered on this installation; null clears it. */
+  firstRunGuide?: FirstRunGuidePrefs | null;
   agentId?: string | null;
   agentModels?: Record<string, AgentModelPrefs>;
   /**

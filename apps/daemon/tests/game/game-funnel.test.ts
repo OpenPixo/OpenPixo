@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ANALYTICS_HEADER_DEVICE_ID, type GameVerifyResult, type RecipeRun } from '@openpixo/contracts';
 import {
   createGameFunnelRecorder,
+  firstRunGuideProperties,
   gameCreatedProperties,
   gameFunnelProperties,
   gameVerifiedProperties,
@@ -29,6 +30,18 @@ describe('what the game funnel may send', () => {
       long: 'x'.repeat(65), nested: { scope: 'quick' }, mixed: ['ok', 'not ok'], nan: Number.NaN, nothing: undefined,
       BadKey: 'quick',
     })).toEqual({ scope: 'quick', count: 3, ok: true, players: ['single', 'local-coop'] });
+  });
+
+  it('counts a walkthrough move once, without the game it ran in, and nothing for other writes', () => {
+    const play = { status: 'active', step: 'play', projectId: '7c0e9a52-private-game-id' } as const;
+    expect(firstRunGuideProperties(undefined, play)).toEqual({ status: 'active', step: 'play', started: true });
+    expect(firstRunGuideProperties(play, { ...play, step: 'tune' })).toMatchObject({ step: 'tune' });
+    expect(firstRunGuideProperties(play, { ...play, status: 'skipped' })).toMatchObject({ status: 'skipped', step: 'play' });
+    // A closed hint, the same state again, and a cleared state are not moves.
+    expect(firstRunGuideProperties(play, { ...play, hintsSeen: ['plan'] })).toBeNull();
+    expect(firstRunGuideProperties(play, { ...play })).toBeNull();
+    expect(firstRunGuideProperties(play, undefined)).toBeNull();
+    expect(sent(firstRunGuideProperties(undefined, play)!)).not.toContain('private-game-id');
   });
 
   it('describes a new game by its answers, never by what the user wrote', () => {

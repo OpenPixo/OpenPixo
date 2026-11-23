@@ -67,7 +67,7 @@ describe('EntryNavRail help menu', () => {
     const menu = openHelp();
     const items = within(menu).getAllByRole('menuitem');
     expect(items.map((item) => item.getAttribute('data-testid'))).toEqual([
-      'entry-nav-shortcuts',
+      'entry-nav-guide', 'entry-nav-shortcuts',
       'entry-nav-rail-feedback',
       'entry-nav-rail-releases',
     ]);

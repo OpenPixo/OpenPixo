@@ -50,6 +50,7 @@ import { type EntrySettingsSection } from './EntrySettingsMenu';
 import type { CreateInput } from './create-project-input';
 import type { PluginShareAction, PluginShareProjectOutcome } from '../state/projects';
 import { OnboardingView } from './onboarding/OnboardingView';
+import { startFirstRunGuide, useFirstRunGuide } from '../state/first-run-guide';
 import { SignInDialog } from './account/SignInDialog';
 import onboardingStyles from './onboarding/Onboarding.module.css';
 import { NewGameDialog } from './NewGameDialog';
@@ -289,6 +290,7 @@ export function EntryShell({
 
   const [homeSetup, setHomeSetup] = useState<{ prompt: string; files: File[] } | null>(null);
   const onboardingSample = useQuickSample(onImportFolderResponse);
+  const guide = useFirstRunGuide();
   const [signInOpen, setSignInOpen] = useState(false);
   // Home has NO low-balance surface, and since T66 (product 2026-09-07) neither
   // does anywhere else: a positive balance produces nothing at all and the run
@@ -593,6 +595,8 @@ export function EntryShell({
 
             onFinish={finishOnboarding}
             onStartSample={() => void onboardingSample.start()}
+            offerGuide={guide == null && !projectsLoading && projects.length === 0}
+            onStartGuide={() => void onboardingSample.start(startFirstRunGuide)}
             onOpenDoctor={() => onOpenSettings('doctor')}
             onOpenAccount={() => onOpenSettings('account')}
           />

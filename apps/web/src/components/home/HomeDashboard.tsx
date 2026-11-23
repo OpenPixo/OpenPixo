@@ -3,8 +3,10 @@ import type { OpenPixoHostProjectImportSuccess } from '@openpixo/host';
 import { useI18n } from '../../i18n';
 import type { Project } from '../../types';
 import { NewGameDialog } from '../NewGameDialog';
-import { ENTRY_NEW_GAME_EVENT, takeEntryNewGameRequest } from '../entryRailBridge';
+import { ENTRY_GUIDE_EVENT, ENTRY_NEW_GAME_EVENT, takeEntryGuideRequest, takeEntryNewGameRequest } from '../entryRailBridge';
 import { SAMPLE_TEMPLATE_ID, useQuickSample } from '../new-game/quick-sample';
+import { queueProjectGameStart } from '../../state/game-start-request';
+import { resumeFirstRunGuide, startFirstRunGuide, useFirstRunGuide } from '../../state/first-run-guide';
 import { useOpenFolderImport } from '../useOpenFolderImport';
 import { HomeHeader } from './HomeHeader';
 import { useHomeTemplates } from './HomeTemplates';
@@ -62,6 +64,25 @@ export function HomeDashboard({ projects, projectsLoading, onOpenProject,
   startSampleRef.current = sample.start;
   const startSample = useCallback(() => void startSampleRef.current(), []);
   const openFolder = useCallback(() => void openFolderRef.current(), []);
+  // The walkthrough goes on in the sample game it was in; without one it makes a new sample.
+  const guide = useFirstRunGuide();
+  const guideProjectId = guide?.projectId && projects.some(project => project.id === guide.projectId) ? guide.projectId : null;
+  const startGuide = () => {
+    if (!guideProjectId) { void startSampleRef.current(startFirstRunGuide); return; }
+    resumeFirstRunGuide();
+    queueProjectGameStart(guideProjectId);
+    onOpenProject(guideProjectId);
+  };
+  const startGuideRef = useRef(startGuide);
+  startGuideRef.current = startGuide;
+  useEffect(() => {
+    // Not before the games are known, or a second sample would be made beside the first.
+    if (projectsLoading || !canSample) return;
+    const onRequest = () => { if (takeEntryGuideRequest()) startGuideRef.current(); };
+    onRequest();
+    window.addEventListener(ENTRY_GUIDE_EVENT, onRequest);
+    return () => window.removeEventListener(ENTRY_GUIDE_EVENT, onRequest);
+  }, [projectsLoading, canSample]);
   // The empty My Games list offers these same flows (`home-start-actions`).
   const folderError = folderImport.error?.message ?? null;
   useEffect(() => {
@@ -89,9 +110,9 @@ export function HomeDashboard({ projects, projectsLoading, onOpenProject,
     {state === 'first' && <HomeStartPaths className={styles.paths} label={t('home.paths.label')}
       onIdea={focusComposer}
       {...(folderImport.available ? { onOpenFolder: openFolder, folderBusy: folderImport.importing } : {})}
-      {...(canSample ? { onSample: startSample, sampleBusy: sample.busy } : {})} />}
-    {state === 'returning' && <HomeGettingStarted projects={projects}
-      {...(canSample ? { onStartSample: startSample, sampleBusy: sample.busy } : {})}
+      {...(canSample ? { sampleBusy: sample.busy, ...(guide?.status === 'done' ? { onSample: startSample } : { onGuide: startGuide }) } : {})} />}
+    {state === 'returning' && <HomeGettingStarted projects={projects} guide={guide}
+      {...(canSample ? { onStartGuide: startGuide, guideBusy: sample.busy } : {})}
       onStartGame={focusComposer} onOpenProject={onOpenProject} />}
     {creating && onImportFolderResponse && <NewGameDialog
       {...(folderImport.available ? { onOpenFolder: openFolder } : {})}

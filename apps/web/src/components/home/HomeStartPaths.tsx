@@ -10,6 +10,8 @@ export interface HomeStartPathsProps {
   onOpenFolder?: () => void;
   folderBusy?: boolean;
   onSample?: () => void;
+  /** The walkthrough in the sample game, in place of the plain sample until it was finished. */
+  onGuide?: () => void;
   sampleBusy?: boolean;
   /** Accessible name of the tile group. */
   label: string;
@@ -17,7 +19,7 @@ export interface HomeStartPathsProps {
 }
 
 interface Tile {
-  id: 'idea' | 'folder' | 'sample';
+  id: 'idea' | 'folder' | 'sample' | 'guide';
   icon: ReactNode;
   title: keyof Dict;
   body: keyof Dict;
@@ -28,16 +30,19 @@ interface Tile {
 
 /**
  * The ways a game can start, as option tiles: say an idea, open a folder, or
- * play the finished sample. A tile appears only when its action exists here.
+ * the sample game, with the walkthrough or alone. A tile appears only when its
+ * action exists here.
  */
-export function HomeStartPaths({ onIdea, onOpenFolder, folderBusy, onSample, sampleBusy, label, className }: HomeStartPathsProps) {
+export function HomeStartPaths({ onIdea, onOpenFolder, folderBusy, onSample, onGuide, sampleBusy, label, className }: HomeStartPathsProps) {
   const { t } = useI18n();
   const tiles: Tile[] = [];
   if (onIdea) tiles.push({ id: 'idea', icon: <MessageSquareText size={18} />, title: 'home.paths.ideaTitle',
     body: 'home.paths.ideaBody', cost: 'home.paths.ideaCost', onClick: onIdea });
   if (onOpenFolder) tiles.push({ id: 'folder', icon: <FolderOpen size={18} />, title: 'home.paths.folderTitle',
     body: 'home.paths.folderBody', cost: 'home.paths.instant', onClick: onOpenFolder, busy: folderBusy });
-  if (onSample) tiles.push({ id: 'sample', icon: <Gamepad2 size={18} />, title: 'home.paths.sampleTitle',
+  if (onGuide) tiles.push({ id: 'guide', icon: <Gamepad2 size={18} />, title: 'home.paths.guideTitle',
+    body: 'home.paths.guideBody', cost: 'home.paths.guideCost', onClick: onGuide, busy: sampleBusy });
+  else if (onSample) tiles.push({ id: 'sample', icon: <Gamepad2 size={18} />, title: 'home.paths.sampleTitle',
     body: 'home.paths.sampleBody', cost: 'home.paths.instant', onClick: onSample, busy: sampleBusy });
   if (tiles.length === 0) return null;
   return <div className={[styles.tiles, className].filter(Boolean).join(' ')} role="group" aria-label={label}

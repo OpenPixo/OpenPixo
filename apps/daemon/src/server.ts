@@ -3039,6 +3039,7 @@ export async function startServer({
     research: researchDeps,
     authorizeProjectRequest,
     authorizeProjectToolRequest,
+    gameFunnel,
   });
 
 

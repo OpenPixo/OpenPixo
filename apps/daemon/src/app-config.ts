@@ -21,7 +21,8 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import path from 'node:path';
-import { AGENT_IMAGE_MODEL_AUTOMATIC, isGameExperience, type AgentApprovalModes, type GameEnginePaths, type GameExperience } from '@openpixo/contracts';
+import { AGENT_IMAGE_MODEL_AUTOMATIC, FIRST_RUN_GUIDE_STATUSES, isGameExperience, parseFirstRunGuide,
+  type AgentApprovalModes, type FirstRunGuidePrefs, type GameEnginePaths, type GameExperience } from '@openpixo/contracts';
 
 import { expandHomePrefix } from './home-expansion.js';
 import { findTextToImageModel } from './media/models.js';
@@ -102,6 +103,7 @@ export interface AppConfigPrefs {
   gameEnginePaths?: GameEnginePaths;
   onboardingCompleted?: boolean;
   gameExperience?: GameExperience | null;
+  firstRunGuide?: FirstRunGuidePrefs | null;
   agentId?: string | null;
   agentModels?: Record<string, AgentModelPrefs>;
   agentImageModel?: string;
@@ -133,6 +135,7 @@ const ALLOWED_KEYS: ReadonlySet<keyof AppConfigPrefs> = new Set([
   'gameEnginePaths',
   'onboardingCompleted',
   'gameExperience',
+  'firstRunGuide',
   'agentId',
   'agentModels',
   'agentImageModel',
@@ -457,6 +460,18 @@ function checkedAgentImageModel(value: unknown, saved: string | undefined): unkn
   return model.id;
 }
 
+/**
+ * A walkthrough write is a state, a bare status (which keeps the saved step, game
+ * and hints), or null to clear it; anything else is refused, not stored as nothing.
+ */
+function checkedFirstRunGuide(value: unknown, saved: FirstRunGuidePrefs | null | undefined): unknown {
+  if (value === null) return value;
+  const guide = parseFirstRunGuide(value);
+  if (guide) return typeof value === 'string' && saved ? { ...saved, status: guide.status } : guide;
+  throw new InvalidAppConfigValueError('firstRunGuide',
+    `firstRunGuide must be ${FIRST_RUN_GUIDE_STATUSES.join(', ')}, null, or {"status", "step", "projectId"?, "hintsSeen"?}`);
+}
+
 function applyConfigValue(
   target: Record<string, unknown>,
   key: keyof AppConfigPrefs,
@@ -474,6 +489,14 @@ function applyConfigValue(
     // null clears it, so the next new game asks again.
     if (isGameExperience(value)) target[key] = value;
     else if (value === null) delete target[key];
+    return;
+  }
+  if (key === 'firstRunGuide') {
+    // null clears it, so a fresh profile is offered the walkthrough again. A stored
+    // value this version cannot read is dropped; writes are checked in doWrite.
+    const guide = parseFirstRunGuide(value);
+    if (guide) target[key] = guide;
+    else delete target[key];
     return;
   }
   if (key === 'agentImageModel') {
@@ -798,7 +821,8 @@ async function doWrite(
   const next: Record<string, unknown> = { ...existing };
   for (const key of Object.keys(partial)) {
     if (!ALLOWED_KEYS.has(key as keyof AppConfigPrefs)) continue;
-    const value = key === 'agentImageModel' ? checkedAgentImageModel(partial[key], existing.agentImageModel) : partial[key];
+    const value = key === 'agentImageModel' ? checkedAgentImageModel(partial[key], existing.agentImageModel)
+      : key === 'firstRunGuide' ? checkedFirstRunGuide(partial[key], existing.firstRunGuide) : partial[key];
     applyConfigValue(next, key as keyof AppConfigPrefs, value);
   }
   const nextWithInferredIntent = Object.prototype.hasOwnProperty.call(partial, 'agentCliEnv')

@@ -13,6 +13,7 @@ export * from './api/cloud-skills.js';
 export * from './settings-nav.js';
 export * from './tasks.js';
 export * from './api/app-config.js';
+export * from './api/first-run-guide.js';
 export * from './api/agent-sessions.js';
 export * from './api/agent-capabilities.js';
 export * from './api/attribution.js';

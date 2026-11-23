@@ -12,6 +12,8 @@ import { useAnalytics } from '../../analytics/provider';
 import { trackAccountMenuClick } from '../../analytics/events';
 import { useI18n } from '../../i18n';
 import { Icon } from '../Icon';
+import { navigate } from '../../router';
+import { requestEntryGuide } from '../entryRailBridge';
 import { openKeyboardShortcuts } from '../KeyboardShortcutsHelp';
 import styles from './RailHelpMenu.module.css';
 
@@ -95,6 +97,21 @@ export function RailHelpMenu({ page }: { page: TrackingWorkspacePage }) {
           items[next]?.focus();
         }}
       >
+        <Button
+          variant="ghost"
+          role="menuitem"
+          className={styles.item}
+          tabIndex={open ? 0 : -1}
+          data-testid="entry-nav-guide"
+          onClick={() => {
+            close(false);
+            requestEntryGuide();
+            navigate({ kind: 'home', view: 'home' });
+          }}
+        >
+          <span className={styles.glyph} aria-hidden><Icon name="play" size={15} /></span>
+          <span className={styles.label}>{t('guide.help')}</span>
+        </Button>
         <Button
           variant="ghost"
           role="menuitem"

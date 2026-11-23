@@ -36,9 +36,11 @@ export interface TuningPanelProps {
    * first one.
    */
   onReloadGame?: () => void;
+  /** The walkthrough points at one setting: its key, and the class that rings it (empty once it was changed). */
+  highlight?: { key: string; ring: string } | undefined;
 }
 
-export function TuningPanel({ projectId, viewerOnly, active = true, onOpenFile, onRefreshFiles, onReloadGame }: TuningPanelProps) {
+export function TuningPanel({ projectId, viewerOnly, active = true, onOpenFile, onRefreshFiles, onReloadGame, highlight }: TuningPanelProps) {
   const { locale, t } = useI18n();
   const tuning = useTuning(projectId, onRefreshFiles);
   const url = useRunningPreview(projectId, active);
@@ -87,6 +89,7 @@ export function TuningPanel({ projectId, viewerOnly, active = true, onOpenFile, 
       {[...groups].map(([group, parameters]) => <section key={group} className={styles.group}>
         <h3 className={styles.groupTitle}>{parameters.find(parameter => parameter.group_i18n?.[locale]?.trim())?.group_i18n?.[locale] || group}</h3>
         {parameters.map(parameter => <TuningParameter key={parameter.id} projectId={projectId} parameter={parameter}
+          ring={highlight?.key === parameter.key ? highlight.ring : undefined}
           disabled={!!viewerOnly || !!tuning.error || applying} onChange={value => tuning.edit(parameter.id, value)} onOpenFile={onOpenFile} />)}
       </section>)}
     </div>}

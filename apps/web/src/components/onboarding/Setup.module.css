@@ -26,6 +26,7 @@ button.choice:focus-visible { outline: 2px solid var(--violet); outline-offset: 
 .recommended { padding: 1px 7px; border-radius: var(--radius-pill); background: var(--violet); color: var(--bg); font-size: 12px; font-weight: 600; }
 .choiceBody { font-size: 13px; color: var(--text-muted); }
 .choiceAction { margin-top: 10px; }
+.choiceNext { margin-top: 2px; font-size: 13px; color: var(--violet-strong); }
 .pricesLink { display: inline-flex; padding-inline: 2px; vertical-align: baseline; font-size: 13px; }
 .choiceFound { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 13px; color: var(--green); }
 

@@ -9,45 +9,54 @@ import { I18nProvider } from '../../../src/i18n';
 
 const sample: Project = { id: 'sample', name: 'Sample', createdAt: 1, updatedAt: 1, skillId: null,
   metadata: { kind: 'prototype', templateId: 'phaser3-sample-platformer' } as Project['metadata'] };
+const done = { status: 'done', step: 'make', projectId: 'sample' } as const;
 const own: Project = { id: 'own', name: 'Own game', createdAt: 2, updatedAt: 2, skillId: null };
 
 afterEach(() => { cleanup(); window.localStorage.clear(); vi.unstubAllGlobals(); });
 
 describe('getting-started steps', () => {
   it('reads each step from a real fact and leaves out the ones it cannot see', () => {
-    expect(gettingStartedSteps({ projects: [], agentReady: 'unknown', imageReady: 'unknown' })?.map(step => step.id))
-      .toEqual(['sample', 'first-game', 'run']);
-    const steps = gettingStartedSteps({ projects: [sample], agentReady: true, imageReady: false })!;
+    expect(gettingStartedSteps({ projects: [], guide: null, agentReady: 'unknown', imageReady: 'unknown' })?.map(step => step.id))
+      .toEqual(['guide', 'first-game', 'run']);
+    // The sample game is not the user's first game, however it came to be there.
+    const steps = gettingStartedSteps({ projects: [sample], guide: done, agentReady: true, imageReady: false })!;
     expect(steps.map(step => [step.id, step.done])).toEqual([
-      ['ai', true], ['image', false], ['sample', true], ['first-game', false], ['run', false],
+      ['guide', true], ['ai', true], ['image', false], ['first-game', false], ['run', false],
     ]);
+    for (const guide of [null, undefined, { ...done, status: 'active' }, { ...done, status: 'skipped' }] as const) {
+      expect(gettingStartedSteps({ projects: [], guide, agentReady: 'unknown', imageReady: 'unknown' })![0]).toEqual({ id: 'guide', done: false });
+    }
     const ran = { ...own, metadata: { kind: 'prototype', gameRunSucceededAt: 5 } as Project['metadata'] };
-    expect(gettingStartedSteps({ projects: [ran], agentReady: 'unknown', imageReady: 'unknown' })!
+    expect(gettingStartedSteps({ projects: [ran], guide: null, agentReady: 'unknown', imageReady: 'unknown' })!
       .find(step => step.id === 'run')?.done).toBe(true);
   });
 
   it('draws nothing while a fact is still loading', () => {
-    expect(gettingStartedSteps({ projects: [], agentReady: 'loading', imageReady: true })).toBeNull();
+    expect(gettingStartedSteps({ projects: [], guide: null, agentReady: 'loading', imageReady: true })).toBeNull();
   });
 });
 
 describe('HomeGettingStarted', () => {
   function renderList(projects: Project[], props: Partial<React.ComponentProps<typeof HomeGettingStarted>> = {}) {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({})));
-    return render(<I18nProvider initial="en"><HomeGettingStarted projects={projects} onStartGame={vi.fn()}
+    return render(<I18nProvider initial="en"><HomeGettingStarted projects={projects} guide={null} onStartGame={vi.fn()}
       onOpenProject={vi.fn()} {...props} /></I18nProvider>);
   }
 
   it('shows progress, strikes done rows and offers one action per open step', () => {
-    const onStartSample = vi.fn();
-    renderList([own], { onStartSample });
+    const onStartGuide = vi.fn();
+    const view = renderList([own], { onStartGuide });
     expect(screen.getByRole('heading', { name: 'Start making games' })).toBeTruthy();
     expect(screen.getByText('1 / 3 done')).toBeTruthy();
-    const done = document.querySelector('[data-step="first-game"]')!;
-    expect(done.getAttribute('data-done')).toBe('true');
-    expect(done.querySelector('button')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open sample' }));
-    expect(onStartSample).toHaveBeenCalledOnce();
+    const madeGame = document.querySelector('[data-step="first-game"]')!;
+    expect(madeGame.getAttribute('data-done')).toBe('true');
+    expect(madeGame.querySelector('button')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    expect(onStartGuide).toHaveBeenCalledOnce();
+    // One that was begun goes on from where it stopped.
+    view.unmount();
+    renderList([own], { onStartGuide, guide: { status: 'skipped', step: 'tune', projectId: 'sample' } });
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeTruthy();
   });
 
   it('stays hidden once dismissed, and once every step is done', () => {
@@ -58,7 +67,7 @@ describe('HomeGettingStarted', () => {
     cleanup();
     window.localStorage.clear();
     const ran = { ...own, metadata: { kind: 'prototype', gameRunSucceededAt: 5 } as Project['metadata'] };
-    renderList([sample, ran]);
+    renderList([sample, ran], { guide: done });
     expect(screen.queryByTestId('home-getting-started')).toBeNull();
   });
 });

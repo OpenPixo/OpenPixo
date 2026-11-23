@@ -1,6 +1,9 @@
 import { PRODUCT_NAME } from '@openpixo/contracts';
 import { PRODUCT_CLI_NAME } from '@openpixo/contracts';
 import { subscribeProjectComposerPrefill, takeProjectComposerPrefill } from '../state/composer-prefill';
+import { takeProjectGameStart } from '../state/game-start-request';
+import { requestEntryNewGame } from './entryRailBridge';
+import { useProjectGuide } from './first-run/ProjectGuide';
 import { useStartupReady } from '../observability/startup-ready';
 import { EngineBadge } from './game/EngineBadge';
 import { getOpenPixoHost } from '@openpixo/host';
@@ -8927,6 +8930,25 @@ export function ProjectView({
     revealPanel();
     setGameRequest((previous) => ({ projectId: project.id, kind, nonce: (previous?.nonce ?? 0) + 1 }));
   }, [project.id, revealPanel]);
+  // The first-login walkthrough in the sample game, and its one-time hints in the user's own.
+  const guide = useProjectGuide({
+    project: currentProject,
+    messages,
+    messagesReady: messagesInitialized,
+    running: currentConversationStreaming || currentConversationHasActiveRun,
+    agents,
+    config,
+    onOpenPlans: () => onOpenSettings('account'),
+    onSetUpAgent: () => onOpenSettings('execution'),
+    onNewGame: () => {
+      requestEntryNewGame();
+      navigate({ kind: 'home', view: 'home' });
+    },
+  });
+  // A game made to be played right away (the finished sample) starts as its project opens.
+  useEffect(() => {
+    if (takeProjectGameStart(project.id)) requestGameAction('run-game');
+  }, [project.id, requestGameAction]);
   const composerSlashActions = useMemo<ComposerSlashAction[]>(() => {
     if (projectReadsHeld) return [];
     const actions: ComposerSlashAction[] = [];
@@ -9283,6 +9305,8 @@ export function ProjectView({
               collapseControlLifted={!workspaceFocused}
               backLabel={t('project.backToProjects')}
               composerFooterAccessory={executionControls}
+              guideSlot={guide.chat}
+              guideActive={guide.active}
             />
           ) : (
             <div className="pane" data-testid="chat-pane-loading">
@@ -9326,6 +9350,7 @@ export function ProjectView({
             verifyAvailable: true,
             startRequest: gameRequest?.projectId === project.id
               ? { kind: gameRequest.kind, nonce: gameRequest.nonce } : null,
+            ...(guide.game ? { guide: guide.game } : {}),
           }}
           gameViewRequest={gameRequest?.projectId === project.id ? gameRequest.nonce : 0}
           onOpenEngineSettings={() => onOpenSettings('gameEngines')}

@@ -205,9 +205,9 @@ export function templateDraftDefaults(templateId: string): Partial<WizardDraft> 
   // What the sample ships with (its own 16-bit art, an 800x450 FIT canvas, keyboard), so its setup is complete.
   if (templateId === SAMPLE_TEMPLATE_ID) {
     return { title: 'Pixel Platformer', scope: 'quick', genre: 'platformer', perspective: 'side-2d', platforms: ['web'], styleId: 'pixel-16-bit',
-      resolution: 'custom', customWidth: '800', customHeight: '450', scaling: 'fit', controls: ['keyboard'], kickoff: false,
-      // The sample's own screen and controls are facts about that game, not defaults.
-      edited: ['display', 'controls'] };
+      languages: ['en', 'zh-Hans'], resolution: 'custom', customWidth: '800', customHeight: '450', scaling: 'fit', controls: ['keyboard'], kickoff: false,
+      // The sample's own languages, screen and controls are facts about that game, not defaults.
+      edited: ['languages', 'display', 'controls'] };
   }
   return {};
 }
