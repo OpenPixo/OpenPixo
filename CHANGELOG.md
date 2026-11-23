@@ -1,5 +1,19 @@
 # Changelog
 
+## OpenPixo 1.0.11
+
+- **Steady chat while the AI works.** The chat no longer jumps when a finished step folds while you are reading further up, and you can drag the scrollbar while a reply is being written.
+- **Tencent Hy4 Flash** joins the models you can use with credits. Like the others, it looks at screenshots and art through OpenPixo's image viewer.
+- **Cloud skills and tools.** With OpenPixo's models, the AI can now use skills and small tools that OpenPixo keeps up to date in the cloud, without an app update. The first is the image viewer; skills will appear in **Settings → Skills** as they are added. Your own skills are unchanged and win when the names match. `pixo cloud-skills` and `pixo tool` do the same from the command line.
+
+This build is not code signed yet. Windows may show "Unknown publisher" the first time you run the installer; choose **More info**, then **Run anyway**. Windows with Smart App Control turned on will block it.
+
+- **AI 干活时对话不再乱跳。** 往上翻看时，完成的步骤折叠起来不会再让页面跳动；AI 正在回复时也可以拖动滚动条。
+- **新增腾讯 Hy4 Flash**，可以用积分使用。和其他模型一样，它通过 OpenPixo 的看图工具查看截图和美术。
+- **云端技能和工具。** 使用 OpenPixo 的模型时，AI 可以使用 OpenPixo 在云端维护的技能和小工具，不用更新应用。目前第一个是看图工具；以后新增的技能会出现在「设置 → 技能」里。你自己的技能不受影响，同名时优先用你的。命令行里对应 `pixo cloud-skills` 和 `pixo tool`。
+
+这个版本还没有代码签名。第一次运行安装包时，Windows 可能提示“未知发布者”，请点“更多信息”，再点“仍要运行”。开启了智能应用控制（Smart App Control）的 Windows 会直接拦截。
+
 ## OpenPixo 1.0.10
 
 - **Style samples that look like real games.** While planning, the art step draws key screens with a lit play area, a quieter background and detail where it matters, and you can ask for as many rounds of samples as you need.
