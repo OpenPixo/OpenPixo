@@ -1,6 +1,7 @@
 import { GAME_PACKAGE_LOCKS, gamePackageManager } from './package-manager.js';
 import { npmRegistryEnv } from './npm-registry.js';
 import { gamePackageCacheSetup } from './package-caches.js';
+import { beginGameInstall, gameInstallState } from './install-state.js';
 import { withoutDaemonMode } from '../daemon-mode-env.js';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -37,9 +38,11 @@ export async function detectGamePackageManager(cwd: string): Promise<GamePackage
 /**
  * Whether every package the game declares is installed, here or in a folder above
  * (a workspace hoists). A `node_modules` alone is not enough: an install that left
- * out the development dependencies looks installed and cannot start.
+ * out the development dependencies looks installed and cannot start, and one that is
+ * still at work, or was cut short, has folders without their files.
  */
 export async function gameDependenciesInstalled(cwd: string): Promise<boolean> {
+  if (await gameInstallState(cwd) !== 'idle') return false;
   const isDirectory = (dir: string) => stat(dir).then(value => value.isDirectory(), () => false);
   if (!await isDirectory(path.join(cwd, 'node_modules'))) return false;
   let manifest: Record<string, unknown> = {};
@@ -160,17 +163,20 @@ export async function installGameDependencies(cwd: string, dataDir: string, reso
     log = Buffer.concat([log, Buffer.from(chunk)]).subarray(-GAME_INSTALL_LOG_LIMIT);
     options.onOutput?.(log.toString('utf8'));
   };
+  const ended = await beginGameInstall(cwd, options.signal);
+  let end: 'installed' | 'failed' | 'cut-short' = 'failed';
   let result: GameInstallDepsResult;
   try {
     const exit = options.execute
       ? await options.execute(executable, argv, cwd, output)
       : await executeInstall(plan.packageManager!, executable, argv, cwd, output, node, dataDir, options.signal);
+    end = exit.cancelled || exit.timedOut ? 'cut-short' : exit.exitCode === 0 ? 'installed' : 'failed';
     const reasonCode = exit.cancelled ? 'INSTALL_CANCELLED' : exit.timedOut ? 'INSTALL_TIMEOUT' : exit.exitCode !== 0 ? 'INSTALL_FAILED' : undefined;
     result = { ...plan, status: reasonCode ? 'failed' : 'installed', exitCode: exit.exitCode, ...(reasonCode ? { reasonCode } : {}) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     output(message); result = { ...plan, status: 'failed', reasonCode: 'INSTALL_FAILED', message };
-  }
+  } finally { await ended(end); }
   const logRef = await saveInstallLog(dataDir, log);
   return { ...result, ...(logRef ? { logRef } : {}), logTail: log.toString('utf8') };
 }

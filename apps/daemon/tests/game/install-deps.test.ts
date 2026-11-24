@@ -82,7 +82,7 @@ it('reads the declared package manager from a package.json with a byte-order mar
 it('executes a local package-manager shim with fixed argv and captures its real output', async () => {
   const project = path.join(root, 'game with spaces'); await mkdir(project);
   const script = path.join(root, 'fake-install.cts');
-  await writeFile(script, `const fs = require('node:fs'); fs.mkdirSync('node_modules'); fs.writeFileSync('args.json', JSON.stringify(process.argv.slice(2))); console.log('dependencies installed');`);
+  await writeFile(script, `const fs = require('node:fs'); fs.mkdirSync('node_modules', { recursive: true }); fs.writeFileSync('args.json', JSON.stringify(process.argv.slice(2))); console.log('dependencies installed');`);
   const tool = path.join(root, process.platform === 'win32' ? 'npm.cmd' : 'npm');
   await writeFile(tool, process.platform === 'win32'
     ? `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`
