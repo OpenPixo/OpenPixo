@@ -2,16 +2,23 @@ import type { Express, Request, Response } from 'express';
 import { readAppConfig } from '../app-config.js';
 import { getProject } from '../db.js';
 import { detectEngineProfile } from '../game/engine-detect.js';
-import { GameRunManager } from '../game/run.js';
+import { GameRunManager, type InstantGame } from '../game/run.js';
 import type { GameInstallDepsResult, GameRunStatus } from '@openpixo/contracts';
 import { installGameDependencies, prepareGameDependencyInstall, resolveGameCommandDirectory } from '../game/install-deps.js';
 import { recordProjectGameRun } from '../project-start/game-run-record.js';
+import { readInstantPackages } from '../game/templates.js';
 import { gameToolResolver } from '../game/verify.js';
 import { bearerTokenFromRequest } from '../http/tool-request-auth.js';
+import { subscribe as subscribeFileEvents } from '../project-watchers.js';
 import { resolveProjectDir } from '../projects.js';
 import type { RouteDeps } from '../server-context.js';
 
-export type RegisterGameRunRoutesDeps = RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest'>;
+export interface RegisterGameRunRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest'> {
+  /** Where the templates are whose games can play before their packages are installed. */
+  templatesRoot?: string;
+}
+
+interface DependencyInstall { result: GameInstallDepsResult; controller: AbortController; pending?: Promise<void> }
 
 /** Stops every game process; `control` lets another domain share the same processes as the Run button. */
 export interface GameRunRoutesHandle {
@@ -26,7 +33,7 @@ export interface GameRunRoutesHandle {
 
 export function registerGameRunRoutes(app: Express, ctx: RegisterGameRunRoutesDeps): GameRunRoutesHandle {
   const manager = new GameRunManager(ctx.paths.RUNTIME_DATA_DIR, (id, state) => recordProjectGameRun(ctx.db, id, state));
-  const installs = new Map<string, { result: GameInstallDepsResult; controller: AbortController; pending?: Promise<void> }>();
+  const installs = new Map<string, DependencyInstall>();
   let disposed = false;
   const { sendApiError, requireLocalDaemonRequest, isLocalSameOrigin, resolvedPortRef } = ctx.http;
   const error = (res: Response, caught: unknown) => sendApiError(res, 400, 'BAD_REQUEST', caught instanceof Error ? caught.message : String(caught));
@@ -50,7 +57,56 @@ export function registerGameRunRoutes(app: Express, ctx: RegisterGameRunRoutesDe
     const projectDir = resolveProjectDir(ctx.paths.PROJECTS_DIR, id, project.metadata);
     const config = await readAppConfig(ctx.paths.RUNTIME_DATA_DIR);
     const toolPaths = config.gameEnginePaths ?? {};
-    return { profile: detectEngineProfile(projectDir, { enginePaths: toolPaths }), projectDir, resolveTool: gameToolResolver({ ...toolPaths }) };
+    return { profile: detectEngineProfile(projectDir, { enginePaths: toolPaths }), projectDir, resolveTool: gameToolResolver({ ...toolPaths }),
+      instant: await instantGame(id) };
+  }
+
+  /** A game made from a template that ships its packages can play while they are installed. */
+  async function instantGame(id: string): Promise<InstantGame | null> {
+    const metadata = getProject(ctx.db, id)?.metadata;
+    const packages = ctx.templatesRoot ? await readInstantPackages(ctx.templatesRoot, metadata?.templateId) : null;
+    return packages && {
+      packages,
+      watch: onChange => subscribeFileEvents(ctx.paths.PROJECTS_DIR, id, event => onChange(event.path), { metadata }).unsubscribe,
+      install: async () => {
+        if (disposed) return { status: 'failed', reasonCode: 'INSTALL_CANCELLED' };
+        const entry = beginInstall(id);
+        await entry.pending;
+        return entry.result;
+      },
+    };
+  }
+
+  /** Joins the install that is under way, or starts one. */
+  function beginInstall(id: string): DependencyInstall {
+    const current = installs.get(id);
+    if (current?.pending) return current;
+    // Reserve before async preflight so concurrent clicks share one installation.
+    const entry: DependencyInstall = { result: { status: 'installing' }, controller: new AbortController() };
+    installs.set(id, entry);
+    entry.pending = (async () => {
+      const context = await prepare(id);
+      if (!['phaser', 'threejs', 'web-generic'].includes(context.profile.engine)) {
+        entry.result = { status: 'failed', reasonCode: 'UNSUPPORTED_ENGINE' }; return;
+      }
+      const command = context.profile.commands.run ?? context.profile.commands.build ?? context.profile.commands.check;
+      const cwd = await resolveGameCommandDirectory(context.projectDir, command?.cwd ?? '.');
+      entry.result = await installGameDependencies(cwd, ctx.paths.RUNTIME_DATA_DIR, context.resolveTool, {
+        signal: entry.controller.signal,
+        onOutput: logTail => { entry.result = { ...entry.result, logTail }; },
+      });
+    })().catch(caught => {
+      entry.result = { ...entry.result, status: 'failed', reasonCode: 'INSTALL_FAILED', message: caught instanceof Error ? caught.message : String(caught) };
+    }).finally(() => { delete entry.pending; });
+    return entry;
+  }
+
+  /** While packages are being installed, only a game that can play without them starts. */
+  async function startGame(id: string): Promise<GameRunStatus> {
+    if (installs.get(id)?.pending && !await instantGame(id)) {
+      return { status: 'failed', reasonCode: 'INSTALL_BUSY', message: 'Project dependencies are still installing. Try again when they finish.' };
+    }
+    return manager.start(id, () => prepare(id));
   }
 
   app.get('/api/projects/:id/game/install-deps', requireLocalDaemonRequest, async (req, res) => {
@@ -80,26 +136,7 @@ export function registerGameRunRoutes(app: Express, ctx: RegisterGameRunRoutesDe
       const current = installs.get(id);
       if (current?.pending) return res.json(current.result);
       if (['starting', 'running'].includes(manager.status(id).status)) return res.json({ status: 'failed', reasonCode: 'INSTALL_BUSY' });
-      // Reserve before async preflight so concurrent clicks share one installation.
-      const entry: { result: GameInstallDepsResult; controller: AbortController; pending?: Promise<void> } = {
-        result: { status: 'installing' }, controller: new AbortController(),
-      };
-      installs.set(id, entry);
-      entry.pending = (async () => {
-        const context = await prepare(id);
-        if (!['phaser', 'threejs', 'web-generic'].includes(context.profile.engine)) {
-          entry.result = { status: 'failed', reasonCode: 'UNSUPPORTED_ENGINE' }; return;
-        }
-        const command = context.profile.commands.run ?? context.profile.commands.build ?? context.profile.commands.check;
-        const cwd = await resolveGameCommandDirectory(context.projectDir, command?.cwd ?? '.');
-        entry.result = await installGameDependencies(cwd, ctx.paths.RUNTIME_DATA_DIR, context.resolveTool, {
-          signal: entry.controller.signal,
-          onOutput: logTail => { entry.result = { ...entry.result, logTail }; },
-        });
-      })().catch(caught => {
-        entry.result = { ...entry.result, status: 'failed', reasonCode: 'INSTALL_FAILED', message: caught instanceof Error ? caught.message : String(caught) };
-      }).finally(() => { delete entry.pending; });
-      return res.json(entry.result);
+      return res.json(beginInstall(id).result);
     } catch (caught) { error(res, caught); }
   });
 
@@ -116,9 +153,7 @@ export function registerGameRunRoutes(app: Express, ctx: RegisterGameRunRoutesDe
       if (req.body !== undefined && (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).length)) {
         throw new Error('Game run does not accept command arguments');
       }
-      const id = String(req.params.id);
-      if (installs.get(id)?.pending) return res.json({ status: 'failed', reasonCode: 'INSTALL_BUSY' });
-      const result = await manager.start(id, () => prepare(id));
+      const result = await startGame(String(req.params.id));
       res.setHeader('Cache-Control', 'no-store'); res.json(result);
     } catch (caught) { error(res, caught); }
   });
@@ -146,9 +181,7 @@ export function registerGameRunRoutes(app: Express, ctx: RegisterGameRunRoutesDe
   };
   return Object.assign(stop, { control: {
     status: (projectId: string) => manager.status(projectId),
-    start: async (projectId: string): Promise<GameRunStatus> => installs.get(projectId)?.pending
-      ? { status: 'failed', reasonCode: 'INSTALL_BUSY', message: 'Project dependencies are still installing. Try again when they finish.' }
-      : manager.start(projectId, () => prepare(projectId)),
+    start: startGame,
     stop: async (projectId: string) => {
       const install = installs.get(projectId);
       install?.controller.abort();

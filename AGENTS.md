@@ -250,6 +250,8 @@ Every user-facing capability must be reachable through both the web UI **and** t
 - The steps are play, tune, ask, make. Each is done by doing it (`components/first-run/ProjectGuide.tsx`, rules in `guide-state.ts`): the card says so and waits for Next. It sits in the page, under the game or above the composer; nothing floats over the game and nothing moves on by itself. The first two steps must work with no AI, no credits and no Git.
 - Hints in the user's first own game show once each, and only to someone with a saved walkthrough state. Add one only where beginners get stuck; there is no quest list, score or achievement.
 - The sample is recognised by `metadata.templateId`, stamped by `POST /api/projects/game-from-template`. It opens running (`state/game-start-request.ts`) and speaks English and Simplified Chinese.
+- It plays before its packages are installed, with no pnpm and no network: the daemon serves the project's own source on loopback with the Phaser its template ships in `instant/` (`apps/daemon/src/game/instant-server.ts`, `game-templates/README.md`), installs behind it, and sends the next load of the page to the dev server at the same address. Tuning and code changes reach the game in both states. Do not swap the page on screen when the dev server is ready, and do not ship a built copy of the game: step 3 edits its source. A game that needs anything else at run time waits for its install as before.
+- An install OpenPixo starts is noted in `node_modules` until it ends (`game/install-state.ts`). `executeGameProcess` waits for one that is under way, in whichever process; one that was cut short counts as not installed and starts over.
 
 ## Planning a new game
 

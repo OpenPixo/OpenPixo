@@ -36,6 +36,23 @@ export async function resolveGameTemplateCover(templatesRoot: string, id: string
   return null;
 }
 
+/** A package a template ships, by the name its game imports it with. */
+export type InstantPackages = Readonly<Record<string, { version: string; file: string }>>;
+
+/**
+ * The packages in a template's `instant/`, which beside `files/` is never copied, or
+ * null. The sample a new user opens first plays on them while its own are installed.
+ */
+export async function readInstantPackages(templatesRoot: string, id: unknown): Promise<InstantPackages | null> {
+  if (typeof id !== 'string' || !TEMPLATE_ID.test(id)) return null;
+  const dir = path.join(templatesRoot, id, 'instant');
+  try {
+    const listed = Object.entries(JSON.parse(await readFile(path.join(dir, 'packages.json'), 'utf8')) as InstantPackages);
+    if (!listed.length || listed.some(([, entry]) => typeof entry.version !== 'string' || path.basename(entry.file) !== entry.file)) return null;
+    return Object.fromEntries(listed.map(([name, entry]) => [name, { version: entry.version, file: path.join(dir, entry.file) }]));
+  } catch { return null; }
+}
+
 export class GameTemplateError extends Error {
   constructor(readonly reasonCode: GameCreationReasonCode, message: string) { super(message); }
 }

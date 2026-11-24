@@ -4,19 +4,31 @@ import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { createCommandInvocation, forceStopWindowsProcessTree } from '@openpixo/platform';
-import type { EngineProfile, GameRunStatus } from '@openpixo/contracts';
+import type { EngineCommand, EngineProfile, GameInstallDepsResult, GameRunStatus } from '@openpixo/contracts';
 import { gameLocalUrl } from './verify.js';
 import { missingGameToolGuidance } from './verify-tools.js';
 import { withoutDaemonMode } from '../daemon-mode-env.js';
 import { gameDependenciesInstalled, prepareGameDependencyInstall, resolveGameCommandDirectory } from './install-deps.js';
+import { playsBeforeInstall, startInstantServer, warmUpDevServer, type InstantServer } from './instant-server.js';
+import type { InstantPackages } from './templates.js';
 
 export const GAME_RUN_LOG_LIMIT = 64 * 1024;
 const GAME_RUN_STOP_TIMEOUT_MS = 5000;
+
+/** What a game needs to play while its packages are installed; see `instant-server.ts`. */
+export interface InstantGame {
+  packages: InstantPackages;
+  /** Calls back with the project's changed files, relative to its folder with `/`. */
+  watch: (onChange: (file: string) => void) => () => unknown;
+  /** Installs the game's packages, joining an install that is already under way. */
+  install: () => Promise<GameInstallDepsResult>;
+}
 
 export interface GameRunContext {
   profile: EngineProfile;
   projectDir: string;
   resolveTool: (id: string) => string | null | Promise<string | null>;
+  instant?: InstantGame | null;
 }
 
 interface RunEntry {
@@ -26,6 +38,8 @@ interface RunEntry {
   logWrite?: Promise<void>;
   logDirty: boolean;
   launch?: Promise<void>;
+  /** Plays the game until its own server does; the run's address for as long as it runs. */
+  instant?: InstantServer;
   child?: ChildProcess;
   /** Taken just before `spawn`: stopping the tree never touches a process older than this. */
   spawnedAtMs?: number;
@@ -102,6 +116,7 @@ export class GameRunManager {
     clearTimeout(entry.startupTimer);
     entry.stop ??= (async () => {
       await entry.launch;
+      await entry.instant?.close();
       await entry.cleanup;
       if (entry.child) {
         await this.cleanupTree(entry);
@@ -150,7 +165,7 @@ export class GameRunManager {
 
   private async launch(projectId: string, entry: RunEntry, prepare: () => Promise<GameRunContext>): Promise<void> {
     try {
-      const { profile, projectDir: inputDir, resolveTool } = await prepare();
+      const { profile, projectDir: inputDir, resolveTool, instant } = await prepare();
       entry.state.engine = profile.engine;
       if (entry.stopRequested) { entry.state.status = 'exited'; return; }
       // Godot 3 profiles expose the engine tool through check; run it with fixed main-scene arguments.
@@ -161,6 +176,9 @@ export class GameRunManager {
       }
       const projectDir = await realpath(inputDir);
       const cwd = await resolveGameCommandDirectory(projectDir, command.cwd);
+      if (web && instant && !await gameDependenciesInstalled(cwd) && await playsBeforeInstall(cwd, instant.packages)) {
+        await this.launchInstant(projectId, entry, { command, cwd, projectDir, instant, resolveTool }); return;
+      }
       let tool = command.argv[0];
       let executable: string | null | undefined;
       if (web) {
@@ -181,62 +199,119 @@ export class GameRunManager {
         this.fail(entry, 'MISSING_TOOL', `Required game tool is missing: ${tool}`);
         entry.state.missingToolGuidance = missingGameToolGuidance([tool]); return;
       }
-      const port = web ? await loopbackPort() : undefined;
-      if (entry.stopRequested) { entry.state.status = 'exited'; return; }
-      const argv = web ? [...command.argv.slice(1), ...(tool === 'npm' && !command.argv.includes('--') ? ['--'] : []), '--host', '127.0.0.1', '--port', String(port), '--strictPort'] : ['--path', cwd];
-      const logRef = randomUUID();
-      const logDir = path.join(this.dataDir, 'logs', 'game-runs');
-      await mkdir(logDir, { recursive: true });
-      entry.logFile = path.join(logDir, `${logRef}.log`);
-      await writeFile(entry.logFile, '');
+      await this.startCommand(projectId, entry, { command, cwd, tool, executable, web });
+    } catch (error) { await entry.instant?.close(); this.fail(entry, 'START_FAILED', error instanceof Error ? error.message : String(error)); }
+  }
+
+  private async openLog(entry: RunEntry): Promise<string> {
+    const logRef = randomUUID();
+    const logDir = path.join(this.dataDir, 'logs', 'game-runs');
+    await mkdir(logDir, { recursive: true });
+    entry.logFile = path.join(logDir, `${logRef}.log`);
+    await writeFile(entry.logFile, '');
+    return logRef;
+  }
+
+  /**
+   * Plays the game from its own files at once and moves it to its dev server when its
+   * packages are there. The address stays the same and the page on screen keeps playing;
+   * the next load of it comes from the dev server.
+   */
+  private async launchInstant(projectId: string, entry: RunEntry, { command, cwd, projectDir, instant, resolveTool }: {
+    command: EngineCommand; cwd: string; projectDir: string; instant: InstantGame; resolveTool: GameRunContext['resolveTool'];
+  }): Promise<void> {
+    const folder = path.relative(projectDir, cwd).split(path.sep).join('/');
+    entry.instant = await startInstantServer({ root: cwd, packages: instant.packages, log: line => this.append(entry, `${line}\n`),
+      watch: onChange => instant.watch(file => {
+        if (!folder) onChange(file);
+        else if (file.startsWith(`${folder}/`)) onChange(file.slice(folder.length + 1));
+      }) });
+    const logRef = await this.openLog(entry);
+    if (entry.stopRequested) { entry.state.status = 'exited'; return; }
+    entry.state = { ...entry.state, startedAt: Date.now(), logRef };
+    this.append(entry, 'Playing from the game files while the packages are installed.\n');
+    this.markRunning(projectId, entry, entry.instant.url);
+    void (async () => {
+      const installed = await instant.install();
+      if (entry.stopRequested) return;
+      if (installed.status !== 'installed') {
+        this.append(entry, `${installed.logTail ?? ''}\nThe packages were not installed (${installed.message ?? installed.reasonCode}). The game keeps playing, and the next run tries again.\n`);
+        return;
+      }
+      const { executable, packageManager } = await prepareGameDependencyInstall(cwd, resolveTool);
+      if (!executable || !packageManager) return;
+      await this.startCommand(projectId, entry, { command, cwd, tool: packageManager, executable, web: true });
+    })().catch(error => this.append(entry, `\n${error instanceof Error ? error.message : String(error)}\n`));
+  }
+
+  /** Starts the game's own command. A game that already plays keeps playing, whatever becomes of this command. */
+  private async startCommand(projectId: string, entry: RunEntry, { command, cwd, tool, executable, web }: {
+    command: EngineCommand; cwd: string; tool: string; executable: string; web: boolean;
+  }): Promise<void> {
+    const { instant } = entry;
+    const port = web ? await loopbackPort() : undefined;
+    if (entry.stopRequested) { entry.state.status = 'exited'; return; }
+    const argv = web ? [...command.argv.slice(1), ...(tool === 'npm' && !command.argv.includes('--') ? ['--'] : []), '--host', '127.0.0.1', '--port', String(port), '--strictPort'] : ['--path', cwd];
+    if (!entry.logFile) {
+      const logRef = await this.openLog(entry);
       if (entry.stopRequested) { entry.state.status = 'exited'; return; }
       entry.state = { ...entry.state, startedAt: Date.now(), logRef };
-      const invocation = createCommandInvocation({ command: executable, args: argv });
-      entry.spawnedAtMs = Date.now();
-      const child = spawn(invocation.command, invocation.args, {
-        cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
-        windowsVerbatimArguments: invocation.windowsVerbatimArguments,
-        env: { ...withoutDaemonMode(process.env), PIXO_DATA_DIR: this.dataDir },
-      });
-      entry.child = child;
-      child.once('exit', () => {
+    }
+    const invocation = createCommandInvocation({ command: executable, args: argv });
+    entry.spawnedAtMs = Date.now();
+    const child = spawn(invocation.command, invocation.args, {
+      cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
+      windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+      env: { ...withoutDaemonMode(process.env), PIXO_DATA_DIR: this.dataDir },
+    });
+    entry.child = child;
+    child.once('exit', () => {
+      clearTimeout(entry.startupTimer);
+      if (!entry.stopRequested) void this.cleanupTree(entry).catch(error => this.append(entry, `\nCould not stop game descendants: ${String(error)}\n`));
+    });
+    entry.closed = new Promise(resolve => {
+      child.once('close', code => {
+        delete entry.child;
         clearTimeout(entry.startupTimer);
-        if (!entry.stopRequested) void this.cleanupTree(entry).catch(error => this.append(entry, `\nCould not stop game descendants: ${String(error)}\n`));
-      });
-      entry.closed = new Promise(resolve => {
-        child.once('close', code => {
-          delete entry.child;
-          clearTimeout(entry.startupTimer);
+        if (instant && !instant.handedOver && !entry.stopRequested) {
+          this.append(entry, `\nThe dev server ended (${code ?? 'signal'}). The game keeps playing from its files.\n`);
+        } else {
           entry.state.exitCode = code;
           if (entry.state.status !== 'failed') {
             if (entry.stopRequested || code === 0) entry.state = { ...entry.state, status: 'exited', exitedAt: Date.now(), exitCode: code };
             else this.fail(entry, 'PROCESS_EXITED', `Game process exited (${code ?? 'signal'})`);
           }
-          resolve();
-        });
-      });
-      let urlTail = '';
-      const output = (chunk: Buffer) => {
-        this.append(entry, chunk);
-        if (web && entry.state.status === 'starting' && !entry.stopRequested) {
-          urlTail = (urlTail + chunk.toString('utf8')).slice(-8192);
-          const url = gameRunUrlFromOutput(urlTail, port);
-          if (url) this.markRunning(projectId, entry, url);
+          void instant?.close();
         }
-      };
-      child.stdout!.on('data', output);
-      child.stderr!.on('data', output);
-      await new Promise<void>((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
-      if (entry.stopRequested) return;
-      if (!web && entry.state.status === 'starting') this.markRunning(projectId, entry);
-      else if (entry.state.status === 'starting') {
-        entry.startupTimer = setTimeout(() => {
-          this.fail(entry, 'START_TIMEOUT', 'The game server did not report a local URL before the startup timeout');
-          void this.cleanupTree(entry).catch(error => this.append(entry, `\nCould not stop game process: ${String(error)}\n`));
-        }, command.timeoutMs);
-        entry.startupTimer.unref();
-      }
-    } catch (error) { this.fail(entry, 'START_FAILED', error instanceof Error ? error.message : String(error)); }
+        resolve();
+      });
+    });
+    let urlTail = '';
+    let ready = !web;
+    const output = (chunk: Buffer) => {
+      this.append(entry, chunk);
+      if (ready || entry.stopRequested || !(instant || entry.state.status === 'starting')) return;
+      urlTail = (urlTail + chunk.toString('utf8')).slice(-8192);
+      const url = gameRunUrlFromOutput(urlTail, port);
+      if (!url) return;
+      ready = true;
+      clearTimeout(entry.startupTimer);
+      if (!instant) { this.markRunning(projectId, entry, url); return; }
+      void warmUpDevServer(url).then(() => { if (entry.child === child && !entry.stopRequested) instant.handOver(url); });
+    };
+    child.stdout!.on('data', output);
+    child.stderr!.on('data', output);
+    await new Promise<void>((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
+    if (entry.stopRequested) return;
+    if (!web && entry.state.status === 'starting') this.markRunning(projectId, entry);
+    else if (!ready && (instant || entry.state.status === 'starting')) {
+      entry.startupTimer = setTimeout(() => {
+        const message = 'The game server did not report a local URL before the startup timeout';
+        if (instant) this.append(entry, `\n${message}\n`); else this.fail(entry, 'START_TIMEOUT', message);
+        void this.cleanupTree(entry).catch(error => this.append(entry, `\nCould not stop game process: ${String(error)}\n`));
+      }, command.timeoutMs);
+      entry.startupTimer.unref();
+    }
   }
 
   private async cleanupTree(entry: RunEntry): Promise<void> {

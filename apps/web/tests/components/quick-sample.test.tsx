@@ -103,6 +103,19 @@ describe('one-click sample', () => {
     expect(sessionStorage.getItem('pixo:auto-send-prompt:sample-project')).toBeNull();
   });
 
+  it('opens the sound device while the sample is being made, so the game does not wait for it', async () => {
+    const order: string[] = [];
+    vi.stubGlobal('AudioContext', class {});
+    vi.stubGlobal('Audio', class { async play() { order.push('sound'); } });
+    const fetchMock = network({ create: async () => { order.push('made'); return Response.json(created); } });
+    const onCreated = home();
+    expect(order).toEqual([]);
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
+    expect(order).toEqual(['sound', 'made']);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
   it('is named in the user\u2019s language, in a folder every system can read', async () => {
     const fetchMock = network();
     const onCreated = home('zh-CN');

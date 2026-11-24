@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { queueProjectGameStart } from '../../state/game-start-request';
+import { openSoundDevice } from '../game/open-sound-device';
 import { authorizeHostGameParent, isOpenPixoHostAvailable, type OpenPixoHostProjectImportSuccess } from '@openpixo/host';
 import { checkGameTarget, fetchGameTemplates, GameTemplateRequestError } from '../../state/game-templates';
 import { createGameFromTemplate } from '../NewGameDialog.api';
@@ -54,6 +55,7 @@ export function useQuickSample(onCreated?: (response: OpenPixoHostProjectImportS
     if (active.current || !onCreated) return;
     active.current = true;
     setBusy(true);
+    openSoundDevice();
     try {
       const sample = await createQuickSample(locale);
       queueProjectGameStart(sample.projectId);
