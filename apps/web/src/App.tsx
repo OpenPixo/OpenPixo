@@ -94,8 +94,10 @@ import {
   syncMediaProvidersToDaemon,
 } from './state/config';
 import { createSilentUpdatePreferenceWriter } from './state/silent-update-preference';
+import { publishFirstRunGuide, useFirstRunGuide } from './state/first-run-guide';
 import { applyAppearanceToDocument } from './state/appearance';
 import { isMacPlatform } from './utils/platform';
+import { needsAgentPick, pickAvailableAgentId } from './utils/visibleAgents';
 import { randomUUID } from './utils/uuid';
 import { armCompletionFeedbackOnFirstGesture } from './utils/notifications';
 
@@ -1221,11 +1223,15 @@ function AppInner() {
     void analyticsAvailable().then((available) => { if (!cancelled) setCanSendAnalytics(available); });
     return () => { cancelled = true; };
   }, []);
+  // The banner sits where the walkthrough's card does, so it waits until the user leaves or ends it.
+  const guide = useFirstRunGuide();
+  const guideOnScreen = guide?.status === 'active' && route.kind === 'project' && route.projectId === guide.projectId;
   const showPrivacyConsent =
     daemonConfigLoaded &&
     config.privacyDecisionAt == null &&
     canSendAnalytics &&
-    config.onboardingCompleted === true;
+    config.onboardingCompleted === true &&
+    !guideOnScreen;
   useEffect(() => {
     const body = activeProjectId
       ? { projectId: activeProjectId, fileName: activeFileName }
@@ -1396,6 +1402,8 @@ function AppInner() {
         void syncConfigToDaemon(next);
         latestPersistedConfigRef.current = next;
         setConfig(next);
+        // No answer from the daemon says nothing about the walkthrough; it is not "never offered".
+        if (daemonConfig) publishFirstRunGuide(daemonConfig.firstRunGuide);
 
         // Route first-run users through the global onboarding panel.
         // The onboarding panel and the privacy banner have independent
@@ -1454,13 +1462,12 @@ function AppInner() {
   useEffect(() => {
     if (!daemonConfigLoaded || agentsLoading) return;
     if (config.onboardingCompleted !== true) return;
-    if (config.agentId) return;
-    const firstAvailable = agents.find((a) => a.id === 'codex' && a.available)
-      ?? agents.find((a) => a.available);
-    if (!firstAvailable) return;
+    if (!needsAgentPick(config)) return;
+    const picked = pickAvailableAgentId(agents);
+    if (!picked) return;
     setConfig((prev) => {
-      if (prev.agentId) return prev;
-      const next: AppConfig = { ...prev, agentId: firstAvailable.id };
+      if (!needsAgentPick(prev)) return prev;
+      const next: AppConfig = { ...prev, agentId: picked };
       saveConfig(next);
       void syncConfigToDaemon(next);
       return next;
@@ -1469,8 +1476,7 @@ function AppInner() {
     daemonConfigLoaded,
     agentsLoading,
     agents,
-    config.agentId,
-    config.onboardingCompleted,
+    config,
   ]);
 
   const refreshProjectsStrict = useCallback(async () => {
@@ -1862,6 +1868,7 @@ function AppInner() {
   useEffect(() => {
     const handleAppConfigChanged = () => {
       void fetchDaemonConfig().then((daemonConfig) => {
+        if (daemonConfig) publishFirstRunGuide(daemonConfig.firstRunGuide);
         const previous = latestPersistedConfigRef.current;
         const next = mergeDaemonConfig(previous, daemonConfig);
         latestPersistedConfigRef.current = next;

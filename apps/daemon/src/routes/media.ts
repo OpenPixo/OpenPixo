@@ -10,6 +10,7 @@ import type {
   ProjectFile,
   ProjectMediaTaskFile,
 } from '@openpixo/contracts';
+import { firstRunGuideProperties, type GameFunnelRecorder } from '../game/game-funnel.js';
 import type { AnalyticsContext } from '../analytics.js';
 import { defaultMediaExecutionPolicy, mediaPolicyDenial } from '../media/policy.js';
 import { formatMediaTaskDiagnostic, mediaFailureLogDetail } from '../media/diagnostics.js';
@@ -198,6 +199,8 @@ const aihubmixCatalogCache = new Map<string, { at: number; models: Array<{ id: s
 export interface RegisterMediaRoutesDeps extends RouteDeps<'db' | 'design' | 'http' | 'paths' | 'ids' | 'auth' | 'media' | 'appConfig' | 'nativeDialogs' | 'projectStore' | 'projectFiles' | 'conversations' | 'research'> {
   authorizeProjectRequest: AuthorizeProjectRequest;
   authorizeProjectToolRequest: AuthorizeProjectToolRequest;
+  /** Counts moves in the first-login walkthrough, which is an app-config write. */
+  gameFunnel?: GameFunnelRecorder;
 }
 
 export type LegacyMediaRouteGrantDecision =
@@ -1041,6 +1044,10 @@ export function registerMediaRoutes(app: Express, ctx: RegisterMediaRoutesDeps) 
       const config = await writeAppConfig(RUNTIME_DATA_DIR, req.body);
 
       onAppConfigWritten?.(config);
+      // The consent question waits until the walkthrough is over, so a yes also counts where it ended.
+      const justConsented = currentConfig.telemetry?.metrics !== true && config.telemetry?.metrics === true;
+      const guide = firstRunGuideProperties(justConsented ? null : currentConfig.firstRunGuide, config.firstRunGuide);
+      if (guide) ctx.gameFunnel?.record(req, 'first_run_guide', guide);
       res.json({ config });
     } catch (err: any) {
       if (err?.code === 'INVALID_APP_CONFIG_VALUE') {

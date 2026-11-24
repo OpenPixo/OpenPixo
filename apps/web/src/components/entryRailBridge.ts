@@ -71,3 +71,22 @@ export function takeEntryNewGameRequest(): boolean {
   pendingEntryNewGame = false;
   return pending;
 }
+
+// A walkthrough request from outside Home (the help menu, from any view or from
+// inside a project). Home makes or reopens the sample game, so the request is
+// held here until Home takes it, the way a New game request is.
+export const ENTRY_GUIDE_EVENT = 'pixo:entry-guide';
+
+let pendingEntryGuide = false;
+
+export function requestEntryGuide(): void {
+  pendingEntryGuide = true;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(ENTRY_GUIDE_EVENT));
+}
+
+/** Read and clear a held walkthrough request; true at most once per request. */
+export function takeEntryGuideRequest(): boolean {
+  const pending = pendingEntryGuide;
+  pendingEntryGuide = false;
+  return pending;
+}

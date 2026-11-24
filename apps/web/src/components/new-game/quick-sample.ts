@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react';
+import { useI18n } from '../../i18n';
+import { queueProjectGameStart } from '../../state/game-start-request';
+import { openSoundDevice } from '../game/open-sound-device';
 import { authorizeHostGameParent, isOpenPixoHostAvailable, type OpenPixoHostProjectImportSuccess } from '@openpixo/host';
 import { checkGameTarget, fetchGameTemplates, GameTemplateRequestError } from '../../state/game-templates';
 import { createGameFromTemplate } from '../NewGameDialog.api';
@@ -7,7 +10,12 @@ import { SAMPLE_TEMPLATE_ID, draftToSetup, emptyDraft, templateDraftDefaults } f
 
 export { SAMPLE_TEMPLATE_ID };
 
-export async function createQuickSample(): Promise<OpenPixoHostProjectImportSuccess> {
+/** The sample's own name in the user's language: its template name without the "Sample:" label. */
+function sampleTitle(template: { nameZhCN?: string }, locale: string): string | undefined {
+  return locale === 'zh-CN' ? template.nameZhCN?.replace(/^示例[:：]\s*/, '').trim() || undefined : undefined;
+}
+
+export async function createQuickSample(locale = 'en'): Promise<OpenPixoHostProjectImportSuccess> {
   const { templates, defaultParentDir } = await fetchGameTemplates();
   const template = templates.find(item => item.id === SAMPLE_TEMPLATE_ID);
   if (!template) throw new GameTemplateRequestError('Sample template not found', 404, 'TEMPLATE_NOT_FOUND');
@@ -23,7 +31,8 @@ export async function createQuickSample(): Promise<OpenPixoHostProjectImportSucc
     token = approved.token;
   }
   const baseName = template.name.replace(/^sample:\s*/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pixel-platformer';
-  const draft = { ...emptyDraft(SAMPLE_TEMPLATE_ID), ...templateDraftDefaults(SAMPLE_TEMPLATE_ID), kickoff: false };
+  const title = sampleTitle(template, locale);
+  const draft = { ...emptyDraft(SAMPLE_TEMPLATE_ID), ...templateDraftDefaults(SAMPLE_TEMPLATE_ID), ...(title ? { title } : {}), kickoff: false };
   for (let attempt = 1; attempt <= 20; attempt++) {
     const name = attempt === 1 ? baseName : `${baseName}-${attempt}`;
     const result = await checkGameTarget({ parentDir, name, createParent: true }, token);
@@ -35,15 +44,24 @@ export async function createQuickSample(): Promise<OpenPixoHostProjectImportSucc
   throw new GameTemplateRequestError('Sample names already exist', 409, 'TARGET_EXISTS');
 }
 
+/** Makes the finished sample and opens it already running: it is there to be played. */
 export function useQuickSample(onCreated?: (response: OpenPixoHostProjectImportSuccess) => Promise<void> | void) {
+  const { locale } = useI18n();
   const [busy, setBusy] = useState(false);
   const [fallback, setFallback] = useState<{ error: unknown } | null>(null);
   const active = useRef(false);
-  async function start() {
+  /** `onMade` runs once the sample exists, before its project opens. */
+  async function start(onMade?: (projectId: string) => void) {
     if (active.current || !onCreated) return;
     active.current = true;
     setBusy(true);
-    try { await onCreated(await createQuickSample()); }
+    openSoundDevice();
+    try {
+      const sample = await createQuickSample(locale);
+      queueProjectGameStart(sample.projectId);
+      onMade?.(sample.projectId);
+      await onCreated(sample);
+    }
     catch (error) { setFallback({ error }); }
     finally { active.current = false; setBusy(false); }
   }

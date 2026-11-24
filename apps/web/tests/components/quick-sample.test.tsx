@@ -7,6 +7,8 @@ import { HomeDashboard } from '../../src/components/home/HomeDashboard';
 import { EntryShell } from '../../src/components/EntryShell';
 import { I18nProvider } from '../../src/i18n';
 import { DEFAULT_CONFIG } from '../../src/state/config';
+import { publishFirstRunGuide, readFirstRunGuide, resetFirstRunGuideForTests } from '../../src/state/first-run-guide';
+import { takeProjectGameStart } from '../../src/state/game-start-request';
 
 vi.mock('@openpixo/host', async importOriginal => ({
   ...await importOriginal<typeof import('@openpixo/host')>(),
@@ -21,11 +23,15 @@ vi.mock('../../src/components/NewGameDialog', () => ({
     <div role="dialog" aria-label="New game">{initialTemplateId}</div>,
 }));
 vi.mock('../../src/components/onboarding/OnboardingView', () => ({
-  OnboardingView: ({ onFinish, onStartSample }: { onFinish: () => void; onStartSample: () => void }) =>
-    <button onClick={() => { onFinish(); onStartSample(); }}>Open a sample game</button>,
+  OnboardingView: ({ onFinish, onStartSample, onStartGuide }: { onFinish: () => void; onStartSample: () => void; onStartGuide: () => void }) => <>
+    <button onClick={() => { onFinish(); onStartSample(); }}>Open a sample game</button>
+    <button onClick={() => { onFinish(); onStartGuide(); }}>Show me around</button>
+  </>,
 }));
 
-const sample = { id: 'phaser3-sample-platformer', name: 'Sample: pixel platformer', engine: 'phaser', description: 'Ready to play' };
+const sample = { id: 'phaser3-sample-platformer', name: 'Sample: pixel platformer', nameZhCN: '示例：像素平台跳跃', engine: 'phaser', description: 'Ready to play' };
+/** Home's tile for someone who finished the walkthrough; before that the tile is the walkthrough. */
+const SAMPLE_TILE = /Play the sample game/;
 const parentDir = 'C:\\Games';
 const created = { project: { id: 'sample-project', name: 'pixel-platformer', skillId: null, createdAt: 1, updatedAt: 1 },
   conversationId: 'sample-conversation', entryFile: 'index.html', git: { status: 'skipped', reasonCode: 'GIT_MISSING' } };
@@ -47,9 +53,10 @@ function network({ check, create }: {
   return fetchMock;
 }
 
-function home() {
+function home(locale: 'en' | 'zh-CN' = 'en') {
+  publishFirstRunGuide({ status: 'done', step: 'make' });
   const onCreated = vi.fn();
-  render(<I18nProvider initial="en"><HomeDashboard projects={[]} onOpenProject={vi.fn()} onImportFolderResponse={onCreated}>{null}</HomeDashboard></I18nProvider>);
+  render(<I18nProvider initial={locale}><HomeDashboard projects={[]} onOpenProject={vi.fn()} onImportFolderResponse={onCreated}>{null}</HomeDashboard></I18nProvider>);
   return onCreated;
 }
 
@@ -71,32 +78,57 @@ beforeEach(() => {
   vi.mocked(isOpenPixoHostAvailable).mockReturnValue(false);
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.resetAllMocks(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); resetFirstRunGuideForTests(); takeProjectGameStart('sample-project'); vi.unstubAllGlobals(); vi.resetAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('one-click sample', () => {
   it('creates and opens the Home sample with its defaults, without a wizard or agent kickoff', async () => {
     const fetchMock = network();
     const onCreated = home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/game-from-template'))?.[1];
     const body = JSON.parse(String(request?.body));
     expect(body).toEqual({ templateId: sample.id, parentDir, name: 'pixel-platformer', createParent: true,
       setup: { title: 'Pixel Platformer', genre: 'platformer', perspective: 'side-2d', players: ['single'], scope: 'quick',
-        release: { languages: ['en'] }, platforms: ['web'], art: { styleId: 'pixel-16-bit' },
+        // Both languages ship with the sample, so they are facts about it, not suggestions.
+        release: { languages: ['en', 'zh-Hans'] }, platforms: ['web'], art: { styleId: 'pixel-16-bit' },
         display: { width: 800, height: 450, scaling: 'fit' }, controls: ['keyboard'] } });
     expect(parseGameProjectSetup(body.setup)).toEqual({ ok: true, setup: body.setup });
     // A complete setup: the project opens without a "finish setup" card.
     expect(gameSetupMissingSteps(body.setup)).toEqual([]);
+    // It opens already running: it is there to be played.
+    expect(takeProjectGameStart('sample-project')).toBe(true);
     expect(sessionStorage.getItem('pixo:auto-send-first:sample-project')).toBeNull();
     expect(sessionStorage.getItem('pixo:auto-send-prompt:sample-project')).toBeNull();
+  });
+
+  it('opens the sound device while the sample is being made, so the game does not wait for it', async () => {
+    const order: string[] = [];
+    vi.stubGlobal('AudioContext', class {});
+    vi.stubGlobal('Audio', class { async play() { order.push('sound'); } });
+    const fetchMock = network({ create: async () => { order.push('made'); return Response.json(created); } });
+    const onCreated = home();
+    expect(order).toEqual([]);
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
+    expect(order).toEqual(['sound', 'made']);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('is named in the user\u2019s language, in a folder every system can read', async () => {
+    const fetchMock = network();
+    const onCreated = home('zh-CN');
+    fireEvent.click(await screen.findByRole('button', { name: /先玩示例游戏/ }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/game-from-template'))?.[1];
+    expect(JSON.parse(String(request?.body))).toMatchObject({ name: 'pixel-platformer', setup: { title: '像素平台跳跃' } });
   });
 
   it('uses -2 when the readable template name already exists', async () => {
     const fetchMock = network({ check: (_, count) => ({ status: count === 1 ? 'exists' : 'available' }) });
     const onCreated = home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/game-from-template'))?.[1];
     expect(JSON.parse(String(request?.body)).name).toBe('pixel-platformer-2');
@@ -106,7 +138,7 @@ describe('one-click sample', () => {
     localStorage.setItem('pixo:new-game-parent', 'D:\\My Games');
     const fetchMock = network();
     const onCreated = home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/game-from-template'))?.[1];
     expect(JSON.parse(String(request?.body)).parentDir).toBe('D:\\My Games');
@@ -120,7 +152,7 @@ describe('one-click sample', () => {
       : { ok: false, reason: 'Choose this parent with the folder picker first' });
     const fetchMock = network();
     const onCreated = home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
     expect(authorizeHostGameParent).toHaveBeenNthCalledWith(1, 'D:\\My Games');
     expect(authorizeHostGameParent).toHaveBeenNthCalledWith(2, parentDir);
@@ -133,7 +165,7 @@ describe('one-click sample', () => {
     vi.mocked(authorizeHostGameParent).mockResolvedValue({ ok: true, baseDir: parentDir, token: 'authorized-token' });
     const fetchMock = network();
     const onCreated = home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
     expect(authorizeHostGameParent).toHaveBeenCalledWith(parentDir);
     const requests = fetchMock.mock.calls.filter(([url]) => String(url).includes('/game-from-template'));
@@ -144,7 +176,7 @@ describe('one-click sample', () => {
   it('falls back to the wizard with the sample preselected when creation fails', async () => {
     network({ create: async () => Response.json({ error: { message: 'disk full' } }, { status: 500 }) });
     const onCreated = home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     expect((await screen.findByRole('dialog')).textContent).toBe(sample.id);
     expect(onCreated).not.toHaveBeenCalled();
   });
@@ -152,7 +184,7 @@ describe('one-click sample', () => {
   it('falls back without creating when the preflight rejects the parent', async () => {
     const fetchMock = network({ check: () => ({ status: 'invalid-parent', reasonCode: 'PARENT_NOT_FOUND' }) });
     home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     await screen.findByRole('dialog');
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/game-from-template/check'))).toHaveLength(1);
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/game-from-template'))).toBe(false);
@@ -161,7 +193,7 @@ describe('one-click sample', () => {
   it('caps name collisions at twenty attempts before opening the wizard', async () => {
     const fetchMock = network({ check: () => ({ status: 'exists' }) });
     home();
-    fireEvent.click(await screen.findByRole('button', { name: /Sample: pixel platformer/ }));
+    fireEvent.click(await screen.findByRole('button', { name: SAMPLE_TILE }));
     await screen.findByRole('dialog');
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/game-from-template/check'))).toHaveLength(20);
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/game-from-template'))).toBe(false);
@@ -171,7 +203,7 @@ describe('one-click sample', () => {
     let complete!: (response: Response) => void;
     const fetchMock = network({ create: () => new Promise(resolve => { complete = resolve; }) });
     const onCreated = home();
-    const card = await screen.findByRole('button', { name: /Sample: pixel platformer/ });
+    const card = await screen.findByRole('button', { name: SAMPLE_TILE });
     fireEvent.click(card);
     expect(card.getAttribute('aria-busy')).toBe('true');
     expect((card as HTMLButtonElement).disabled).toBe(true);
@@ -187,6 +219,14 @@ describe('one-click sample', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open a sample game' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
+  });
+
+  it('starts the walkthrough in the sample from onboarding, saved before the project opens', async () => {
+    network();
+    const onCreated = onboarding();
+    fireEvent.click(screen.getByRole('button', { name: 'Show me around' }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(opened));
+    expect(readFirstRunGuide()).toEqual({ status: 'active', step: 'play', projectId: 'sample-project' });
   });
 
   it('falls back to the preselected sample wizard from onboarding', async () => {

@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Button, VisuallyHidden } from '@openpixo/components';
+import type { FirstRunGuidePrefs } from '@openpixo/contracts';
 import { ArrowUpRight, Check, X } from 'lucide-react';
 import { isCloudAccountAvailable, useOpenPixoAccount, useOpenPixoCredits } from '../../hooks/useOpenPixoAccount';
 import { useI18n } from '../../i18n';
@@ -17,15 +18,18 @@ import styles from './HomeGettingStarted.module.css';
 const COPY: Record<GettingStartedStepId, { title: keyof Dict; body: keyof Dict; action: keyof Dict }> = {
   ai: { title: 'home.start.aiTitle', body: 'home.start.aiBody', action: 'home.start.aiAction' },
   image: { title: 'home.start.imageTitle', body: 'home.start.imageBody', action: 'home.start.imageAction' },
-  sample: { title: 'home.start.sampleTitle', body: 'home.start.sampleBody', action: 'home.start.sampleAction' },
+  guide: { title: 'home.start.guideTitle', body: 'home.start.guideBody', action: 'home.start.guideAction' },
   'first-game': { title: 'home.start.gameTitle', body: 'home.start.gameBody', action: 'home.start.gameAction' },
   run: { title: 'home.start.runTitle', body: 'home.start.runBody', action: 'home.start.runAction' },
 };
 
 interface Props {
   projects: readonly Project[];
-  onStartSample?: () => void;
-  sampleBusy?: boolean;
+  /** The walkthrough's saved state; null or undefined while it was never started. */
+  guide: FirstRunGuidePrefs | null | undefined;
+  /** Starts the walkthrough, or goes on from where it stopped. */
+  onStartGuide?: () => void;
+  guideBusy?: boolean;
   onStartGame: () => void;
   onOpenProject: (id: string) => void;
 }
@@ -35,7 +39,7 @@ interface Props {
  * the one action that finishes it. Gone once every step is done, or for good
  * once dismissed (a browser preference: no app-config field fits it).
  */
-export function HomeGettingStarted({ projects, onStartSample, sampleBusy, onStartGame, onOpenProject }: Props) {
+export function HomeGettingStarted({ projects, guide, onStartGuide, guideBusy, onStartGame, onOpenProject }: Props) {
   const { t } = useI18n();
   const titleId = useId();
   const inputs = useHomeSetupInputs();
@@ -58,7 +62,7 @@ export function HomeGettingStarted({ projects, onStartSample, sampleBusy, onStar
     : readyImageSource({ cloud, codexImage: codex.status, mediaProviders: inputs.config.mediaProviders }) !== null;
 
   if (dismissed) return null;
-  const steps = gettingStartedSteps({ projects, agentReady, imageReady });
+  const steps = gettingStartedSteps({ projects, guide, agentReady, imageReady });
   if (!steps) return null;
   const done = steps.filter(step => step.done).length;
   if (done === steps.length) return null;
@@ -69,8 +73,8 @@ export function HomeGettingStarted({ projects, onStartSample, sampleBusy, onStar
       case 'ai':
       case 'image':
         return inputs ? { onClick: inputs.openSetup, external: true } : null;
-      case 'sample':
-        return onStartSample ? { onClick: onStartSample, busy: sampleBusy } : null;
+      case 'guide':
+        return onStartGuide ? { onClick: onStartGuide, busy: guideBusy } : null;
       case 'first-game':
         return { onClick: onStartGame };
       case 'run':
@@ -113,7 +117,8 @@ export function HomeGettingStarted({ projects, onStartSample, sampleBusy, onStar
           </div>
           {next && <Button variant="secondary" size="sm" className={styles.action} disabled={next.busy}
             aria-busy={next.busy || undefined} onClick={next.onClick}>
-            {next.busy ? t('home.start.sampleBusy') : t(copy.action)}
+            {next.busy ? t('home.start.sampleBusy')
+              : t(step.id === 'guide' && guide?.projectId ? 'home.start.guideResume' : copy.action)}
             {next.external && <ArrowUpRight size={13} aria-hidden="true" />}
           </Button>}
         </li>;

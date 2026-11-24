@@ -37,7 +37,7 @@ export function gameStageContent({ running, liveUrl, shot, engine }: {
  * game. A canvas engine's page never scrolls, whatever the project's own CSS
  * does; a page-based web game may need to.
  */
-export function GameStage({ content, onRun, runDisabled, reloadKey = 0, startingLabel }: {
+export function GameStage({ content, onRun, runDisabled, reloadKey = 0, startingLabel, ring }: {
   content: GameStageContent;
   /**
    * Set while the game is installing or starting. The empty stage then says so
@@ -49,9 +49,11 @@ export function GameStage({ content, onRun, runDisabled, reloadKey = 0, starting
   runDisabled?: boolean;
   /** Changing it reloads the live game (after tuning writes new values). */
   reloadKey?: number;
+  /** The walkthrough's class while it points at the stage. */
+  ring?: string | undefined;
 }) {
   const t = useT();
-  return <div className={styles.stage} data-testid="panel-game-stage" data-stage={content.kind}>
+  return <div className={ring ? `${styles.stage} ${ring}` : styles.stage} data-testid="panel-game-stage" data-stage={content.kind}>
     {content.kind === 'live' ? <iframe key={`${content.url}#${reloadKey}`}className={styles.frame} src={content.url} title={t('gameRun.preview')}
       sandbox="allow-scripts allow-same-origin allow-pointer-lock" referrerPolicy="no-referrer" scrolling={content.fixedPage ? 'no' : undefined} data-testid="panel-game-frame" /> : null}
     {content.kind === 'shot' || (content.kind === 'native' && content.shot) ? (

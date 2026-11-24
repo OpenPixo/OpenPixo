@@ -232,4 +232,37 @@ describe('App first-run agent auto-select', () => {
       expect(screen.getByTestId('agent-id').textContent).toBe('claude');
     });
   });
+
+  // The bundled API-key runtime is always "available" in a packaged app and hidden
+  // from every picker. Someone who skipped payment used to get it saved, and then
+  // had no working AI after buying credits.
+  const packaged = [
+    { id: 'byok-opencode', name: 'BYOK OpenCode', bin: 'opencode', available: true, version: '1.18.35', models: [] },
+    { id: 'openpixo-agent', name: 'OpenPixo', bin: 'opencode', available: true, version: '1.18.35', models: [] },
+  ];
+
+  it('never saves the hidden API-key runtime as someone\u2019s AI', async () => {
+    mockedFetchAgentsStream.mockResolvedValue([...packaged]);
+    mockedLoadConfig.mockReturnValue({ ...firstRunConfig(), onboardingCompleted: true });
+    mockedFetchDaemonConfig.mockResolvedValue({ onboardingCompleted: true });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId('agent-id').textContent).toBe('openpixo-agent'));
+  });
+
+  it('replaces that runtime where an older version saved it without a key, and keeps it with one', async () => {
+    mockedFetchAgentsStream.mockResolvedValue([...packaged]);
+    mockedLoadConfig.mockReturnValue({ ...firstRunConfig(), onboardingCompleted: true, agentId: 'byok-opencode' });
+    mockedFetchDaemonConfig.mockResolvedValue({ onboardingCompleted: true, agentId: 'byok-opencode' });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('agent-id').textContent).toBe('openpixo-agent'));
+    cleanup();
+
+    mockedLoadConfig.mockReturnValue({ ...firstRunConfig(), onboardingCompleted: true, agentId: 'byok-opencode', apiKey: 'sk-user' });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('onboarding-completed').textContent).toBe('true'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByTestId('agent-id').textContent).toBe('byok-opencode');
+  });
 });

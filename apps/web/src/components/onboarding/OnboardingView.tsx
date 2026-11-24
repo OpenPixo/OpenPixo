@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@openpixo/components';
+import { GAME_EXPERIENCE_LEVELS, type GameExperience } from '@openpixo/contracts';
+import { Gamepad2, Sprout, Trophy } from 'lucide-react';
 import { useI18n } from '../../i18n';
 import type { Dict } from '../../i18n/types';
 import { isCloudAccountAvailable, useOpenPixoAccount, useOpenPixoCredits } from '../../hooks/useOpenPixoAccount';
 import { createByokAccount, createCloudAccountPreference } from '../../state/account';
+import { declineFirstRunGuide } from '../../state/first-run-guide';
 import type { AppConfig } from '../../types';
 import { findProvider, type MediaProviderId } from '../../media/models';
 import { formatCredits, unavailableReasonKey } from '../account/account-format';
@@ -35,12 +38,19 @@ export { ONBOARDING_LOCAL_AUTO_TEST_DELAY_MS } from './AgentSetup';
 export interface OnboardingViewProps extends Omit<AgentSetupProps, 'onFinish'> {
   onFinish: () => void;
   onStartSample?: () => void;
+  /**
+   * This installation was never offered the walkthrough: setup ends in it (after one
+   * question about experience), and payment waits until the user has seen a game work.
+   */
+  offerGuide?: boolean;
+  /** Opens the sample game with the walkthrough. */
+  onStartGuide?: () => void;
   onOpenDoctor?: () => void;
   /** Opens Settings › Account & credits, where plans and top-ups are bought. */
   onOpenAccount?: () => void;
 }
 
-type Stage = 'welcome' | 'own-tools-check' | 'plan' | 'image' | 'agent' | 'ready';
+type Stage = 'welcome' | 'own-tools-check' | 'plan' | 'experience' | 'image' | 'agent' | 'ready';
 type Path = 'cloud' | 'byok';
 
 type Step = { stage: Stage; label: keyof Dict; piece?: SetupPiece };
@@ -58,15 +68,30 @@ const STEPS: Record<Path, Step[]> = {
   ],
 };
 
+/** A new user on credits: choosing a plan is a step only for someone who already picked one. */
+function guidedSteps(plan: boolean): Step[] {
+  return [
+    { stage: 'welcome', label: 'onboarding.stepSignIn' },
+    ...(plan ? [{ stage: 'plan', label: 'onboarding.stepPlan', piece: 'image' } as Step] : []),
+    { stage: 'experience', label: 'onboarding.stepStart' },
+  ];
+}
+
+const EXPERIENCE_ICONS = { first: Sprout, some: Gamepad2, experienced: Trophy };
+
 const MISSING: Record<SetupPiece, keyof Dict> = {
   image: 'onboarding.missingImage',
   agent: 'onboarding.missingAgent',
 };
 
 /**
- * First run. The main road is the OpenPixo subscription: sign in, choose a
- * plan, done — the hosted agent and hosted image generation are paid with
- * credits, so there is nothing to install or paste. A clearly visible second
+ * First run. The main road is the OpenPixo account: sign in, say whether you
+ * have made a game before, and either follow the walkthrough in the sample game
+ * or go Home. A new user sees a game work before being asked to pay: the
+ * walkthrough's AI step offers the plans, and so does Home. Someone who picked a
+ * plan in the prices window pays right after signing in, and a re-run of setup
+ * still goes through the plans. The hosted agent and hosted image generation are
+ * paid with credits, so there is nothing to install or paste. A clearly visible second
  * road is for people who already pay for an AI account. The welcome says that
  * road is not free and needs a terminal, because newcomers read "no OpenPixo
  * credits" as "free" and then stall on API keys and command lines; unless a
@@ -113,6 +138,9 @@ export function OnboardingView(props: OnboardingViewProps) {
   });
   const agent = readyAgentSource({ cloud: cloudFacts, agents: props.agents, config: props.config });
   const gate = setupGate(image, agent);
+  const offerGuide = props.offerGuide === true && props.onStartGuide !== undefined;
+  /** Where the credits road ends: the walkthrough's question for a new user, else the checklist. */
+  const cloudEnd: Stage = offerGuide ? 'experience' : 'ready';
 
   const firstRender = useRef(true);
   useEffect(() => {
@@ -128,13 +156,13 @@ export function OnboardingView(props: OnboardingViewProps) {
   const autoFinish = stage === 'welcome' && !interacted.current && returning && factsSettled
     && returningSetupSatisfied(props.config, gate);
   useEffect(() => {
-    if (autoFinish) void finish(false);
+    if (autoFinish) void finish('home');
     // `finish` reads the latest config through a ref; only the decision matters here.
   }, [autoFinish]);
 
   // A plan bought in the browser (or credits already there) ends the plan step.
   useEffect(() => {
-    if (stage === 'plan' && canSpend) goTo('ready');
+    if (stage === 'plan' && canSpend) goTo(cloudEnd);
   }, [stage, canSpend]);
 
   function goTo(next: Stage) {
@@ -168,7 +196,13 @@ export function OnboardingView(props: OnboardingViewProps) {
 
   function afterSignIn() {
     setPath('cloud');
-    goTo(canSpend ? 'ready' : 'plan');
+    goTo(canSpend || (offerGuide && !chosenSku) ? cloudEnd : 'plan');
+  }
+
+  /** The one question before a new user's first game; only a beginner is walked through it. */
+  function chooseExperience(level: GameExperience) {
+    if (level === 'experienced') declineFirstRunGuide();
+    void finish(level === 'experienced' ? 'home' : 'guide', level);
   }
 
   function openAgentStep(from: Stage) {
@@ -181,22 +215,25 @@ export function OnboardingView(props: OnboardingViewProps) {
   }
 
   /** Saves the chosen road and the agent the app will run with, then leaves. */
-  async function finish(sample: boolean) {
+  async function finish(to: 'home' | 'sample' | 'guide', experience?: GameExperience) {
     if (finishing) return;
     setFinishing(true);
     const base = latestConfig.current;
-    const next: AppConfig = { ...base, account: accountPreference(), ...agentConfig(agent, base) };
+    const next: AppConfig = { ...base, account: accountPreference(), ...agentConfig(agent, base),
+      ...(experience ? { gameExperience: experience } : {}) };
     try {
       await props.onConfigPersist(next);
     } catch {
       // The daemon copy retries on the next save; finishing must not strand the user.
     }
     props.onFinish();
-    if (sample) props.onStartSample?.();
+    if (to === 'guide') props.onStartGuide?.();
+    else if (to === 'sample') props.onStartSample?.();
   }
 
   // The welcome screen is a choice between two roads, so it shows no steps.
-  const steps = stage === 'welcome' ? null : STEPS[path];
+  const steps = stage === 'welcome' ? null
+    : path === 'cloud' && offerGuide ? guidedSteps(stage === 'plan' || chosenSku !== null) : STEPS[path];
   const stepIndex = steps?.findIndex((step) => step.stage === stage) ?? -1;
 
   if (autoFinish || (stage === 'welcome' && returning && !interacted.current && !factsSettled)) {
@@ -213,7 +250,7 @@ export function OnboardingView(props: OnboardingViewProps) {
       <div className={styles.column}>
       <div className={styles.topBar}><OpenPixoLogo compact /></div>
       <section className={styles.flow} aria-labelledby="onboarding-step-title" data-stage={stage}>
-        <div className={`${styles.flowContent} ${stage === 'image' || stage === 'agent' || stage === 'plan' ? styles.setupContent : ''}`} key={stage}>
+        <div className={`${styles.flowContent} ${stage === 'image' || stage === 'agent' || stage === 'plan' || stage === 'experience' ? styles.setupContent : ''}`} key={stage}>
           {steps && stepIndex >= 0 && !checkingAccount ? <Stepper steps={steps} current={stepIndex} missing={gate.missing} agentUntested={agentUntested} /> : null}
           {stage === 'ready' && gate.complete && !agentUntested && <span className={styles.readyCheck} aria-hidden="true"><Icon name="check" size={22} /></span>}
           <h1 id="onboarding-step-title" className={styles.flowTitle} ref={titleRef} tabIndex={-1}>{t(stageTitle(stage, gate.complete && !agentUntested))}</h1>
@@ -228,9 +265,11 @@ export function OnboardingView(props: OnboardingViewProps) {
               {creditsState.loading && !credits ? (
                 <p className={styles.aiScanning} role="status"><Icon name="spinner" size={14} className="icon-spin" />{t('account.loading')}</p>
               ) : <PlanStep credits={credits} initialSku={chosenSku} />}
-              {renderStepFooter({ onBack: () => goTo('welcome'), onSkip: () => goTo('ready') })}
+              {renderStepFooter({ onBack: () => goTo('welcome'), onSkip: () => goTo(cloudEnd) })}
             </>
           )}
+
+          {stage === 'experience' && renderExperience()}
 
           {stage === 'image' && (
             <>
@@ -293,6 +332,7 @@ export function OnboardingView(props: OnboardingViewProps) {
     }
     if (stage === 'own-tools-check') return t('onboarding.ownToolsCheckSubtitle');
     if (stage === 'plan') return t('onboarding.planSubtitle');
+    if (stage === 'experience') return t('game.wizard.stepHint.experience');
     if (stage === 'image') return t('onboarding.imageStepSubtitle');
     if (stage === 'agent') return t('onboarding.agentStepSubtitle');
     return gate.complete && !agentUntested ? t('onboarding.readySubtitle') : t('onboarding.almostSubtitle');
@@ -352,6 +392,38 @@ export function OnboardingView(props: OnboardingViewProps) {
           ) : null}
         </button>
       </div>
+    );
+  }
+
+  /** Asked once, here instead of in the first new game: it decides between the walkthrough and Home. */
+  function renderExperience() {
+    return (
+      <>
+        <div className={setup.choices}>
+          {GAME_EXPERIENCE_LEVELS.map((level) => {
+            const LevelIcon = EXPERIENCE_ICONS[level];
+            return (
+              <button key={level} type="button" className={setup.choice} data-testid={`onboarding-experience-${level}`}
+                disabled={finishing} onClick={() => chooseExperience(level)}>
+                <span className={setup.choiceHead}>
+                  <LevelIcon size={17} strokeWidth={1.75} aria-hidden="true" />
+                  <strong>{t(`game.wizard.experience.${level}` as keyof Dict)}</strong>
+                  <Icon name="chevron-right" size={14} className={setup.choiceChevron} />
+                </span>
+                <span className={setup.choiceBody}>{t(`game.wizard.experienceHint.${level}` as keyof Dict)}</span>
+                <span className={setup.choiceNext}>{t(level === 'experienced' ? 'onboarding.experienceHome' : 'onboarding.experienceGuide')}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className={styles.footerLinks}>
+          <span />
+          <Button variant="ghost" size="sm" className={styles.textLink} data-testid="onboarding-experience-skip"
+            disabled={finishing} onClick={() => void finish('home')}>
+            {t('onboarding.enterHome')}
+          </Button>
+        </div>
+      </>
     );
   }
 
@@ -419,17 +491,25 @@ export function OnboardingView(props: OnboardingViewProps) {
         <div className={`${styles.stack} ${setup.readyActions}`}>
           {gate.complete ? (
             <>
-              <Button size="lg" variant="primary" className={styles.wide} onClick={() => void finish(true)} disabled={finishing}>
-                {t('onboarding.startSample')}
+              <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-ready-start"
+                onClick={() => void finish(offerGuide ? 'guide' : 'sample')} disabled={finishing}>
+                {t(offerGuide ? 'onboarding.startGuide' : 'onboarding.startSample')}
               </Button>
-              <Button variant="ghost" className={styles.wide} onClick={() => void finish(false)} disabled={finishing}>
+              <Button variant="ghost" className={styles.wide} onClick={() => void finish('home')} disabled={finishing}>
                 {t('onboarding.enterHome')}
               </Button>
             </>
           ) : (
             <>
-              <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-finish-anyway"
-                onClick={() => void finish(false)} disabled={finishing}>
+              {/* The walkthrough's first half needs no AI, so it is open to someone with nothing set up yet. */}
+              {offerGuide ? (
+                <Button size="lg" variant="primary" className={styles.wide} data-testid="onboarding-ready-start"
+                  onClick={() => void finish('guide')} disabled={finishing}>
+                  {t('onboarding.startGuide')}
+                </Button>
+              ) : null}
+              <Button size="lg" variant={offerGuide ? 'ghost' : 'primary'} className={styles.wide} data-testid="onboarding-finish-anyway"
+                onClick={() => void finish('home')} disabled={finishing}>
                 {t('onboarding.finishAnyway')}
               </Button>
               {/* Someone stuck on their own tools gets the road with nothing to install. */}
@@ -496,6 +576,7 @@ function stageTitle(stage: Stage, complete: boolean): keyof Dict {
   if (stage === 'welcome') return 'onboarding.welcomeTitle';
   if (stage === 'own-tools-check') return 'onboarding.ownToolsCheckTitle';
   if (stage === 'plan') return 'onboarding.planTitle';
+  if (stage === 'experience') return 'game.wizard.step.experience';
   if (stage === 'image') return 'onboarding.imageStepTitle';
   if (stage === 'agent') return 'onboarding.agentStepTitle';
   return complete ? 'onboarding.readyTitle' : 'onboarding.almostTitle';

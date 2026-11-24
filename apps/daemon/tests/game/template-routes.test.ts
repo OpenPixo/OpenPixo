@@ -82,6 +82,8 @@ it('uses folder import authorization and registration, rejecting before copying'
     const body = await created.json() as CreateGameFromTemplateResponse;
     expect(['initialized', 'skipped']).toContain(body.git.status);
     expect(body.project.metadata).toMatchObject({ baseDir: path.join(await realpath(root), 'game'), importedFrom: 'folder', fromTrustedPicker: true });
+    // Home reads this to tell the finished sample from a game the user is making.
+    expect(body.project.metadata?.templateId).toBe('phaser3-sample-platformer');
     expect(store.getProject(db, body.project.id)?.name).toBe('game');
     expect(store.getConversation(db, body.conversationId)?.projectId).toBe(body.project.id);
     expect(body.entryFile).toBe('index.html');

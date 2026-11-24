@@ -118,6 +118,10 @@ toolbar: [▶ 运行 | ■ 停止]  [验证]  [试玩 ▾preset]          status
   install, missing-tool guidance and error details render inline under the
   toolbar, not in a dialog. Playtest's script editor opens as a sheet from
   试玩 ▾ (it is the one form large enough to need one).
+- **The sample starts at once.** A game whose template ships its run-time
+  packages plays while they are installed (root `AGENTS.md`, "First-login
+  walkthrough"). The panel knows nothing of it: the run is `running` at one URL
+  throughout, and the frame is never swapped.
 - **Starter requests** (`starterRunRequest` → `startRequest` nonces for
   verify / run-game) switch the panel to 游戏 and start the action. This is
   user-initiated, so it does not conflict with decision 2.

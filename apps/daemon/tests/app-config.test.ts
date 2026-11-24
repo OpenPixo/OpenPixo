@@ -569,6 +569,30 @@ describe('app-config disabled lists', () => {
     expect((await readAppConfig(dataDir)).gameExperience).toBeUndefined();
   });
 
+  it('keeps the first-login walkthrough state, refuses what it cannot mean and clears it with null', async () => {
+    const guide = { status: 'active', step: 'tune', projectId: 'sample-1' } as const;
+    await writeAppConfig(dataDir, { firstRunGuide: { ...guide, hintsSeen: ['plan', 'unknown'], extra: 1 } } as any);
+    expect((await readAppConfig(dataDir)).firstRunGuide).toEqual({ ...guide, hintsSeen: ['plan'] });
+    // `pixo config set firstRunGuide skipped`: the step, game and hints stay.
+    await writeAppConfig(dataDir, { firstRunGuide: 'skipped' } as any);
+    expect((await readAppConfig(dataDir)).firstRunGuide).toEqual({ ...guide, status: 'skipped', hintsSeen: ['plan'] });
+    for (const bad of ['later', 3, [], { status: 'active' }, { status: 'active', step: 'fly' }]) {
+      await expect(writeAppConfig(dataDir, { firstRunGuide: bad } as any))
+        .rejects.toMatchObject({ code: 'INVALID_APP_CONFIG_VALUE', key: 'firstRunGuide' });
+    }
+    // An unrelated write, and what the app's own config sync sends, leave it alone.
+    await writeAppConfig(dataDir, { onboardingCompleted: true });
+    expect((await readAppConfig(dataDir)).firstRunGuide?.status).toBe('skipped');
+    await writeAppConfig(dataDir, { firstRunGuide: null });
+    expect((await readAppConfig(dataDir)).firstRunGuide).toBeUndefined();
+  });
+
+  it('reads past a stored walkthrough state this version does not know', async () => {
+    await writeFile(path.join(dataDir, 'app-config.json'), JSON.stringify({ firstRunGuide: { status: 'paused', step: 'x' }, onboardingCompleted: true }), 'utf8');
+    expect(await readAppConfig(dataDir)).toMatchObject({ onboardingCompleted: true });
+    expect((await readAppConfig(dataDir)).firstRunGuide).toBeUndefined();
+  });
+
   it('saves the agent image model under its current id, refuses unknown ones and clears it with auto', async () => {
     await writeAppConfig(dataDir, { agentImageModel: ' codex-image ' });
     expect((await readAppConfig(dataDir)).agentImageModel).toBe('codex-image');

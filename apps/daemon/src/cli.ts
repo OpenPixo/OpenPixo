@@ -7797,6 +7797,8 @@ async function runConfig(args) {
   ${PRODUCT_CLI_NAME} config set agentImageModel <id|${AGENT_IMAGE_MODEL_AUTOMATIC}>
                                        The image model the agent makes art with; ids from
                                        \`${PRODUCT_CLI_NAME} media image-models\`.
+  ${PRODUCT_CLI_NAME} config set firstRunGuide skipped|done
+                                       End the first-login walkthrough; \`--value-json null\` offers it again.
 
 Common options:
   --daemon-url <url>   OpenPixo daemon HTTP base.

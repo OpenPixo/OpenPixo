@@ -1,7 +1,8 @@
+import type { FirstRunGuidePrefs } from '@openpixo/contracts';
 import type { Project } from '../../types';
 import { SAMPLE_TEMPLATE_ID } from '../new-game/quick-sample';
 
-export type GettingStartedStepId = 'ai' | 'image' | 'sample' | 'first-game' | 'run';
+export type GettingStartedStepId = 'ai' | 'image' | 'guide' | 'first-game' | 'run';
 
 export interface GettingStartedStep {
   id: GettingStartedStepId;
@@ -17,23 +18,24 @@ export type SetupFact = boolean | 'loading' | 'unknown';
  * guess. `null` means "not yet": some fact is still loading, so nothing is
  * drawn rather than a list that flips a moment later.
  *
+ * - guide: the walkthrough in the sample game was finished.
  * - ai: an agent that can build a game (`readyAgentSource`).
  * - image: a way to make images (`readyImageSource`).
- * - sample: the finished sample game exists (it opens when it is made).
  * - first-game: a game that is not the sample exists.
  * - run: some game has run successfully (`metadata.gameRunSucceededAt`).
  */
 export function gettingStartedSteps(input: {
   projects: readonly Project[];
+  guide: FirstRunGuidePrefs | null | undefined;
   agentReady: SetupFact;
   imageReady: SetupFact;
 }): GettingStartedStep[] | null {
   if (input.agentReady === 'loading' || input.imageReady === 'loading') return null;
-  const steps: GettingStartedStep[] = [];
+  // First: it shows a game working before anything has to be set up or paid for.
+  const steps: GettingStartedStep[] = [{ id: 'guide', done: input.guide?.status === 'done' }];
   if (input.agentReady !== 'unknown') steps.push({ id: 'ai', done: input.agentReady });
   if (input.imageReady !== 'unknown') steps.push({ id: 'image', done: input.imageReady });
   const isSample = (project: Project) => project.metadata?.templateId === SAMPLE_TEMPLATE_ID;
-  steps.push({ id: 'sample', done: input.projects.some(isSample) });
   steps.push({ id: 'first-game', done: input.projects.some(project => !isSample(project)) });
   steps.push({
     id: 'run',

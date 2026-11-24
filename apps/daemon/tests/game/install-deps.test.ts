@@ -82,7 +82,7 @@ it('reads the declared package manager from a package.json with a byte-order mar
 it('executes a local package-manager shim with fixed argv and captures its real output', async () => {
   const project = path.join(root, 'game with spaces'); await mkdir(project);
   const script = path.join(root, 'fake-install.cts');
-  await writeFile(script, `const fs = require('node:fs'); fs.mkdirSync('node_modules'); fs.writeFileSync('args.json', JSON.stringify(process.argv.slice(2))); console.log('dependencies installed');`);
+  await writeFile(script, `const fs = require('node:fs'); fs.mkdirSync('node_modules', { recursive: true }); fs.writeFileSync('args.json', JSON.stringify(process.argv.slice(2))); console.log('dependencies installed');`);
   const tool = path.join(root, process.platform === 'win32' ? 'npm.cmd' : 'npm');
   await writeFile(tool, process.platform === 'win32'
     ? `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`
@@ -90,6 +90,24 @@ it('executes a local package-manager shim with fixed argv and captures its real 
   const result = await installGameDependencies(project, path.join(root, 'data'), id => id === 'node' ? process.execPath : tool);
   expect(result).toMatchObject({ status: 'installed', exitCode: 0, logTail: expect.stringContaining('dependencies installed') });
   expect(JSON.parse(await readFile(path.join(project, 'args.json'), 'utf8'))).toEqual(['install']);
+});
+
+/*
+ * 2026-11-24, a packaged build on a computer without pnpm: the bundled npm installed
+ * 2 packages of a Phaser starter and `vite` was not found. The packaged daemon runs
+ * with NODE_ENV=production, which npm reads as "leave out the development dependencies".
+ */
+it('installs everything a game declares, whatever mode the daemon itself runs in', async () => {
+  const project = path.join(root, 'game'); await mkdir(project);
+  const script = path.join(root, 'fake-npm.cts');
+  await writeFile(script, `require('node:fs').writeFileSync('mode.json', JSON.stringify(Object.keys(process.env).filter(name => name.toUpperCase() === 'NODE_ENV')));`);
+  const tool = path.join(root, process.platform === 'win32' ? 'npm.cmd' : 'npm');
+  await writeFile(tool, process.platform === 'win32'
+    ? `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`
+    : `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
+  vi.stubEnv('NODE_ENV', 'production');
+  await installGameDependencies(project, path.join(root, 'data'), id => id === 'node' ? process.execPath : tool);
+  expect(JSON.parse(await readFile(path.join(project, 'mode.json'), 'utf8'))).toEqual([]);
 });
 
 it('keeps a pnpm install inside a game folder that sits under an unrelated pnpm workspace', async () => {

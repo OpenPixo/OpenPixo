@@ -2780,7 +2780,10 @@ export async function startServer({
   const gameVerifyRouteDeps = { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, captureGameWeb, gameFunnel };
   registerGameVerifyRoutes(app, gameVerifyRouteDeps);
   registerGamePlaytestRoutes(app, gameVerifyRouteDeps);
-  const stopGameRuns = registerGameRunRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest });
+  const gameTemplatesRoot = resolveDaemonResourceDir(
+    DAEMON_RESOURCE_ROOT, 'game-templates', path.join(PROJECT_ROOT, 'game-templates'),
+  );
+  const stopGameRuns = registerGameRunRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, templatesRoot: gameTemplatesRoot });
   registerGameTuningRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest });
   const publishService = registerPublishRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, account: openPixoAccount });
   registerPublishedGamesRoutes(app, { http: httpDeps, publish: publishService });
@@ -2894,9 +2897,6 @@ export async function startServer({
 
   });
 
-  const gameTemplatesRoot = resolveDaemonResourceDir(
-    DAEMON_RESOURCE_ROOT, 'game-templates', path.join(PROJECT_ROOT, 'game-templates'),
-  );
   registerGameTemplateRoutes(app, {
     http: httpDeps,
     folderImporter,
@@ -3039,6 +3039,7 @@ export async function startServer({
     research: researchDeps,
     authorizeProjectRequest,
     authorizeProjectToolRequest,
+    gameFunnel,
   });
 
 

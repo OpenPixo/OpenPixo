@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import type { GameProjectSetup, GameVerifyResult, RecipeRun } from '@openpixo/contracts';
+import type { FirstRunGuidePrefs, GameProjectSetup, GameVerifyResult, RecipeRun } from '@openpixo/contracts';
 import { readAnalyticsContext, type AnalyticsContext, type AnalyticsService } from '../analytics.js';
 import { readAppConfig } from '../app-config.js';
 
@@ -19,6 +19,7 @@ import { readAppConfig } from '../app-config.js';
  * nothing, and a build without an analytics key sends nothing.
  */
 export type GameFunnelEvent =
+  | 'first_run_guide'
   | 'game_created'
   | 'game_plan_approved'
   | 'game_verified'
@@ -98,6 +99,19 @@ export function createGameFunnelRecorder(deps: GameFunnelRecorderDeps): GameFunn
 }
 
 /* ---------- Property builders: the only shapes each event sends. ---------- */
+
+/**
+ * A move in the first-login walkthrough (started, a step on, skipped, finished),
+ * so it shows where people stop. Null when a write did not move it: hints closed,
+ * or the same state saved again.
+ */
+export function firstRunGuideProperties(
+  before: FirstRunGuidePrefs | null | undefined,
+  after: FirstRunGuidePrefs | null | undefined,
+): Record<string, unknown> | null {
+  if (!after || (before?.status === after.status && before.step === after.step)) return null;
+  return { status: after.status, step: after.step, started: Boolean(after.projectId) };
+}
 
 const hoursSince = (from: number | undefined, now: number) =>
   typeof from === 'number' && Number.isFinite(from) ? Math.max(0, Math.round(((now - from) / 3_600_000) * 10) / 10) : undefined;

@@ -10,6 +10,7 @@ import { GameStage, gameStageContent, type GameStageShot } from '../game/GameSta
 import { ShareButton, ShareDialog, useShareAvailable } from '../game/ShareDialog';
 import { GameToolbarMenu, type GameToolbarMenuItem } from '../game/GameToolbarMenu';
 import { GAME_PLAYTEST_PRESETS, PLAYTEST_PRESET_COPY } from '../game/playtest-presets';
+import type { GameViewGuide } from '../first-run/ProjectGuide';
 import { listGameTuning } from '../tuning/tuning-api';
 import { TuningPanel } from '../tuning/TuningPanel';
 import { PanelSheet } from './PanelSheet';
@@ -24,6 +25,8 @@ export interface GameViewControls {
   verifyAvailable: boolean;
   /** A request from the composer's slash commands: start this action (or, for a playtest, open its menu), once per nonce. */
   startRequest: { kind: 'run-game' | 'verify' | 'playtest'; nonce: number } | null;
+  /** The first-login walkthrough, while one of its steps is in the game. */
+  guide?: GameViewGuide;
 }
 
 /**
@@ -87,6 +90,11 @@ export function GameView({
   const [tuningOpen, setTuningOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [stageReload, setStageReload] = useState(0);
+  const guide = controls?.guide;
+  // A step that points at a setting opens 调参 for it; the user can still close it.
+  const guideTuningKey = guide?.tuning?.key ?? null;
+  useEffect(() => { if (guideTuningKey) setTuningOpen(true); }, [guideTuningKey]);
+  useGamePlayed(guide?.onPlayed ?? null);
   // The divider exists while a bottom section is open; closed, the stage takes the room the rows leave.
   const splitOpen = (hasTuning && tuningOpen) || (Boolean(run.run.logTail) && logsOpen);
   const split = useGameSplit();
@@ -139,11 +147,16 @@ export function GameView({
       </div>
       <div ref={split.bodyRef} className={styles.body} style={split.style}>
         <div className={styles.top}>
-          {runEnabled ? <GameRunNotice controller={run} onOpenSettings={onOpenEngineSettings} /> : null}
+          {/* The walkthrough's card already says the game is starting; a beginner does not need the install command. */}
+          {runEnabled && !(guide && run.installing) ? <GameRunNotice controller={run} onOpenSettings={onOpenEngineSettings} /> : null}
           {verifyEnabled ? <GameVerifyNotice verify={verify} onOpenSettings={onOpenEngineSettings} /> : null}
           {verifyEnabled ? <GamePlaytestNotice playtest={playtest} onOpenSettings={onOpenEngineSettings} /> : null}
           <GameStage content={stage} onRun={runEnabled ? run.start : undefined} runDisabled={run.installing || !!run.busy} reloadKey={stageReload}
-            startingLabel={runEnabled && (run.installing || run.run.status === 'starting') ? run.statusLabel : undefined} />
+            startingLabel={runEnabled && (run.installing || run.run.status === 'starting') ? run.statusLabel : undefined}
+            ring={stage.kind === 'live' ? guide?.stageRing ?? undefined : undefined} />
+          {guide ? guide.render(run.installing ? 'installing' : run.run.status === 'starting' ? 'starting'
+            : run.run.status === 'running' ? 'running'
+              : run.run.status === 'failed' || run.installation?.status === 'failed' ? 'failed' : 'stopped') : null}
         </div>
         {splitOpen ? (
           <GameSplitHandle host={split.bodyRef} height={split.height} available={split.available} measure={split.measure}
@@ -159,7 +172,8 @@ export function GameView({
                   projectId={projectId}
                   viewerOnly={viewerOnly}
                   active={open && !hidden}
-                  onRefreshFiles={onRefreshFiles}
+                  highlight={guide?.tuning ?? undefined}
+                  onRefreshFiles={async () => { guide?.onTuned(); await onRefreshFiles(); }}
                   onOpenFile={onOpenFileAtLine}
                   onReloadGame={() => setStageReload((value) => value + 1)}
                 />
@@ -205,6 +219,30 @@ function newestShot(
   if (frame && playtestNewer) return { src: playtest.artifactBase + frame.ref, alt: t('gamePlaytest.frame', { n: frameIndex + 1 }), source: 'playtest' };
   if (verifyRef) return { src: `${verify.base}/${verifyRef}`, alt: t('panel.game.lastScreenshot'), source: 'verify' };
   return null;
+}
+
+/** How often the walkthrough looks for the user inside the game, and for how long in all before it counts as playing. */
+const GAME_PLAYED_POLL_MS = 500;
+const GAME_PLAYED_AFTER_MS = 5_000;
+
+/**
+ * Tells the walkthrough when the user has been in the running game for a while.
+ * The game is another page in a frame and reports nothing, so what this page can
+ * see is that the frame holds the focus. That alone is not playing: many engines
+ * take the focus when they start, so it has to last.
+ */
+function useGamePlayed(onPlayed: (() => void) | null): void {
+  useEffect(() => {
+    if (!onPlayed) return;
+    let inGame = 0;
+    const timer = window.setInterval(() => {
+      const active = document.activeElement;
+      if (!(active instanceof HTMLIFrameElement) || active.dataset.testid !== 'panel-game-frame') return;
+      inGame += GAME_PLAYED_POLL_MS;
+      if (inGame >= GAME_PLAYED_AFTER_MS) onPlayed();
+    }, GAME_PLAYED_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [onPlayed]);
 }
 
 /** Re-renders every 30 s while a relative time is on screen. */

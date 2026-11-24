@@ -3,7 +3,7 @@
 Each `<id>/template.json` contains `id`, `name`, `engine` (a game engine id from
 the shared contracts), and `description`. Its `files/` tree is copied verbatim
 into a new, previously nonexistent project directory. The manifest is catalog
-metadata and is not copied. Templates never include dependencies or build output.
+metadata and is not copied. `files/` never includes dependencies or build output.
 Optional `nameZhCN` and `descriptionZhCN` fields provide Simplified Chinese catalog
 copy; `name` and `description` remain the English fallback for API and CLI clients.
 
@@ -17,6 +17,18 @@ in-game-style screenshot at 2:1, kept under about 250 KB. It sits beside `files/
 so it is never copied into projects. When present, `GET /api/game-templates`
 lists it as `coverUrl` (`/api/game-templates/<id>/cover`) and Home uses it
 instead of an art-style preview.
+
+An optional `<id>/instant/` holds the packages the game needs at run time, so a game
+made to be played right away starts before its own packages are installed. It sits
+beside `files/`, so it is never copied into projects. Each package is its upstream's
+single ES module file, unchanged, with its licence beside it; `instant/packages.json`
+lists it as `{ "<import name>": { "version": "...", "file": "..." } }`, at exactly the
+version `files/package.json` asks for. Nothing is built: the daemon serves the project's
+own source files (`apps/daemon/src/game/instant-server.ts`) and moves to the normal dev
+server when the packages are there. That works for a game of TypeScript modules, `?raw`
+imports and `public/` files without a Vite config, and the daemon's tests walk every
+import of the sample to keep it so. Only `phaser3-sample-platformer` has one; it costs
+the installer about 0.3 MB.
 
 The Vite starters use exact dependency versions and TypeScript only. In a copied
 project, run `pnpm install`, then `pnpm dev` to play or `pnpm build` to build.

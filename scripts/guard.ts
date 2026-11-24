@@ -169,6 +169,9 @@ const residualAllowedPathPatterns: RegExp[] = [
   // JavaScript under these design-template directories must still be converted
   // to TypeScript or explicitly listed in `residualAllowedExactPaths`.
   /^design-templates\/html-ppt-zhangzara-[^/]+\/assets\/deck-stage\.js$/,
+  // Upstream packages a game template ships, unchanged, so its game can play before
+  // they are installed (`game-templates/README.md`).
+  /^game-templates\/[a-z0-9-]+\/instant\/[^/]+\.js$/,
   // Bundled example/skill plugins copy the upstream skill's `assets/`
   // and `references/` directories verbatim so the daemon's preview
   // surface can render the baked HTML without staging detours. Those

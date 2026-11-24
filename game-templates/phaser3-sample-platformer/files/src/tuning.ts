@@ -19,7 +19,7 @@ export function tuningNumber(key: string): number {
 
 export const tuning = {
   playerSpeed: tuningNumber('playerSpeed'),
-  jumpVelocity: tuningNumber('jumpVelocity'),
+  jumpPower: tuningNumber('jumpPower'),
   gravity: tuningNumber('gravity'),
   coinCount: tuningNumber('coinCount'),
   soundVolume: tuningNumber('soundVolume'),

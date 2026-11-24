@@ -189,6 +189,7 @@ export interface ProjectMetadata {
   animations?: boolean;
   includeLandingPage?: boolean;
   includeOsWidgets?: boolean;
+  /** The starter this project was made from: a game template id, or `plugin:<id>` for a gallery copy. */
   templateId?: string;
   templateLabel?: string;
   // Template/gallery duplication provenance. Unlike examplePrompt, this path

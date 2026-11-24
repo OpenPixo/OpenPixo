@@ -449,6 +449,10 @@ interface Props {
   byokSpeechVoice?: string;
   onChangeByokSpeechVoice?: (voice: string) => void;
   composerFooterAccessory?: ReactNode;
+  /** The first-login walkthrough's card, or a one-time hint, above the composer. */
+  guideSlot?: ReactNode;
+  /** The walkthrough is running here: the art budget line waits until it is over. */
+  guideActive?: boolean;
   // Slot rendered next to the composer's "+" menu (e.g. the working-dir pill).
   composerLeadingAccessory?: ReactNode;
   onShowToast?: (message: string) => void;
@@ -731,6 +735,8 @@ export function ChatPane({
   onChangeByokSpeechVoice,
   composerLeadingAccessory,
   composerFooterAccessory,
+  guideSlot,
+  guideActive = false,
   onShowToast,
   chatLogTray,
   homeAttachmentUploads,
@@ -3258,6 +3264,7 @@ export function ChatPane({
       onJumpToQuestion={questionPending ? jumpToPendingQuestion : undefined}
       trailing={contextUsage ? <ContextIndicator usage={contextUsage} /> : null}
     />
+    {guideSlot}
     <GamePlanBar
       projectId={projectId}
       plan={projectMetadata?.gamePlan}
@@ -3283,12 +3290,12 @@ export function ChatPane({
       viewerOnly={viewerOnly}
       onStart={onStartNextStageConversation}
     />
-    <ArtBudgetLine
+    {guideActive ? null : <ArtBudgetLine
       projectId={projectId}
       plan={projectMetadata?.gamePlan}
       streaming={streaming}
       viewerOnly={viewerOnly}
-    />
+    />}
     <ChatComposer
       ref={composerRef}
       agentId={config?.mode === 'daemon' ? config.agentId : undefined}

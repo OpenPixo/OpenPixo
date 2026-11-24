@@ -1,0 +1,133 @@
+/* The first-login walkthrough's card and the one-time hints. Both sit in the
+   page (under the game, or above the composer), never over it. */
+.card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--violet) 45%, var(--line));
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  /* The composer slot lets clicks through to the chat behind it. */
+  pointer-events: auto;
+  animation: guide-in 200ms var(--ease-out);
+}
+
+@keyframes guide-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.progress { width: 96px; flex: none; }
+.count {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.head .skip {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.copy { min-width: 0; }
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 21px;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--green-bg);
+  color: var(--green);
+  animation: guide-mark 200ms var(--ease-out);
+}
+@keyframes guide-mark {
+  from { opacity: 0; transform: scale(0.9); }
+}
+.spinner {
+  flex: none;
+  color: var(--violet);
+  animation: guide-spin 1s linear infinite;
+}
+@keyframes guide-spin { to { transform: rotate(360deg); } }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- What a step points at -------------------------------------------- */
+/* Drawn inside the target's own edge, so nothing moves and nothing is covered. */
+.ring { position: relative; }
+.ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--violet);
+  pointer-events: none;
+  animation: guide-ring 1.6s var(--ease-out) 3;
+}
+@keyframes guide-ring {
+  0% { opacity: 0.2; }
+  40% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* ---- One-time hints ---------------------------------------------------- */
+.hint {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin: 0 8px 6px;
+  padding: 5px 6px 5px 12px;
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--violet) 30%, var(--line));
+  border-radius: var(--radius-md);
+  background: var(--violet-soft);
+  pointer-events: auto;
+  animation: guide-in 200ms var(--ease-out);
+}
+.hintIcon { flex: none; color: var(--violet); }
+.hintText {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 20px;
+}
+.hintClose { flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .hint, .mark, .ring::after { animation: none; }
+  .spinner { animation-duration: 3s; }
+}

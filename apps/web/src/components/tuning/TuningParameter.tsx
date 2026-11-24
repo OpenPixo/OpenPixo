@@ -18,14 +18,19 @@ function completeNumericColor(value: string): boolean {
  * default value lives in the reset button's name and tooltip, a scene
  * override in its badge's, the source location in the open-in-code link's.
  */
-export function TuningParameter({ parameter: p, projectId, disabled, onChange, onOpenFile }: {
+export function TuningParameter({ parameter: p, projectId, disabled, onChange, onOpenFile, ring }: {
   parameter: GameTuningParameter;
   projectId: string;
   disabled: boolean;
   onChange: (value: GameTuningValue) => void;
   onOpenFile: (path: string, line: number) => void;
+  /** Set while the walkthrough points at this setting: the class that rings it, or empty once it was changed. */
+  ring?: string | undefined;
 }) {
   const { locale, t } = useI18n(); const id = useId();
+  const row = useRef<HTMLDivElement>(null);
+  const pointedAt = ring !== undefined;
+  useEffect(() => { if (pointedAt) row.current?.scrollIntoView?.({ block: 'nearest' }); }, [pointedAt]);
   const label = p.label_i18n?.[locale]?.trim() || p.label;
   const [draft, setDraft] = useState(String(p.value));
   const editing = useRef(false);
@@ -49,7 +54,7 @@ export function TuningParameter({ parameter: p, projectId, disabled, onChange, o
   const resetLabel = t('gameTuning.resetTo', { value: String(p.defaultValue) });
   const openLabel = `${t('gameTuning.openCode')} · ${source}`;
   const sceneLabel = p.source === 'godot-scene' ? `${t('gameTuning.scene')} · ${p.nodePath}` : null;
-  return <div className={styles.row} data-type={p.type}>
+  return <div ref={row} className={ring ? `${styles.row} ${ring}` : styles.row} data-type={p.type}>
     <label htmlFor={id} className={styles.label} title={p.description ? `${label}\n${p.description}` : label}>{label}</label>
     <div className={styles.control}>
       {p.description ? <VisuallyHidden id={descriptionId}>{p.description}</VisuallyHidden> : null}
