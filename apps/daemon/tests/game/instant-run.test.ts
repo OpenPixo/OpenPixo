@@ -11,9 +11,10 @@ import { _resetForTests as resetWatchers } from '../../src/project-watchers.js';
 import { registerGameRunRoutes, type RegisterGameRunRoutesDeps } from '../../src/routes/game-run.js';
 
 /*
- * 2026-11-24, a packaged build on a computer without pnpm: the sample game a new user opens
- * first took 82 s to appear, all of it package installation. These tests play the sample
- * through the same routes while a package manager they control is still at work.
+ * 2026-11-24, a packaged build on a beginner's profile: the sample game a new user opens first
+ * took 29 to 60 s to appear in four cold starts. Installing its packages was 17 to 48 s of that,
+ * and the dev server and the game's frame took ten more. These tests play the sample through
+ * the same routes while a package manager they control is still at work.
  */
 const templatesRoot = fileURLToPath(new URL('../../../../game-templates/', import.meta.url));
 let root: string, game: string, data: string, base: string;
