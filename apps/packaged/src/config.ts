@@ -29,6 +29,7 @@ export type RawPackagedConfig = {
   cloudUrl?: string;
   cloudAnonKey?: string;
   cloudAgentUrl?: string;
+  cloudCharacterUrl?: string;
   daemonCliEntryRelative?: string;
   daemonSidecarEntryRelative?: string;
   namespace?: string;
@@ -227,7 +228,7 @@ export async function readPackagedConfig(): Promise<PackagedConfig> {
   return {
     
     appVersion: cleanOptionalString(raw.appVersion),
-    cloud: parseOpenPixoCloudConfig(raw.cloudUrl, raw.cloudAnonKey, raw.cloudAgentUrl),
+    cloud: parseOpenPixoCloudConfig(raw.cloudUrl, raw.cloudAnonKey, raw.cloudAgentUrl, raw.cloudCharacterUrl),
     daemonCliEntry,
     daemonSidecarEntry,
     namespace,

@@ -755,6 +755,7 @@ export function buildPackagedDaemonSpawnEnv(
       : { PIXO_USAGE_EVENTS_URL: options.usageEventsUrl }),
     // The account service reads these once at daemon start (apps/daemon/src/account/config.ts).
     ...(options.cloud == null ? {} : { PIXO_CLOUD_URL: options.cloud.url, PIXO_CLOUD_ANON_KEY: options.cloud.anonKey, PIXO_AGENT_URL: options.cloud.agentUrl }),
+    ...(options.cloud?.characterUrl ? { PIXO_CHARACTER_URL: options.cloud.characterUrl } : {}),
   };
 }
 

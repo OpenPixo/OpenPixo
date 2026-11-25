@@ -534,6 +534,7 @@ async function writeAssembledApp(
         ...(config.telemetryRelayUrl == null ? {} : { telemetryRelayUrl: config.telemetryRelayUrl }),
         ...(config.usageEventsUrl == null ? {} : { usageEventsUrl: config.usageEventsUrl }),
         ...(config.cloud == null ? {} : { cloudUrl: config.cloud.url, cloudAnonKey: config.cloud.anonKey, cloudAgentUrl: config.cloud.agentUrl }),
+        ...(config.cloud?.characterUrl ? { cloudCharacterUrl: config.cloud.characterUrl } : {}),
 
 
         ...(config.portable ? {} : { namespaceBaseRoot: config.roots.runtime.namespaceBaseRoot }),

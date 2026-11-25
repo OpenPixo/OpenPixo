@@ -639,6 +639,22 @@ export class OpenPixoAccountService {
     return cloudSkillCatalog(await this.edge('skill-catalog', 'POST', {}));
   }
 
+  // --- Animated characters. The cloud makes, prices and settles; `character/cloud.ts` reads the answers.
+
+  /** Null in a build without a character service. */
+  characterOrigin(): string | null {
+    const url = this.client?.config.characterUrl;
+    return url ? new URL(url).origin : null;
+  }
+
+  async character(route: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<Response> {
+    return await this.withSession(async token => {
+      const response = await this.cloud().character(route, method, body, token, signal);
+      if (response.status === 401) { await response.body?.cancel(); throw new AccountError('ACCOUNT_SIGNED_OUT'); }
+      return response;
+    }) as Response;
+  }
+
   /** The cloud's own origin, which alone may use plain http and storage headers. */
   cloudOrigin(): string | null { return this.client?.config.url ?? null; }
 

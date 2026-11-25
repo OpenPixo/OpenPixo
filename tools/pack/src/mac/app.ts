@@ -173,6 +173,7 @@ export function renderMacPackagedConfig(options: {
       ...(options.config.telemetryRelayUrl == null ? {} : { telemetryRelayUrl: options.config.telemetryRelayUrl }),
       ...(options.config.updateMetadataUrl == null ? {} : { updateMetadataUrl: options.config.updateMetadataUrl }),
       ...(options.config.cloud == null ? {} : { cloudUrl: options.config.cloud.url, cloudAnonKey: options.config.cloud.anonKey, cloudAgentUrl: options.config.cloud.agentUrl }),
+      ...(options.config.cloud?.characterUrl ? { cloudCharacterUrl: options.config.cloud.characterUrl } : {}),
       ...(options.config.usageEventsUrl == null ? {} : { usageEventsUrl: options.config.usageEventsUrl }),
       
       

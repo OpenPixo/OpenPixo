@@ -752,6 +752,8 @@ function printRootHelp() {
 
   ${PRODUCT_CLI_NAME} character list|show|create|update|delete [opts]
       Manage project character cards and their reference images.
+  ${PRODUCT_CLI_NAME} character mine|make|add|fit|gear|wear|tune|pack|install|suggest [opts]
+      Animated characters whose gear can be changed, made by OpenPixo Cloud for credits.
 
   ${PRODUCT_CLI_NAME} look <image> --question <text> [--prompt-file <path|->] [--json]
       Ask one question about one image; the OpenPixo-credits agent sees images this way.

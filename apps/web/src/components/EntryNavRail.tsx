@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 
 import { Icon } from './Icon';
+import { useCharactersStatus } from '../providers/characters';
 
 
 import { RailHelpMenu } from './entry-nav-rail/RailHelpMenu';
@@ -450,6 +451,7 @@ export function EntryNavRail({
 }: Props) {
 
   const { t } = useI18n();
+  const characters = useCharactersStatus();
   const analytics = useAnalytics();
   const analyticsPage = entryViewToTracking(view ?? 'project');
   // Portal target for the account module, which `EntryTopRightCluster` owns
@@ -605,6 +607,8 @@ export function EntryNavRail({
           </NavButton>
           <NavButton active={view === 'generate'} ariaLabel={t('generate.pageTitle')} label={t('generate.pageTitle')}
             onClick={() => selectView('generate')} testId="entry-nav-generate"><Icon name="sparkles" size={16} /></NavButton>
+          {characters?.available ? <NavButton active={view === 'characters'} ariaLabel={t('characters.title')} label={t('characters.title')}
+            onClick={() => selectView('characters')} testId="entry-nav-characters"><Icon name="users" size={16} /></NavButton> : null}
           <NavButton active={view === 'store'} ariaLabel={t('store.title')} label={t('store.title')}
             onClick={() => selectView('store')} testId="entry-nav-store"><Icon name="blocks" size={16} /></NavButton>
           <NavButton active={view === 'game-hub'} ariaLabel={t('gameHub.navLabel')} label={t('gameHub.navLabel')}

@@ -6,6 +6,7 @@ export * from './api/failure-detail.js';
 export * from './api/openpixo-account.js';
 export * from './api/exchange-rates.js';
 export * from './api/openpixo-cloud-media.js';
+export * from './api/openpixo-character.js';
 export * from './api/openpixo-agent.js';
 export * from './api/openpixo-agent-models.js';
 export * from './api/image-look.js';

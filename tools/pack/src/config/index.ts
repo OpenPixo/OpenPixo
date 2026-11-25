@@ -254,7 +254,7 @@ function resolveToolPackUpdateMetadataUrl(
 
 /**
  * PIXO_CLOUD_URL + PIXO_CLOUD_ANON_KEY override the cloud (both or neither), and PIXO_AGENT_URL
- * names that cloud's agent gateway; otherwise public release channels bake the production cloud
+ * names that cloud's agent gateway and PIXO_CHARACTER_URL its character service; otherwise public release channels bake the production cloud
  * from @openpixo/contracts. A stable build without one would ship a paid product whose sign-in,
  * credits and hosted generation cannot work.
  */
@@ -264,9 +264,9 @@ export function resolveToolPackCloud(
   production: { url: string; anonKey: string } = { url: PRODUCT_CLOUD_URL, anonKey: PRODUCT_CLOUD_ANON_KEY },
 ): OpenPixoCloudConfig | undefined {
   if (env.PIXO_CLOUD_URL?.trim() || env.PIXO_CLOUD_ANON_KEY?.trim()) {
-    const cloud = parseOpenPixoCloudConfig(env.PIXO_CLOUD_URL, env.PIXO_CLOUD_ANON_KEY, env.PIXO_AGENT_URL);
+    const cloud = parseOpenPixoCloudConfig(env.PIXO_CLOUD_URL, env.PIXO_CLOUD_ANON_KEY, env.PIXO_AGENT_URL, env.PIXO_CHARACTER_URL);
     if (cloud == null) {
-      throw new Error("PIXO_CLOUD_URL and PIXO_CLOUD_ANON_KEY must both be set: an https origin and a single-line key. PIXO_AGENT_URL, if set, must be an https URL");
+      throw new Error("PIXO_CLOUD_URL and PIXO_CLOUD_ANON_KEY must both be set: an https origin and a single-line key. PIXO_AGENT_URL and PIXO_CHARACTER_URL, if set, must be https URLs");
     }
     return cloud;
   }

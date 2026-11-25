@@ -14,5 +14,5 @@
     "types": [],
     "skipLibCheck": true
   },
-  "include": ["openpixo-rooms/*.ts", "openpixo-online/*.ts"]
+  "include": ["openpixo-rooms/*.ts", "openpixo-online/*.ts", "openpixo-character/web/*.ts"]
 }
