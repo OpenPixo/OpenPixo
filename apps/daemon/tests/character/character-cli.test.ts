@@ -31,6 +31,18 @@ afterEach(async () => { vi.restoreAllMocks(); process.exitCode = 0; server.close
 const run = async (...args: string[]): Promise<void> => { process.exitCode = 0; await runAnimatedCharacterCli([...args, '--daemon-url', url]); };
 const AWAY: [number, unknown] = [503, { error: { code: 'CLOUD_UNAVAILABLE', message: 'away' } }];
 
+describe('pixo character sample', () => {
+  it('shows the free sample and how to use it', async () => {
+    answers = route => [200, { character: route.includes('language=zh') ? hero : null }];
+    await run('sample', '--language', 'zh');
+    expect(asked).toEqual([{ route: '/characters/sample?language=zh', method: 'GET', body: undefined }]);
+    expect(out.join('\n')).toContain(`character install ${ID}`);
+    await run('sample', '--json');
+    expect(JSON.parse(out.at(-1)!)).toEqual({ character: null });
+    expect(process.exitCode).toBe(0);
+  });
+});
+
 describe('pixo character make', () => {
   it('shows the price and orders nothing without --yes', async () => {
     answers = () => [200, brief];

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, SegmentedTabs } from '@openpixo/components';
-import type { CharacterGear, CharacterSuggestion, LocalCharacter } from '@openpixo/contracts';
+import { isSampleCharacter, type CharacterGear, type CharacterSuggestion, type LocalCharacter } from '@openpixo/contracts';
 import { useI18n } from '../../i18n';
 import { useOpenPixoCredits } from '../../hooks/useOpenPixoAccount';
 import { usePageNavigationReady } from '../../observability/navigation-timing';
-import { characterErrorCode, dropCharacterSuggestion, fetchCharacterGear, fetchCharacters, refreshCharactersStatus, useCharactersStatus } from '../../providers/characters';
+import { characterErrorCode, dropCharacterSuggestion, fetchCharacterGear, fetchCharacters, fetchSampleCharacter, refreshCharactersStatus, useCharactersStatus } from '../../providers/characters';
 import { navigate } from '../../router';
 import { formatCredits } from '../account/account-format';
 import { Icon } from '../Icon';
@@ -38,12 +38,19 @@ export function CharactersPage({ characterId, games, onOpenAccount, onOpenProjec
   const { credits } = useOpenPixoCredits(signedIn);
   const [characters, setCharacters] = useState<LocalCharacter[] | null>(null);
   const [suggestions, setSuggestions] = useState<CharacterSuggestion[]>([]);
-  const [gear, setGear] = useState<CharacterGear | null>(null);
+  const [gear, setGear] = useState<CharacterGear | null>(null), [sample, setSample] = useState<LocalCharacter | null | undefined>(undefined);
   const [failed, setFailed] = useState<string | null>(null);
   const [section, setSection] = useState<'characters' | 'gear'>('characters');
   const order = useNewCharacter(), [suggestion, setSuggestion] = useState<string | null>(null);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+
+  const available = Boolean(status?.available);
+  // a page without the sample is still a page; undefined until it is known
+  const readSample = useCallback(async () => {
+    try { const next = await fetchSampleCharacter(locale); if (alive.current) setSample(next); } catch (error) { console.warn('[characters] could not read the sample:', error); if (alive.current) setSample(now => now ?? null); }
+  }, [locale]);
+  useEffect(() => { if (available) void readSample(); }, [available, readSample]);
 
   const readGear = useCallback(async () => {
     try { const next = await fetchCharacterGear(); if (alive.current) setGear(next); } catch (error) { console.warn('[characters] could not read the gear:', error); }
@@ -97,17 +104,32 @@ export function CharactersPage({ characterId, games, onOpenAccount, onOpenProjec
 
   const changed = useCallback((next: LocalCharacter) => setCharacters(all => all?.map(c => c.id === next.id ? next : c) ?? null), []);
   const games_ = useMemo(() => [...games].sort((a, b) => time(b) - time(a)), [games]);
-  const open = characterId ? characters?.find(c => c.id === characterId) : undefined;
+  // the sample in another language is the same character: the address of one shows the one of now
+  const wantsSample = characterId !== undefined && isSampleCharacter(characterId);
+  const open = characterId ? characters?.find(c => c.id === characterId) : undefined, sampleOpen = !open && sample && wantsSample;
   usePageNavigationReady({ page: 'characters', visible: status !== null, ready: characters !== null, failure: failed !== null });
 
   const balance = credits ? <button type="button" className={styles.credits} onClick={onOpenAccount} data-testid="characters-credits">
     <span className={styles.creditsDot} aria-hidden="true" /><span>{t('generate.balance', { count: formatCredits(credits.available, locale) })}</span><span className={styles.topUp}>{t('generate.topUp')}</span>
   </button> : null;
 
+  /** What a finished character is, before anything is paid for. */
+  const tryOne = sample && <section data-testid="characters-sample">
+    <h2 className={styles.heading}>{t('characters.sampleHeading')}</h2>
+    <p className={styles.none}>{t('characters.sampleHint')}</p>
+    <div className={styles.cards}><CharacterCard character={sample} sample onOpen={() => navigate({ kind: 'home', view: 'characters', characterId: sample.id })} onDeleted={() => {}} onChange={() => {}} /></div>
+  </section>;
+
   let body;
   if (!status) body = <div className={styles.empty} aria-busy="true">{t('common.loading')}</div>;
   else if (!status.available) body = <div className={styles.empty}><p>{t('characters.unavailable')}</p></div>;
-  else if (!status.signedIn) body = <div className={styles.empty}><p>{t('characters.signedOut')}</p><Button variant="primary" onClick={onOpenAccount}>{t('characters.signIn')}</Button></div>;
+  else if (wantsSample && sample === undefined) body = <div className={styles.empty} aria-busy="true">{t('common.loading')}</div>;
+  else if (sampleOpen) {
+    return <main className={`${theme.studio} ${styles.page}`} data-theme="dark" data-testid="character-detail">
+      <CharacterDetail key={sample.id} character={sample} sample gear={null} service={null} games={games_} balance={balance} onChange={setSample} onHold={work => work()} onRead={readSample} onGear={() => {}}
+        onBack={() => navigate({ kind: 'home', view: 'characters' })} onOpenProject={onOpenProject} onOpenAccount={onOpenAccount} onDeleted={() => {}} />
+    </main>;
+  } else if (!status.signedIn) body = <><div className={styles.empty}><p>{t('characters.signedOut')}</p><Button variant="primary" onClick={onOpenAccount}>{t('characters.signIn')}</Button></div>{tryOne}</>;
   else if (!characters) body = failed ? <div className={styles.empty} role="alert"><p>{failed}</p><Button onClick={() => void read()}>{t('characters.retry')}</Button></div> : <div className={styles.empty} aria-busy="true">{t('common.loading')}</div>;
   else if (open) {
     return <main className={`${theme.studio} ${styles.page}`} data-theme="dark" data-testid="character-detail">
@@ -129,6 +151,7 @@ export function CharactersPage({ characterId, games, onOpenAccount, onOpenProjec
       <h2 className={styles.heading}>{t('characters.mine')} <span>{characters.length || ''}</span></h2>
       {characters.length ? <div className={styles.cards}>{characters.map(c => <CharacterCard key={c.id} character={c} onOpen={() => navigate({ kind: 'home', view: 'characters', characterId: c.id })} onDeleted={() => setCharacters(all => all?.filter(x => x.id !== c.id) ?? null)} onChange={() => void read()} />)}</div>
         : <p className={styles.none}>{t('characters.none')}</p>}
+      {(sample?.games.length || !characters.some(c => c.state === 'ready')) && tryOne}
     </>;
   }
 
@@ -139,7 +162,7 @@ export function CharactersPage({ characterId, games, onOpenAccount, onOpenProjec
         {status?.signedIn && <SegmentedTabs label={t('characters.title')} value={section} onValueChange={v => setSection(v as 'characters' | 'gear')} items={[{ value: 'characters', label: t('characters.title') }, { value: 'gear', label: t('characters.gear') }]} />}
         <div className={styles.right}>{balance}</div>
       </header>
-      {characterId && characters && !open && <p className={styles.notice} role="status"><Icon name="info" size={14} /> {t('characters.gone')}</p>}
+      {characterId && characters && !open && !wantsSample && <p className={styles.notice} role="status"><Icon name="info" size={14} /> {t('characters.gone')}</p>}
       {body}
     </div>
   </main>;

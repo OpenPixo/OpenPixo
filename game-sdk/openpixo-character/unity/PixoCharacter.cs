@@ -7,7 +7,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Rendering;
 
+// The parts of one character belong together: without the group, parts of two characters that stand in front of each other would mix.
+[RequireComponent(typeof(SortingGroup))]
 public class PixoCharacter : MonoBehaviour {
     const float Steps = 8f, Blend = 0.09f;
 
@@ -23,6 +26,9 @@ public class PixoCharacter : MonoBehaviour {
     public string Motion = "idle";
     public float Seconds;
     public float Speed = 1;
+    // In front of what has a lower number and behind what has a higher one, within the sorting layer of its SortingGroup.
+    public int Order { get => Together.sortingOrder; set => Together.sortingOrder = value; }
+    SortingGroup Together => TryGetComponent<SortingGroup>(out var group) ? group : gameObject.AddComponent<SortingGroup>();
     // Play on its own; switch off to set the time with Pose.
     public bool Running = true;
     // The moment a blow lands; a motion that does not repeat is over.
@@ -52,15 +58,20 @@ public class PixoCharacter : MonoBehaviour {
     public float Length(string motion) => clips[motion].Seconds;
     public bool Loops(string motion) => clips[motion].Loop;
 
-    public void Open(string dir) {
-        var d = (Dictionary<string, object>)Json.Parse(File.ReadAllText(dir + "/hero.json"));
+    // A folder of files. StreamingAssets is none on Android and in browsers: load what is in it with UnityWebRequest and hand it to the other Open.
+    public void Open(string dir) => Open(name => File.ReadAllBytes(dir + "/" + name));
+
+    // Reads hero.json, hero.bin and the pictures that hero.json lists, by their names.
+    public void Open(Func<string, byte[]> read) {
+        var d = (Dictionary<string, object>)Json.Parse(Encoding.UTF8.GetString(read("hero.json")));
+        _ = Together; // one that was made before this component asked for it
         if ((string)d["format"] != "pixo-hero" || Json.Int(d["version"]) != 1) throw new InvalidDataException("not a hero package of version 1");
-        var bin = File.ReadAllBytes(dir + "/hero.bin");
+        var bin = read("hero.bin");
         int frames = Json.Int(d["frames"]);
         foreach (var kv in Json.Map(d["pics"])) {
             var p = Json.Map(kv.Value);
             var t = new Texture2D(2, 2, TextureFormat.RGBA32, true);
-            t.LoadImage(File.ReadAllBytes(dir + "/" + (string)p["file"]));
+            t.LoadImage(read((string)p["file"]));
             t.wrapMode = TextureWrapMode.Clamp;
             t.filterMode = FilterMode.Trilinear;
             t.anisoLevel = 8; // folded elbows squeeze a picture in one direction

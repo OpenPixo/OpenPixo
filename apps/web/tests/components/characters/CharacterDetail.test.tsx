@@ -2,7 +2,7 @@
 // One character, with a stage that only remembers what it was told: jsdom draws no WebGL.
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CharacterOutfit, LocalCharacter } from '@openpixo/contracts';
+import { CHARACTER_SAMPLES, type CharacterOutfit, type LocalCharacter } from '@openpixo/contracts';
 
 const fake = vi.hoisted(() => {
   interface Actor { pack: any; wear: Record<string, string>; motion: string; paused: boolean; info: unknown; play(m: string): boolean; onEnd: unknown }
@@ -85,6 +85,34 @@ const slide = (what: string, value: string): void => { fireEvent.change(screen.g
 const chip = (name: string): void => { fireEvent.click(screen.getByTestId(`character-motion-${name}`)); };
 
 describe('the stage', () => {
+  it('dresses the free sample without saving or asking anything', async () => {
+    cleanup();
+    fake.actors.length = 0;
+    const before = fetchMock.getMockImplementation() as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    const marsh = hero({ id: CHARACTER_SAMPLES.en, name: 'Marsh Scavenger', outfits: [{ name: 'Bell guard', wear: { weapon: 'weapon1', cape: 'cape0' }, start: true }] });
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.startsWith('/api/characters/sample')) return Response.json({ character: marsh });
+      if (path === `/api/projects/game/heroes`) return Response.json({ characterId: marsh.id, slug: 'marsh', name: marsh.name, revision: 1, folder: 'characters/marsh', player: 'p.gd', engine: 'godot', playerState: 'written' });
+      return before(input, init);
+    });
+    render(<I18nProvider initial="en"><CharactersPage characterId={CHARACTER_SAMPLES.en} games={[{ id: 'game', name: 'Frostline' }]} onOpenAccount={() => {}} onOpenProject={() => {}} /></I18nProvider>);
+    await flush();
+    await flush();
+    fireEvent.click(screen.getByText('Bell guard'));
+    expect(actor().wear).toEqual({ weapon: 'weapon1', cape: 'cape0' });
+    fireEvent.click(screen.getByTestId('wear-cape-none'));
+    expect(actor().wear).toEqual({ weapon: 'weapon1' });
+    fireEvent.click(screen.getByTestId('character-motion-attack'));
+    await flush(300);
+    expect(actor().motion).toBe('attack');
+    expect([tuned, patches]).toEqual([[], []]);
+    fireEvent.click(screen.getByRole('tab', { name: /Games/u }));
+    fireEvent.click(screen.getByTestId('character-install-game'));
+    await flush();
+    expect(fetchMock.mock.calls.filter(([url, init]) => init?.method === 'POST').map(([url, init]) => [String(url), JSON.parse(String(init!.body))])).toEqual([['/api/projects/game/heroes', { characterId: CHARACTER_SAMPLES.en }]]);
+  });
+
   it('plays what is packed, and asks for what is not', async () => {
     chip('run');
     expect(actor().motion).toBe('run');

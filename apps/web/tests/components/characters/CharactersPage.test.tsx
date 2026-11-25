@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CharacterBrief, CharacterGear, CharactersResponse, CharactersStatus, LocalCharacter } from '@openpixo/contracts';
+import { CHARACTER_SAMPLES, type CharacterBrief, type CharacterGear, type CharactersResponse, type CharactersStatus, type LocalCharacter } from '@openpixo/contracts';
 
 import { CharactersPage } from '../../../src/components/characters/CharactersPage';
 import { slidersFor } from '../../../src/components/characters/MotionsPanel';
@@ -36,18 +36,20 @@ const GEAR: CharacterGear = {
   ], motions: [{ name: 'dodge', shown: 'Rolls away', characters: [ID] }, { name: 'wave', shown: 'Waves', characters: [] }],
 };
 
-let status: CharactersStatus, answer: CharactersResponse, priced: CharacterBrief | { error: string }, fetchMock: ReturnType<typeof vi.fn>;
+let sample: LocalCharacter | null, status: CharactersStatus, answer: CharactersResponse, priced: CharacterBrief | { error: string }, fetchMock: ReturnType<typeof vi.fn>;
 const sent = (path: string, method: string): unknown[] => fetchMock.mock.calls.filter(([url, init]) => String(url) === path && (init?.method ?? 'GET') === method).map(([, init]) => init?.body ? JSON.parse(String(init.body)) as unknown : null);
 const flush = async (): Promise<void> => { await act(async () => { await new Promise(r => setTimeout(r, 0)); }); };
 
 beforeEach(async () => {
   status = { available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, fit: 15, motion: 5 } } };
   answer = { characters: [hero()], suggestions: [] };
+  sample = null;
   priced = brief();
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input), method = init?.method ?? 'GET';
     if (path === '/api/characters/service') return Response.json(status);
     if (path === '/api/characters') return Response.json(answer);
+    if (path.startsWith('/api/characters/sample')) return Response.json({ character: sample && { ...sample, id: path.includes('zh') ? CHARACTER_SAMPLES.zh : CHARACTER_SAMPLES.en } });
     if (path === '/api/characters/gear') return Response.json(GEAR);
     if (path === '/api/characters/briefs') return 'error' in priced ? Response.json({ error: { code: priced.error, message: 'x' } }, { status: 402 }) : Response.json(priced);
     if (path === '/api/characters/orders') return Response.json(job('waiting'));
@@ -111,6 +113,67 @@ describe('the list', () => {
     await show({}, 'zh-CN');
     expect(screen.getByText('这个版本没有角色功能。')).toBeTruthy();
     expect(sent('/api/characters', 'GET')).toEqual([]);
+  });
+});
+
+describe('the free sample', () => {
+  beforeEach(() => { sample = hero({ id: CHARACTER_SAMPLES.en, name: 'Marsh Scavenger', revision: 1, outfits: [{ name: 'Bell guard', wear: { weapon: 'weapon0' }, start: true }] }); });
+
+  it('is offered to someone who has no character yet, and to someone who is signed out', async () => {
+    answer.characters = [];
+    await show();
+    expect(within(screen.getByTestId('characters-sample')).getByTestId('character-card').textContent).toContain('Free sample');
+    cleanup();
+    status = { available: true, signedIn: false, service: null };
+    await refreshCharactersStatus();
+    await show({}, 'zh-CN');
+    expect(within(screen.getByTestId('characters-sample')).getByRole('button').textContent).toContain('免费样品');
+    expect(sent('/api/characters/sample?language=zh-CN', 'GET')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: '登录' })).toBeTruthy();
+  });
+
+  it('steps back once there are own characters, unless a game has it', async () => {
+    await show();
+    expect(screen.queryByTestId('characters-sample')).toBeNull();
+    cleanup();
+    sample = { ...sample!, games: [{ projectId: 'game', projectName: 'Frostline', slug: 'marsh', revision: 1 }] };
+    await show();
+    expect(screen.getByTestId('characters-sample')).toBeTruthy();
+  });
+
+  it('opens signed out, with everything to look at and nothing to change or buy', async () => {
+    status = { available: true, signedIn: false, service: null };
+    await refreshCharactersStatus();
+    await show({ characterId: CHARACTER_SAMPLES.en });
+    const detail = screen.getByTestId('character-detail');
+    expect(detail.textContent).toContain('Marsh Scavenger');
+    for (const name of ['Rename', 'Delete', 'Motions']) expect(within(detail).queryByRole('button', { name }) ?? within(detail).queryByRole('tab', { name }), name).toBeNull();
+    for (const id of ['character-gear', 'outfit-save', 'character-pack']) expect(screen.queryByTestId(id), id).toBeNull();
+    expect(screen.getByTestId('character-sample-own')).toBeTruthy();
+    expect(sent('/api/characters', 'GET')).toEqual([]);
+  });
+
+  it('is the same one under the address of its other language, and never called gone', async () => {
+    await show({ characterId: CHARACTER_SAMPLES.zh });
+    expect(screen.getByTestId('character-detail').textContent).toContain('Marsh Scavenger');
+    cleanup();
+    sample = null;
+    await show({ characterId: CHARACTER_SAMPLES.zh });
+    expect(screen.getByTestId('characters-page').textContent).not.toContain('not here any more');
+    expect(screen.getAllByTestId('character-card')).toHaveLength(1);
+    cleanup();
+    await show({ characterId: OTHER });
+    expect(screen.getByTestId('characters-page').textContent).toContain('not here any more');
+  });
+
+  it('is no reason for the page to fail', async () => {
+    const before = fetchMock.getMockImplementation() as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => String(input).includes('/sample') ? new Response('{}', { status: 503 }) : before(input, init));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    answer.characters = [];
+    await show();
+    expect(screen.queryByTestId('characters-sample')).toBeNull();
+    expect(screen.getByTestId('character-text')).toBeTruthy();
   });
 });
 

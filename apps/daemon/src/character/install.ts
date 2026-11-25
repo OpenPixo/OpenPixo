@@ -3,7 +3,7 @@ import nodeModule from 'node:module';
 import { copyFile, lstat, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AnimatedCharacter, CharacterPlayer, EngineProfile, InstalledCharacter } from '@openpixo/contracts';
-import { PRODUCT_CLI_NAME } from '@openpixo/contracts';
+import { isSameCharacter, isSampleCharacter, PRODUCT_CLI_NAME } from '@openpixo/contracts';
 import { isWebProject, webProjectCwd } from '../publish/web-project.js';
 import { recipePath } from '../recipes/paths.js';
 import { CharacterError } from './errors.js';
@@ -107,7 +107,10 @@ hero.Open(System.IO.Path.Combine(Application.streamingAssetsPath, "${folder}"));
 hero.Play("run");
 hero.PutOn("weapon", "${weapon}");
 hero.Hit += () => { }; // the moment a blow lands
-\`\`\`` : `\`\`\`ts
+hero.Order = 5; // in front of what has a lower sorting order; two characters never mix
+\`\`\`
+
+On Android and in browsers StreamingAssets are not files: load \`hero.json\`, \`hero.bin\` and the files that its \`pics\` name with UnityWebRequest, then \`hero.Open(name => bytes[name])\`.` : `\`\`\`ts
 import { PixoCharacterPack } from './${path.posix.basename(place.player).replace(/\.(?:ts|js)$/u, '')}';
 const pack = await PixoCharacterPack.load('${folder}');
 const hero = pack.create();
@@ -127,7 +130,7 @@ The character stands on its origin and faces right; flip it to face left. Pieces
 
 - Motions: ${motions.map(m => `\`${m}\``).join(', ')}
 ${list('Sets, for the slots `head`, `body`, `arm` and `leg`', character.items.sets)}${list('Weapons, for the slot `weapon`', character.items.weapons)}${list('Capes, for the slot `cape`', character.items.capes)}${character.outfits.length ? `- Outfits, put on by name: ${character.outfits.map(o => `\`${o.name}\`${o.start ? ' (worn at the start)' : ''}`).join(', ')}\n` : ''}
-An id means the same piece for every character of this account, so one inventory serves them all. \`icon-<id>.png\` is a small picture of a piece, \`portrait.png\` one of the character. There is no walking or jumping motion unless one is listed.
+${isSampleCharacter(character.id) ? 'This is the free sample. Its pieces are its own: the same id is another piece on the characters of an account, so keep them apart in an inventory.' : 'An id means the same piece for every character of this account, so one inventory serves them all.'} \`icon-<id>.png\` is a small picture of a piece, \`portrait.png\` one of the character.${['jump', 'fall', 'land'].every(m => motions.includes(m)) ? ' `walk`, `run`, `jump`, `fall` and `land` are played in place, the game moves the character: play `jump` when it leaves the ground (it stays in its last pose), `fall` once it comes down, `land` when it touches, then what it does next.' : ' There is no jumping motion unless one is listed.'}${motions.includes('down') ? ' `down` ends lying on the ground and stays there.' : ''}
 `;
 }
 
@@ -159,12 +162,12 @@ export interface InstallInput {
 export async function installCharacter(input: InstallInput): Promise<InstalledCharacter & { playerState: 'written' | 'same' | 'edited' }> {
   const { projectDir, profile } = input, character = await asPacked(input.character, input.package.folder), place = await placeFor(projectDir, profile);
   if (!place) throw new CharacterError('CHARACTER_INSTALL_FAILED', profile.engine === 'unknown' ? 'This game has no engine project yet. Set the game up first.' : `There is no character player for ${profile.engine} games yet. It works in Godot, Unity and web games.`);
-  const known = (await installedCharacters(projectDir, profile)).find(c => c.characterId === character.id);
+  const known = (await installedCharacters(projectDir, profile)).find(c => isSameCharacter(c.characterId, character.id));
   let slug = input.slug ?? known?.slug ?? characterSlug(character.name, character.id);
   if (!SLUG.test(slug) || slug.length > 60) throw new CharacterError('CHARACTER_REQUEST_INVALID', 'The folder name takes small letters, numbers and hyphens.');
   const taken = async (s: string): Promise<boolean> => {
     const folder = await recipePath(projectDir, `${place.characters}/${s}`);
-    return await exists(folder) && (await readCard(folder))?.characterId !== character.id;
+    return await exists(folder) && !isSameCharacter((await readCard(folder))?.characterId ?? '', character.id);
   };
   if (await taken(slug)) {
     if (input.slug) throw new CharacterError('CHARACTER_INSTALL_FAILED', `The folder ${place.characters}/${slug} holds something else.`);

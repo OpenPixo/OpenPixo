@@ -1,4 +1,4 @@
-import type { AnimatedCharacter, CharacterBrief, CharacterBriefRequest, CharacterGear, CharacterJob, CharacterOrderRequest, CharacterService, CharacterTuning, CharacterUpdate, CharacterWear } from '@openpixo/contracts';
+import { isSampleCharacter, type AnimatedCharacter, CharacterBrief, CharacterBriefRequest, CharacterGear, CharacterJob, CharacterOrderRequest, CharacterService, CharacterTuning, CharacterUpdate, CharacterWear } from '@openpixo/contracts';
 import { CharacterError, characterError, isCharacterCode } from './errors.js';
 import * as wire from './wire.js';
 
@@ -7,6 +7,8 @@ export interface CharacterAccount {
   characterOrigin(): string | null;
   hasSession(): Promise<boolean>;
   character(route: string, method?: string, body?: unknown, signal?: AbortSignal): Promise<Response>;
+  /** The same without a session, for the free sample alone. */
+  characterSample(route: string, method?: string): Promise<Response>;
   creditsChanged(): void;
 }
 
@@ -37,12 +39,29 @@ export class CharacterCloud {
 
   private async send(route: string, method: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
     this.origin();
+    return this.answer(() => this.account.character(route, method, body, signal));
+  }
+
+  private async answer(request: () => Promise<Response>): Promise<Response> {
     let response: Response;
-    try { response = await this.account.character(route, method, body, signal); } catch (error) { throw characterError(error); }
+    try { response = await request(); } catch (error) { throw characterError(error); }
     if (response.ok) return response;
     let code: unknown;
     try { code = (await response.json() as { error?: { code?: unknown } }).error?.code; } catch { /* not ours */ }
     throw new CharacterError(isCharacterCode(code) ? code : 'CLOUD_UNAVAILABLE');
+  }
+
+  /** The free sample: no account is needed, and none is told. */
+  private async open(route: string, method = 'GET'): Promise<unknown> {
+    this.origin();
+    const response = await this.answer(() => this.account.characterSample(route, method));
+    try { return await response.json(); } catch { throw new CharacterError('CLOUD_UNAVAILABLE'); }
+  }
+
+  /** Null when the cloud has none. */
+  async sample(language: string): Promise<AnimatedCharacter | null> {
+    try { return wire.character(await this.open(`sample?language=${language.startsWith('zh') ? 'zh' : 'en'}`)); }
+    catch (error) { if (error instanceof CharacterError && error.code === 'CHARACTER_NOT_FOUND') return null; throw error; }
   }
 
   private async json(route: string, method = 'GET', body?: unknown): Promise<unknown> {
@@ -52,7 +71,7 @@ export class CharacterCloud {
 
   async service(): Promise<CharacterService> { return wire.service(await this.json('service')); }
   async list(): Promise<AnimatedCharacter[]> { return wire.characters(await this.json('characters')).map(c => this.seen(c)); }
-  async get(id: string): Promise<AnimatedCharacter> { return this.seen(wire.character(await this.json(`characters/${id}`))); }
+  async get(id: string): Promise<AnimatedCharacter> { return isSampleCharacter(id) ? wire.character(await this.open(`sample/${id}`)) : this.seen(wire.character(await this.json(`characters/${id}`))); }
   async brief(request: CharacterBriefRequest): Promise<CharacterBrief> { return wire.brief(await this.json('briefs', 'POST', request)); }
 
   /** Spends credits. The same request id answers the same job, so a lost answer can be asked for again. */
@@ -75,7 +94,7 @@ export class CharacterCloud {
   async saveMotion(id: string, name: string, tuning: CharacterTuning): Promise<AnimatedCharacter> { return wire.character(await this.json(`characters/${id}/motions/${name}`, 'PUT', { tuning })); }
   async removeMotion(id: string, name: string): Promise<AnimatedCharacter> { return wire.character(await this.json(`characters/${id}/motions/${name}`, 'DELETE')); }
   async pack(id: string, requestId: string): Promise<CharacterJob> { return wire.job(await this.json(`characters/${id}/pack`, 'POST', { requestId })); }
-  async download(id: string): Promise<wire.RemoteFiles & { revision: number }> { return wire.packageFiles(await this.json(`characters/${id}/download`, 'POST'), this.origin()); }
+  async download(id: string): Promise<wire.RemoteFiles & { revision: number }> { return wire.packageFiles(await (isSampleCharacter(id) ? this.open(`sample/${id}/download`, 'POST') : this.json(`characters/${id}/download`, 'POST')), this.origin()); }
 
   /** One motion with other sliders, as it would be packed. Nothing is saved. */
   async tune(id: string, motion: string, tuning: CharacterTuning, wear: CharacterWear, signal?: AbortSignal): Promise<Buffer> {

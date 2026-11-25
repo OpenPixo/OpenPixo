@@ -109,7 +109,8 @@ export function gear(value: unknown): CharacterGear {
 export interface RemoteFile { name: string; bytes: number; sha256: string }
 export interface RemoteFiles { baseUrl: string; token: string; files: RemoteFile[] }
 
-const MAX_FILE = 25 * 1024 * 1024, MAX_ALL = 200 * 1024 * 1024;
+/** The biggest character the cloud packs has 45 MB of positions (docs/character-service.md there). */
+const MAX_FILE = 64 * 1024 * 1024, MAX_ALL = 200 * 1024 * 1024;
 
 /** What can be downloaded. The token goes to `origin` alone. */
 export function remoteFiles(value: unknown, origin: string): RemoteFiles {

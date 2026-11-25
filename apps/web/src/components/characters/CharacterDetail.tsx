@@ -23,8 +23,10 @@ const TUNE_MS = 220;
 export const wornIn = (pack: Pick<PixoCharacterPack, 'tracks'>, wear: PixoWear): PixoWear => Object.fromEntries(Object.entries(wear).filter(([slot, id]) =>
   slot === 'head' ? pack.tracks.has('head') : slot === 'weapon' ? pack.tracks.has(id) && pack.tracks.has(`armF${id.replace('weapon', '')}`) : slot === 'cape' ? pack.tracks.has(id) : true));
 
-export function CharacterDetail({ character: c, gear, service, games, balance, onChange, onHold, onRead, onGear, onBack, onDeleted, onOpenProject, onOpenAccount }: {
+export function CharacterDetail({ character: c, sample, gear, service, games, balance, onChange, onHold, onRead, onGear, onBack, onDeleted, onOpenProject, onOpenAccount }: {
   character: LocalCharacter;
+  /** The free sample: it can be dressed, played and put into games, and nothing of it can be changed. */
+  sample?: boolean;
   gear: CharacterGear | null;
   service: CharacterService | null;
   games: readonly PageGame[];
@@ -188,9 +190,10 @@ export function CharacterDetail({ character: c, gear, service, games, balance, o
       <Button variant="ghost" size="sm" onClick={onBack} data-testid="character-back"><Icon name="arrow-left" size={14} /> {t('characters.title')}</Button>
       {renaming ? <form className={styles.rename} onSubmit={e => { e.preventDefault(); void save({ name: name.trim() }).then(next => { if (next) setRenaming(false); }); }}>
         <Input autoFocus value={name} maxLength={60} aria-label={t('characters.name')} onChange={e => setName(e.target.value)} /><Button size="sm" type="submit" variant="primary" disabled={!name.trim()}>{t('common.save')}</Button><Button size="sm" variant="ghost" onClick={() => { setName(c.name); setRenaming(false); }}>{t('common.cancel')}</Button>
-      </form> : <h1>{c.name} <Button variant="ghost" size="icon" aria-label={t('characters.rename')} onClick={() => setRenaming(true)}><Icon name="pencil" size={13} /></Button></h1>}
-      <span className={styles.cardMeta}>{t(c.style === 'ink' ? 'characters.style.ink' : 'characters.style.cute')}</span>
-      <div className={styles.right}>{balance}<Button variant="ghost" size="sm" disabled={working} onClick={() => setDeleting(true)}><Icon name="trash" size={14} /> {t('characters.delete')}</Button></div>
+      </form> : <h1>{c.name} {!sample && <Button variant="ghost" size="icon" aria-label={t('characters.rename')} onClick={() => setRenaming(true)}><Icon name="pencil" size={13} /></Button>}</h1>}
+      <span className={styles.cardMeta}>{t(sample ? 'characters.sample' : c.style === 'ink' ? 'characters.style.ink' : 'characters.style.cute')}</span>
+      <div className={styles.right}>{balance}{sample ? <Button variant="primary" size="sm" onClick={onBack} data-testid="character-sample-own">{t('characters.sampleOwn')}</Button>
+        : <Button variant="ghost" size="sm" disabled={working} onClick={() => setDeleting(true)}><Icon name="trash" size={14} /> {t('characters.delete')}</Button>}</div>
     </header>
     <div className={styles.detail}>
       <section className={styles.stage} data-ground={ground} aria-label={c.name}>
@@ -214,8 +217,8 @@ export function CharacterDetail({ character: c, gear, service, games, balance, o
         </div>
       </section>
       <aside className={styles.panel}>
-        <SegmentedTabs className={styles.tabs} label={c.name} value={tab} onValueChange={v => setTab(v as typeof tab)} items={[{ value: 'wardrobe', label: t('characters.wardrobe') }, { value: 'motions', label: t('characters.motions') }, { value: 'games', label: t('characters.games'), ...(c.games.length ? { count: c.games.length } : {}) }]} />
-        {tab === 'wardrobe' && wear && pack && <Wardrobe character={c} pack={pack} wear={wear} onWear={dress} onOutfits={saveOutfits} onGear={() => setGearOpen(true)} busy={working} />}
+        <SegmentedTabs className={styles.tabs} label={c.name} value={tab} onValueChange={v => setTab(v as typeof tab)} items={[{ value: 'wardrobe', label: t('characters.wardrobe') }, ...(sample ? [] : [{ value: 'motions', label: t('characters.motions') }]), { value: 'games', label: t('characters.games'), ...(c.games.length ? { count: c.games.length } : {}) }]} />
+        {tab === 'wardrobe' && wear && pack && <Wardrobe character={c} {...(sample ? { sample } : {})} pack={pack} wear={wear} onWear={dress} onOutfits={saveOutfits} onGear={() => setGearOpen(true)} busy={working} />}
         {tab === 'motions' && <MotionsPanel character={c} pack={pack} gear={gear} service={service} motion={motion} busy={working} asking={asking} draft={drafts[motion]} onDraft={values => setDrafts(all => ({ ...all, [motion]: values }))} wish={motionWish} onWish={setMotionWish} onPlay={choose} onPreview={preview} onSave={saveTuning} onHold={onHold} onChange={onChange} onProblem={e => setProblem(errorText(t, e))} onAsk={text => ask({ kind: 'motion', text })} />}
         {tab === 'games' && <div className={styles.panelBody}>
           <p className={styles.hint}>{t('characters.gamesHint')}</p>

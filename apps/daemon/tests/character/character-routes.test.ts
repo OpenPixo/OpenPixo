@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { CHARACTER_ERROR_CODES, type AnimatedCharacter, type CharacterJob } from '@openpixo/contracts';
+import { CHARACTER_ERROR_CODES, CHARACTER_SAMPLES, type AnimatedCharacter, type CharacterJob } from '@openpixo/contracts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AccountError } from '../../src/account/errors.js';
 import { registerCharacterRoutes, type CharacterFacts } from '../../src/character/routes.js';
@@ -30,7 +30,7 @@ const gear = { designs: [{ id: 'armor0', kind: 'armor', style: 'ink', madeFor: I
 const SECRET = { form: 'SECRET', spec: 'SECRET', prompt: 'SECRET', bucketKey: 'SECRET' };
 
 let facts: CharacterFacts, root: string, db: ReturnType<typeof openDatabase>, server: Server, base: string, sameOrigin: boolean, signedIn: boolean, available: boolean, balanceReads: number;
-let asked: { route: string; method: string; body: unknown }[], downloads: string[], revision: number, files: Map<string, Buffer>, cloud: (route: string, method: string, body: unknown) => unknown;
+let asked: { route: string; method: string; body: unknown }[], open: string[], sample: boolean, downloads: string[], revision: number, files: Map<string, Buffer>, cloud: (route: string, method: string, body: unknown) => unknown;
 
 const PACKED = { items: { head: ['set0'], body: ['set0'], arm: ['set0'], leg: ['set0'], weapon: ['weapon0', 'weapon3'], cape: [], start: {} }, motions: { idle: {}, attack: {} }, outfits: [{ name: 'Patrol', wear: {} }] };
 const packageFiles = (n: number): Map<string, Buffer> => new Map([
@@ -57,7 +57,7 @@ beforeEach(async () => {
   for (const [id, name] of [['game', 'Frostline'], ['other', 'Other']]) db.prepare('INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)').run(id, name, 1, 1);
   sameOrigin = signedIn = available = true;
   balanceReads = 0;
-  asked = []; downloads = []; revision = 1; files = packageFiles(1); cloud = answer;
+  asked = []; open = []; sample = true; downloads = []; revision = 1; files = packageFiles(1); cloud = answer;
   const app = express();
   app.use(express.json());
   facts = registerCharacterRoutes(app, {
@@ -71,6 +71,14 @@ beforeEach(async () => {
         if (!signedIn) throw new AccountError('ACCOUNT_SIGNED_OUT');
         const value = cloud(route, method, body);
         return value instanceof Response ? value : value instanceof Uint8Array ? new Response(value as Uint8Array<ArrayBuffer>) : Response.json(value);
+      },
+      // as the cloud answers without an account: the sample, or nothing
+      characterSample: async (route, method = 'GET') => {
+        open.push(`${method} ${route}`);
+        const of = /^sample\/([0-9a-f-]+)(\/download)?$/u.exec(route), id = of?.[1] ?? (route === 'sample?language=zh' ? CHARACTER_SAMPLES.zh : route === 'sample?language=en' ? CHARACTER_SAMPLES.en : '');
+        if (!sample || !Object.values<string>(CHARACTER_SAMPLES).includes(id)) return new Response(JSON.stringify({ error: { code: 'CHARACTER_NOT_FOUND', message: 'SECRET' } }), { status: 404 });
+        if (of?.[2]) return Response.json({ characterId: id, revision: 1, baseUrl: `${ORIGIN}/files/${id}/1`, token: 'package-token', expiresAt: at, files: [...files].map(([name, b]) => ({ name, bytes: b.length, sha256: sha(b) })) });
+        return Response.json({ ...character({ id, name: id === CHARACTER_SAMPLES.zh ? '沼地拾荒人' : 'Marsh Scavenger' }), ...SECRET });
       },
     },
     fetchFile: async (url, init) => {
@@ -269,6 +277,67 @@ describe('packages on this computer', () => {
   });
 });
 
+describe('the free sample', () => {
+  it('is there for everyone, can be put into a game, and no account is asked for it', async () => {
+    signedIn = false;
+    const id = CHARACTER_SAMPLES.zh;
+    expect((await call('/characters/sample?language=zh-CN')).json.character).toMatchObject({ id, name: '沼地拾荒人', games: [] });
+    expect((await call('/characters/sample')).json.character.id).toBe(CHARACTER_SAMPLES.en);
+    expect((await call('/characters/sample?language=..%2F..%2Fcharacters')).json.character.id).toBe(CHARACTER_SAMPLES.en);
+    expect((await call(`/characters/${id}`)).json.name).toBe('沼地拾荒人');
+    expect((await call(`/characters/${id}/package/1/portrait.png`)).bytes.toString()).toBe('portrait');
+    await webGame();
+    expect((await call('/projects/game/heroes', 'POST', { characterId: id })).json).toMatchObject({ characterId: id, folder: expect.stringContaining('public/characters/'), playerState: 'written' });
+    const { games } = (await call('/characters/sample?language=zh-CN')).json.character, guide = await readFile(game('public', 'characters', games[0].slug, 'README.md'), 'utf8');
+    expect(games).toEqual([{ projectId: 'game', projectName: 'Frostline', slug: expect.any(String), revision: 1 }]);
+    // its ids are not those of an account
+    expect(guide).toContain('Its pieces are its own');
+    expect(guide).not.toContain('one inventory serves them all');
+    expect(asked).toEqual([]);
+    expect(open).toContain(`POST sample/${id}/download`);
+    // the account's own stay behind the sign-in
+    expect((await call(`/characters/${ID}`)).json.error.code).toBe('ACCOUNT_SIGNED_OUT');
+  });
+
+  it('is nobody\'s: nothing of it can be changed', async () => {
+    const id = CHARACTER_SAMPLES.en;
+    for (const [route, method, body] of [['', 'PATCH', { name: 'Mine' }], ['', 'DELETE', undefined], ['/pack', 'POST', {}], ['/tune', 'POST', { motion: 'run', tuning: {} }], ['/motions/run', 'PUT', { tuning: {} }], ['/motions/run', 'DELETE', undefined]] as const) {
+      expect((await call(`/characters/${id}${route}`, method, body)).json.error, `${method} ${route}`).toMatchObject({ code: 'CHARACTER_REQUEST_INVALID', message: expect.stringContaining('free sample cannot be changed') });
+    }
+    expect((await call('/characters/briefs', 'POST', { kind: 'motion', characterId: id, text: 'waves' })).json.error.message).toContain('free sample');
+    expect(asked).toEqual([]);
+  });
+
+  it('is one character in both languages: a game has it once, and knows it in either', async () => {
+    await webGame();
+    await call('/projects/game/heroes', 'POST', { characterId: CHARACTER_SAMPLES.en });
+    const zh = (await call('/characters/sample?language=zh')).json.character;
+    expect([zh.id, zh.games.map((g: any) => g.slug)]).toEqual([CHARACTER_SAMPLES.zh, ['marsh-scavenger']]);
+    expect((await call('/projects/game/heroes', 'POST', { characterId: CHARACTER_SAMPLES.zh })).json).toMatchObject({ slug: 'marsh-scavenger', characterId: CHARACTER_SAMPLES.zh });
+    expect((await call('/projects/game/heroes')).json.characters).toHaveLength(1);
+    // an own character of that name is another one
+    await call('/projects/game/heroes', 'POST', { characterId: ID, slug: 'mail' });
+    expect((await call('/projects/game/heroes')).json.characters.map((c: any) => c.slug).sort()).toEqual(['mail', 'marsh-scavenger']);
+  });
+
+  it('is told to a run, also when nobody is signed in', async () => {
+    await webGame();
+    signedIn = false;
+    expect(await facts.promptFacts('game')).toBeNull();
+    await call('/projects/game/heroes', 'POST', { characterId: CHARACTER_SAMPLES.en });
+    expect(await facts.promptFacts('game')).toEqual({ account: false, installed: [{ slug: 'marsh-scavenger', name: 'Marsh Scavenger', folder: 'public/characters/marsh-scavenger', sample: true }] });
+  });
+
+  it('may be missing, and without a service nothing is asked', async () => {
+    sample = false;
+    expect((await call('/characters/sample')).json).toEqual({ character: null });
+    available = false;
+    open = [];
+    expect((await call('/characters/sample')).json).toEqual({ character: null });
+    expect(open).toEqual([]);
+  });
+});
+
 describe('characters in a game', () => {
   const install = (body: Record<string, unknown> = {}, token?: string, project = 'game'): ReturnType<typeof call> => call(`/projects/${project}/heroes`, 'POST', { characterId: ID, ...body }, token);
 
@@ -280,6 +349,7 @@ describe('characters in a game', () => {
     expect((await readdir(folder)).sort()).toEqual(['README.md', 'character.json', 'hero.bin', 'hero.json', 'icon-set0.png', 'portrait.png', 'set0-head.png']);
     expect(JSON.parse(await readFile(path.join(folder, 'character.json'), 'utf8'))).toMatchObject({ format: 'pixo-character', characterId: ID, revision: 1, outfits: [{ name: 'Patrol' }], motions: ['idle', 'attack'] });
     const guide = await readFile(path.join(folder, 'README.md'), 'utf8');
+    expect(guide).toContain('There is no jumping motion unless one is listed');
     for (const said of ['`set0` (Ice hunter)', '`weapon3` (Sign)', '`attack`', '`Patrol` (worn at the start)', 'characters/mail-carrier', './pixo-character']) expect(guide).toContain(said);
     const player = await readFile(game('src', 'pixo-character.ts'), 'utf8');
     expect(player).toContain('export class PixoCharacterPack');
@@ -356,6 +426,10 @@ describe('characters in a game', () => {
     await mkdir(game('Assets'), { recursive: true });
     await writeFile(game('ProjectSettings', 'ProjectVersion.txt'), 'm_EditorVersion: 6000.0.1f1\n');
     expect((await install()).json).toMatchObject({ folder: 'Assets/StreamingAssets/Characters/mail-carrier', player: 'Assets/OpenPixo/PixoCharacter.cs', engine: 'unity' });
+    // phones and browsers have no folder to read, and two characters in one place must not mix their parts
+    const guide = await readFile(game('Assets', 'StreamingAssets', 'Characters', 'mail-carrier', 'README.md'), 'utf8');
+    for (const said of ['hero.Order = 5', 'UnityWebRequest', 'hero.Open(name => bytes[name])']) expect(guide).toContain(said);
+    expect(await readFile(game('Assets', 'OpenPixo', 'PixoCharacter.cs'), 'utf8')).toContain('[RequireComponent(typeof(SortingGroup))]');
   });
 
   it('never replaces a folder that is something else, and gives two characters of one name two folders', async () => {
@@ -385,12 +459,15 @@ describe('characters in a game', () => {
 
   it('tells a run what is in its game, and nothing when the user cannot have characters', async () => {
     await webGame();
-    expect(await facts.promptFacts('game')).toEqual({ installed: [] });
+    expect(await facts.promptFacts('game')).toEqual({ installed: [], account: true });
     await install();
-    expect(await facts.promptFacts('game')).toEqual({ installed: [{ slug: 'mail-carrier', name: 'Mail Carrier', folder: 'public/characters/mail-carrier' }] });
+    const installed = [{ slug: 'mail-carrier', name: 'Mail Carrier', folder: 'public/characters/mail-carrier' }];
+    expect(await facts.promptFacts('game')).toEqual({ installed, account: true });
     expect([await facts.promptFacts(null), await facts.promptFacts('nothing')]).toEqual([null, null]);
+    // what is in the game is still there for someone who signed out; a game with nothing in it is told nothing
     signedIn = false;
-    expect(await facts.promptFacts('game')).toBeNull();
+    expect(await facts.promptFacts('game')).toEqual({ installed, account: false });
+    expect(await facts.promptFacts('other')).toBeNull();
     signedIn = true; available = false;
     expect(await facts.promptFacts('game')).toBeNull();
   });

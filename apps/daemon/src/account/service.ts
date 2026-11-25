@@ -655,6 +655,9 @@ export class OpenPixoAccountService {
     }) as Response;
   }
 
+  /** What needs no account: the free sample. */
+  characterSample(route: string, method = 'GET'): Promise<Response> { return this.cloud().character(route, method, undefined, null); }
+
   /** The cloud's own origin, which alone may use plain http and storage headers. */
   cloudOrigin(): string | null { return this.client?.config.url ?? null; }
 

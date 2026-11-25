@@ -42,7 +42,10 @@ export const stateText = (t: Translate, state: CharacterJobState): string => t(S
 const PARTS: Record<CharacterPart, keyof Dict> = { hero: 'characters.part.hero', armor: 'characters.part.armor', gear: 'characters.part.gear', motion: 'characters.part.motion', fit: 'characters.part.fit' };
 export const partText = (t: Translate, part: CharacterPart): string => t(PARTS[part]);
 
-const MOTIONS: Record<string, keyof Dict> = { idle: 'characters.motion.idle', run: 'characters.motion.run', attack: 'characters.motion.attack', heavy: 'characters.motion.heavy', hurt: 'characters.motion.hurt', cheer: 'characters.motion.cheer' };
+const MOTIONS: Record<string, keyof Dict> = {
+  idle: 'characters.motion.idle', walk: 'characters.motion.walk', run: 'characters.motion.run', jump: 'characters.motion.jump', fall: 'characters.motion.fall', land: 'characters.motion.land',
+  attack: 'characters.motion.attack', heavy: 'characters.motion.heavy', hurt: 'characters.motion.hurt', down: 'characters.motion.down', cheer: 'characters.motion.cheer',
+};
 /** The user's own words for a motion that was written for them; its name is for the game's code. */
 export function motionText(t: Translate, m: Pick<CharacterMotion, 'name' | 'builtIn' | 'shown'>): string {
   const key = m.builtIn ? MOTIONS[m.name] : undefined;
@@ -50,5 +53,5 @@ export function motionText(t: Translate, m: Pick<CharacterMotion, 'name' | 'buil
 }
 
 /** Built-in motions in the order they are used, then the bought ones. */
-const ORDER = ['idle', 'run', 'attack', 'heavy', 'hurt', 'cheer'];
+const ORDER = Object.keys(MOTIONS);
 export const inOrder = (motions: readonly CharacterMotion[]): CharacterMotion[] => [...motions].sort((a, b) => (a.builtIn ? ORDER.indexOf(a.name) : 99) - (b.builtIn ? ORDER.indexOf(b.name) : 99));

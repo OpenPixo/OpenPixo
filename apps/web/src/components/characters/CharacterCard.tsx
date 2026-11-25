@@ -22,7 +22,7 @@ function Moving({ character }: { character: LocalCharacter }) {
   return <canvas ref={canvas} className={`${styles.cardCanvas} ${shown ? styles.cardCanvasOn : ''}`} aria-hidden="true" />;
 }
 
-export function CharacterCard({ character: c, onOpen, onDeleted, onChange }: { character: LocalCharacter; onOpen: () => void; onDeleted: () => void; onChange: () => void }) {
+export function CharacterCard({ character: c, sample, onOpen, onDeleted, onChange }: { character: LocalCharacter; sample?: boolean; onOpen: () => void; onDeleted: () => void; onChange: () => void }) {
   const { t } = useI18n();
   const [near, setNear] = useState(false), [removing, setRemoving] = useState(false);
   const ready = c.state === 'ready', working = isWorking(c), update = c.games.some(g => g.revision < c.revision);
@@ -41,6 +41,7 @@ export function CharacterCard({ character: c, onOpen, onDeleted, onChange }: { c
     <span className={styles.cardStage}>
       <img src={characterFile(c.id, c.revision, 'portrait.png')} alt="" loading="lazy" draggable={false} />
       {near && canShowCharacters() && <Moving character={c} />}
+      {sample && <span className={styles.badge}>{t('characters.sample')}</span>}
       {working && c.job && <span className={styles.badge}>{stateText(t, c.job.state)}</span>}
     </span>
     <h3>{c.name}</h3>

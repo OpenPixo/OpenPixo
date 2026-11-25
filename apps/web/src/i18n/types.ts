@@ -2654,6 +2654,10 @@ export interface Dict {
   'characters.signedOut': string;
   'characters.signIn': string;
   'characters.retry': string;
+  'characters.sample': string;
+  'characters.sampleHeading': string;
+  'characters.sampleHint': string;
+  'characters.sampleOwn': string;
   'characters.mine': string;
   'characters.none': string;
   'characters.gone': string;
@@ -2764,10 +2768,15 @@ export interface Dict {
   'characters.motionPlaceholder': string;
   'characters.motionShared': string;
   'characters.motion.idle': string;
+  'characters.motion.walk': string;
   'characters.motion.run': string;
+  'characters.motion.jump': string;
+  'characters.motion.fall': string;
+  'characters.motion.land': string;
   'characters.motion.attack': string;
   'characters.motion.heavy': string;
   'characters.motion.hurt': string;
+  'characters.motion.down': string;
   'characters.motion.cheer': string;
   'characters.gamesHint': string;
   'characters.useInGame': string;

@@ -107,10 +107,10 @@ export function run(target: HTMLCanvasElement, actor: PixoCharacter, frame: () =
   return () => cancelAnimationFrame(handle);
 }
 
-/** Whether both feet leave the ground in a motion: only then is there a jump to make higher. */
+/** Whether both feet leave the ground in a motion: only then is there a jump to make higher. Who lies down lifts the feet as well. */
 export function jumps(pack: PixoCharacterPack, motion: string): boolean {
   const m = pack.data.motions[motion];
-  if (!m) return false;
+  if (!m || motion === 'down') return false;
   const low = (frame: number): number => {
     let y = -Infinity;
     for (const name of ['legF', 'legN']) { const t = pack.tracks.get(name); if (t) for (let i = frame * t.corners * 2 + 1, end = (frame + 1) * t.corners * 2; i < end; i += 2) y = Math.max(y, t.all[i]! / 8); }

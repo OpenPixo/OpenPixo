@@ -29,7 +29,7 @@ function Outfit({ pack, wear }: { pack: PixoCharacterPack; wear: PixoWear }) {
   return <canvas ref={canvas} className={styles.outfitCanvas} aria-hidden="true" />;
 }
 
-export function Wardrobe({ character: c, pack, wear, onWear, onOutfits, onGear, busy }: { character: LocalCharacter; pack: PixoCharacterPack; wear: PixoWear; onWear: (w: PixoWear) => void; onOutfits: (edit: (now: readonly CharacterOutfit[]) => CharacterOutfit[]) => void; onGear: () => void; busy: boolean }) {
+export function Wardrobe({ character: c, sample, pack, wear, onWear, onOutfits, onGear, busy }: { character: LocalCharacter; /** Nobody's: it can be dressed, but nothing can be saved. */ sample?: boolean; pack: PixoCharacterPack; wear: PixoWear; onWear: (w: PixoWear) => void; onOutfits: (edit: (now: readonly CharacterOutfit[]) => CharacterOutfit[]) => void; onGear: () => void; busy: boolean }) {
   const { t } = useI18n();
   const [naming, setNaming] = useState<string | null>(null);
   const has = (slot: PixoSlot, id: string): boolean => pack.data.items[slot].includes(id), put = (slot: PixoSlot, id: string | null): void => { const { [slot]: _, ...rest } = wear; onWear(id ? { ...rest, [slot]: id } : rest); };
@@ -50,17 +50,17 @@ export function Wardrobe({ character: c, pack, wear, onWear, onOutfits, onGear, 
       <div className={styles.outfits}>
         {c.outfits.map((o, i) => <div key={`${o.name}${i}`} className={same(o.wear, wear) ? styles.outfitOn : styles.outfit}>
           <button type="button" aria-pressed={same(o.wear, wear)} onClick={() => onWear({ ...o.wear })}><Outfit pack={pack} wear={o.wear} /><span>{o.name}</span></button>
-          <div className={styles.outfitTools}>
+          {!sample && <div className={styles.outfitTools}>
             <button type="button" aria-label={t('characters.startWith', { name: o.name })} title={t('characters.startWith', { name: o.name })} aria-pressed={o.start === true} className={o.start ? styles.startOn : ''} onClick={() => onOutfits(now => now.map(x => { const { start: _, ...rest } = x; return is(x, o) && !o.start ? { ...rest, start: true as const } : rest; }))}><Icon name="star" size={12} /></button>
             <button type="button" aria-label={t('characters.removeOutfit', { name: o.name })} title={t('characters.removeOutfit', { name: o.name })} onClick={() => onOutfits(now => now.filter(x => !is(x, o)))}><Icon name="close" size={12} /></button>
-          </div>
+          </div>}
         </div>)}
-        {c.outfits.length < 24 && !c.outfits.some(o => same(o.wear, wear)) && naming === null && <button type="button" className={styles.outfitNew} onClick={() => setNaming('')} data-testid="outfit-save"><Icon name="plus" size={16} /><span>{t('characters.saveOutfit')}</span></button>}
+        {!sample && c.outfits.length < 24 && !c.outfits.some(o => same(o.wear, wear)) && naming === null && <button type="button" className={styles.outfitNew} onClick={() => setNaming('')} data-testid="outfit-save"><Icon name="plus" size={16} /><span>{t('characters.saveOutfit')}</span></button>}
       </div>
       {naming !== null && <form className={styles.rename} onSubmit={e => { e.preventDefault(); const name = naming.trim(); if (!name) return; onOutfits(now => [...now, { name, wear: { ...wear }, ...(now.length ? {} : { start: true as const }) }]); setNaming(null); }}>
         <Input autoFocus value={naming} maxLength={40} placeholder={t('characters.outfitName')} aria-label={t('characters.outfitName')} onChange={e => setNaming(e.target.value)} /><Button size="sm" variant="primary" type="submit" disabled={!naming.trim()}>{t('common.save')}</Button><Button size="sm" variant="ghost" onClick={() => setNaming(null)}>{t('common.cancel')}</Button>
       </form>}
-      <p className={styles.hint}>{t('characters.outfitsHint')}</p>
+      {!sample && <p className={styles.hint}>{t('characters.outfitsHint')}</p>}
     </section>
     {sets.length > 0 && <section>
       <h3>{t('characters.armour')}</h3>
@@ -72,6 +72,6 @@ export function Wardrobe({ character: c, pack, wear, onWear, onOutfits, onGear, 
     </section>}
     {shelf('weapon', t('characters.weapons'), weapons)}
     {capes.length > 0 && shelf('cape', t('characters.capes'), capes)}
-    <Button className={styles.addGear} disabled={busy} onClick={onGear} data-testid="character-gear"><Icon name="plus" size={14} /> {t('characters.addGear')}</Button>
+    {!sample && <Button className={styles.addGear} disabled={busy} onClick={onGear} data-testid="character-gear"><Icon name="plus" size={14} /> {t('characters.addGear')}</Button>}
   </div>;
 }

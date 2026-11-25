@@ -28,6 +28,12 @@ export type CharacterTuning = Partial<Record<keyof typeof CHARACTER_TUNING, numb
 /** The weapon a character was drawn with. It belongs to that character alone. */
 export const CHARACTER_OWN_WEAPON = 'weapon0';
 
+/** The free sample: one finished character for everyone, also signed out, in the two languages of the app. It is nobody's, so it cannot be changed. */
+export const CHARACTER_SAMPLES = { en: '5a3b1e00-0000-4000-8000-000000000001', zh: '5a3b1e00-0000-4000-8000-000000000002' } as const;
+export const isSampleCharacter = (id: string): boolean => Object.values<string>(CHARACTER_SAMPLES).includes(id);
+/** The sample in another language is the same character. */
+export const isSameCharacter = (a: string, b: string): boolean => a === b || isSampleCharacter(a) && isSampleCharacter(b);
+
 export interface CharacterPricePart { part: CharacterPart; credits: number }
 export interface CharacterService { paused: boolean; priceVersion: number; prices: Record<CharacterPart, number> }
 
@@ -134,6 +140,8 @@ export interface LocalCharacter extends AnimatedCharacter { games: CharacterGame
 
 /** GET /api/characters */
 export interface CharactersResponse { characters: LocalCharacter[]; suggestions: CharacterSuggestion[] }
+/** Null when there is none. */
+export interface CharacterSampleResponse { character: LocalCharacter | null }
 
 /** An agent has no credits of its own to spend here: it proposes, and the user orders. */
 export interface CharacterSuggestion { id: string; projectId: string; projectName: string; text: string; style: CharacterStyle | null; armor: boolean; gear: boolean; createdAt: string }

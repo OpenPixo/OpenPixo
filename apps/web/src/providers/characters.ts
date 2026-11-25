@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import {
   CHARACTER_ERROR_CODES,
-  type CharacterBrief, type CharacterBriefRequest, type CharacterErrorCode, type CharacterGear, type CharacterJob, type CharactersResponse, type CharactersStatus,
+  type CharacterBrief, type CharacterBriefRequest, type CharacterErrorCode, type CharacterGear, type CharacterJob, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus,
   type CharacterTuning, type CharacterUpdate, type CharacterWear, type InstalledCharacter, type LocalCharacter,
 } from '@openpixo/contracts';
 import { isCloudAccountAvailable, useOpenPixoAccount } from '../hooks/useOpenPixoAccount';
@@ -34,6 +34,8 @@ const of = (id: string): string => `/api/characters/${encodeURIComponent(id)}`;
 
 export const fetchCharactersStatus = (): Promise<CharactersStatus> => json('/api/characters/service');
 export const fetchCharacters = (signal?: AbortSignal): Promise<CharactersResponse> => json('/api/characters', 'GET', undefined, signal);
+/** The free sample, also for someone who is signed out. Null when there is none. */
+export const fetchSampleCharacter = async (language: string): Promise<LocalCharacter | null> => (await json<CharacterSampleResponse>(`/api/characters/sample?language=${encodeURIComponent(language)}`)).character;
 export const fetchCharacter = (id: string): Promise<LocalCharacter> => json(of(id));
 export const fetchCharacterGear = (): Promise<CharacterGear> => json('/api/characters/gear');
 export const priceCharacter = (request: CharacterBriefRequest, signal?: AbortSignal): Promise<CharacterBrief> => json('/api/characters/briefs', 'POST', request, signal);

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import {
-  CHARACTER_TUNING, PRODUCT_CLI_NAME, type CharacterBrief, type CharacterGear, type CharacterJob, type CharactersResponse, type CharactersStatus, type CharacterSuggestion, type InstalledCharacter,
+  CHARACTER_TUNING, PRODUCT_CLI_NAME, type CharacterBrief, type CharacterGear, type CharacterJob, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus, type CharacterSuggestion, type InstalledCharacter,
   type InstalledCharactersResponse, type LocalCharacter,
 } from '@openpixo/contracts';
 import { accountCliApi } from '../account/cli-common.js';
@@ -9,10 +9,11 @@ import { resolveDaemonUrl } from '../daemon-url.js';
 import { recipeCliText } from '../recipes/cli-common.js';
 
 /** Commands of `pixo character` that are about animated characters; the rest are character cards. */
-export const ANIMATED_COMMANDS = ['service', 'mine', 'info', 'make', 'add', 'fit', 'job', 'gear', 'wear', 'outfits', 'tune', 'pack', 'rename', 'remove', 'install', 'installed', 'uninstall', 'suggest'] as const;
+export const ANIMATED_COMMANDS = ['service', 'sample', 'mine', 'info', 'make', 'add', 'fit', 'job', 'gear', 'wear', 'outfits', 'tune', 'pack', 'rename', 'remove', 'install', 'installed', 'uninstall', 'suggest'] as const;
 
 export const ANIMATED_USAGE = `Animated characters, made by OpenPixo Cloud for credits:
 ${PRODUCT_CLI_NAME} character service [--json]                     Prices, and whether characters are available.
+${PRODUCT_CLI_NAME} character sample [--language en|zh] [--json]   The free sample: no account or credits needed. Install it like any other.
 ${PRODUCT_CLI_NAME} character mine [--json]                        Your characters, and the games they are in.
 ${PRODUCT_CLI_NAME} character info <id> [--json]
 ${PRODUCT_CLI_NAME} character make (--text <words> | --prompt-file <path|->) [--armor] [--weapons] [--style ink|cute] [--body angular|round|lanky|tiny] [--yes] [--json]
@@ -114,7 +115,7 @@ export async function runAnimatedCharacterCli(args: string[]): Promise<void> {
   try {
     const { values, positionals } = parseArgs({ args: args.slice(1), allowPositionals: true, options: {
       json: { type: 'boolean' }, yes: { type: 'boolean' }, wait: { type: 'boolean' }, off: { type: 'boolean' }, armor: { type: 'boolean' }, weapons: { type: 'boolean' }, pieces: { type: 'string' }, project: { type: 'string' }, slug: { type: 'string' }, name: { type: 'string' },
-      text: { type: 'string' }, 'prompt-file': { type: 'string' }, file: { type: 'string' }, style: { type: 'string' }, body: { type: 'string' }, set: { type: 'string', multiple: true }, 'daemon-url': { type: 'string' },
+      text: { type: 'string' }, 'prompt-file': { type: 'string' }, file: { type: 'string' }, style: { type: 'string' }, body: { type: 'string' }, language: { type: 'string' }, set: { type: 'string', multiple: true }, 'daemon-url': { type: 'string' },
     } as const });
     json = values.json === true;
     const command = args[0] as (typeof ANIMATED_COMMANDS)[number], api = await daemonApi(values['daemon-url']), [first, second, ...rest] = positionals;
@@ -142,6 +143,12 @@ export async function runAnimatedCharacterCli(args: string[]): Promise<void> {
         takes(0);
         const s = await api<CharactersStatus>('/characters/service');
         print(s, !s.available ? 'Characters are not available in this build.' : !s.signedIn ? 'Sign in to use characters.' : !s.service ? 'OpenPixo cloud is unavailable.' : `${s.service.paused ? 'Paused. ' : ''}${Object.entries(s.service.prices).map(([k, v]) => `${k} ${v}`).join(', ')} credits`);
+        return;
+      }
+      case 'sample': {
+        takes(0);
+        const { character } = await api<CharacterSampleResponse>(`/characters/sample?language=${encodeURIComponent(values.language ?? 'en')}`);
+        print({ character }, character ? `${show(character)}\nFree. Put it into a game with "${PRODUCT_CLI_NAME} character install ${character.id}".` : 'There is no sample.');
         return;
       }
       case 'mine': {

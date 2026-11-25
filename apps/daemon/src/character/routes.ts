@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { Express, Request, Response } from 'express';
 import {
-  CHARACTER_BODIES, CHARACTER_KINDS, CHARACTER_STYLES, gamePlanIsPending, type AnimatedCharacter, type CharacterBriefRequest, type GameCharactersPromptInput, type CharacterGame, type CharactersResponse, type CharactersStatus, type CharacterSuggestion,
+  CHARACTER_BODIES, CHARACTER_KINDS, CHARACTER_STYLES, gamePlanIsPending, isSampleCharacter, type AnimatedCharacter, type CharacterBriefRequest, type GameCharactersPromptInput, type CharacterGame, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus, type CharacterSuggestion,
   type CharacterUpdate, type InstalledCharacter, type InstalledCharactersResponse, type LocalCharacter, type Project,
 } from '@openpixo/contracts';
 import { getProject } from '../db.js';
@@ -37,7 +37,10 @@ const REQUEST_ID = /^[A-Za-z0-9._:-]{8,200}$/u;
 const record = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const invalid = (message?: string): never => { throw new CharacterError('CHARACTER_REQUEST_INVALID', message); };
 const param = (req: Request, name: string): string => String(req.params[name]);
+/** The free sample is nobody's; the cloud would say that there is no such character. */
+const notSample = (value: string): string => isSampleCharacter(value) ? invalid('The free sample cannot be changed. Make a character of your own for that.') : value;
 const id = (req: Request): string => { const value = param(req, 'id').toLowerCase(); return CHARACTER_ID.test(value) ? value : (() => { throw new CharacterError('CHARACTER_NOT_FOUND'); })(); };
+const own = (req: Request): string => notSample(id(req));
 const matching = (form: RegExp, value: string): string => form.test(value) ? value : (() => { throw new CharacterError('CHARACTER_NOT_FOUND'); })();
 const one = <T extends string>(all: readonly T[], value: unknown): T => all.find(x => x === value) ?? invalid();
 
@@ -53,7 +56,7 @@ function title(value: unknown, max: number): string {
 
 function briefRequest(value: unknown): CharacterBriefRequest {
   const o = record(value), kind = one(CHARACTER_KINDS, o.kind), flag = (v: unknown): boolean => v === undefined || typeof v === 'boolean' ? v === true : invalid();
-  const characterId = kind === 'character' ? undefined : typeof o.characterId === 'string' && CHARACTER_ID.test(o.characterId) ? o.characterId : invalid('Say which character it is for.');
+  const characterId = kind === 'character' ? undefined : typeof o.characterId === 'string' && CHARACTER_ID.test(o.characterId) ? notSample(o.characterId) : invalid('Say which character it is for.');
   return {
     kind, ...(characterId ? { characterId } : {}),
     ...(kind === 'fit' ? { design: typeof o.design === 'string' && DESIGN_ID.test(o.design) && o.design.startsWith('armor') ? o.design : invalid('Say which armour to fit.') } : { text: words(o.text) }),
@@ -120,18 +123,18 @@ export function registerCharacterRoutes(app: Express, ctx: RegisterCharacterRout
 
   /** Which games have which characters. Only games that one was ever put into are looked at. */
   async function games(): Promise<Map<string, CharacterGame[]>> {
-    const found = new Map<string, CharacterGame[]>();
+    const found = new Map<string, CharacterGame[]>(), key = (characterId: string): string => isSampleCharacter(characterId) ? 'sample' : characterId;
     for (const projectId of (await records.read()).projects) {
       const project = getProject(ctx.db, projectId) as Project | null;
       if (!project) continue;
-      for (const c of await heroesOf(project).catch(() => [])) found.set(c.characterId, [...found.get(c.characterId) ?? [], { projectId, projectName: project.name, slug: c.slug, revision: c.revision }]);
+      for (const c of await heroesOf(project).catch(() => [])) found.set(key(c.characterId), [...found.get(key(c.characterId)) ?? [], { projectId, projectName: project.name, slug: c.slug, revision: c.revision }]);
     }
     return found;
   }
 
   async function local<T extends { id: string }>(characters: readonly T[]): Promise<(T & { games: CharacterGame[] })[]> {
     const used = await games();
-    return characters.map(c => ({ ...c, games: used.get(c.id) ?? [] }));
+    return characters.map(c => ({ ...c, games: used.get(isSampleCharacter(c.id) ? 'sample' : c.id) ?? [] }));
   }
 
   async function suggestions(): Promise<CharacterSuggestion[]> {
@@ -150,6 +153,11 @@ export function registerCharacterRoutes(app: Express, ctx: RegisterCharacterRout
     return { available: true, signedIn, service: signedIn ? await cloud.service().catch(() => null) : null };
   });
   on('get', '/api/characters', 'read', async (): Promise<CharactersResponse> => ({ characters: await local(await cloud.list()), suggestions: await suggestions() }));
+  // Signed in or not, and it costs nothing: finished clothes, motions and all. It is nobody's, so every change of it is refused by the cloud.
+  on('get', '/api/characters/sample', 'read', async (req): Promise<CharacterSampleResponse> => {
+    const found = cloud.available() ? await cloud.sample(typeof req.query.language === 'string' ? req.query.language : 'en') : null;
+    return { character: found ? (await local([found]))[0]! : null };
+  });
   on('get', '/api/characters/gear', 'read', () => cloud.gear());
   on('get', '/api/characters/gear/icons/:file', 'read', async (req, res) => {
     const piece = /^([a-z]+\d+)\.png$/u.exec(param(req, 'file'))?.[1] ?? '', file = await packages.icon(piece);
@@ -180,19 +188,19 @@ export function registerCharacterRoutes(app: Express, ctx: RegisterCharacterRout
   on('patch', '/api/characters/:id', 'free', async req => {
     const change = update(req.body);
     if (change.name !== undefined && isAgentToken(req)) throw new CharacterError('CHARACTER_USER_ONLY');
-    return (await local([await cloud.update(id(req), change)]))[0];
+    return (await local([await cloud.update(own(req), change)]))[0];
   });
-  on('delete', '/api/characters/:id', 'user', async req => { await cloud.remove(id(req)); await packages.forget(id(req)); return { id: id(req), deleted: true }; });
-  on('put', '/api/characters/:id/motions/:motion', 'free', async req => (await local([await cloud.saveMotion(id(req), matching(MOTION_NAME, param(req, 'motion')), tuning(record(req.body).tuning))]))[0]);
-  on('delete', '/api/characters/:id/motions/:motion', 'free', async req => (await local([await cloud.removeMotion(id(req), matching(MOTION_NAME, param(req, 'motion')))]))[0]);
+  on('delete', '/api/characters/:id', 'user', async req => { await cloud.remove(own(req)); await packages.forget(id(req)); return { id: id(req), deleted: true }; });
+  on('put', '/api/characters/:id/motions/:motion', 'free', async req => (await local([await cloud.saveMotion(own(req), matching(MOTION_NAME, param(req, 'motion')), tuning(record(req.body).tuning))]))[0]);
+  on('delete', '/api/characters/:id/motions/:motion', 'free', async req => (await local([await cloud.removeMotion(own(req), matching(MOTION_NAME, param(req, 'motion')))]))[0]);
   on('post', '/api/characters/:id/pack', 'free', req => {
     const { requestId = randomUUID() } = record(req.body);
-    return typeof requestId === 'string' && REQUEST_ID.test(requestId) ? cloud.pack(id(req), requestId) : invalid();
+    return typeof requestId === 'string' && REQUEST_ID.test(requestId) ? cloud.pack(own(req), requestId) : invalid();
   });
   on('post', '/api/characters/:id/tune', 'free', async (req, res) => {
     const o = record(req.body), gone = new AbortController();
     res.on('close', () => gone.abort());
-    const bytes = await cloud.tune(id(req), matching(MOTION_NAME, String(o.motion)), tuning(o.tuning), wear(o.wear), gone.signal);
+    const bytes = await cloud.tune(own(req), matching(MOTION_NAME, String(o.motion)), tuning(o.tuning), wear(o.wear), gone.signal);
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(bytes);
@@ -274,9 +282,12 @@ export function registerCharacterRoutes(app: Express, ctx: RegisterCharacterRout
 
   return {
     async promptFacts(projectId) {
-      if (!projectId || !cloud.available() || !await cloud.signedIn().catch(() => false)) return null;
+      if (!projectId || !cloud.available()) return null;
       const project = getProject(ctx.db, projectId) as Project | null;
-      return project ? { installed: (await heroesOf(project).catch(() => [])).map(({ slug, name, folder }) => ({ slug, name, folder })) } : null;
+      if (!project) return null;
+      const account = await cloud.signedIn().catch(() => false), installed = (await heroesOf(project).catch(() => [])).map(({ slug, name, folder, characterId }) => ({ slug, name, folder, ...(isSampleCharacter(characterId) ? { sample: true } : {}) }));
+      // someone who is signed out can still have the sample in a game, or a copy of what they made
+      return account || installed.length ? { installed, account } : null;
     },
   };
 }
