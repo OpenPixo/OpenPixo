@@ -31,11 +31,16 @@ export const PRODUCT_CLOUD_ANON_KEY: string =
 // can move again without an app update.
 export const PRODUCT_AGENT_URL: string = 'https://api.openpixo.com';
 
+// The character service of the production cloud. Empty: not open yet, and the app does not show the page.
+export const PRODUCT_CHARACTER_URL: string = '';
+
 export interface OpenPixoCloudConfig {
   url: string;
   anonKey: string;
   /** Base of the agent gateway: `<agentUrl>/agent-chat/...`. */
   agentUrl: string;
+  /** Base of the character service: `<characterUrl>/v1/...`. Absent where the cloud has none. */
+  characterUrl?: string;
 }
 
 function cloudAddress(raw: string): URL | null {
@@ -53,12 +58,14 @@ function cloudAddress(raw: string): URL | null {
 /**
  * An HTTPS origin (loopback HTTP for development) and a single-line anon key, or null. The
  * production cloud has its gateway; any other cloud names one, or serves it as a function of its
- * own, as a local stand-in does. A gateway address that is present but invalid is null too.
+ * own, as a local stand-in does. The character service has an address only where it is open. An
+ * address that is present but invalid is null too.
  */
 export function parseOpenPixoCloudConfig(
   rawUrl: string | undefined,
   rawAnonKey: string | undefined,
   rawAgentUrl?: string | undefined,
+  rawCharacterUrl?: string | undefined,
 ): OpenPixoCloudConfig | null {
   const urlText = rawUrl?.trim();
   const anonKey = rawAnonKey?.trim();
@@ -66,12 +73,15 @@ export function parseOpenPixoCloudConfig(
   const address = cloudAddress(urlText);
   if (address == null || address.pathname !== '/') return null;
   const url = address.origin;
-  const agentText = rawAgentUrl?.trim();
-  if (agentText) {
-    const agent = cloudAddress(agentText);
-    return agent == null ? null : { url, anonKey, agentUrl: `${agent.origin}${agent.pathname.replace(/\/+$/u, '')}` };
-  }
-  return { url, anonKey, agentUrl: url === PRODUCT_CLOUD_URL ? PRODUCT_AGENT_URL : `${url}/functions/v1` };
+  const base = (text: string): string | null => {
+    const service = cloudAddress(text);
+    return service == null ? null : `${service.origin}${service.pathname.replace(/\/+$/u, '')}`;
+  };
+  const agentUrl = base(rawAgentUrl?.trim() || (url === PRODUCT_CLOUD_URL ? PRODUCT_AGENT_URL : `${url}/functions/v1`));
+  const characterText = rawCharacterUrl?.trim() || (url === PRODUCT_CLOUD_URL ? PRODUCT_CHARACTER_URL : '');
+  const characterUrl = characterText ? base(characterText) : undefined;
+  if (agentUrl == null || characterUrl === null) return null;
+  return { url, anonKey, agentUrl, ...(characterUrl ? { characterUrl } : {}) };
 }
 
 export const OPENPIXO_REGISTRY = {

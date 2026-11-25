@@ -52,7 +52,7 @@ function resolveHeadlessConfig(): PackagedConfig {
   return {
     
     appVersion: null,
-    cloud: parseOpenPixoCloudConfig(process.env.PIXO_CLOUD_URL, process.env.PIXO_CLOUD_ANON_KEY, process.env.PIXO_AGENT_URL),
+    cloud: parseOpenPixoCloudConfig(process.env.PIXO_CLOUD_URL, process.env.PIXO_CLOUD_ANON_KEY, process.env.PIXO_AGENT_URL, process.env.PIXO_CHARACTER_URL),
     daemonCliEntry: null,
     daemonSidecarEntry: null,
     namespace,

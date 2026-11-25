@@ -23,6 +23,8 @@ export type EntryHomeView =
   | 'game-hub'
   // 生成: the one generator for images, audio and 3D, with or without a game.
   | 'generate'
+  // 角色: finished characters whose gear can be changed, for every game.
+  | 'characters'
   | 'integrations'
   | 'community'
   | 'drafts'
@@ -40,6 +42,8 @@ export type Route =
       storeTab?: 'style' | 'recipe' | 'character-card';
       /** 生成 opened for this game (`/generate/:projectId`); absent is the page's last choice. */
       generateProjectId?: string;
+      /** One character (`/characters/:id`); absent is the list. */
+      characterId?: string;
     } | {
       kind: 'project';
       projectId: string;
@@ -66,6 +70,9 @@ export function parseRoute(pathname: string): Route {
   }
   if (parts[0] === 'store') return { kind: 'home', view: 'store', ...(parts[1] ? { storeItemName: decodeURIComponent(parts.slice(1).join('/')) } : {}) };
   if (parts[0] === 'game-hub' && !parts[1]) return { kind: 'home', view: 'game-hub' };
+  if (parts[0] === 'characters') {
+    return { kind: 'home', view: 'characters', ...(parts[1] ? { characterId: decodeURIComponent(parts[1]) } : {}) };
+  }
   if (parts[0] === 'generate') {
     return { kind: 'home', view: 'generate', ...(parts[1] ? { generateProjectId: decodeURIComponent(parts[1]) } : {}) };
   }
@@ -145,6 +152,7 @@ export function buildPath(route: Route): string {
       return route.storeTab ? `/store/${{ style: 'styles', recipe: 'recipes', 'character-card': 'character-cards' }[route.storeTab]}` : '/store';
     }
     if (route.view === 'game-hub') return '/game-hub';
+    if (route.view === 'characters') return route.characterId ? `/characters/${encodeURIComponent(route.characterId)}` : '/characters';
     if (route.view === 'generate') return route.generateProjectId ? `/generate/${encodeURIComponent(route.generateProjectId)}` : '/generate';
     if (route.view === 'integrations') return '/integrations';
     if (route.view === 'community') return '/';

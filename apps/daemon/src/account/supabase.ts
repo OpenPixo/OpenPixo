@@ -45,6 +45,23 @@ export class SupabaseClient {
     }
   }
 
+  /**
+   * The character service, on an address of its own. The raw answer is returned, success or not: the
+   * character module knows its codes. Only a transport failure throws.
+   */
+  /** Without a token only what is open to everyone answers. */
+  async character(route: string, method: string, body: unknown, token: string | null, signal?: AbortSignal): Promise<Response> {
+    if (!this.config.characterUrl) throw new AccountError('ACCOUNT_NOT_CONFIGURED');
+    try {
+      // A form takes a model a while to fill.
+      return await fetch(`${this.config.characterUrl}/v1/${route}`, {
+        method, redirect: 'error', signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(180_000)]),
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    } catch { throw new AccountError('CLOUD_UNAVAILABLE'); }
+  }
+
   private async request(url: string, method: string, body: unknown, token: string | undefined, auth: boolean): Promise<unknown> {
     try {
       const response = await fetch(url, {

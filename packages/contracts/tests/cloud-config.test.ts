@@ -23,6 +23,15 @@ describe('parseOpenPixoCloudConfig', () => {
     expect(parseOpenPixoCloudConfig(baked.url, baked.anonKey, baked.agentUrl)).toEqual(baked);
   });
 
+  it('has a character service only where one is named', () => {
+    expect(parseOpenPixoCloudConfig('https://test.example.com', 'anon')).not.toHaveProperty('characterUrl');
+    expect(parseOpenPixoCloudConfig('https://test.example.com', 'anon', undefined, ' https://characters.example.com/ ')?.characterUrl).toBe('https://characters.example.com');
+    const baked = parseOpenPixoCloudConfig('https://test.example.com', 'anon', undefined, 'https://characters.example.com')!;
+    expect(parseOpenPixoCloudConfig(baked.url, baked.anonKey, baked.agentUrl, baked.characterUrl)).toEqual(baked);
+    expect(parseOpenPixoCloudConfig('https://test.example.com', 'anon', undefined, 'http://characters.example.com')).toBeNull();
+    expect(parseOpenPixoCloudConfig('https://test.example.com', 'anon', undefined, 'https://a:b@characters.example.com')).toBeNull();
+  });
+
   it('refuses an unsafe gateway address rather than sending sessions to it', () => {
     expect(parseOpenPixoCloudConfig('https://test.example.com', 'anon', 'http://api.example.com')).toBeNull();
     expect(parseOpenPixoCloudConfig('https://test.example.com', 'anon', 'https://user:pass@api.example.com')).toBeNull();

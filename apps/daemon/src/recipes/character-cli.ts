@@ -1,13 +1,18 @@
 import { PRODUCT_CLI_NAME } from '@openpixo/contracts';
 import { parseArgs } from 'node:util';
+import { ANIMATED_COMMANDS, ANIMATED_USAGE, runAnimatedCharacterCli } from '../character/cli.js';
 import { recipeCliApi, recipeCliError, recipeCliText } from './cli-common.js';
 
-const USAGE = `${PRODUCT_CLI_NAME} character list [--project <id>] [--json]
+const USAGE = `Character cards, the look of a game's characters:
+${PRODUCT_CLI_NAME} character list [--project <id>] [--json]
 ${PRODUCT_CLI_NAME} character show|delete <slug> [--project <id>] [--json]
 ${PRODUCT_CLI_NAME} character create|update <slug> [--name <name>] [--description <text> | --prompt-file <path|->]
-  [--reference <project-relative-path>]... [--style <style>] [--notes <text>] [--file <json-path|->] [--project <id>] [--json]`;
+  [--reference <project-relative-path>]... [--style <style>] [--notes <text>] [--file <json-path|->] [--project <id>] [--json]
+
+${ANIMATED_USAGE}`;
 
 export async function runCharacterCli(args: string[]): Promise<void> {
+  if ((ANIMATED_COMMANDS as readonly string[]).includes(args[0] ?? '') && !args.includes('--help') && !args.includes('-h')) return runAnimatedCharacterCli(args);
   let json = args.includes('--json');
   try {
     if (!args.length || args.includes('--help') || args.includes('-h')) { console.log(USAGE); return; }

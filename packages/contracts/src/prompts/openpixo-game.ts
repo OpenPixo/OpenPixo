@@ -75,6 +75,8 @@ export interface GameProjectPromptInput {
   cloudTools?: readonly CloudToolInfo[] | undefined;
   /** Recipes available to this project; the recipe block is omitted when absent or empty. */
   recipes?: ReadonlyArray<GameRecipePromptEntry> | undefined;
+  /** Animated characters: present only when the signed-in user can have them; `installed` are those in this game. */
+  characters?: GameCharactersPromptInput | null | undefined;
   planToolNote?: string | null | undefined;
   userInstructions?: string | undefined;
   projectInstructions?: string | undefined;
@@ -302,6 +304,42 @@ ${lines.join('\n')}
 - Never adopt blindly. If you can view images, open every candidate image and pick the one that matches the request and passes its checks; a passing check does not prove the asset looks right. If you cannot view images (or the asset is audio or 3D), adopt nothing: list the candidates and checks and ask the user to choose.
 - A recipe paid from the art budget makes one candidate unless you pass \`--count\`, and each candidate costs one image.
 - \`adopt\` writes the chosen files to the recipe's engine path and records provenance. Use the adopted paths it returns when wiring the asset into code.`;
+}
+
+/** `account`: the user is signed in, so there can be more than what is in this game. `sample`: the free one, which cannot be changed. */
+export interface GameCharactersPromptInput { installed: ReadonlyArray<{ slug: string; name: string; folder: string; sample?: boolean }>; account: boolean }
+export const GAME_CHARACTERS_BLOCK_HEADING = '## Animated characters';
+
+/** Block 3c: finished characters whose gear can be changed. They cost the user's credits, so the agent proposes and never orders. */
+export function renderGameCharactersBlock(characters: GameCharactersPromptInput | null | undefined): string {
+  if (!characters) return '';
+  const cli = '"$PIXO_NODE_BIN" "$PIXO_BIN" character', installed = characters.installed.map(c => `- \`${c.slug}\` (${c.name}${c.sample ? ', the free sample: its motions, outfits and pieces are what they are' : ''}) in \`${c.folder}\`: read its \`README.md\` before writing code for it.`);
+  const theirs = `- Its folder is replaced on update, so write nothing into it; the player script is not yours to edit either.`, how = `- They face right and have the motions their README lists: walking, running, jumping, falling, landing, attacks, being hurt and knocked out, and what the user had written. There is no back view.`;
+  if (!characters.account) return `${GAME_CHARACTERS_BLOCK_HEADING}
+
+Finished side-view characters: animated, with armour, weapons (swung, spears, staffs, bows, launchers), shields and capes that change while they move.
+
+In this game:
+${installed.join('\n')}
+
+- Use a character that is here before drawing a hero by hand. Others need the user to sign in to OpenPixo.
+${theirs}
+${how}`;
+  return `${GAME_CHARACTERS_BLOCK_HEADING}
+
+The user can have finished side-view characters: animated, with armour, weapons (swung, spears, staffs, bows, launchers), shields and capes that change while they move. OpenPixo Cloud makes them for the user's credits. For Godot, Unity and web games.
+${installed.length ? `\nIn this game:\n${installed.join('\n')}\n` : ''}
+\`\`\`bash
+${cli} mine --json            # the user's characters
+${cli} install <id> --json    # put one into this game, or update it; free
+${cli} suggest --text "<one sentence>" [--armor] [--weapons] --json
+\`\`\`
+
+- Use a character that is here before drawing a hero by hand.
+${theirs}
+- You cannot order one. When the game needs a new one, propose it with \`suggest\` and tell the user it waits on the Characters page with its price.
+- Free, when the user asks for it, for their own characters: \`tune\` (how a motion feels), \`outfits\`, \`wear\` (which pieces go into the package), then \`pack\` and \`install\`.
+${how}`;
 }
 
 /** Block 4: verify through the host and never claim a check that did not run. */
@@ -887,6 +925,8 @@ export function composeOpenPixoGamePrompt(input: GameProjectPromptInput): string
   if (canRunTools) parts.push(input.mediaContractBlock?.trim() ?? renderGameMediaGenerationContract({ engineProfile: input.engineProfile }));
   const recipesBlock = canRunTools && !planning ? renderGameRecipesBlock(input.recipes) : '';
   if (recipesBlock) parts.push(recipesBlock);
+  const charactersBlock = canRunTools && !planning ? renderGameCharactersBlock(input.characters) : '';
+  if (charactersBlock) parts.push(charactersBlock);
   if (canRunTools && !planning) parts.push(renderGameVerificationBlock());
   const blocks: Array<[string, string | null | undefined]> = [
     ['Runtime planning tool', canRunTools ? input.planToolNote : null],
