@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { Express, Request, Response } from 'express';
 import {
-  CHARACTER_BODIES, CHARACTER_KINDS, CHARACTER_STYLES, gamePlanIsPending, isSampleCharacter, type AnimatedCharacter, type CharacterBriefRequest, type GameCharactersPromptInput, type CharacterGame, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus, type CharacterSuggestion,
+  CHARACTER_BODIES, CHARACTER_GEAR_TYPES, CHARACTER_KINDS, CHARACTER_STYLES, gamePlanIsPending, isSampleCharacter, type AnimatedCharacter, type CharacterBriefRequest, type GameCharactersPromptInput, type CharacterGame, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus, type CharacterSuggestion,
   type CharacterUpdate, type InstalledCharacter, type InstalledCharactersResponse, type LocalCharacter, type Project,
 } from '@openpixo/contracts';
 import { getProject } from '../db.js';
@@ -18,7 +18,7 @@ import { CharacterError, characterError } from './errors.js';
 import { installCharacter, installedCharacters, removeCharacter } from './install.js';
 import { CharacterPackages, type CharacterFetch } from './packages.js';
 import { CharacterRecords } from './records.js';
-import { CHARACTER_ID, DESIGN_ID, MOTION_NAME, outfits, PIECE_ID, tuning, wear } from './wire.js';
+import { CHARACTER_ID, MOTION_NAME, outfits, PIECE_ID, tuning, wear } from './wire.js';
 
 export interface RegisterCharacterRoutesDeps extends RouteDeps<'db' | 'http' | 'paths' | 'authorizeProjectRequest' | 'authorizeProjectToolRequest'> {
   account: CharacterAccount;
@@ -58,9 +58,9 @@ function briefRequest(value: unknown): CharacterBriefRequest {
   const o = record(value), kind = one(CHARACTER_KINDS, o.kind), flag = (v: unknown): boolean => v === undefined || typeof v === 'boolean' ? v === true : invalid();
   const characterId = kind === 'character' ? undefined : typeof o.characterId === 'string' && CHARACTER_ID.test(o.characterId) ? notSample(o.characterId) : invalid('Say which character it is for.');
   return {
-    kind, ...(characterId ? { characterId } : {}),
-    ...(kind === 'fit' ? { design: typeof o.design === 'string' && DESIGN_ID.test(o.design) && o.design.startsWith('armor') ? o.design : invalid('Say which armour to fit.') } : { text: words(o.text) }),
+    kind, ...(characterId ? { characterId } : {}), text: words(o.text),
     ...(o.style == null ? {} : { style: one(CHARACTER_STYLES, o.style) }), ...(o.body == null ? {} : { body: one(CHARACTER_BODIES, o.body) }), armor: flag(o.armor), gear: flag(o.gear),
+    ...(o.types == null ? {} : { types: Array.isArray(o.types) && o.types.length <= CHARACTER_GEAR_TYPES.length ? [...new Set(o.types.map(type => one(CHARACTER_GEAR_TYPES, type)))] : invalid() }),
   };
 }
 

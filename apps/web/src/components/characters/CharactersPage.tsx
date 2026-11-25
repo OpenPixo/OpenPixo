@@ -137,7 +137,7 @@ export function CharactersPage({ characterId, games, onOpenAccount, onOpenProjec
         onBack={() => navigate({ kind: 'home', view: 'characters' })} onOpenProject={onOpenProject} onOpenAccount={onOpenAccount}
         onDeleted={id => { setCharacters(all => all?.filter(c => c.id !== id) ?? null); navigate({ kind: 'home', view: 'characters' }, { replace: true }); }} />
     </main>;
-  } else if (section === 'gear') body = <GearShelf gear={gear} characters={characters} service={status.service} onGear={next => { setGear(next); void read(); }} onOrdered={read} onOpenAccount={onOpenAccount} />;
+  } else if (section === 'gear') body = <GearShelf gear={gear} characters={characters} onGear={next => { setGear(next); void read(); }} />;
   else {
     body = <>
       {status.service?.paused && <p className={styles.notice} role="status">{t('characters.paused')}</p>}

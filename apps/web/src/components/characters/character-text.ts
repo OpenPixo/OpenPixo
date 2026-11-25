@@ -1,4 +1,4 @@
-import type { CharacterErrorCode, CharacterJob, CharacterJobState, CharacterMotion, CharacterPart, LocalCharacter } from '@openpixo/contracts';
+import type { CharacterErrorCode, CharacterGearType, CharacterItem, CharacterJob, CharacterJobState, CharacterMotion, CharacterPart, LocalCharacter } from '@openpixo/contracts';
 import type { useI18n } from '../../i18n';
 import type { Dict } from '../../i18n/types';
 import { characterErrorCode, CharacterRequestError } from '../../providers/characters';
@@ -7,7 +7,7 @@ type Translate = ReturnType<typeof useI18n>['t'];
 
 const ERRORS: Partial<Record<CharacterErrorCode, keyof Dict>> = {
   ACCOUNT_SIGNED_OUT: 'characters.error.signedOut', INSUFFICIENT_CREDITS: 'characters.error.credits', CHARACTER_PAUSED: 'characters.paused', CHARACTER_BRIEF_INVALID: 'characters.error.price', CHARACTER_BRIEF_EXPIRED: 'characters.error.price',
-  CHARACTER_TEXT_REFUSED: 'characters.error.refused', CHARACTER_NOT_FOUND: 'characters.error.gone', CHARACTER_BUSY: 'characters.error.busy', CHARACTER_FULL: 'characters.error.full', CHARACTER_NOT_FITTED: 'characters.error.notFitted', CHARACTER_FITS: 'characters.error.fits',
+  CHARACTER_TEXT_REFUSED: 'characters.error.refused', CHARACTER_NOT_FOUND: 'characters.error.gone', CHARACTER_BUSY: 'characters.error.busy', CHARACTER_FULL: 'characters.error.full',
   CHARACTER_RATE_LIMITED: 'characters.error.limited', CHARACTER_DRAWING_FAILED: 'characters.error.drawing', CHARACTER_CONTENT_BLOCKED: 'characters.error.blocked', CHARACTER_MOTION_FAILED: 'characters.error.motion', CHARACTER_TIMED_OUT: 'characters.error.timedOut',
   CHARACTER_PACKING_FAILED: 'characters.error.packing', CHARACTER_DOWNLOAD_FAILED: 'characters.error.download', CLOUD_UNAVAILABLE: 'characters.error.cloud', CHARACTER_PLAYER_EDITED: 'characters.playerEdited',
 };
@@ -39,12 +39,21 @@ const STATES: Record<CharacterJobState, keyof Dict> = {
 };
 export const stateText = (t: Translate, state: CharacterJobState): string => t(STATES[state]);
 
-const PARTS: Record<CharacterPart, keyof Dict> = { hero: 'characters.part.hero', armor: 'characters.part.armor', gear: 'characters.part.gear', motion: 'characters.part.motion', fit: 'characters.part.fit' };
+const PARTS: Record<CharacterPart, keyof Dict> = { hero: 'characters.part.hero', armor: 'characters.part.armor', gear: 'characters.part.gear', motion: 'characters.part.motion' };
 export const partText = (t: Translate, part: CharacterPart): string => t(PARTS[part]);
 
+export const GEAR_TYPES: Record<CharacterGearType, keyof Dict> = {
+  blade: 'characters.type.blade', spear: 'characters.type.spear', staff: 'characters.type.staff', bow: 'characters.type.bow', launcher: 'characters.type.launcher', shield: 'characters.shields', cape: 'characters.capes',
+};
+/** Both hands are on it, so no shield is seen next to it. */
+export const takesBothHands = (item: CharacterItem | undefined): boolean => Boolean(item?.type);
+export const itemText = (t: Translate, i: CharacterItem): string => i.type ? `${i.label || i.id} · ${t(GEAR_TYPES[i.type])}` : i.label || i.id;
+
+/** Comes along with a shield. It is not a motion of the account, so it cannot be tuned or taken off. */
+export const GUARD = 'guard';
 const MOTIONS: Record<string, keyof Dict> = {
   idle: 'characters.motion.idle', walk: 'characters.motion.walk', run: 'characters.motion.run', jump: 'characters.motion.jump', fall: 'characters.motion.fall', land: 'characters.motion.land',
-  attack: 'characters.motion.attack', heavy: 'characters.motion.heavy', hurt: 'characters.motion.hurt', down: 'characters.motion.down', cheer: 'characters.motion.cheer',
+  attack: 'characters.motion.attack', heavy: 'characters.motion.heavy', hurt: 'characters.motion.hurt', down: 'characters.motion.down', cheer: 'characters.motion.cheer', [GUARD]: 'characters.motion.guard',
 };
 /** The user's own words for a motion that was written for them; its name is for the game's code. */
 export function motionText(t: Translate, m: Pick<CharacterMotion, 'name' | 'builtIn' | 'shown'>): string {

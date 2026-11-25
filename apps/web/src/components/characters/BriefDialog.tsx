@@ -34,7 +34,7 @@ export function BriefDialog({ brief, onClose, onOrdered, onUnsure, onOpenAccount
       {error !== null && <p className={styles.problem} role="alert">{unsure ? t('characters.error.maybe') : errorText(t, error)}</p>}
     </DialogBody>
     <DialogFooter>
-      <Button variant="ghost" disabled={ordering} onClick={onClose}>{t(brief.kind === 'fit' ? 'common.cancel' : 'characters.changeWords')}</Button>
+      <Button variant="ghost" disabled={ordering} onClick={onClose}>{t('characters.changeWords')}</Button>
       {enough ? <Button variant="primary" disabled={ordering} onClick={() => void order()} data-testid="character-order">{ordering ? t('characters.ordering') : t('characters.orderFor', { credits: brief.credits })}</Button>
         : <Button variant="primary" onClick={onOpenAccount}>{t('generate.topUp')}</Button>}
     </DialogFooter>

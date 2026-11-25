@@ -2680,7 +2680,6 @@ export interface Dict {
   'characters.part.armor': string;
   'characters.part.gear': string;
   'characters.part.motion': string;
-  'characters.part.fit': string;
   'characters.countSets': string;
   'characters.countWeapons': string;
   'characters.countMotions': string;
@@ -2728,6 +2727,15 @@ export interface Dict {
   'characters.armour': string;
   'characters.weapons': string;
   'characters.capes': string;
+  'characters.types': string;
+  'characters.type.blade': string;
+  'characters.type.spear': string;
+  'characters.type.staff': string;
+  'characters.type.bow': string;
+  'characters.type.launcher': string;
+  'characters.shields': string;
+  'characters.shieldHint': string;
+  'characters.motion.guard': string;
   'characters.wholeSet': string;
   'characters.nothing': string;
   'characters.slot.head': string;
@@ -2743,14 +2751,12 @@ export interface Dict {
   'characters.otherStyle': string;
   'characters.allOf': string;
   'characters.noneOf': string;
-  'characters.fit': string;
-  'characters.fitFor': string;
-  'characters.fitHint': string;
   'characters.gearPlaceholder': string;
   'characters.armourPlaceholder': string;
   'characters.gearShared': string;
   'characters.armourShared': string;
   'characters.tooMuch': string;
+  'characters.tooScattered': string;
   'characters.taken': string;
   'characters.saving': string;
   'characters.tune': string;
@@ -2792,7 +2798,6 @@ export interface Dict {
   'characters.gearIntro': string;
   'characters.usedBy': string;
   'characters.usedByNone': string;
-  'characters.fitsWhom': string;
   'characters.pieceId': string;
   'characters.throwAway': string;
   'characters.throwAwayShort': string;
@@ -2804,8 +2809,6 @@ export interface Dict {
   'characters.error.gone': string;
   'characters.error.busy': string;
   'characters.error.full': string;
-  'characters.error.notFitted': string;
-  'characters.error.fits': string;
   'characters.error.limited': string;
   'characters.error.drawing': string;
   'characters.error.blocked': string;

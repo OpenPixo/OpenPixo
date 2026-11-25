@@ -19,13 +19,13 @@ const sha = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 const at = '2026-11-25T00:00:00.000Z';
 
 const character = (change: Partial<AnimatedCharacter> = {}): AnimatedCharacter => ({
-  id: ID, name: 'Mail Carrier', body: 'angular', style: 'ink', state: 'ready', revision: 1, items: { sets: [{ id: 'set0', label: 'Ice hunter' }], weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon3', label: 'Sign' }], capes: [] },
-  fits: ['armor0'], outfits: [{ name: 'Patrol', wear: { head: 'set0', weapon: 'weapon0' }, start: true }], motions: [{ name: 'idle', builtIn: true, shown: '', tuning: {} }, { name: 'attack', builtIn: true, shown: '', tuning: { speed: 1.1 } }],
+  id: ID, name: 'Mail Carrier', body: 'angular', style: 'ink', state: 'ready', revision: 1, items: { sets: [{ id: 'set0', label: 'Ice hunter' }], weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon3', label: 'Sign' }], capes: [], shields: [] },
+  outfits: [{ name: 'Patrol', wear: { head: 'set0', weapon: 'weapon0' }, start: true }], motions: [{ name: 'idle', builtIn: true, shown: '', tuning: {} }, { name: 'attack', builtIn: true, shown: '', tuning: { speed: 1.1 } }],
   changed: false, job: null, createdAt: at, updatedAt: at, ...change,
 });
 const job = (change: Partial<CharacterJob> = {}): CharacterJob => ({ id: JOB, characterId: ID, kind: 'character', state: 'drawing', creditsReserved: 80, creditsCharged: null, delivered: null, errorCode: null, createdAt: at, updatedAt: at, ...change });
 const brief = { briefId: BRIEF, kind: 'character', characterId: null, name: 'Mail Carrier', body: 'angular', style: 'ink', shown: { look: 'a carrier', clothes: '', colours: '', gear: '', note: '' }, parts: [{ part: 'hero', credits: 40 }, { part: 'armor', credits: 20 }], credits: 60, available: 500, expiresAt: at };
-const gear = { designs: [{ id: 'armor0', kind: 'armor', style: 'ink', madeFor: ID, sets: [{ id: 'set0', label: 'Ice hunter' }], weapons: [], capes: [], fits: [ID], createdAt: at }], motions: [{ name: 'dodge', shown: 'Dodge', characters: [ID] }] };
+const gear = { designs: [{ id: 'armor0', kind: 'armor', style: 'ink', madeFor: ID, sets: [{ id: 'set0', label: 'Ice hunter' }], weapons: [], capes: [], shields: [], createdAt: at }], motions: [{ name: 'dodge', shown: 'Dodge', characters: [ID] }] };
 /** What the cloud would never send, in every answer. */
 const SECRET = { form: 'SECRET', spec: 'SECRET', prompt: 'SECRET', bucketKey: 'SECRET' };
 
@@ -38,7 +38,7 @@ const packageFiles = (n: number): Map<string, Buffer> => new Map([
 ]);
 
 function answer(route: string, method: string): unknown {
-  if (route === 'service') return { ...SECRET, paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, fit: 15, motion: 5 }, tuning: {} };
+  if (route === 'service') return { ...SECRET, paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, motion: 5 }, tuning: {} };
   if (route === 'characters') return { characters: [{ ...character({ revision }), ...SECRET }] };
   if (route === 'briefs') return { ...brief, ...SECRET };
   if (route === 'jobs' || route.endsWith('/pack')) return { ...job(), ...SECRET };
@@ -116,7 +116,7 @@ const exists = (file: string): Promise<boolean> => stat(file).then(() => true, (
 
 describe('characters of the account', () => {
   it('says whether there is a service before anything else', async () => {
-    expect((await call('/characters/service')).json).toEqual({ available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, fit: 15, motion: 5 } } });
+    expect((await call('/characters/service')).json).toEqual({ available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, motion: 5 } } });
     signedIn = false;
     expect((await call('/characters/service')).json).toEqual({ available: true, signedIn: false, service: null });
     available = false;
@@ -147,8 +147,8 @@ describe('characters of the account', () => {
     // said once
     await call(`/characters/jobs/${JOB}`);
     expect(balanceReads).toBe(2);
-    await call('/characters/briefs', 'POST', { kind: 'fit', characterId: ID, design: 'armor3', text: 'ignored' });
-    expect(asked.at(-1)!.body).toEqual({ kind: 'fit', characterId: ID, design: 'armor3', armor: false, gear: false });
+    await call('/characters/briefs', 'POST', { kind: 'armor', characterId: ID, text: 'iron plates', design: 'armor3' });
+    expect(asked.at(-1)!.body).toEqual({ kind: 'armor', characterId: ID, text: 'iron plates', armor: false, gear: false });
   });
 
   it('lets the balance be read again when the list shows that an order ended', async () => {
@@ -171,7 +171,7 @@ describe('characters of the account', () => {
   it('refuses what makes no sense before the cloud is asked', async () => {
     for (const [route, method, body] of [
       ['/characters/briefs', 'POST', { kind: 'boss' }], ['/characters/briefs', 'POST', { kind: 'character', text: 'x' }], ['/characters/briefs', 'POST', { kind: 'character', text: 'x'.repeat(601) }], ['/characters/briefs', 'POST', { kind: 'armor', text: 'iron' }],
-      ['/characters/briefs', 'POST', { kind: 'fit', characterId: ID, design: 'gear0' }], ['/characters/briefs', 'POST', { kind: 'character', text: 'a cook', style: 'photo' }], ['/characters/orders', 'POST', { briefId: BRIEF, requestId: 'short' }], ['/characters/orders', 'POST', { requestId: 'request-1' }],
+      ['/characters/briefs', 'POST', { kind: 'fit', characterId: ID, design: 'armor0', text: 'iron' }], ['/characters/briefs', 'POST', { kind: 'character', text: 'a cook', style: 'photo' }], ['/characters/orders', 'POST', { briefId: BRIEF, requestId: 'short' }], ['/characters/orders', 'POST', { requestId: 'request-1' }],
       [`/characters/${ID}`, 'PATCH', {}], [`/characters/${ID}`, 'PATCH', { name: ' ' }], [`/characters/${ID}`, 'PATCH', { gear: ['../x'] }], [`/characters/${ID}`, 'PATCH', { outfits: [{ name: '' }] }], ['/characters/gear/set0', 'PATCH', { label: '' }],
     ] as const) expect((await call(route, method, body)).status, JSON.stringify(body)).toBe(400);
     for (const [route, method, body] of [['/characters/not-an-id'], [`/characters/${ID}/motions/Bad`, 'PUT', { tuning: {} }], ['/characters/gear/weapon', 'DELETE'], ['/characters/gear/icons/..%2fx.png']] as const) expect((await call(route, method, body)).status, route).toBe(404);
@@ -179,7 +179,7 @@ describe('characters of the account', () => {
   });
 
   it('passes on the cloud\'s codes with its own words', async () => {
-    for (const code of ['CHARACTER_BUSY', 'CHARACTER_NOT_FITTED', 'INSUFFICIENT_CREDITS', 'CHARACTER_PAUSED']) {
+    for (const code of ['CHARACTER_BUSY', 'CHARACTER_FULL', 'INSUFFICIENT_CREDITS', 'CHARACTER_PAUSED']) {
       cloud = () => new Response(JSON.stringify({ error: { code, message: 'SECRET' } }), { status: 409 });
       expect((await call(`/characters/${ID}`, 'PATCH', { gear: ['set0'] })).json.error).toMatchObject({ code, message: expect.stringMatching(/\w/u) });
     }
@@ -192,6 +192,18 @@ describe('characters of the account', () => {
     expect(new Set(CHARACTER_ERROR_CODES).size).toBe(CHARACTER_ERROR_CODES.length);
   });
 
+  it('passes on the kinds of gear that were picked, and no others', async () => {
+    await call('/characters/briefs', 'POST', { kind: 'character', text: 'a cook', gear: true, types: ['bow', 'shield', 'bow'] });
+    expect(asked.at(-1)?.body).toMatchObject({ kind: 'character', gear: true, types: ['bow', 'shield'] });
+    const before = asked.length;
+    for (const types of ['bow', ['cannon'], [5], Array(9).fill('bow')]) expect((await call('/characters/briefs', 'POST', { kind: 'gear', characterId: ID, text: 'a cook', types })).status).toBe(400);
+    expect(asked).toHaveLength(before);
+    // a shield goes along into a preview
+    cloud = route => route.endsWith('/tune') ? new Response(new Uint8Array([1])) : answer(route, 'GET');
+    await call(`/characters/${ID}/tune`, 'POST', { motion: 'attack', tuning: {}, wear: { weapon: 'weapon1', shield: 'shield2', cape: '../x' } });
+    expect(asked.at(-1)?.body).toMatchObject({ wear: { weapon: 'weapon1', cape: null, shield: 'shield2' } });
+  });
+
   it('keeps sliders, outfits and gear to what they can be', async () => {
     await call(`/characters/${ID}/motions/attack`, 'PUT', { tuning: { speed: 9, windup: 'x', evil: 1 } });
     expect(asked.at(-1)).toEqual({ route: `characters/${ID}/motions/attack`, method: 'PUT', body: { tuning: { speed: 1.35 } } });
@@ -200,7 +212,7 @@ describe('characters of the account', () => {
     cloud = route => route.endsWith('/tune') ? new Uint8Array([1, 2, 3]) : answer(route, 'GET');
     const shown = await call(`/characters/${ID}/tune`, 'POST', { motion: 'attack', tuning: { windup: 2 }, wear: { weapon: 'weapon3', head: 'set0' } });
     expect([...shown.bytes]).toEqual([1, 2, 3]);
-    expect(asked.at(-1)!.body).toEqual({ motion: 'attack', tuning: { windup: 1.8 }, wear: { weapon: 'weapon3', cape: null } });
+    expect(asked.at(-1)!.body).toEqual({ motion: 'attack', tuning: { windup: 1.8 }, wear: { weapon: 'weapon3', cape: null, shield: null } });
   });
 
   it('lets an agent read and change what is free, and nothing that costs, renames or deletes', async () => {
@@ -366,7 +378,7 @@ describe('characters in a game', () => {
   it('packs what was saved first, and tells the game only what is in the package', async () => {
     await webGame();
     let packed = false;
-    const saved = { items: { sets: [{ id: 'set0', label: 'Ice hunter' }], weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon9', label: 'Later' }], capes: [] }, motions: [...character().motions, { name: 'dodge', builtIn: false, shown: 'Rolls', tuning: {} }], outfits: [{ name: 'Patrol', wear: {} }, { name: 'Later', wear: {} }] };
+    const saved = { items: { sets: [{ id: 'set0', label: 'Ice hunter' }], weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon9', label: 'Later' }], capes: [], shields: [{ id: 'shield3', label: 'Unpacked' }] }, motions: [...character().motions, { name: 'dodge', builtIn: false, shown: 'Rolls', tuning: {} }], outfits: [{ name: 'Patrol', wear: {} }, { name: 'Later', wear: {} }] };
     cloud = (route, method) => {
       if (route === `characters/${ID}`) return character({ ...saved, changed: !packed, revision: packed ? 2 : 1 });
       if (route.endsWith('/pack')) { packed = true; revision = 2; files = packageFiles(2); return job({ kind: 'pack' }); }
@@ -377,11 +389,25 @@ describe('characters in a game', () => {
     expect(asked.filter(a => a.route.endsWith('/pack'))).toHaveLength(1);
     const card = JSON.parse(await readFile(game('public', 'characters', 'mail-carrier', 'character.json'), 'utf8')), guide = await readFile(game('public', 'characters', 'mail-carrier', 'README.md'), 'utf8');
     expect([card.items.weapons.map((w: any) => w.id), card.motions, card.outfits.map((o: any) => o.name)]).toEqual([['weapon0'], ['idle', 'attack'], ['Patrol']]);
-    for (const later of ['weapon9', 'dodge', 'Later']) expect(guide).not.toContain(later);
+    for (const later of ['weapon9', 'dodge', 'Later', 'shield']) expect(guide).not.toContain(later);
     packed = false;
     const before = cloud;
     cloud = (route, method, body) => route === `jobs/${JOB}` ? job({ kind: 'pack', state: 'failed', errorCode: 'CHARACTER_PACKING_FAILED' }) : before(route, method, body);
     expect((await install()).json.error.code).toBe('CHARACTER_PACKING_FAILED');
+  });
+
+  it('tells the game how weapons of other types and shields are used', async () => {
+    await webGame();
+    cloud = (route, method) => route === `characters/${ID}` ? { ...character(), items: { ...character().items, weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon3', label: 'Antler', type: 'bow' }, { id: 'weapon4', label: 'Odd', type: 'whip' }], shields: [{ id: 'shield0', label: 'Lid' }] } } : answer(route, method);
+    files = new Map([...packageFiles(1), ['hero.json', Buffer.from(JSON.stringify({ format: 'pixo-hero', version: 1, ...PACKED, items: { ...PACKED.items, weapon: ['weapon0', 'weapon3', 'weapon4'], shield: ['shield0'] } }))]]);
+    await install();
+    const folder = game('public', 'characters', 'mail-carrier'), guide = await readFile(path.join(folder, 'README.md'), 'utf8');
+    for (const said of ['`weapon3` (Antler, bow)', '`weapon4` (Odd)', '`shield0` (Lid)', 'for the slot `shield`', 'with a bow in the hands `attack` shoots', '`hero.shot()`', '`guard`']) expect(guide).toContain(said);
+    expect(JSON.parse(await readFile(path.join(folder, 'character.json'), 'utf8')).items.weapons).toEqual([{ id: 'weapon0', label: 'Pick' }, { id: 'weapon3', label: 'Antler', type: 'bow' }, { id: 'weapon4', label: 'Odd' }]);
+    // a package without any of it says nothing of it
+    cloud = answer; revision = 2; files = packageFiles(2);
+    await install();
+    for (const left of ['shot()', 'guard', 'punches']) expect(await readFile(path.join(folder, 'README.md'), 'utf8')).not.toContain(left);
   });
 
   it('leaves a player alone that was changed by hand', async () => {

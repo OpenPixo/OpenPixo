@@ -5,7 +5,7 @@ import { runCharacterCli } from '../../src/recipes/character-cli.js';
 
 const ID = '11111111-2222-4333-8444-555555555555', JOB = '33333333-2222-4333-8444-555555555555';
 const job = (state: string, more = {}) => ({ id: JOB, characterId: ID, kind: 'character', state, creditsReserved: 80, creditsCharged: state === 'succeeded' ? 80 : null, delivered: state === 'succeeded' ? ['hero'] : null, errorCode: null, createdAt: '', updatedAt: '', ...more });
-const hero = { id: ID, name: 'Cook', body: 'round', style: 'ink', state: 'ready', revision: 1, items: { sets: [], weapons: [], capes: [] }, fits: [], outfits: [], motions: [], changed: false, job: null, games: [], createdAt: '', updatedAt: '' };
+const hero = { id: ID, name: 'Cook', body: 'round', style: 'ink', state: 'ready', revision: 1, items: { sets: [], weapons: [], capes: [], shields: [] }, outfits: [], motions: [], changed: false, job: null, games: [], createdAt: '', updatedAt: '' };
 const brief = { briefId: 'b', kind: 'character', characterId: null, name: 'Cook', body: 'round', style: 'ink', shown: { look: 'a cook', clothes: '', colours: '', gear: '', note: '' }, parts: [{ part: 'hero', credits: 40 }], credits: 40, available: 100, expiresAt: '' };
 
 let server: Server, url: string, asked: { route: string; method: string; body: any }[], answers: (route: string, method: string) => [number, unknown] | 'drop', out: string[], err: string[];
@@ -50,6 +50,16 @@ describe('pixo character make', () => {
     expect(asked).toEqual([{ route: '/characters/briefs', method: 'POST', body: { kind: 'character', text: 'a cook', armor: true, gear: false } }]);
     expect(out.join('\n')).toContain('Add --yes to order it');
     expect(process.exitCode).toBe(0);
+  });
+
+  it('asks for the kinds that were named, where gear is ordered', async () => {
+    answers = () => [200, brief];
+    await run('make', '--text', 'a cook', '--weapons', '--types', 'bow, shield');
+    await run('add', ID, 'gear', '--text', 'from a kitchen', '--types', 'launcher');
+    await run('add', ID, 'armor', '--text', 'from a kitchen', '--types', 'launcher');
+    expect(asked.map(a => a.body)).toEqual([
+      { kind: 'character', text: 'a cook', armor: false, gear: true, types: ['bow', 'shield'] }, { kind: 'gear', characterId: ID, text: 'from a kitchen', types: ['launcher'] }, { kind: 'armor', characterId: ID, text: 'from a kitchen' },
+    ]);
   });
 
   it('orders once, whatever answers get lost on the way', async () => {

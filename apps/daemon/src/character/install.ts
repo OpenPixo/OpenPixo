@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import nodeModule from 'node:module';
 import { copyFile, lstat, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { AnimatedCharacter, CharacterPlayer, EngineProfile, InstalledCharacter } from '@openpixo/contracts';
+import type { AnimatedCharacter, CharacterItem, CharacterPlayer, EngineProfile, InstalledCharacter } from '@openpixo/contracts';
 import { isSameCharacter, isSampleCharacter, PRODUCT_CLI_NAME } from '@openpixo/contracts';
 import { isWebProject, webProjectCwd } from '../publish/web-project.js';
 import { recipePath } from '../recipes/paths.js';
@@ -119,7 +119,12 @@ hero.putOn('weapon', '${weapon}');
 hero.onHit = () => {}; // the moment a blow lands
 // every frame: hero.update(seconds); hero.draw(gl, view) on a WebGL canvas, or hero.addToPhaser(scene, x, y)
 \`\`\``;
-  const list = (title: string, items: readonly { id: string; label: string }[]): string => items.length ? `- ${title}: ${items.map(i => `\`${i.id}\`${i.label ? ` (${i.label})` : ''}`).join(', ')}\n` : '';
+  const list = (title: string, items: readonly CharacterItem[]): string => items.length ? `- ${title}: ${items.map(i => `\`${i.id}\`${i.label || i.type ? ` (${[i.label, i.type].filter(Boolean).join(', ')})` : ''}`).join(', ')}\n` : '';
+  const typed = character.items.weapons.some(w => w.type), shoots = character.items.weapons.some(w => w.type === 'bow' || w.type === 'staff' || w.type === 'launcher'), shields = character.items.shields.length > 0;
+  const shot = place.engine === 'godot' ? '`hero.shot()` gives its texture, where it leaves and in which direction' : place.engine === 'unity' ? '`hero.Shot(out var shot)` gives its texture, where it leaves and in which direction' : '`hero.shot()` gives its picture, where it leaves and in which direction';
+  const hands = !typed && !shields ? '' : `
+A motion is played the way the weapon is used: with a bow in the hands \`attack\` shoots, with a spear it stabs, with nothing in them it punches. Ask for \`attack\`, never for \`bow/attack\`.${shoots ? ` A bow, staff or launcher shoots on the \`hit\` of \`attack\` and \`heavy\`: the game flies the shot itself. ${shot}; the picture points up.` : ''}${shields ? ' A shield goes into the slot `shield`. It is seen next to a weapon that is swung and with empty hands, not next to a bow, staff, spear or launcher. `guard` holds it up for as long as the game plays it.' : ''}
+`;
   return `# ${character.name}
 
 Made with OpenPixo. Do not edit the files here: \`${PRODUCT_CLI_NAME} character install\` replaces this folder. The player is \`${place.player}\`.
@@ -129,7 +134,7 @@ ${use}
 The character stands on its origin and faces right; flip it to face left. Pieces go on and off while it moves. Sizes are in package pixels: scale the node.
 
 - Motions: ${motions.map(m => `\`${m}\``).join(', ')}
-${list('Sets, for the slots `head`, `body`, `arm` and `leg`', character.items.sets)}${list('Weapons, for the slot `weapon`', character.items.weapons)}${list('Capes, for the slot `cape`', character.items.capes)}${character.outfits.length ? `- Outfits, put on by name: ${character.outfits.map(o => `\`${o.name}\`${o.start ? ' (worn at the start)' : ''}`).join(', ')}\n` : ''}
+${list('Sets, for the slots `head`, `body`, `arm` and `leg`', character.items.sets)}${list('Weapons, for the slot `weapon`', character.items.weapons)}${list('Capes, for the slot `cape`', character.items.capes)}${list('Shields, for the slot `shield`', character.items.shields)}${character.outfits.length ? `- Outfits, put on by name: ${character.outfits.map(o => `\`${o.name}\`${o.start ? ' (worn at the start)' : ''}`).join(', ')}\n` : ''}${hands}
 ${isSampleCharacter(character.id) ? 'This is the free sample. Its pieces are its own: the same id is another piece on the characters of an account, so keep them apart in an inventory.' : 'An id means the same piece for every character of this account, so one inventory serves them all.'} \`icon-<id>.png\` is a small picture of a piece, \`portrait.png\` one of the character.${['jump', 'fall', 'land'].every(m => motions.includes(m)) ? ' `walk`, `run`, `jump`, `fall` and `land` are played in place, the game moves the character: play `jump` when it leaves the ground (it stays in its last pose), `fall` once it comes down, `land` when it touches, then what it does next.' : ' There is no jumping motion unless one is listed.'}${motions.includes('down') ? ' `down` ends lying on the ground and stays there.' : ''}
 `;
 }
@@ -141,7 +146,7 @@ async function asPacked(character: AnimatedCharacter, folder: string): Promise<A
   const has = (slot: string): ReadonlySet<unknown> => new Set(Array.isArray(data.items?.[slot]) ? data.items[slot] as unknown[] : []), names = new Set((Array.isArray(data.outfits) ? data.outfits as { name?: unknown }[] : []).map(o => o?.name)), motions = new Set(Object.keys(data.motions ?? {}));
   const of = <T extends { id: string }>(list: readonly T[], slot: string): T[] => { const ids = has(slot); return list.filter(i => ids.has(i.id)); };
   return {
-    ...character, items: { sets: of(character.items.sets, 'head'), weapons: of(character.items.weapons, 'weapon'), capes: of(character.items.capes, 'cape') },
+    ...character, items: { sets: of(character.items.sets, 'head'), weapons: of(character.items.weapons, 'weapon'), capes: of(character.items.capes, 'cape'), shields: of(character.items.shields, 'shield') },
     motions: character.motions.filter(m => motions.has(m.name)), outfits: character.outfits.filter(o => names.has(o.name)),
   };
 }

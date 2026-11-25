@@ -21,7 +21,7 @@ vi.mock('../../../src/hooks/useOpenPixoAccount', () => ({
 
 const ID = '11111111-2222-4333-8444-555555555555', OTHER = '22222222-2222-4333-8444-555555555555', at = '2026-11-25T00:00:00.000Z';
 const hero = (change: Partial<LocalCharacter> = {}): LocalCharacter => ({
-  id: ID, name: 'Mail Carrier', body: 'angular', style: 'ink', state: 'ready', revision: 2, items: { sets: [], weapons: [{ id: 'weapon0', label: 'Pick' }], capes: [] }, fits: [], outfits: [],
+  id: ID, name: 'Mail Carrier', body: 'angular', style: 'ink', state: 'ready', revision: 2, items: { sets: [], weapons: [{ id: 'weapon0', label: 'Pick' }], capes: [], shields: [] }, outfits: [],
   motions: [{ name: 'idle', builtIn: true, shown: '', tuning: {} }, { name: 'dodge', builtIn: false, shown: 'Rolls away', tuning: {} }], changed: false, job: null, games: [], createdAt: at, updatedAt: at, ...change,
 });
 const job = (state: NonNullable<LocalCharacter['job']>['state'], change = {}): LocalCharacter['job'] => ({ id: OTHER, characterId: ID, kind: 'character', state, creditsReserved: 80, creditsCharged: null, delivered: null, errorCode: null, createdAt: at, updatedAt: at, ...change });
@@ -31,8 +31,8 @@ const brief = (change: Partial<CharacterBrief> = {}): CharacterBrief => ({
 });
 const GEAR: CharacterGear = {
   designs: [
-    { id: 'gear0', kind: 'gear', style: 'cute', madeFor: OTHER, sets: [], weapons: [{ id: 'weapon1', label: 'Net' }, { id: 'weapon2', label: 'Smoker' }], capes: [{ id: 'cape0', label: 'Shawl' }], fits: [], createdAt: at },
-    { id: 'armor0', kind: 'armor', style: 'ink', madeFor: OTHER, sets: [{ id: 'set0', label: 'Wax' }], weapons: [], capes: [], fits: [OTHER], createdAt: at },
+    { id: 'gear0', kind: 'gear', style: 'cute', madeFor: OTHER, sets: [], weapons: [{ id: 'weapon1', label: 'Net' }, { id: 'weapon2', label: 'Smoker', type: 'launcher' }], capes: [{ id: 'cape0', label: 'Shawl' }], shields: [{ id: 'shield1', label: 'Lid' }], createdAt: at },
+    { id: 'armor0', kind: 'armor', style: 'ink', madeFor: OTHER, sets: [{ id: 'set0', label: 'Wax' }], weapons: [], capes: [], shields: [], createdAt: at },
   ], motions: [{ name: 'dodge', shown: 'Rolls away', characters: [ID] }, { name: 'wave', shown: 'Waves', characters: [] }],
 };
 
@@ -41,7 +41,7 @@ const sent = (path: string, method: string): unknown[] => fetchMock.mock.calls.f
 const flush = async (): Promise<void> => { await act(async () => { await new Promise(r => setTimeout(r, 0)); }); };
 
 beforeEach(async () => {
-  status = { available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, fit: 15, motion: 5 } } };
+  status = { available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, motion: 5 } } };
   answer = { characters: [hero()], suggestions: [] };
   sample = null;
   priced = brief();
@@ -182,7 +182,10 @@ describe('ordering', () => {
     await show();
     const button = (): HTMLElement => screen.getByTestId('character-price');
     expect(button().textContent).toContain('80');
-    fireEvent.click(screen.getByLabelText(/8 weapons and 4 capes/u));
+    // kinds are asked for only where gear is ordered
+    fireEvent.click(screen.getByTestId('gear-type-bow'));
+    fireEvent.click(screen.getByLabelText(/8 weapons, 4 capes or shields/u));
+    expect(screen.queryByTestId('gear-type-bow')).toBeNull();
     expect(button().textContent).toContain('60');
     expect((button() as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByTestId('character-text'), { target: { value: ' a beekeeper ' } });
@@ -278,16 +281,26 @@ describe('ordering', () => {
 
 describe('gear', () => {
   it('belongs to the account: the shelf says who uses what', async () => {
-    answer.characters = [hero({ items: { sets: [], weapons: [{ id: 'weapon0', label: '' }, { id: 'weapon1', label: 'Net' }], capes: [] } }), hero({ id: OTHER, name: 'Cook' })];
+    answer.characters = [hero({ items: { sets: [], weapons: [{ id: 'weapon0', label: '' }, { id: 'weapon1', label: 'Net' }], capes: [], shields: [] } }), hero({ id: OTHER, name: 'Cook', items: { sets: [{ id: 'set0', label: 'Wax' }], weapons: [], capes: [], shields: [] } })];
     await show();
     fireEvent.click(screen.getByRole('tab', { name: /Gear/u }));
     expect(screen.getByTestId('shelf-weapon1').textContent).toContain('Used by Mail Carrier');
     expect(screen.getByTestId('shelf-weapon2').textContent).toContain('Not used');
     fireEvent.click(screen.getByRole('tab', { name: /Armour/u }));
-    expect(screen.getByRole('heading', { name: /Fits Cook/u })).toBeTruthy();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: ID } });
+    // armour too, whoever it was drawn for, and nothing is sold for it here
+    expect(screen.getByTestId('shelf-set0').textContent).toContain('Used by Cook');
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(sent('/api/characters/briefs', 'POST')).toEqual([]);
+  });
+
+  it('has a shelf for shields, and says what kind a weapon is', async () => {
+    await show();
+    fireEvent.click(screen.getByRole('tab', { name: /Gear/u }));
     await flush();
-    expect(sent('/api/characters/briefs', 'POST')).toEqual([{ kind: 'fit', characterId: ID, design: 'armor0' }]);
+    expect(screen.getByTestId('shelf-weapon2').textContent).toContain('Launchers');
+    expect(screen.getByTestId('shelf-weapon1').textContent).not.toContain('Swung');
+    fireEvent.click(screen.getByRole('tab', { name: /Shields/u }));
+    expect(screen.getByTestId('shelf-shield1').textContent).toContain('Lid');
   });
 
   it('is renamed and thrown away only when that was confirmed', async () => {

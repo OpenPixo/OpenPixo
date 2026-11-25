@@ -35,7 +35,7 @@ const PACK = fake.packOf({ items: { head: ['set0'], body: ['set0'], arm: ['set0'
 const ID = '11111111-2222-4333-8444-555555555555', at = '2026-11-25T00:00:00.000Z';
 const outfit = (name: string, weapon: string): CharacterOutfit => ({ name, wear: { weapon } });
 const hero = (change: Partial<LocalCharacter> = {}): LocalCharacter => ({
-  id: ID, name: 'Mail Carrier', body: 'angular', style: 'ink', state: 'ready', revision: 1, items: { sets: [{ id: 'set0', label: 'Fur' }], weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon1', label: 'Net' }], capes: [{ id: 'cape0', label: 'Shawl' }] }, fits: ['armor0'],
+  id: ID, name: 'Mail Carrier', body: 'angular', style: 'ink', state: 'ready', revision: 1, items: { sets: [{ id: 'set0', label: 'Fur' }], weapons: [{ id: 'weapon0', label: 'Pick' }, { id: 'weapon1', label: 'Net' }], capes: [{ id: 'cape0', label: 'Shawl' }], shields: [] },
   outfits: [outfit('A', 'weapon0'), { name: 'B', wear: { weapon: 'weapon1' } }, { name: 'C', wear: { cape: 'cape0' } }],
   motions: [{ name: 'idle', builtIn: true, shown: '', tuning: {} }, { name: 'run', builtIn: true, shown: '', tuning: {} }, { name: 'attack', builtIn: true, shown: '', tuning: { speed: 1.3 } }], changed: false, job: null, games: [], createdAt: at, updatedAt: at, ...change,
 });
@@ -57,9 +57,10 @@ beforeEach(async () => {
   server = hero(); tuned = []; patches = []; gates = []; slow = false; names = ['bare', 'weapon0', 'armF0'];
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input), method = init?.method ?? 'GET', body = init?.body ? JSON.parse(String(init.body)) : null;
-    if (path === '/api/characters/service') return Response.json({ available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, fit: 15, motion: 5 } } });
+    if (path === '/api/characters/service') return Response.json({ available: true, signedIn: true, service: { paused: false, priceVersion: 1, prices: { hero: 40, armor: 20, gear: 20, motion: 5 } } });
     if (path === '/api/characters') return Response.json({ characters: [server], suggestions: [] });
-    if (path === '/api/characters/gear') return Response.json({ designs: [], motions: [{ name: 'wave', shown: 'Waves', characters: [] }] });
+    if (path.endsWith('/pack')) return Response.json({ id: ID, characterId: ID, kind: 'pack', state: 'packing', creditsReserved: 0, creditsCharged: null, delivered: null, errorCode: null, createdAt: at, updatedAt: at });
+    if (path === '/api/characters/gear') return Response.json({ designs: [{ id: 'armor4', kind: 'armor', style: 'cute', madeFor: '99999999-2222-4333-8444-555555555555', sets: [{ id: 'set12', label: 'Shell' }, { id: 'set13', label: 'Moss' }], weapons: [], capes: [], shields: [], createdAt: at }], motions: [{ name: 'wave', shown: 'Waves', characters: [] }] });
     if (path.endsWith('/tune')) { tuned.push(body); return new Response(packet(body.motion) as Uint8Array<ArrayBuffer>); }
     if (path === `/api/characters/${ID}` && method === 'PATCH') {
       patches.push(body);
@@ -83,6 +84,106 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const tab = (name: RegExp | string): void => { fireEvent.click(screen.getByRole('tab', { name })); };
 const slide = (what: string, value: string): void => { fireEvent.change(screen.getByTestId(`tune-${what}`), { target: { value } }); };
 const chip = (name: string): void => { fireEvent.click(screen.getByTestId(`character-motion-${name}`)); };
+
+describe('weapons of other types, and shields', () => {
+  /** A package with a bow and a shield, and the character that goes with it. */
+  async function show(): Promise<void> {
+    cleanup();
+    const data = PACK.data, before = { items: data.items, motions: data.motions };
+    data.items = { ...data.items, weapon: ['weapon0', 'weapon1', 'weapon2'], shield: ['shield0'] };
+    data.motions = { ...data.motions, guard: {}, 'bow/attack': { hit: 0.2 } };
+    restore = () => Object.assign(data, before);
+    fake.actors.length = 0;
+    server = hero({ items: { ...hero().items, weapons: [...hero().items.weapons, { id: 'weapon2', label: 'Antler', type: 'bow' }], shields: [{ id: 'shield0', label: 'Lid' }] } });
+    render(<I18nProvider initial="en"><CharactersPage characterId={ID} games={[]} onOpenAccount={() => {}} onOpenProject={() => {}} /></I18nProvider>);
+    await flush();
+    await flush();
+  }
+  let restore = (): void => {};
+  afterEach(() => restore());
+
+  it('says what kind a weapon is, and that a shield needs a free hand', async () => {
+    await show();
+    expect(screen.getByTestId('wear-weapon-weapon2').getAttribute('aria-label')).toBe('Antler · Bows');
+    fireEvent.click(screen.getByTestId('wear-shield-shield0'));
+    expect(actor().wear).toEqual({ weapon: 'weapon0', shield: 'shield0' });
+    expect(screen.queryByText(/This weapon takes both/u)).toBeNull();
+    fireEvent.click(screen.getByTestId('wear-weapon-weapon2'));
+    // it stays put on, for the next weapon
+    expect(actor().wear).toEqual({ weapon: 'weapon2', shield: 'shield0' });
+    expect(screen.getByText(/This weapon takes both/u)).toBeTruthy();
+  });
+
+  it('offers the motion that comes with a shield, and nothing to tune on it', async () => {
+    await show();
+    expect(screen.queryByTestId('character-motion-bow/attack')).toBeNull();
+    chip('guard');
+    expect(actor().motion).toBe('guard');
+    expect(screen.getByTestId('character-motion-guard').textContent).toBe('Guard');
+    tab('Motions');
+    expect(screen.queryByTestId('tune-speed')).toBeNull();
+    chip('attack');
+    expect(screen.getByTestId('tune-speed')).toBeTruthy();
+  });
+
+  it('orders gear of the kinds that were picked', async () => {
+    await show();
+    fireEvent.click(screen.getByTestId('character-gear'));
+    await flush();
+    tab('Make new');
+    fireEvent.click(screen.getByTestId('gear-type-shield'));
+    fireEvent.click(screen.getByTestId('gear-type-bow'));
+    fireEvent.click(screen.getByTestId('gear-type-cape'));
+    fireEvent.click(screen.getByTestId('gear-type-cape'));
+    fireEvent.change(screen.getByLabelText('Make new', { selector: 'textarea' }), { target: { value: 'from a kitchen' } });
+    fireEvent.click(screen.getByTestId('gear-price'));
+    await flush();
+    const asked = fetchMock.mock.calls.filter(call => String(call[0]) === '/api/characters/briefs').map(call => JSON.parse(String(call[1]!.body)) as unknown);
+    expect(asked).toEqual([{ kind: 'gear', text: 'from a kitchen', types: ['bow', 'shield'], characterId: ID }]);
+  });
+});
+
+describe('the wardrobe', () => {
+  it('takes along armour that was drawn for another character, for free, and packs it at once', async () => {
+    fireEvent.click(screen.getByTestId('character-gear'));
+    await flush();
+    expect(screen.getByText(/Everything here fits every character/u)).toBeTruthy();
+    expect((screen.getByTestId('gear-set13') as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId('gear-set13'));
+    fireEvent.click(screen.getByTestId('gear-save'));
+    await flush();
+    await flush();
+    expect(patches).toEqual([{ gear: ['set0', 'weapon1', 'cape0', 'set13'] }]);
+    const asked = fetchMock.mock.calls.map(call => String(call[0]));
+    expect(asked.filter(path => path.endsWith('/pack'))).toHaveLength(1);
+    expect(asked.filter(path => path.endsWith('/briefs') || path.endsWith('/orders'))).toEqual([]);
+  });
+
+  it('says in the dialog why the cloud refused, and lets nobody pick what it always refuses', async () => {
+    const before = fetchMock.getMockImplementation() as (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+    const armor = Array.from({ length: 7 }, (_, n) => ({ id: `armor${n + 1}`, kind: 'armor', style: 'ink', madeFor: ID, sets: [0, 1, 2].map(i => ({ id: `set${(n + 1) * 3 + i}`, label: '' })), weapons: [], capes: [], shields: [], createdAt: at }));
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/characters/gear') return Response.json({ designs: armor, motions: [] });
+      if (init?.method === 'PATCH') return Response.json({ error: { code: 'CHARACTER_FULL', message: 'SECRET' } }, { status: 409 });
+      return before(input, init);
+    });
+    cleanup();
+    render(<I18nProvider initial="en"><CharactersPage characterId={ID} games={[]} onOpenAccount={() => {}} onOpenProject={() => {}} /></I18nProvider>);
+    await flush();
+    await flush();
+    fireEvent.click(screen.getByTestId('character-gear'));
+    await flush();
+    const save = (): HTMLButtonElement => screen.getByTestId('gear-save') as HTMLButtonElement, dialog = (): HTMLElement => screen.getByRole('dialog');
+    for (let n = 1; n <= 7; n++) fireEvent.click(screen.getByTestId(`gear-set${n * 3}`));
+    expect([save().disabled, dialog().textContent?.includes('From at most 6 groups of armour')]).toEqual([true, true]);
+    fireEvent.click(screen.getByTestId('gear-set21'));
+    expect([save().disabled, dialog().textContent?.includes('From at most')]).toEqual([false, false]);
+    fireEvent.click(save());
+    await flush();
+    expect(dialog().textContent).toContain('It cannot hold more');
+    expect(dialog().textContent).not.toContain('SECRET');
+  });
+});
 
 describe('the stage', () => {
   it('dresses the free sample without saving or asking anything', async () => {
@@ -168,6 +269,8 @@ describe('the stage', () => {
     const pack = { tracks: new Map(['bare', 'weapon1', 'armF1'].map(n => [n, {}])) } as never;
     expect(wornIn(pack, { head: 'set0', body: 'set0', weapon: 'weapon1', cape: 'cape0' })).toEqual({ body: 'set0', weapon: 'weapon1' });
     expect(wornIn(pack, { weapon: 'weapon2' })).toEqual({});
+    expect(wornIn({ tracks: new Map([['weapon1', {}], ['armF1', {}], ['shield0', {}]]) } as never, { weapon: 'weapon1', shield: 'shield0' })).toEqual({ weapon: 'weapon1', shield: 'shield0' });
+    expect(wornIn({ tracks: new Map() } as never, { shield: 'shield0' })).toEqual({});
   });
 });
 

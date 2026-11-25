@@ -317,7 +317,7 @@ export function renderGameCharactersBlock(characters: GameCharactersPromptInput 
   const theirs = `- Its folder is replaced on update, so write nothing into it; the player script is not yours to edit either.`, how = `- They face right and have the motions their README lists: walking, running, jumping, falling, landing, attacks, being hurt and knocked out, and what the user had written. There is no back view.`;
   if (!characters.account) return `${GAME_CHARACTERS_BLOCK_HEADING}
 
-Finished side-view characters: animated, with armour, weapons and capes that change while they move.
+Finished side-view characters: animated, with armour, weapons (swung, spears, staffs, bows, launchers), shields and capes that change while they move.
 
 In this game:
 ${installed.join('\n')}
@@ -327,7 +327,7 @@ ${theirs}
 ${how}`;
   return `${GAME_CHARACTERS_BLOCK_HEADING}
 
-The user can have finished side-view characters: animated, with armour, weapons and capes that change while they move. OpenPixo Cloud makes them for the user's credits. For Godot, Unity and web games.
+The user can have finished side-view characters: animated, with armour, weapons (swung, spears, staffs, bows, launchers), shields and capes that change while they move. OpenPixo Cloud makes them for the user's credits. For Godot, Unity and web games.
 ${installed.length ? `\nIn this game:\n${installed.join('\n')}\n` : ''}
 \`\`\`bash
 ${cli} mine --json            # the user's characters

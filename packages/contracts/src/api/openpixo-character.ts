@@ -3,8 +3,7 @@
  * The daemon is the only one that talks to the cloud: UI and `pixo character` use `/api/characters/*`.
  * The cloud hands out finished packages (`pixo-hero`, read by `game-sdk/openpixo-character`), never anything they are made from.
  */
-export const CHARACTER_KINDS = ['character', 'armor', 'gear', 'motion', 'fit'] as const;
-/** `fit`: armour that the account has, drawn again for another character. */
+export const CHARACTER_KINDS = ['character', 'armor', 'gear', 'motion'] as const;
 export type CharacterKind = (typeof CHARACTER_KINDS)[number];
 /** `pack` puts saved changes (tuning, outfits, other gear) into a new package, for free. */
 export type CharacterJobKind = CharacterKind | 'pack';
@@ -12,7 +11,7 @@ export const CHARACTER_STATES = ['making', 'ready', 'failed'] as const;
 export type CharacterState = (typeof CHARACTER_STATES)[number];
 export const CHARACTER_JOB_STATES = ['waiting', 'drawing', 'checking', 'fitting', 'posing', 'packing', 'succeeded', 'failed'] as const;
 export type CharacterJobState = (typeof CHARACTER_JOB_STATES)[number];
-export const CHARACTER_PARTS = ['hero', 'armor', 'gear', 'motion', 'fit'] as const;
+export const CHARACTER_PARTS = ['hero', 'armor', 'gear', 'motion'] as const;
 /** What an order can consist of. */
 export type CharacterPart = (typeof CHARACTER_PARTS)[number];
 export const CHARACTER_STYLES = ['ink', 'cute'] as const;
@@ -20,7 +19,13 @@ export type CharacterStyle = (typeof CHARACTER_STYLES)[number];
 /** Sturdy, round, tall and small. */
 export const CHARACTER_BODIES = ['angular', 'round', 'lanky', 'tiny'] as const;
 export type CharacterBody = (typeof CHARACTER_BODIES)[number];
-export const CHARACTER_SLOTS = ['head', 'body', 'arm', 'leg', 'weapon', 'cape'] as const;
+/** How a weapon is held and used. A blade is swung; the others have their own stance and attacks, and some shoot. */
+export const CHARACTER_WEAPONS = ['blade', 'spear', 'staff', 'bow', 'launcher'] as const;
+export type CharacterWeapon = (typeof CHARACTER_WEAPONS)[number];
+/** What can be picked for a gear order: its eight weapons, and its four capes or shields. */
+export const CHARACTER_GEAR_TYPES = [...CHARACTER_WEAPONS, 'shield', 'cape'] as const;
+export type CharacterGearType = (typeof CHARACTER_GEAR_TYPES)[number];
+export const CHARACTER_SLOTS = ['head', 'body', 'arm', 'leg', 'weapon', 'cape', 'shield'] as const;
 export type CharacterSlot = (typeof CHARACTER_SLOTS)[number];
 /** What the sliders of a motion may be; 1 is the motion as it was made. `stop` is the freeze on the blow. */
 export const CHARACTER_TUNING = { speed: [0.9, 1.35], windup: [0.6, 1.8], power: [0.7, 1.3], jump: [0.45, 1.55], stop: [0.4, 2.2] } as const;
@@ -68,8 +73,8 @@ export interface CharacterJob {
   updatedAt: string;
 }
 
-/** A piece that can be worn: its id in the package and what it is called. */
-export interface CharacterItem { id: string; label: string }
+/** A piece that can be worn: its id in the package and what it is called. `type`: a weapon that is not a blade. */
+export interface CharacterItem { id: string; label: string; type?: Exclude<CharacterWeapon, 'blade'> }
 export interface CharacterMotion { name: string; builtIn: boolean; shown: string; tuning: CharacterTuning }
 export type CharacterWear = Partial<Record<CharacterSlot, string>>;
 /** Goes into the package by its name. `start`: what the character wears when a game begins; at most one. */
@@ -83,10 +88,8 @@ export interface AnimatedCharacter {
   state: CharacterState;
   /** Counts finished packages. */
   revision: number;
-  /** What goes into its package. `weapon0` is the weapon it was drawn with; the rest belongs to the account, and an id means the same piece for all its characters. */
-  items: { sets: CharacterItem[]; weapons: CharacterItem[]; capes: CharacterItem[] };
-  /** The armour designs that were drawn for it. */
-  fits: string[];
+  /** What goes into its package. `weapon0` is the weapon it was drawn with; the rest belongs to the account, and an id means the same piece for all its characters. Armour is fitted to each of them. */
+  items: { sets: CharacterItem[]; weapons: CharacterItem[]; capes: CharacterItem[]; shields: CharacterItem[] };
   outfits: CharacterOutfit[];
   motions: CharacterMotion[];
   /** Saved changes that the newest package does not hold yet. */
@@ -97,7 +100,7 @@ export interface AnimatedCharacter {
   updatedAt: string;
 }
 
-/** One drawn sheet that the account owns: three armour sets, or eight weapons and four capes. */
+/** One drawn sheet that the account owns: three armour sets, or eight weapons and four capes or shields. */
 export interface CharacterDesign {
   /** armor3 or gear0. */
   id: string;
@@ -108,8 +111,7 @@ export interface CharacterDesign {
   sets: CharacterItem[];
   weapons: CharacterItem[];
   capes: CharacterItem[];
-  /** Armour: the characters that can wear it. Weapons and capes fit everyone. */
-  fits: string[];
+  shields: CharacterItem[];
   createdAt: string;
 }
 /** What the account owns, whichever character it was made for. */
@@ -120,7 +122,7 @@ export interface CharacterGear {
 
 export const CHARACTER_ERROR_CODES = [
   'ACCOUNT_SIGNED_OUT', 'CLOUD_UNAVAILABLE', 'INSUFFICIENT_CREDITS', 'CHARACTER_PAUSED', 'CHARACTER_REQUEST_INVALID', 'CHARACTER_REQUEST_CONFLICT',
-  'CHARACTER_BRIEF_INVALID', 'CHARACTER_BRIEF_EXPIRED', 'CHARACTER_TEXT_REFUSED', 'CHARACTER_NOT_FOUND', 'CHARACTER_BUSY', 'CHARACTER_FULL', 'CHARACTER_UNCHANGED', 'CHARACTER_NOT_FITTED', 'CHARACTER_FITS', 'CHARACTER_RATE_LIMITED',
+  'CHARACTER_BRIEF_INVALID', 'CHARACTER_BRIEF_EXPIRED', 'CHARACTER_TEXT_REFUSED', 'CHARACTER_NOT_FOUND', 'CHARACTER_BUSY', 'CHARACTER_FULL', 'CHARACTER_UNCHANGED', 'CHARACTER_RATE_LIMITED',
   // why a job failed
   'CHARACTER_DRAWING_FAILED', 'CHARACTER_CONTENT_BLOCKED', 'CHARACTER_MOTION_FAILED', 'CHARACTER_TIMED_OUT', 'CHARACTER_PACKING_FAILED',
   // the daemon's own
@@ -151,16 +153,15 @@ export interface CharacterSuggestRequest { text: string; style?: CharacterStyle;
 /** POST /api/characters/briefs */
 export interface CharacterBriefRequest {
   kind: CharacterKind;
-  /** Everything but `fit` needs words. */
-  text?: string;
+  text: string;
   characterId?: string;
-  /** `fit`: the armour design to draw again. */
-  design?: string;
   style?: CharacterStyle;
   body?: CharacterBody;
-  /** For a new character: also draw armour, weapons and capes. */
+  /** For a new character: also draw armour, and weapons with capes or shields. */
   armor?: boolean;
   gear?: boolean;
+  /** Kinds for a gear sheet; without them they are taken from the words. */
+  types?: CharacterGearType[];
 }
 /** POST /api/characters/orders. The same `requestId` again answers the same job. */
 export interface CharacterOrderRequest { briefId: string; requestId: string }

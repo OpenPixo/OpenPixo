@@ -15,8 +15,6 @@ const ERRORS: Record<CharacterErrorCode, [status: number, message: string]> = {
   CHARACTER_BUSY: [409, 'This character is being worked on. Try again when it is done.'],
   CHARACTER_FULL: [409, 'This character cannot hold more of this. Take something off it first.'],
   CHARACTER_UNCHANGED: [409, 'The newest package already holds every change.'],
-  CHARACTER_NOT_FITTED: [409, 'This armour has to be drawn for this character first.'],
-  CHARACTER_FITS: [409, 'This armour already fits this character.'],
   CHARACTER_RATE_LIMITED: [429, 'Too many requests. Wait a little.'],
   CHARACTER_DRAWING_FAILED: [502, 'It could not be drawn well enough. Nothing was charged.'],
   CHARACTER_CONTENT_BLOCKED: [502, 'What was drawn may not be used. Nothing was charged.'],

@@ -8,13 +8,13 @@ signal hit
 signal finished(motion: String)
 
 ## Which group of `wear` an armour layer belongs to.
-const LAYERS := { "head+": "head", "torso+": "body", "armN+": "arm", "armF+": "arm", "legN+": "leg", "legF+": "leg", "weapon": "weapon", "cape": "cape" }
+const LAYERS := { "head+": "head", "torso+": "body", "armN+": "arm", "armF+": "arm", "legN+": "leg", "legF+": "leg", "weapon": "weapon", "bow": "weapon", "staff": "weapon", "string": "weapon", "shot": "weapon", "shield": "shield", "cape": "cape" }
 ## Seconds a new motion takes to blend in.
 const BLEND := 0.09
 const STEPS := 8.0
 
 var data: Dictionary
-## What it wears, by slot: head, body, arm, leg, weapon, cape. `data.items` lists what there is. Change it with put_on and take_off.
+## What it wears, by slot: head, body, arm, leg, weapon, cape, shield. `data.items` lists what there is. Change it with put_on and take_off.
 var wear := {}
 var motion := "idle"
 var time := 0.0
@@ -25,9 +25,11 @@ var _positions := {}
 var _indices := {}
 var _colours := {}
 var _uv := {}
+var _hands := {}
 var _last := {}
 var _from := {}
 var _since := 9.0
+var _played := ""
 var _told_hit := false
 var _told_end := false
 
@@ -103,19 +105,49 @@ func play(what: String, restart := true) -> bool:
 	_since = 0.0
 	return true
 
+## How what is in the hands is used: spear, staff, bow, launcher, shield, fists. Empty for a weapon that is swung, or in a package that has nothing else.
+func type() -> String:
+	if not data.has("types"): return ""
+	var weapon: String = wear.get("weapon", "")
+	if weapon == "": return "fists"
+	if data.types.has(weapon): return data.types[weapon]
+	return "shield" if wear.get("shield", "") != "" else ""
+
+## The motion that is really played with what is in the hands: with a bow, attack is the motion bow/attack.
+func _key() -> String:
+	var own := type() + "/" + motion
+	return own if data.motions.has(own) else motion
+
+## What the weapon shoots, for a game that flies it. The texture points up, `tail` is its rear end on it, `size` pixels of this node for one of its
+## pixels; it leaves from `from` towards `direction`. Empty for what is not shot.
+func shot() -> Dictionary:
+	var weapon: String = wear.get("weapon", "")
+	if not data.get("shots", {}).has(weapon): return {}
+	var s: Dictionary = data.shots[weapon]
+	var p: Dictionary = data.pics[s.picture]
+	var b := blade()
+	# a staff is held upright and what it fires flies forward
+	return { "texture": _pictures[s.picture], "tail": Vector2(s.tail[0] - p.x, s.tail[1] - p.y), "size": float(s.size), "from": b[0] if type() == "bow" else b[1], "direction": Vector2.RIGHT if type() == "staff" else (b[1] - b[0]).normalized() }
+
 ## Grip and tip of the weapon now, in this node's space: for hit boxes and trails. Empty without a weapon.
 func blade() -> PackedVector2Array:
 	var weapon: String = wear.get("weapon", "")
 	if weapon == "": return PackedVector2Array()
 	var list: Array = data.blades[weapon]
-	var i := (int(data.motions[motion].from) + int(_place().x)) * 4
+	var i := (int(data.motions[_key()].from) + int(_place().x)) * 4
 	return PackedVector2Array([Vector2(list[i], list[i + 1]) / STEPS, Vector2(list[i + 2], list[i + 3]) / STEPS])
 
 func _process(dt: float) -> void:
 	if data.is_empty(): return
 	time += dt * speed
 	_since += dt
-	var m: Dictionary = data.motions[motion]
+	var m: Dictionary = data.motions[_key()]
+	if _key() != _played:
+		# other hands: what is carried changes at once, so nothing is blended
+		if _played.get_slice("/", _played.get_slice_count("/") - 1) == motion and time > dt:
+			_since = 9.0
+			if not m.loop: time = 0.0
+		_played = _key()
 	if m.loop and time >= m.seconds:
 		time = fmod(time, m.seconds)
 		_told_hit = false
@@ -129,7 +161,7 @@ func _process(dt: float) -> void:
 
 ## Frame, next frame and how far it is between them.
 func _place() -> Vector3:
-	var m: Dictionary = data.motions[motion]
+	var m: Dictionary = data.motions[_key()]
 	var n := int(m.count)
 	var u: float = fmod(time, m.seconds) / m.seconds * n if m.loop else minf(time / m.seconds, 1.0) * (n - 1)
 	var a := mini(int(u), n - 1)
@@ -137,11 +169,14 @@ func _place() -> Vector3:
 
 func _draw() -> void:
 	if data.is_empty(): return
-	var from := int(data.motions[motion].from)
+	var from := int(data.motions[_key()].from)
 	var place := _place()
 	var frame := from + int(place.x)
 	var weapon: String = wear.get("weapon", "")
 	var face: String = data.faces[int(data.face[frame])]
+	var hands := type()
+	var shield: bool = wear.get("shield", "") != "" and not data.get("twoHanded", []).has(hands)
+	var ahead: bool = data.get("farHand", []).has(hands)
 	var done := {}
 	for slot: String in data.orders[int(data.order[frame])]:
 		var part := slot.trim_suffix("+")
@@ -149,7 +184,13 @@ func _draw() -> void:
 		var picture := part
 		var expression := ""
 		if slot == "hair" and wear.get("cape", "") != "": continue
-		if part == "armF" or part == "creaseF": track = part + weapon.trim_prefix("weapon")
+		if slot == "shield" and not shield: continue
+		if (slot == "weapon" and ahead) or (slot == "staff" and hands != "staff") or ((slot == "bow" or slot == "string" or slot == "shot") and hands != "bow"): continue
+		var far := part == "armF" or part == "creaseF"
+		if far:
+			track = part + ("" if shield else weapon.trim_prefix("weapon"))
+			# whatever it holds, the far hand is the near one's fist
+			if hands != "": picture = part.trim_suffix("F") + "N"
 		if slot == "head":
 			expression = face
 			track = "head" if wear.get("head", "") != "" else "bare"
@@ -157,11 +198,14 @@ func _draw() -> void:
 		elif LAYERS.has(slot):
 			var item: String = wear.get(LAYERS[slot], "")
 			if item == "": continue
-			if slot == "weapon" or slot == "cape":
+			if slot == "string" or slot == "shot":
+				track = slot + weapon.trim_prefix("weapon")
+				picture = track
+			elif slot == "weapon" or slot == "bow" or slot == "staff" or slot == "shield" or slot == "cape":
 				track = item
 				picture = item
 			else:
-				picture = item + "/" + part
+				picture = item + "/" + (picture if far else part)
 				if slot == "head+": expression = face
 		if not _positions.has(track) or not _pictures.has(picture): continue
 		if not done.has(track): done[track] = _corners(track, from, place)
@@ -172,13 +216,30 @@ func _corners(track: String, from: int, place: Vector3) -> PackedVector2Array:
 	var all: PackedVector2Array = _positions[track]
 	var a := (from + int(place.x)) * c
 	var b := (from + int(place.y)) * c
-	var out := all.slice(a, a + c)
-	for i in c: out[i] = out[i].lerp(all[b + i], place.z)
-	if _since < BLEND and _from.has(track):
-		var before: PackedVector2Array = _from[track]
-		var mix := smoothstep(0.0, 1.0, _since / BLEND)
-		for i in c: out[i] = before[i].lerp(out[i], mix)
+	var out := _mix(track, all.slice(a, a + c), all.slice(b, b + c), place.z)
+	if _since < BLEND and _from.has(track): out = _mix(track, _from[track], out, smoothstep(0.0, 1.0, _since / BLEND))
 	_last[track] = out
+	return out
+
+## The moment between two. Corners go straight from one to the other, but a weapon is stiff: it turns about the hand and keeps its shape.
+func _mix(track: String, a: PackedVector2Array, b: PackedVector2Array, k: float) -> PackedVector2Array:
+	var out := a.duplicate()
+	var held: bool = data.blades.has(track) and int(data.tracks[track].rows) > 1
+	if not held and (int(data.tracks[track].rows) != 2 or int(data.tracks[track].cols) != 2):
+		for i in out.size(): out[i] = out[i].lerp(b[i], k)
+		return out
+	var end := (int(data.tracks[track].rows) - 1) * int(data.tracks[track].cols)
+	if not _hands.has(track):
+		# where on the weapon the hand is, seen along its first column of corners; whatever else is stiff turns about its middle
+		var all: PackedVector2Array = _positions[track]
+		var about: Vector2 = Vector2(data.blades[track][0], data.blades[track][1]) / STEPS if held else (all[0] + all[3]) / 2.0
+		_hands[track] = (about - all[0]).rotated(-(all[end] - all[0]).angle())
+	var from := (a[end] - a[0]).angle()
+	var to := (b[end] - b[0]).angle()
+	var hand: Vector2 = a[0] + _hands[track].rotated(from)
+	var at: Vector2 = hand.lerp(b[0] + _hands[track].rotated(to), k)
+	var turn := angle_difference(from, to) * k
+	for i in out.size(): out[i] = at + (a[i] - hand).rotated(turn)
 	return out
 
 ## Where the corners lie on a cropped picture. Every expression has its own place in its drawing; helmets follow the calm one.

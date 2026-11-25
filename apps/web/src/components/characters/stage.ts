@@ -53,9 +53,9 @@ function box(pack: PixoCharacterPack, wear: PixoWear, motion: string, frames?: n
   return found;
 }
 
-/** How far the character reaches in any of its motions, with what it wears. */
-function reach(actor: PixoCharacter): PixoBox {
-  const all = Object.keys(actor.pack.data.motions).map(m => box(actor.pack, actor.wear, m));
+/** How far the character reaches in any of its motions, with what it wears: a motion with a bow counts when there is a bow in the hands. A preview holds one motion only; the character must not change its size for it. */
+export function reach(actor: PixoCharacter, whole: PixoCharacterPack = actor.pack): PixoBox {
+  const all = [...new Set([whole, actor.pack])].flatMap(pack => Object.keys(pack.data.motions).filter(m => !m.includes('/')).map(m => box(pack, actor.wear, m)));
   return [Math.min(...all.map(b => b[0])), Math.min(...all.map(b => b[1])), Math.max(...all.map(b => b[2])), Math.max(...all.map(b => b[3]))];
 }
 
@@ -65,9 +65,9 @@ export const FRAMES = {
     const b = box(a.pack, a.wear, a.pack.data.motions.idle ? 'idle' : a.motion, 1), scale = Math.min(w * 0.84 / (b[2] - b[0]), h * 0.84 / (b[3] - b[1]));
     return { scale, x: w / 2 - (b[0] + b[2]) / 2 * scale, y: h * 0.93 - b[3] * scale };
   },
-  /** Room for every motion; `zoom` comes closer. */
-  stage: (zoom: number) => (w: number, h: number, a: PixoCharacter): Placed => {
-    const r = reach(a), ground = h * 0.86, fit = Math.min((ground - 8) / -r[1], (w - 20) / (r[2] - r[0]), 1.7), scale = fit * zoom;
+  /** Room for every motion of the whole package; `zoom` comes closer. */
+  stage: (zoom: number, whole: PixoCharacterPack) => (w: number, h: number, a: PixoCharacter): Placed => {
+    const r = reach(a, whole), ground = h * 0.86, fit = Math.min((ground - 8) / -r[1], (w - 20) / (r[2] - r[0]), 1.7), scale = fit * zoom;
     return { scale, x: w / 2 - (zoom > 1 ? 40 : (r[0] + r[2]) / 2) * scale, y: ground };
   },
 } as const;

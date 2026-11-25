@@ -6,7 +6,7 @@ import { deleteCharacter, installCharacter, packCharacter, priceCharacter, saveC
 import { Icon } from '../Icon';
 import { PixoCharacter, type PixoCharacterPack, type PixoSlot, type PixoWear } from '../../lib/characters/pixo-character';
 import { BriefDialog } from './BriefDialog';
-import { codeText, errorText, inOrder, isWorking, motionText, stateText } from './character-text';
+import { codeText, errorText, GUARD, inOrder, isWorking, motionText, stateText } from './character-text';
 import type { PageGame } from './CharactersPage';
 import { GearDialog } from './GearDialog';
 import { MotionsPanel } from './MotionsPanel';
@@ -21,7 +21,7 @@ const TUNE_MS = 220;
 
 /** What can be seen of an outfit in a package. A preview is made from what is saved, which can be less than the package on the stage has. */
 export const wornIn = (pack: Pick<PixoCharacterPack, 'tracks'>, wear: PixoWear): PixoWear => Object.fromEntries(Object.entries(wear).filter(([slot, id]) =>
-  slot === 'head' ? pack.tracks.has('head') : slot === 'weapon' ? pack.tracks.has(id) && pack.tracks.has(`armF${id.replace('weapon', '')}`) : slot === 'cape' ? pack.tracks.has(id) : true));
+  slot === 'head' ? pack.tracks.has('head') : slot === 'weapon' ? pack.tracks.has(id) && pack.tracks.has(`armF${id.replace('weapon', '')}`) : slot === 'cape' || slot === 'shield' ? pack.tracks.has(id) : true));
 
 export function CharacterDetail({ character: c, sample, gear, service, games, balance, onChange, onHold, onRead, onGear, onBack, onDeleted, onOpenProject, onOpenAccount }: {
   character: LocalCharacter;
@@ -76,7 +76,7 @@ export function CharacterDetail({ character: c, sample, gear, service, games, ba
     setWear(next.wear);
     setMotion(next.motion);
     if (!canvas.current) return;
-    return run(canvas.current, next, () => FRAMES.stage(ZOOMS[zoomRef.current]!), () => { if (bar.current) bar.current.style.transform = `scaleX(${Math.min(1, next.time / next.info.seconds)})`; });
+    return run(canvas.current, next, () => FRAMES.stage(ZOOMS[zoomRef.current]!, pack), () => { if (bar.current) bar.current.style.transform = `scaleX(${Math.min(1, next.time / next.info.seconds)})`; });
   }, [pack]);
   const play = useCallback((what: string) => {
     const a = actor.current;
@@ -182,7 +182,8 @@ export function CharacterDetail({ character: c, sample, gear, service, games, ba
     }).then(() => setInstalling(null));
   };
 
-  const motions = useMemo(() => inOrder(c.motions), [c.motions]);
+  // a shield brings a motion of its own along
+  const motions = useMemo(() => inOrder(pack?.data.motions[GUARD] && !c.motions.some(m => m.name === GUARD) ? [...c.motions, { name: GUARD, builtIn: true, shown: '', tuning: {} }] : c.motions), [c.motions, pack]);
   const inGame = new Set(c.games.map(g => g.projectId));
 
   return <>
@@ -218,7 +219,7 @@ export function CharacterDetail({ character: c, sample, gear, service, games, ba
       </section>
       <aside className={styles.panel}>
         <SegmentedTabs className={styles.tabs} label={c.name} value={tab} onValueChange={v => setTab(v as typeof tab)} items={[{ value: 'wardrobe', label: t('characters.wardrobe') }, ...(sample ? [] : [{ value: 'motions', label: t('characters.motions') }]), { value: 'games', label: t('characters.games'), ...(c.games.length ? { count: c.games.length } : {}) }]} />
-        {tab === 'wardrobe' && wear && pack && <Wardrobe character={c} {...(sample ? { sample } : {})} pack={pack} wear={wear} onWear={dress} onOutfits={saveOutfits} onGear={() => setGearOpen(true)} busy={working} />}
+        {tab === 'wardrobe' && wear && pack && <Wardrobe character={c} {...(sample ? { sample } : {})} pack={pack} wear={wear} onWear={dress} onOutfits={saveOutfits} onGear={() => { setProblem(null); setGearOpen(true); }} busy={working} />}
         {tab === 'motions' && <MotionsPanel character={c} pack={pack} gear={gear} service={service} motion={motion} busy={working} asking={asking} draft={drafts[motion]} onDraft={values => setDrafts(all => ({ ...all, [motion]: values }))} wish={motionWish} onWish={setMotionWish} onPlay={choose} onPreview={preview} onSave={saveTuning} onHold={onHold} onChange={onChange} onProblem={e => setProblem(errorText(t, e))} onAsk={text => ask({ kind: 'motion', text })} />}
         {tab === 'games' && <div className={styles.panelBody}>
           <p className={styles.hint}>{t('characters.gamesHint')}</p>
@@ -231,7 +232,7 @@ export function CharacterDetail({ character: c, sample, gear, service, games, ba
         </div>}
       </aside>
     </div>
-    {gearOpen && <GearDialog character={c} gear={gear} service={service} busy={working} asking={asking} onClose={() => setGearOpen(false)} onSave={saveGear} onAsk={ask} onGear={onGear} />}
+    {gearOpen && <GearDialog character={c} gear={gear} service={service} busy={working} asking={asking} problem={problem} onClose={() => setGearOpen(false)} onSave={saveGear} onAsk={ask} onGear={onGear} />}
     {brief && <BriefDialog brief={brief} onClose={() => setBrief(null)} onOpenAccount={onOpenAccount} onUnsure={() => void onRead()} onOrdered={() => { if (brief.kind === 'motion') setMotionWish(''); setBrief(null); setGearOpen(false); void onRead(); }} />}
     <ConfirmDialog open={deleting} title={t('characters.deleteTitle', { name: c.name })} confirmLabel={t('characters.delete')} cancelLabel={t('common.cancel')} destructive onCancel={() => setDeleting(false)}
       onConfirm={() => { setDeleting(false); void act(() => deleteCharacter(c.id)).then(done => { if (done) onDeleted(c.id); }); }}>{t('characters.deleteBody')}</ConfirmDialog>

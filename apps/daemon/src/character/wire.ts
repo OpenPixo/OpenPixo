@@ -1,5 +1,5 @@
 import {
-  CHARACTER_BODIES, CHARACTER_JOB_STATES, CHARACTER_KINDS, CHARACTER_PARTS, CHARACTER_SLOTS, CHARACTER_STATES, CHARACTER_STYLES, CHARACTER_TUNING,
+  CHARACTER_BODIES, CHARACTER_JOB_STATES, CHARACTER_KINDS, CHARACTER_PARTS, CHARACTER_SLOTS, CHARACTER_STATES, CHARACTER_STYLES, CHARACTER_TUNING, CHARACTER_WEAPONS,
   type AnimatedCharacter, type CharacterBrief, type CharacterDesign, type CharacterGear, type CharacterItem, type CharacterJob, type CharacterJobKind,
   type CharacterOutfit, type CharacterPart, type CharacterService, type CharacterTuning, type CharacterWear,
 } from '@openpixo/contracts';
@@ -17,8 +17,8 @@ const one = <T extends string>(all: readonly T[], value: unknown): T => all.find
 const date = (value: unknown): string => { const result = text(value, 64); return Number.isFinite(Date.parse(result)) ? result : bad(); };
 
 export const CHARACTER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
-/** A piece: set4, weapon12, cape0. */
-export const PIECE_ID = /^(?:set|weapon|cape)\d{1,5}$/u;
+/** A piece: set4, weapon12, cape0, shield3. */
+export const PIECE_ID = /^(?:set|weapon|cape|shield)\d{1,5}$/u;
 export const DESIGN_ID = /^(?:armor|gear)\d{1,4}$/u;
 export const MOTION_NAME = /^[a-z][a-z0-9_]{0,31}$/u;
 /** Names of package files. None is a path, a dot file or anything that runs. */
@@ -63,14 +63,16 @@ export function job(value: unknown): CharacterJob {
   };
 }
 
-const items = (value: unknown): CharacterItem[] => rows(value).map(i => ({ id: match(PIECE_ID, i.id), label: text(i.label, 120) }));
+/** A type this version does not know is left out: the package says how the weapon is used. */
+const typeOf = (i: Row): Pick<CharacterItem, 'type'> => { const type = CHARACTER_WEAPONS.find(w => w === i.type); return type && type !== 'blade' ? { type } : {}; };
+const items = (value: unknown): CharacterItem[] => rows(value).map(i => ({ id: match(PIECE_ID, i.id), label: text(i.label, 120), ...typeOf(i) }));
 
 export function character(value: unknown): AnimatedCharacter {
   const c = row(value), worn = row(c.items);
   return {
     id: match(CHARACTER_ID, c.id), name: text(c.name), body: one(CHARACTER_BODIES, c.body), style: one(CHARACTER_STYLES, c.style), state: one(CHARACTER_STATES, c.state), revision: count(c.revision),
-    items: { sets: items(worn.sets), weapons: items(worn.weapons), capes: items(worn.capes) },
-    fits: Array.isArray(c.fits) ? c.fits.map(d => match(DESIGN_ID, d)) : bad(), outfits: outfits(c.outfits),
+    items: { sets: items(worn.sets), weapons: items(worn.weapons), capes: items(worn.capes), shields: items(worn.shields ?? []) },
+    outfits: outfits(c.outfits),
     motions: rows(c.motions).map(m => ({ name: match(MOTION_NAME, m.name), builtIn: m.builtIn === true, shown: text(m.shown, 400), tuning: tuning(m.tuning) })),
     changed: c.changed === true, job: c.job == null ? null : job(c.job), createdAt: date(c.createdAt), updatedAt: date(c.updatedAt),
   };
@@ -98,7 +100,7 @@ export function gear(value: unknown): CharacterGear {
   const g = row(value);
   const design = (d: Row): CharacterDesign => ({
     id: match(DESIGN_ID, d.id), kind: one(['armor', 'gear'] as const, d.kind), style: one(CHARACTER_STYLES, d.style), madeFor: typeof d.madeFor === 'string' && CHARACTER_ID.test(d.madeFor) ? d.madeFor : '',
-    sets: items(d.sets), weapons: items(d.weapons), capes: items(d.capes), fits: Array.isArray(d.fits) ? d.fits.map(id => match(CHARACTER_ID, id)) : bad(), createdAt: date(d.createdAt),
+    sets: items(d.sets), weapons: items(d.weapons), capes: items(d.capes), shields: items(d.shields ?? []), createdAt: date(d.createdAt),
   });
   return {
     designs: rows(g.designs).map(design),

@@ -98,7 +98,7 @@ export class CharacterCloud {
 
   /** One motion with other sliders, as it would be packed. Nothing is saved. */
   async tune(id: string, motion: string, tuning: CharacterTuning, wear: CharacterWear, signal?: AbortSignal): Promise<Buffer> {
-    const response = await this.send(`characters/${id}/tune`, 'POST', { motion, tuning, wear: { weapon: wear.weapon ?? null, cape: wear.cape ?? null } }, signal);
+    const response = await this.send(`characters/${id}/tune`, 'POST', { motion, tuning, wear: { weapon: wear.weapon ?? null, cape: wear.cape ?? null, shield: wear.shield ?? null } }, signal);
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > MAX_ANSWER) throw new CharacterError('CLOUD_UNAVAILABLE');
     return bytes;

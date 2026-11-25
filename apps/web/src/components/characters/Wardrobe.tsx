@@ -6,6 +6,7 @@ import type { Dict } from '../../i18n/types';
 import { characterFile } from '../../providers/characters';
 import { Icon } from '../Icon';
 import type { PixoCharacterPack, PixoSlot, PixoWear } from '../../lib/characters/pixo-character';
+import { itemText, takesBothHands } from './character-text';
 import { FRAMES, paint } from './stage';
 import styles from './Characters.module.css';
 
@@ -32,17 +33,20 @@ function Outfit({ pack, wear }: { pack: PixoCharacterPack; wear: PixoWear }) {
 export function Wardrobe({ character: c, sample, pack, wear, onWear, onOutfits, onGear, busy }: { character: LocalCharacter; /** Nobody's: it can be dressed, but nothing can be saved. */ sample?: boolean; pack: PixoCharacterPack; wear: PixoWear; onWear: (w: PixoWear) => void; onOutfits: (edit: (now: readonly CharacterOutfit[]) => CharacterOutfit[]) => void; onGear: () => void; busy: boolean }) {
   const { t } = useI18n();
   const [naming, setNaming] = useState<string | null>(null);
-  const has = (slot: PixoSlot, id: string): boolean => pack.data.items[slot].includes(id), put = (slot: PixoSlot, id: string | null): void => { const { [slot]: _, ...rest } = wear; onWear(id ? { ...rest, [slot]: id } : rest); };
+  const has = (slot: PixoSlot, id: string): boolean => Boolean(pack.data.items[slot]?.includes(id)), put = (slot: PixoSlot, id: string | null): void => { const { [slot]: _, ...rest } = wear; onWear(id ? { ...rest, [slot]: id } : rest); };
   // what was taken along but is not in the package yet cannot be shown
-  const sets = c.items.sets.filter(s => has('head', s.id)), weapons = c.items.weapons.filter(w => has('weapon', w.id)), capes = c.items.capes.filter(x => has('cape', x.id));
+  const sets = c.items.sets.filter(s => has('head', s.id)), weapons = c.items.weapons.filter(w => has('weapon', w.id)), capes = c.items.capes.filter(x => has('cape', x.id)), shields = c.items.shields.filter(x => has('shield', x.id)), bothHands = takesBothHands(weapons.find(w => w.id === wear.weapon));
   const pick = <T,>(list: readonly T[]): T | undefined => list[Math.floor(Math.random() * list.length)];
-  const random = (): void => onWear(Object.fromEntries([...ARMOUR.map(a => [a.slot, pick(sets)?.id]), ['weapon', pick(weapons)?.id], ['cape', Math.random() < 0.7 ? pick(capes)?.id : undefined]].filter(([, id]) => id)) as PixoWear);
+  const random = (): void => {
+    const weapon = pick(weapons);
+    onWear(Object.fromEntries([...ARMOUR.map(a => [a.slot, pick(sets)?.id]), ['weapon', weapon?.id], ['cape', Math.random() < 0.7 ? pick(capes)?.id : undefined], ['shield', !takesBothHands(weapon) && Math.random() < 0.5 ? pick(shields)?.id : undefined]].filter(([, id]) => id)) as PixoWear);
+  };
   const cell = (slot: PixoSlot, item: CharacterItem | null, picture: string | null, key: string) => {
-    const on = (wear[slot] ?? null) === (item?.id ?? null), label = item ? item.label || item.id : t('characters.nothing');
+    const on = (wear[slot] ?? null) === (item?.id ?? null), label = item ? itemText(t, item) : t('characters.nothing');
     return <button key={key} type="button" className={on ? styles.cellOn : styles.cell} aria-pressed={on} aria-label={label} title={label} onClick={() => put(slot, item?.id ?? null)} data-testid={`wear-${slot}-${item?.id ?? 'none'}`}>
       {picture ? <img src={characterFile(c.id, c.revision, picture)} alt="" loading="lazy" draggable={false} /> : <Icon name="minus" size={14} />}</button>;
   };
-  const shelf = (slot: 'weapon' | 'cape', title: string, list: readonly CharacterItem[]) => <section><h3>{title}</h3><div className={styles.cells}>{cell(slot, null, null, 'none')}{list.map(i => cell(slot, i, `icon-${i.id}.png`, i.id))}</div></section>;
+  const shelf = (slot: 'weapon' | 'cape' | 'shield', title: string, list: readonly CharacterItem[], hint?: string) => <section><h3>{title}</h3>{hint && <p className={styles.hint}>{hint}</p>}<div className={styles.cells}>{cell(slot, null, null, 'none')}{list.map(i => cell(slot, i, `icon-${i.id}.png`, i.id))}</div></section>;
 
   return <div className={styles.panelBody}>
     <section>
@@ -71,6 +75,7 @@ export function Wardrobe({ character: c, sample, pack, wear, onWear, onOutfits, 
       </div>
     </section>}
     {shelf('weapon', t('characters.weapons'), weapons)}
+    {shields.length > 0 && shelf('shield', t('characters.shields'), shields, bothHands ? t('characters.shieldHint') : undefined)}
     {capes.length > 0 && shelf('cape', t('characters.capes'), capes)}
     {!sample && <Button className={styles.addGear} disabled={busy} onClick={onGear} data-testid="character-gear"><Icon name="plus" size={14} /> {t('characters.addGear')}</Button>}
   </div>;

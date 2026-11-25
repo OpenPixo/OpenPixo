@@ -6,13 +6,13 @@
  *   const pack = await PixoCharacterPack.load('characters/mail-carrier');
  *   const hero = pack.create();
  *   hero.play('attack');
- *   hero.putOn('weapon', 'weapon3');
+ *   hero.putOn('weapon', 'weapon3');                  // with a bow, attack is the attack of a bow
  *   hero.update(seconds); hero.draw(gl, matrix);      // every frame
  *   hero.addToPhaser(this, 400, 300);                 // or let a Phaser scene do it
  */
 
 /** Where something can be worn. A set of armour has one piece for each of the first four. */
-export type PixoSlot = 'head' | 'body' | 'arm' | 'leg' | 'weapon' | 'cape';
+export type PixoSlot = 'head' | 'body' | 'arm' | 'leg' | 'weapon' | 'cape' | 'shield';
 export type PixoWear = Partial<Record<PixoSlot, string>>;
 /** x' = a*x + c*y + e, y' = b*x + d*y + f, into clip space: -1 to 1, upwards. */
 export type PixoMatrix = readonly [a: number, b: number, c: number, d: number, e: number, f: number];
@@ -35,17 +35,28 @@ export interface PixoData {
   pics: Record<string, PictureData>;
   /** Grip and tip of every weapon in every frame. */
   blades: Record<string, number[]>;
-  items: Record<PixoSlot, string[]> & { start: PixoWear };
+  /** Weapons that are not swung: spear, staff, bow, launcher. With a bow in the hands `attack` is the motion `bow/attack`, with nothing in them `fists/attack`. */
+  types?: Record<string, string>;
+  /** Types that leave no hand for a shield, and those the far hand holds. */
+  twoHanded?: string[];
+  farHand?: string[];
+  /** What a weapon shoots: its picture, which points up, where its rear end is, and package pixels for one of its pixels. */
+  shots?: Record<string, { picture: string; tail: [number, number]; size: number }>;
+  items: Partial<Record<PixoSlot, string[]>> & { start: PixoWear };
   outfits?: { name: string; wear: PixoWear }[];
 }
-interface Track { all: Int16Array; corners: number; rows: number; cols: number; tint: [number, number, number] }
+interface Track {
+  all: Int16Array; corners: number; rows: number; cols: number; tint: [number, number, number];
+  /** Weapons: where on them the hand is, in stored steps along and across the first column of corners. */
+  hand?: [number, number];
+}
 
 /** Positions are stored in steps of this many to a pixel. */
 const STEPS = 8;
 /** Seconds a new motion takes to blend in. */
 const BLEND = 0.09;
 /** Which slot an armour layer belongs to. */
-const LAYERS: Record<string, PixoSlot> = { 'head+': 'head', 'torso+': 'body', 'armN+': 'arm', 'armF+': 'arm', 'legN+': 'leg', 'legF+': 'leg', weapon: 'weapon', cape: 'cape' };
+const LAYERS: Record<string, PixoSlot> = { 'head+': 'head', 'torso+': 'body', 'armN+': 'arm', 'armF+': 'arm', 'legN+': 'leg', 'legF+': 'leg', weapon: 'weapon', bow: 'weapon', staff: 'weapon', string: 'weapon', shot: 'weapon', shield: 'shield', cape: 'cape' };
 const BODY = ['legF', 'legN', 'torso', 'armN', 'bare', 'head'];
 
 async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
@@ -58,6 +69,26 @@ async function unpack(t: Pick<TrackData, 'at' | 'bytes' | 'raw' | 'rows' | 'cols
   const raw = await inflate(bin.subarray(t.at, t.at + t.bytes)), view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength), all = new Int16Array(raw.byteLength / 2), line = t.rows * t.cols * 2;
   for (let i = 0; i < all.length; i++) all[i] = view.getInt16(i * 2, true) + (i < line ? 0 : all[i - line]!);
   return all;
+}
+
+/** How far a weapon is turned: the direction of its first column of corners. */
+const turned = (t: Track, p: ArrayLike<number>): number => { const end = (t.rows - 1) * t.cols * 2; return Math.atan2(p[end + 1]! - p[1]!, p[end]! - p[0]!); };
+
+/** The moment `k` between two. Corners go straight from one to the other, but a weapon is stiff: it turns about the hand and keeps its shape. */
+function mix(out: Float32Array, t: Track, a: ArrayLike<number>, b: ArrayLike<number>, k: number, size: number): void {
+  if (!t.hand) {
+    for (let i = 0; i < out.length; i++) out[i] = a[i]! + (b[i]! - a[i]!) * k;
+    return;
+  }
+  const from = turned(t, a), to = turned(t, b), full = Math.PI * 2, [along, across] = [t.hand[0] * size, t.hand[1] * size];
+  const ax = a[0]! + Math.cos(from) * along - Math.sin(from) * across, ay = a[1]! + Math.sin(from) * along + Math.cos(from) * across;
+  const bx = b[0]! + Math.cos(to) * along - Math.sin(to) * across, by = b[1]! + Math.sin(to) * along + Math.cos(to) * across;
+  const turn = (to - from - Math.round((to - from) / full) * full) * k, c = Math.cos(turn), s = Math.sin(turn), x = ax + (bx - ax) * k, y = ay + (by - ay) * k;
+  for (let i = 0; i < out.length; i += 2) {
+    const dx = a[i]! - ax, dy = a[i + 1]! - ay;
+    out[i] = x + dx * c - dy * s;
+    out[i + 1] = y + dx * s + dy * c;
+  }
 }
 
 type Gl = WebGLRenderingContext | WebGL2RenderingContext;
@@ -199,6 +230,18 @@ export class PixoCharacterPack {
     this.tracks = tracks;
     this.pictures = pictures;
     this.drawn = drawn;
+    for (const [name, grip] of Object.entries(data.blades)) {
+      const t = tracks.get(name);
+      if (!t || t.rows < 2 || grip.length < 2) continue;
+      const a = turned(t, t.all), x = grip[0]! - t.all[0]!, y = grip[1]! - t.all[1]!;
+      t.hand = [Math.cos(a) * x + Math.sin(a) * y, Math.cos(a) * y - Math.sin(a) * x];
+    }
+    // whatever else is stiff turns about its middle
+    for (const t of tracks.values()) {
+      if (t.rows !== 2 || t.cols !== 2 || t.hand) continue;
+      const a = turned(t, t.all), x = (t.all[6]! - t.all[0]!) / 2, y = (t.all[7]! - t.all[1]!) / 2;
+      t.hand = [Math.cos(a) * x + Math.sin(a) * y, Math.cos(a) * y - Math.sin(a) * x];
+    }
   }
 
   /** Reads `<folder>/hero.json` and everything it names. */
@@ -223,17 +266,26 @@ export class PixoCharacterPack {
     return out;
   }
 
-  /** The same character with one motion as it would be with other sliders: for showing it before it is packed. */
-  async withMotion(changed: Pick<PixoData, 'frames' | 'motions' | 'orders' | 'order' | 'face' | 'faces' | 'blades'> & { tracks: Record<string, Pick<TrackData, 'at' | 'bytes' | 'raw' | 'rows' | 'cols'>> }, bin: Uint8Array): Promise<PixoCharacterPack> {
-    const tracks = Object.fromEntries(Object.entries(changed.tracks).filter(([name]) => this.drawn.tracks[name]).map(([name, t]) => [name, { ...t, tint: this.drawn.tracks[name]!.tint }]));
-    return new PixoCharacterPack({ ...this.drawn, ...changed, tracks: this.drawn.tracks }, await PixoCharacterPack.read(tracks, bin), this.pictures, this.drawn);
+  /** The same character with one motion as it would be with other sliders: for showing it before it is packed. Where its meshes lie on the pictures comes with it, because that depends on what the character holds by now. */
+  async withMotion(changed: Pick<PixoData, 'frames' | 'motions' | 'orders' | 'order' | 'face' | 'faces' | 'blades'> & { tracks: Record<string, Pick<TrackData, 'at' | 'bytes' | 'raw' | 'rows' | 'cols'> & Partial<Pick<TrackData, 'uv' | 'uvs' | 'off'>>> }, bin: Uint8Array): Promise<PixoCharacterPack> {
+    const tracks = Object.fromEntries(Object.entries(changed.tracks).filter(([name]) => this.drawn.tracks[name]).map(([name, t]) => [name, { ...this.drawn.tracks[name]!, ...t }])), drawn = { ...this.drawn, tracks: { ...this.drawn.tracks, ...tracks } };
+    return new PixoCharacterPack({ ...drawn, ...changed, tracks: drawn.tracks }, await PixoCharacterPack.read(tracks, bin), this.pictures, drawn);
   }
 
   create(): PixoCharacter { return new PixoCharacter(this); }
 
+  /** How what is in the hands is used: undefined for a weapon that is swung, or in a package that has nothing else. */
+  typeOf(wear: PixoWear): string | undefined { return this.data.types && (wear.weapon ? this.data.types[wear.weapon] ?? (wear.shield ? 'shield' : undefined) : 'fists'); }
+
+  /** The motion that is really played with what is in the hands. */
+  key(wear: PixoWear, motion: string): string {
+    const type = this.typeOf(wear), own = `${type}/${motion}`;
+    return type && this.data.motions[own] ? own : motion;
+  }
+
   /** The box around a dressed character in a motion, or in its first frames, in package pixels. It stands on 0, 0. */
   box(wear: PixoWear, motion: string, frames?: number): PixoBox {
-    const m = this.data.motions[motion]!, box: PixoBox = [Infinity, Infinity, -Infinity, -Infinity];
+    const m = this.data.motions[this.key(wear, motion)]!, box: PixoBox = [Infinity, Infinity, -Infinity, -Infinity];
     for (const name of [...BODY.filter(n => n !== (wear.head ? 'bare' : 'head')), wear.weapon, wear.cape, wear.cape ? undefined : 'hair']) {
       const t = name ? this.tracks.get(name) : undefined;
       if (!t) continue;
@@ -290,6 +342,7 @@ export class PixoCharacter {
   private since = 9;
   private toldHit = false;
   private toldEnd = false;
+  private played = '';
 
   constructor(pack: PixoCharacterPack) {
     this.pack = pack;
@@ -329,7 +382,13 @@ export class PixoCharacter {
   get info(): PixoMotion {
     const { motions } = this.pack.data;
     if (!motions[this.motion]) { this.motion = motions.idle ? 'idle' : Object.keys(motions)[0]!; this.time = 0; }
-    return motions[this.motion]!;
+    const key = this.pack.key(this.wear, this.motion), m = motions[key]!;
+    if (key !== this.played) {
+      // other hands: what is carried changes at once, so nothing is blended
+      if (this.played.split('/').pop() === this.motion && this.time > 0) { this.since = 9; if (!m.loop) this.time = 0; }
+      this.played = key;
+    }
+    return m;
   }
 
   /** Goes on by this many seconds. */
@@ -353,11 +412,12 @@ export class PixoCharacter {
     const n = t.corners * 2, i0 = a * n, i1 = b * n;
     let out = this.last.get(name);
     if (!out || out.length !== n) this.last.set(name, out = new Float32Array(n));
-    for (let i = 0; i < n; i++) out[i] = (t.all[i0 + i]! + (t.all[i1 + i]! - t.all[i0 + i]!) * k) / STEPS;
+    mix(out, t, t.all.subarray(i0, i0 + n), t.all.subarray(i1, i1 + n), k, 1);
+    for (let i = 0; i < n; i++) out[i]! /= STEPS;
     const before = this.since < BLEND ? this.from.get(name) : undefined;
     if (before && before.length === n) {
-      const x = this.since / BLEND, mix = x * x * (3 - 2 * x);
-      for (let i = 0; i < n; i++) out[i] = before[i]! + (out[i]! - before[i]!) * mix;
+      const x = this.since / BLEND;
+      mix(out, t, before, out, x * x * (3 - 2 * x), 1 / STEPS);
     }
     return out;
   }
@@ -368,15 +428,35 @@ export class PixoCharacter {
     return list ? { grip: [list[i]! / STEPS, list[i + 1]! / STEPS], tip: [list[i + 2]! / STEPS, list[i + 3]! / STEPS] } : null;
   }
 
+  /**
+   * What the weapon shoots now, for a game that flies it: the picture points up, `tail` is its rear end on the picture, `size`
+   * package pixels for one of its pixels. It leaves from `from` towards `direction`, in package pixels. Null for what is not shot.
+   */
+  shot(): { picture: ImageBitmap; tail: [number, number]; size: number; from: [number, number]; direction: [number, number] } | null {
+    const { data, pictures } = this.pack, s = data.shots?.[this.wear.weapon ?? ''], b = this.blade(), picture = s && pictures.get(s.picture);
+    if (!s || !b || !picture) return null;
+    const crop = data.pics[s.picture]!, type = this.pack.typeOf(this.wear), dx = b.tip[0] - b.grip[0], dy = b.tip[1] - b.grip[1], far = Math.hypot(dx, dy) || 1;
+    // a staff is held upright and what it fires flies forward
+    return { picture, tail: [s.tail[0] - crop.x, s.tail[1] - crop.y], size: s.size, from: type === 'bow' ? b.grip : b.tip, direction: type === 'staff' ? [1, 0] : [dx / far, dy / far] };
+  }
+
   /** Draws it. The matrix goes from package pixels (x to the right, y down, standing on 0, 0) to clip space. */
   draw(gl: Gl, matrix: PixoMatrix, alpha = 1): void {
     const { data, tracks, pictures } = this.pack, place = this.at(), frame = place[0], { wear } = this, weapon = wear.weapon ?? '', face = data.faces[data.face[frame]!]!, done = new Map<string, Float32Array>(), renderer = Renderer.of(gl);
+    const type = this.pack.typeOf(wear), shield = wear.shield && !(type && data.twoHanded?.includes(type)), hand = weapon.replace('weapon', ''), ahead = Boolean(type && data.farHand?.includes(type));
     renderer.begin(matrix);
     for (const slot of data.orders[data.order[frame]!]!) {
       const part = slot.endsWith('+') ? slot.slice(0, -1) : slot, layer = LAYERS[slot];
       let track = part, picture = part, expression = '';
       if (slot === 'hair' && wear.cape) continue;
-      if (part === 'armF' || part === 'creaseF') track = part + weapon.replace('weapon', '');
+      if (slot === 'shield' && !shield) continue;
+      if (slot === 'weapon' ? ahead : slot === 'staff' ? type !== 'staff' : (slot === 'bow' || slot === 'string' || slot === 'shot') && type !== 'bow') continue;
+      const farArm = part === 'armF' || part === 'creaseF';
+      if (farArm) {
+        track = part + (shield ? '' : hand);
+        // whatever it holds, the far hand is the near one's fist
+        picture = part === 'creaseF' ? type ? 'creaseN' : 'creaseF' : type ? 'armN' : 'armF';
+      }
       if (slot === 'head') {
         expression = face;
         track = wear.head ? 'head' : 'bare';
@@ -384,8 +464,9 @@ export class PixoCharacter {
       } else if (layer) {
         const item = wear[layer];
         if (!item) continue;
-        if (slot === 'weapon' || slot === 'cape') track = picture = item;
-        else { picture = `${item}/${part}`; if (slot === 'head+') expression = face; }
+        if (slot === 'string' || slot === 'shot') track = picture = slot + hand;
+        else if (slot === 'weapon' || slot === 'bow' || slot === 'staff' || slot === 'shield' || slot === 'cape') track = picture = item;
+        else { picture = `${item}/${farArm ? picture : part}`; if (slot === 'head+') expression = face; }
       }
       const t = tracks.get(track), bitmap = pictures.get(picture);
       if (!t || !bitmap) continue;

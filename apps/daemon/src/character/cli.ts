@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import {
-  CHARACTER_TUNING, PRODUCT_CLI_NAME, type CharacterBrief, type CharacterGear, type CharacterJob, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus, type CharacterSuggestion, type InstalledCharacter,
+  CHARACTER_GEAR_TYPES, CHARACTER_TUNING, PRODUCT_CLI_NAME, type CharacterBrief, type CharacterGear, type CharacterJob, type CharacterSampleResponse, type CharactersResponse, type CharactersStatus, type CharacterSuggestion, type InstalledCharacter,
   type InstalledCharactersResponse, type LocalCharacter,
 } from '@openpixo/contracts';
 import { accountCliApi } from '../account/cli-common.js';
@@ -9,21 +9,21 @@ import { resolveDaemonUrl } from '../daemon-url.js';
 import { recipeCliText } from '../recipes/cli-common.js';
 
 /** Commands of `pixo character` that are about animated characters; the rest are character cards. */
-export const ANIMATED_COMMANDS = ['service', 'sample', 'mine', 'info', 'make', 'add', 'fit', 'job', 'gear', 'wear', 'outfits', 'tune', 'pack', 'rename', 'remove', 'install', 'installed', 'uninstall', 'suggest'] as const;
+export const ANIMATED_COMMANDS = ['service', 'sample', 'mine', 'info', 'make', 'add', 'job', 'gear', 'wear', 'outfits', 'tune', 'pack', 'rename', 'remove', 'install', 'installed', 'uninstall', 'suggest'] as const;
 
 export const ANIMATED_USAGE = `Animated characters, made by OpenPixo Cloud for credits:
 ${PRODUCT_CLI_NAME} character service [--json]                     Prices, and whether characters are available.
 ${PRODUCT_CLI_NAME} character sample [--language en|zh] [--json]   The free sample: no account or credits needed. Install it like any other.
 ${PRODUCT_CLI_NAME} character mine [--json]                        Your characters, and the games they are in.
 ${PRODUCT_CLI_NAME} character info <id> [--json]
-${PRODUCT_CLI_NAME} character make (--text <words> | --prompt-file <path|->) [--armor] [--weapons] [--style ink|cute] [--body angular|round|lanky|tiny] [--yes] [--json]
-    Shows what was understood and the price; --yes orders it and waits. One sentence is enough. --weapons: eight weapons and four capes.
-${PRODUCT_CLI_NAME} character add <id> armor|gear|motion (--text <words> | --prompt-file <path|->) [--yes] [--json]
-    Three armour sets, eight weapons and four capes, or one motion. Weapons, capes and motions are yours for every character.
-${PRODUCT_CLI_NAME} character fit <id> <design> [--yes] [--json]   Draw armour you own again for this character (see "gear" for designs).
+${PRODUCT_CLI_NAME} character make (--text <words> | --prompt-file <path|->) [--armor] [--weapons] [--types <type,type,…>] [--style ink|cute] [--body angular|round|lanky|tiny] [--yes] [--json]
+    Shows what was understood and the price; --yes orders it and waits. One sentence is enough. --weapons: eight weapons and four capes or shields.
+    --types: which kinds of them, instead of what the words say: ${CHARACTER_GEAR_TYPES.join(', ')}.
+${PRODUCT_CLI_NAME} character add <id> armor|gear|motion (--text <words> | --prompt-file <path|->) [--types <type,type,…>] [--yes] [--json]
+    Three armour sets, eight weapons and four capes or shields, or one motion. All of it is yours for every character.
 ${PRODUCT_CLI_NAME} character job <job id> [--wait] [--json]
-${PRODUCT_CLI_NAME} character gear [--json]                        Everything you own: armour designs, weapons, capes, motions.
-${PRODUCT_CLI_NAME} character wear <id> --pieces <piece,piece,…> [--json]   What goes into its package. Free.
+${PRODUCT_CLI_NAME} character gear [--json]                        Everything you own: armour, weapons, capes, shields, motions.
+${PRODUCT_CLI_NAME} character wear <id> --pieces <piece,piece,…> [--json]   What goes into its package. Free; armour is fitted to the body.
 ${PRODUCT_CLI_NAME} character outfits <id> --file <json|-> [--json]       [{"name":"Patrol","wear":{"head":"set0","weapon":"weapon3"},"start":true}]. Free.
 ${PRODUCT_CLI_NAME} character tune <id> <motion> [--set speed=1.1]… [--off] [--json]   Sliders from ${Object.entries(CHARACTER_TUNING).map(([k, [a, b]]) => `${k} ${a}–${b}`).join(', ')}. Free. Adds a motion you own; --off takes it from the character.
 ${PRODUCT_CLI_NAME} character pack <id> [--json]                   Put saved changes into a new package and wait. Free.
@@ -54,12 +54,12 @@ async function daemonApi(flagUrl: string | undefined): Promise<Api> {
 }
 
 const name = (c: { name: string; id: string }): string => `${c.name} (${c.id})`;
-const items = (list: readonly { id: string; label: string }[]): string => list.map(i => i.label ? `${i.id} ${i.label}` : i.id).join(', ') || 'none';
+const items = (list: readonly { id: string; label: string; type?: string }[]): string => list.map(i => [i.id, i.label, i.type ? `(${i.type})` : ''].filter(Boolean).join(' ')).join(', ') || 'none';
 
 function show(c: LocalCharacter): string {
   return [
     `${name(c)}: ${c.state}, package ${c.revision}${c.changed ? ', changes not packed yet' : ''}, ${c.style}`,
-    `  sets: ${items(c.items.sets)}`, `  weapons: ${items(c.items.weapons)}`, `  capes: ${items(c.items.capes)}`, `  motions: ${c.motions.map(m => m.name).join(', ')}`,
+    `  sets: ${items(c.items.sets)}`, `  weapons: ${items(c.items.weapons)}`, `  capes: ${items(c.items.capes)}`, ...(c.items.shields.length ? [`  shields: ${items(c.items.shields)}`] : []), `  motions: ${c.motions.map(m => m.name).join(', ')}`,
     ...(c.outfits.length ? [`  outfits: ${c.outfits.map(o => o.name + (o.start ? ' (start)' : '')).join(', ')}`] : []),
     ...(c.games.length ? [`  games: ${c.games.map(g => `${g.projectName} (package ${g.revision})`).join(', ')}`] : []),
     ...(c.job && c.job.state !== 'succeeded' ? [`  job: ${c.job.kind} ${c.job.state}${c.job.errorCode ? ` (${c.job.errorCode})` : ''}`] : []),
@@ -114,7 +114,7 @@ export async function runAnimatedCharacterCli(args: string[]): Promise<void> {
   let json = args.includes('--json');
   try {
     const { values, positionals } = parseArgs({ args: args.slice(1), allowPositionals: true, options: {
-      json: { type: 'boolean' }, yes: { type: 'boolean' }, wait: { type: 'boolean' }, off: { type: 'boolean' }, armor: { type: 'boolean' }, weapons: { type: 'boolean' }, pieces: { type: 'string' }, project: { type: 'string' }, slug: { type: 'string' }, name: { type: 'string' },
+      json: { type: 'boolean' }, yes: { type: 'boolean' }, wait: { type: 'boolean' }, off: { type: 'boolean' }, armor: { type: 'boolean' }, weapons: { type: 'boolean' }, pieces: { type: 'string' }, types: { type: 'string' }, project: { type: 'string' }, slug: { type: 'string' }, name: { type: 'string' },
       text: { type: 'string' }, 'prompt-file': { type: 'string' }, file: { type: 'string' }, style: { type: 'string' }, body: { type: 'string' }, language: { type: 'string' }, set: { type: 'string', multiple: true }, 'daemon-url': { type: 'string' },
     } as const });
     json = values.json === true;
@@ -125,6 +125,8 @@ export async function runAnimatedCharacterCli(args: string[]): Promise<void> {
     const words = async (): Promise<string> => values['prompt-file'] ? recipeCliText(values['prompt-file']) : values.text ?? (() => { throw new Error('Say what you want with --text or --prompt-file.'); })();
     const project = (): string => { const p = values.project ?? process.env.PIXO_PROJECT_ID; if (!p) throw new Error('--project or PIXO_PROJECT_ID is required'); return `/projects/${encodeURIComponent(p)}/heroes`; };
     const of = (id: string | undefined): string => `/characters/${encodeURIComponent(id ?? '')}`;
+
+    const types = (): { types?: string[] } => values.types === undefined ? {} : { types: values.types.split(',').map(s => s.trim()).filter(Boolean) };
 
     /** Shows the price; orders only with --yes. */
     const buy = async (request: Record<string, unknown>): Promise<void> => {
@@ -160,16 +162,15 @@ export async function runAnimatedCharacterCli(args: string[]): Promise<void> {
       case 'info': { takes(1); const c = await api<LocalCharacter>(of(first)); print(c, show(c)); return; }
       case 'make': {
         takes(0);
-        await buy({ kind: 'character', text: await words(), armor: values.armor === true, gear: values.weapons === true, ...(values.style ? { style: values.style } : {}), ...(values.body ? { body: values.body } : {}) });
+        await buy({ kind: 'character', text: await words(), armor: values.armor === true, gear: values.weapons === true, ...types(), ...(values.style ? { style: values.style } : {}), ...(values.body ? { body: values.body } : {}) });
         return;
       }
       case 'add': {
         takes(2);
         if (!['armor', 'gear', 'motion'].includes(second ?? '')) throw new Error(ANIMATED_USAGE);
-        await buy({ kind: second, characterId: first, text: await words() });
+        await buy({ kind: second, characterId: first, text: await words(), ...(second === 'gear' ? types() : {}) });
         return;
       }
-      case 'fit': { takes(2); await buy({ kind: 'fit', characterId: first, design: second }); return; }
       case 'job': {
         takes(1);
         const job = values.wait ? await wait(api, first!, say) : await api<CharacterJob>(`/characters/jobs/${encodeURIComponent(first!)}`);
@@ -179,7 +180,7 @@ export async function runAnimatedCharacterCli(args: string[]): Promise<void> {
       case 'gear': {
         takes(0);
         const g = await api<CharacterGear>('/characters/gear');
-        print(g, [...g.designs.map(d => `${d.id} (${d.style}): ${items([...d.sets, ...d.weapons, ...d.capes])}${d.kind === 'armor' ? `; fits ${d.fits.length} characters` : ''}`), ...g.motions.map(m => `motion ${m.name}: ${m.shown}`)].join('\n') || 'No gear yet.');
+        print(g, [...g.designs.map(d => `${d.id} (${d.style}): ${items([...d.sets, ...d.weapons, ...d.capes, ...d.shields])}`), ...g.motions.map(m => `motion ${m.name}: ${m.shown}`)].join('\n') || 'No gear yet.');
         return;
       }
       case 'wear': {
