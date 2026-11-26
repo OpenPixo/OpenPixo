@@ -441,6 +441,7 @@ import { registerGameVerifyRoutes, type RegisterGameVerifyRoutesDeps } from './r
 import { registerGamePlaytestRoutes } from './game/playtest-routes.js';
 import { registerGameRunRoutes } from './routes/game-run.js';
 import { registerCharacterRoutes } from './character/routes.js';
+import { registerMotionRoutes } from './motion/routes.js';
 import { registerPublishRoutes } from './routes/publish.js';
 import { registerPublishedGamesRoutes } from './routes/published-games.js';
 import { registerGameExportRoutes } from './routes/game-export.js';
@@ -2795,6 +2796,8 @@ export async function startServer({
     sdkDir: resolveDaemonResourceDir(DAEMON_RESOURCE_ROOT, 'game-sdk', path.join(PROJECT_ROOT, 'game-sdk')), emulator: onlineEmulator, account: openPixoAccount });
   const characterFacts = registerCharacterRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, account: openPixoAccount,
     sdkDir: resolveDaemonResourceDir(DAEMON_RESOURCE_ROOT, 'game-sdk', path.join(PROJECT_ROOT, 'game-sdk')) });
+  const motionFacts = registerMotionRoutes(app, { db, http: httpDeps, paths: pathDeps, authorizeProjectRequest, authorizeProjectToolRequest, account: openPixoAccount,
+    sdkDir: resolveDaemonResourceDir(DAEMON_RESOURCE_ROOT, 'game-sdk', path.join(PROJECT_ROOT, 'game-sdk')) });
 
   registerSocialShareRoutes(app, { http: httpDeps });
   const projectCreatePreparationTimeoutMs = projectCreatePreparationTimeoutMsFromEnv();
@@ -3978,6 +3981,7 @@ export async function startServer({
       agentId, skillBody, skillName,
       recipes: gameRecipePromptEntries(BUNDLED_PLUGINS_DIR, metadata?.engineProfile?.engine, typeof locale === 'string' ? locale : undefined),
       characters: await characterFacts.promptFacts(projectId),
+      motion: await motionFacts.promptFacts(projectId),
       locale: typeof locale === 'string' ? locale : undefined,
       sessionMode: normalizeConversationSessionMode(sessionMode),
       mediaExecution, byokMediaDefaults, streamFormat, pluginBlock,

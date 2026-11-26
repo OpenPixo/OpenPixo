@@ -172,6 +172,10 @@ const residualAllowedPathPatterns: RegExp[] = [
   // Upstream packages a game template ships, unchanged, so its game can play before
   // they are installed (`game-templates/README.md`).
   /^game-templates\/[a-z0-9-]+\/instant\/[^/]+\.js$/,
+  // The Pixo Motion players: minified vendor builds made in a private repository and
+  // copied unchanged into games by `pixo motion install`. Browsers load them as they are.
+  /^game-sdk\/openpixo-motion\/web\/pixo-motion\.min\.js$/,
+  /^game-sdk\/openpixo-motion\/phaser\/pixo-motion-phaser\.js$/,
   // Bundled example/skill plugins copy the upstream skill's `assets/`
   // and `references/` directories verbatim so the daemon's preview
   // surface can render the baked HTML without staging detours. Those

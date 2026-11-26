@@ -77,6 +77,8 @@ export interface GameProjectPromptInput {
   recipes?: ReadonlyArray<GameRecipePromptEntry> | undefined;
   /** Animated characters: present only when the signed-in user can have them; `installed` are those in this game. */
   characters?: GameCharactersPromptInput | null | undefined;
+  /** Moving characters (Pixo Motion): present only in a build with the character service; `installed` are those in this game. */
+  motion?: GameMotionPromptInput | null | undefined;
   planToolNote?: string | null | undefined;
   userInstructions?: string | undefined;
   projectInstructions?: string | undefined;
@@ -340,6 +342,28 @@ ${theirs}
 - You cannot order one. When the game needs a new one, propose it with \`suggest\` and tell the user it waits on the Characters page with its price.
 - Free, when the user asks for it, for their own characters: \`tune\` (how a motion feels), \`outfits\`, \`wear\` (which pieces go into the package), then \`pack\` and \`install\`.
 ${how}`;
+}
+
+/** `installed`: the moving characters in this game. */
+export interface GameMotionPromptInput { installed: ReadonlyArray<{ slug: string; name: string; file: string }> }
+export const GAME_MOTION_BLOCK_HEADING = '## Moving characters';
+
+/** Block 3d: one moving portrait character in a `.pxmo` file. It costs the user's credits, so the agent points to the page and never orders. */
+export function renderGameMotionBlock(motion: GameMotionPromptInput | null | undefined): string {
+  if (!motion) return '';
+  const cli = '"$PIXO_NODE_BIN" "$PIXO_BIN" motion', installed = motion.installed.map(c => `- \`${c.slug}\` (${c.name}) in \`${c.file}\``);
+  return `${GAME_MOTION_BLOCK_HEADING}
+
+The user can make a moving character on the Moving character page: a portrait that breathes, blinks, looks around, shows moods and talks, in one \`.pxmo\` file, for the user's credits. For web, Phaser and Godot games.
+${installed.length ? `\nIn this game:\n${installed.join('\n')}\n` : ''}
+\`\`\`bash
+${cli} list --json                              # the user's moving characters
+${cli} install <id> --project <project id> --json   # put one and its player into this game; free
+${cli} suggest --text "<one sentence>" --project <project id> --json
+\`\`\`
+
+- \`install\` answers with the code that shows it in this engine; the player files are not yours to edit.
+- You cannot make or order one. When the game needs one, propose it with \`suggest\` or tell the user about the Moving character page.`;
 }
 
 /** Block 4: verify through the host and never claim a check that did not run. */
@@ -927,6 +951,8 @@ export function composeOpenPixoGamePrompt(input: GameProjectPromptInput): string
   if (recipesBlock) parts.push(recipesBlock);
   const charactersBlock = canRunTools && !planning ? renderGameCharactersBlock(input.characters) : '';
   if (charactersBlock) parts.push(charactersBlock);
+  const motionBlock = canRunTools && !planning ? renderGameMotionBlock(input.motion) : '';
+  if (motionBlock) parts.push(motionBlock);
   if (canRunTools && !planning) parts.push(renderGameVerificationBlock());
   const blocks: Array<[string, string | null | undefined]> = [
     ['Runtime planning tool', canRunTools ? input.planToolNote : null],
