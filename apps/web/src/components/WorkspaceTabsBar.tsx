@@ -294,6 +294,7 @@ function reviveTab(value: unknown): WorkspaceChromeTab | null {
       || view === 'game-hub'
       || view === 'generate'
       || view === 'characters'
+      || view === 'motion'
       || view === 'integrations'
     ) {
       return { id, kind: 'entry', view: currentEntryView(view), createdAt, lastActiveAt };
@@ -2139,6 +2140,7 @@ function displayTabFor(
     store: t('store.title'),
     'game-hub': t('gameHub.navLabel'),
     characters: t('characters.title'),
+    motion: t('motion.title'),
     generate: t('generate.pageTitle'),
     integrations: t('entry.navIntegrations'),
     drafts: t('entry.navDrafts'),
@@ -2153,6 +2155,7 @@ function displayTabFor(
     store: 'blocks',
     'game-hub': 'globe',
     characters: 'users',
+    motion: 'play',
     generate: 'sparkles',
     integrations: 'link',
     drafts: 'file',

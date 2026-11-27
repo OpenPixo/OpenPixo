@@ -7,6 +7,7 @@
 
 import { GeneratePage } from './generate/GeneratePage';
 import { CharactersPage } from './characters/CharactersPage';
+import { MotionPage } from './motion/MotionPage';
 import { StoreProjectActions } from './StoreProjectActions';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { type ChatSessionMode, type CreateProjectExampleReference, type RunContextSelection } from '@openpixo/contracts';
@@ -702,7 +703,7 @@ export function EntryShell({
           />
         ) : null}
         <main
-          className={`entry-main entry-main--scroll${view === 'home' ? ` ${styles.homeScroll}` : ''}${view === 'generate' || view === 'characters' ? ` ${styles.generateScroll}` : ''}`}
+          className={`entry-main entry-main--scroll${view === 'home' ? ` ${styles.homeScroll}` : ''}${view === 'generate' || view === 'characters' || view === 'motion' ? ` ${styles.generateScroll}` : ''}`}
           ref={entryMainScrollRef}
         >
           {/* Navigation and search belong to the rail; the home content uses
@@ -714,7 +715,7 @@ export function EntryShell({
             className={[
               'entry-main__inner',
               view === 'home' ? '' : 'entry-main__inner--wide',
-              view === 'generate' || view === 'characters' ? styles.generateInner : '',
+              view === 'generate' || view === 'characters' || view === 'motion' ? styles.generateInner : '',
             ].filter(Boolean).join(' ')}
           >
             <div className="entry-main__view-home" data-testid="entry-view-home" data-active={view === 'home' ? 'true' : 'false'} {...inactiveViewProps(view === 'home')}>
@@ -765,6 +766,8 @@ export function EntryShell({
             {view === 'generate' ? <GeneratePage routeProjectId={route.kind === 'home' ? route.generateProjectId : undefined} games={projects}
               onOpenAccount={() => onOpenSettings('account')} onOpenExtensions={() => changeView('store')} /> : null}
             {view === 'characters' ? <CharactersPage characterId={route.kind === 'home' ? route.characterId : undefined} games={projects}
+              onOpenAccount={() => onOpenSettings('account')} onOpenProject={onOpenProject} /> : null}
+            {view === 'motion' ? <MotionPage characterId={route.kind === 'home' ? route.motionId : undefined} games={projects}
               onOpenAccount={() => onOpenSettings('account')} onOpenProject={onOpenProject} /> : null}
             {view === 'game-hub' ? <GameHubView onOpenProject={onOpenProject} onOpenAccount={() => onOpenSettings('account')} /> : null}
             {view === 'store' ? <StoreProjectActions itemName={route.kind === 'home' ? route.storeItemName : undefined} initialTab={route.kind === 'home' ? route.storeTab : undefined} projects={projects} onOpenProject={onOpenProject} onOpenAccount={() => onOpenSettings('account')} /> : null}

@@ -25,6 +25,8 @@ export type EntryHomeView =
   | 'generate'
   // 角色: finished characters whose gear can be changed, for every game.
   | 'characters'
+  // 动态角色: one character that moves, made from one portrait.
+  | 'motion'
   | 'integrations'
   | 'community'
   | 'drafts'
@@ -44,6 +46,8 @@ export type Route =
       generateProjectId?: string;
       /** One character (`/characters/:id`); absent is the list. */
       characterId?: string;
+      /** One moving character (`/motion/:id`); absent is the page. */
+      motionId?: string;
     } | {
       kind: 'project';
       projectId: string;
@@ -72,6 +76,9 @@ export function parseRoute(pathname: string): Route {
   if (parts[0] === 'game-hub' && !parts[1]) return { kind: 'home', view: 'game-hub' };
   if (parts[0] === 'characters') {
     return { kind: 'home', view: 'characters', ...(parts[1] ? { characterId: decodeURIComponent(parts[1]) } : {}) };
+  }
+  if (parts[0] === 'motion') {
+    return { kind: 'home', view: 'motion', ...(parts[1] ? { motionId: decodeURIComponent(parts[1]) } : {}) };
   }
   if (parts[0] === 'generate') {
     return { kind: 'home', view: 'generate', ...(parts[1] ? { generateProjectId: decodeURIComponent(parts[1]) } : {}) };
@@ -153,6 +160,7 @@ export function buildPath(route: Route): string {
     }
     if (route.view === 'game-hub') return '/game-hub';
     if (route.view === 'characters') return route.characterId ? `/characters/${encodeURIComponent(route.characterId)}` : '/characters';
+    if (route.view === 'motion') return route.motionId ? `/motion/${encodeURIComponent(route.motionId)}` : '/motion';
     if (route.view === 'generate') return route.generateProjectId ? `/generate/${encodeURIComponent(route.generateProjectId)}` : '/generate';
     if (route.view === 'integrations') return '/integrations';
     if (route.view === 'community') return '/';

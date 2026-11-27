@@ -26,6 +26,7 @@ import { IMAGE_SHEET_CLI_BOOLEAN_FLAGS, IMAGE_SHEET_CLI_HELP, IMAGE_SHEET_CLI_ST
 import { resolveSheetRequest } from './media/sheet-request.js';
 import { confirmOpenPixoHosted, describeQuote, isOpenPixoHostedModel, OPENPIXO_CLI_HELP, OPENPIXO_CLI_STRING_FLAGS, requestOpenPixoQuote } from './media/openpixo-hosted-cli.js';
 import { runCharacterCli } from './recipes/character-cli.js';
+import { runMotionCli } from './motion/cli.js';
 import { runAssetCli } from './assets/asset-cli.js';
 import { runLookCli } from './openpixo-agent/look-cli.js';
 import { runToolCli } from './openpixo-agent/cloud-tool-cli.js';
@@ -335,6 +336,7 @@ const SUBCOMMAND_MAP = {
   style: runStyleCli,
   recipe: runRecipeCli,
   character: runCharacterCli,
+  motion: runMotionCli,
   asset: runAssetCli,
   look: runLookCli,
   tool: runToolCli,
@@ -754,6 +756,8 @@ function printRootHelp() {
       Manage project character cards and their reference images.
   ${PRODUCT_CLI_NAME} character mine|make|add|gear|wear|tune|pack|install|suggest [opts]
       Animated characters whose gear can be changed, made by OpenPixo Cloud for credits.
+  ${PRODUCT_CLI_NAME} motion service|portrait|status|order|list|show|rename|delete|download|install|suggest [opts]
+      Moving characters: a portrait that moves, in one .pxmo file, made by OpenPixo Cloud for credits.
 
   ${PRODUCT_CLI_NAME} look <image> --question <text> [--prompt-file <path|->] [--json]
       Ask one question about one image; the OpenPixo-credits agent sees images this way.
