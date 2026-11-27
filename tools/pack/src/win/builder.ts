@@ -71,7 +71,7 @@ import type {
 
 const execFileAsync = promisify(execFile);
 const WIN_ARCHIVE_CACHE_VERSION = 4;
-const WIN_ELECTRON_BUILDER_DIR_CACHE_VERSION = 12;
+const WIN_ELECTRON_BUILDER_DIR_CACHE_VERSION = 13;
 const WIN_NSIS_BASE_PAYLOAD_INPUT_HASH_CACHE_VERSION = 3;
 
 async function hashWinNsisInstallerImplementation(config: ToolPackConfig): Promise<string> {
@@ -279,11 +279,16 @@ async function runElectronBuilderRaw(
       "electron-builder-raw:retry-ensure-nsis-persian-alias",
       async () => ensureNsisPersianLanguageAlias(config),
     );
-    if (retried) {
-      await build("electron-builder-raw:process-retry");
-      return segments;
-    }
-    throw error;
+    if (!retried) throw error;
+    await build("electron-builder-raw:process-retry");
+  }
+  // An unsigned build tells electron-builder not to edit the executable, which also leaves
+  // Electron's icon on it. Builds started straight from the cache (`--to dir`) run this
+  // executable, so it carries the app icon from the moment it is built.
+  if (!config.signed) {
+    await runSegment("electron-builder-raw:stamp-icon", async () => {
+      await stampWinExecutableIcon(join(paths.appBuilderOutputRoot, "win-unpacked", `${PRODUCT_NAME}.exe`), paths.winIconPath);
+    });
   }
   return segments;
 }

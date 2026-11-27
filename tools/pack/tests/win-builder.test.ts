@@ -194,10 +194,18 @@ describe("Windows pack artifact boundaries", () => {
 
   it("invalidates Windows payload caches for the OpenPixo resource layout", () => {
     expect(winBuilderSource).toContain("const WIN_ARCHIVE_CACHE_VERSION = 4");
-    expect(winBuilderSource).toContain("const WIN_ELECTRON_BUILDER_DIR_CACHE_VERSION = 12");
+    expect(winBuilderSource).toContain("const WIN_ELECTRON_BUILDER_DIR_CACHE_VERSION = 13");
     expect(winBuilderSource).toContain("const WIN_NSIS_BASE_PAYLOAD_INPUT_HASH_CACHE_VERSION = 3");
     expect(winPayloadSource).toContain("const WIN_LAUNCHER_PAYLOAD_BASE_CACHE_VERSION = 3");
     expect(winPayloadSource).toContain("const WIN_LAUNCHER_PAYLOAD_ARCHIVE_CACHE_VERSION = 3");
+  });
+
+  it("puts the app icon on the cached executable that --to dir builds run", () => {
+    const source = winBuilderSource;
+    const raw = source.slice(source.indexOf("async function runElectronBuilderRaw("), source.indexOf("function createCacheLocalWinPaths("));
+    expect(raw).toContain('"electron-builder-raw:stamp-icon"');
+    expect(raw).toContain('stampWinExecutableIcon(join(paths.appBuilderOutputRoot, "win-unpacked", `${PRODUCT_NAME}.exe`), paths.winIconPath)');
+    expect(raw.indexOf('"electron-builder-raw:process-retry"')).toBeLessThan(raw.indexOf('"electron-builder-raw:stamp-icon"'));
   });
 
   it("invalidates the NSIS installer cache when installer helper code changes", () => {
