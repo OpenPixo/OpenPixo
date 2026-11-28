@@ -23,6 +23,16 @@ describe('usage events from the analytics service', () => {
     });
   });
 
+  it('names macOS and ChromeOS without the spaces the identifier rule refuses', () => {
+    // The legacy PostHog names ('Mac OS X', 'Chrome OS') fail the identifier
+    // rule, so every macOS event used to arrive with no OS at all.
+    const os = (name: string) => toUsageEvent({ distinctId: 'install-1', event: 'run_finished', properties: { $os: name } }, NOW)?.os;
+    expect(os('Mac OS X')).toBe('macOS');
+    expect(os('Chrome OS')).toBe('ChromeOS');
+    expect(os('Windows')).toBe('Windows');
+    expect(os('Some Other OS')).toBeNull();
+  });
+
   it('drops an event it cannot make valid instead of sending it half-formed', () => {
     expect(toUsageEvent({ distinctId: 'install-1', event: '$identify', properties: {} }, NOW)).toBeNull();
     expect(toUsageEvent({ distinctId: 'not an id', event: 'run_finished', properties: {} }, NOW)).toBeNull();

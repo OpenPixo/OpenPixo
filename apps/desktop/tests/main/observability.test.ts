@@ -1,3 +1,4 @@
+import { isUsageIdentifier } from "@openpixo/contracts/analytics";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -115,4 +116,19 @@ test('uses observed main nonzero exit evidence rather than guessing OOM on resta
     startedAt: '2026-10-16T01:00:00.000Z', lastObservedAt: '2026-10-16T02:00:00.000Z', exitCode: 1 }],
     currentVersion: '2.0.0', stateFilePath: 'unused', report, clearReported: vi.fn() });
   expect(report.mock.calls[0]![1]).toMatchObject({ exit_reason: 'crash', exit_code: 1, occurrence_time_source: 'observed' });
+});
+
+// Review 2.9: the usage-event rule (packages/contracts usage-events.ts, applied
+// again by the ingest Worker) refuses an event_id over 64 characters. A
+// `desktop-exit-<64 hex>` id was 77 characters, and the daemon's derived
+// `<id>:exit` 82, so every unclean-exit report was dropped.
+test('builds an unclean-exit event id the usage-event rule accepts, with and without :exit', async () => {
+  const report = vi.fn(async (_event: string, _props: Record<string, unknown>) => true);
+  await reportPriorDesktopUncleanExits({ previousUncleanSessions: [{ sessionId: '6f1c8a52-3d9e-4b7a-9c1f-2e8d7b6a5c4f',
+    version: '1.0.11', startedAt: '2026-10-16T01:00:00.000Z' }],
+    currentVersion: '1.0.12', stateFilePath: 'unused', report, clearReported: vi.fn() });
+  const eventId = String(report.mock.calls[0]![1].event_id);
+  expect(isUsageIdentifier(eventId)).toBe(true);
+  expect(isUsageIdentifier(`${eventId}:exit`)).toBe(true);
+  expect(eventId).toMatch(/^desktop-exit-[0-9a-f]{32}$/);
 });

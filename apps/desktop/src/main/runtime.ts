@@ -51,6 +51,17 @@ import {
   splashPixelScanScript,
 } from "./splash-pixel-scan.js";
 import { RendererCrashLoopBreaker } from "./renderer-crash-loop.js";
+import {
+  allowChildWindow,
+  decideMainWindowNavigation,
+  guardChildWindow,
+  guardWebContents,
+  isAllowedChildWindowUrl,
+  isHostMainFrameSender,
+  isHttpUrl,
+  type GuardedWebContents,
+  type HostIpcEvent,
+} from "./window-confinement.js";
 import type { PrintReadyPdfOptions } from "./pdf-export.js";
 import type { DesktopUpdater } from "./updater.js";
 import { parseDesktopUpdateMenuLabels } from "./update-menu.js";
@@ -1187,19 +1198,22 @@ function buildCrashReportUrl(ctx: RendererCrashScreenContext): string {
 function buildCrashMailtoUrl(ctx: RendererCrashScreenContext): string {
   if (!SUPPORT_EMAIL) return "";
   const subject = `${PRODUCT_NAME} keeps crashing (renderer ${ctx.reason})`;
+  // One line: `shell:open-external` refuses a mailto whose subject or body
+  // carries CR/LF (`isSupportMailtoUrl`), so a multi-line body never opened.
   const body = [
     `The ${PRODUCT_NAME} desktop app crashed several times in a row on my device.`,
-    "",
+    `App version: ${ctx.appVersion}.`,
+    `OS: ${osLabelForReport(ctx.platform)} ${ctx.osVersion}.`,
+    `Renderer exit: ${ctx.reason}, code ${formatRendererExitCode(ctx.exitCode)}.`,
     "(If possible, attach the diagnostics file you saved with the “Save logs…” button.)",
-    "",
-    `App version: ${ctx.appVersion}`,
-    `OS: ${osLabelForReport(ctx.platform)} ${ctx.osVersion}`,
-    `Renderer exit: ${ctx.reason}, code ${formatRendererExitCode(ctx.exitCode)}`,
-  ].join("\n");
-  return `mailto:${SUPPORT_EMAIL}?${new URLSearchParams({ subject, body }).toString()}`;
+  ].join(" ");
+  // RFC 6068 percent-encoding: URLSearchParams would write spaces as "+",
+  // which mail clients show literally.
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function createRendererCrashHtml(ctx: RendererCrashScreenContext): string {
+/** Exported for `tests/main/renderer-crash-screen.test.ts`, which runs its script. */
+export function createRendererCrashHtml(ctx: RendererCrashScreenContext): string {
   const issueUrl = buildCrashReportUrl(ctx);
   const mailtoUrl = buildCrashMailtoUrl(ctx);
   return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
@@ -1326,19 +1340,21 @@ function createRendererCrashHtml(ctx: RendererCrashScreenContext): string {
         var email = document.getElementById("email");
         var status = document.getElementById("status");
         function say(t) { if (status) status.textContent = t; }
-        var canOpen = host && typeof host.openExternal === "function";
+        // The preload exposes it as __pixo__.shell.openExternal (preload.cts).
+        var shell = host && host.shell;
+        var canOpen = shell && typeof shell.openExternal === "function";
         // Actions reuse IPC the preload already exposes; if the bridge is
         // missing (preload failed to load) hide the dead control instead of a
         // no-op.
         if (report) {
           if (!issueUrl) { report.disabled = true; report.textContent = "Report link coming soon"; }
           else if (canOpen) {
-            report.addEventListener("click", function () { host.openExternal(issueUrl); });
+            report.addEventListener("click", function () { shell.openExternal(issueUrl); });
           } else { report.style.display = "none"; }
         }
         if (email) {
           if (canOpen && mailtoUrl) {
-            email.addEventListener("click", function (e) { e.preventDefault(); host.openExternal(mailtoUrl); });
+            email.addEventListener("click", function (e) { e.preventDefault(); shell.openExternal(mailtoUrl); });
           } else if (emailLine) { emailLine.style.display = "none"; }
         }
         if (logs) {
@@ -1527,7 +1543,28 @@ export function pinNativeAppearanceToLight(): void {
  * once the real app has mounted in the (initially hidden) main window. Frameless
  * + matching size so the reveal swap reads as a single window, never a flash.
  */
+// WebContents allowed to host `<webview>`: the main windows, each of which
+// vets its guests in its own `will-attach-webview` handler.
+const webviewHostIds = new Set<number>();
+let webContentsGuardsInstalled = false;
+
+/**
+ * Guard every WebContents the app creates — popups, webview guests, capture
+ * windows, the splash — from the moment it exists (`guardWebContents`).
+ * Idempotent; called before the first window is made.
+ */
+export function installWebContentsGuards(): void {
+  if (webContentsGuardsInstalled) return;
+  webContentsGuardsInstalled = true;
+  app.on("web-contents-created", (_event, contents) => {
+    guardWebContents(contents as unknown as GuardedWebContents, {
+      canHostWebviews: (candidate) => webviewHostIds.has(candidate.id),
+    });
+  });
+}
+
 export function createSplashWindow(): SplashWindowHandle {
+  installWebContentsGuards();
   // OpenPixo ships light-only (the theme setting was removed), so pin the
   // native appearance before the first window exists. Electron defaults
   // `themeSource` to `system`, which paints the macOS vibrancy glass and the
@@ -1594,49 +1631,9 @@ async function applyWindowChromeCss(window: BrowserWindow): Promise<void> {
   await window.webContents.insertCSS(MAC_WINDOW_CHROME_CSS, { cssOrigin: "user" });
 }
 
-// Exported for unit tests in `apps/packaged/tests/desktop-url-allowlist.test.ts`
-// — these are pure URL-policy helpers and `apps/desktop` itself has no
-// vitest setup, so the packaged workspace hosts the coverage. Keep them
-// pure and side-effect-free.
-export function isHttpUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-export function isAllowedChildWindowUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    // `blob:` covers in-renderer generated downloads / object URLs.
-    // `od:` is the packaged Electron entry's privileged scheme
-    // registered by `apps/packaged/src/protocol.ts` and proxied to the
-    // local web sidecar. Without this branch, any in-app
-    // `<a target="_blank" href="/api/...">` resolves to `openpixo://app/...`
-    // in packaged builds, falls through `setWindowOpenHandler` to
-    // `{ action: "deny" }`, and the click is silently dropped — that
-    // was the Orbit "Open artifact" no-op reported in #911. Allowing
-    // `od:` here lets Electron open the link in a child BrowserWindow
-    // that inherits the same protocol registration + preload, so the
-    // live artifact preview renders normally. Dev mode is unaffected:
-    // its links resolve to `http://127.0.0.1:.../...`, which is gated
-    // by the separate `isHttpUrl` branch and continues to open in the
-    // user's external browser via `shell.openExternal`.
-    // `about:blank` is used by the renderer's PDF export fallback path:
-    // `window.open('', '_blank')` opens a blank window that is then
-    // navigated to a Blob URL. Without this, the empty URL is denied
-    // and the user sees a "Popup blocked" alert.
-    return (
-      parsed.protocol === "blob:" ||
-      parsed.protocol === "openpixo:" ||
-      (parsed.protocol === "about:" && parsed.pathname === "blank")
-    );
-  } catch {
-    return false;
-  }
-}
+// The URL policies live in `window-confinement.ts`; re-exported for the
+// packaged workspace's `desktop-url-allowlist.test.ts`.
+export { isAllowedChildWindowUrl, isHttpUrl };
 
 export function isAllowedEmbeddedBrowserUrl(url: string): boolean {
   try {
@@ -1991,6 +1988,18 @@ async function showDirectoryPickerForSender(
 export async function createDesktopRuntime(options: DesktopRuntimeOptions): Promise<DesktopRuntime> {
   const preloadPath = options.preloadPath ?? join(dirname(fileURLToPath(import.meta.url)), "preload.cjs");
   applyDockIcon();
+  installWebContentsGuards();
+
+  // Privileged host IPC answers only this runtime's main window, top frame
+  // (`isHostMainFrameSender`). The handlers below are registered before the
+  // window exists and only run after it does.
+  const isHostSender = (event: HostIpcEvent): boolean =>
+    isHostMainFrameSender(event, (id) => !window.isDestroyed() && window.webContents.id === id);
+  const requireHostSender = (event: HostIpcEvent): void => {
+    if (!isHostSender(event)) {
+      throw new Error(`host IPC is only available to the main ${PRODUCT_NAME} window`);
+    }
+  };
 
   // ipcMain.handle() registers a handler in an internal map that is *not*
   // surfaced via eventNames(); the previous `!eventNames().includes(...)`
@@ -2009,7 +2018,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   for (const channel of UPDATER_IPC_CHANNELS) {
     ipcMain.removeHandler(channel);
   }
-  ipcMain.handle("shell:open-external", async (_event, url: string) => {
+  ipcMain.handle("shell:open-external", async (event, url: string) => {
+    requireHostSender(event);
     // http(s) as before, plus a mailto strictly to our support address (the
     // crash screen's "Email us"); no other scheme opens.
     if (isSupportMailtoUrl(url)) return openFirstPartyMailto(url);
@@ -2038,6 +2048,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   ipcMain.handle(
     "dialog:pick-and-import",
     async (event, init?: OpenPixoHostProjectImportInit) => {
+      requireHostSender(event);
       // Defensive failsafe for non-production runtimes (test harnesses
       // that construct createDesktopRuntime without a secret). Round-5
       // production wiring in runDesktopMain ALWAYS passes the per-process
@@ -2090,6 +2101,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   ipcMain.handle(
     "dialog:pick-and-replace-working-dir",
     async (event, init?: { projectId?: string }) => {
+      requireHostSender(event);
       if (options.desktopAuthSecret == null) {
         return { ok: false, reason: "desktop auth secret not registered" };
       }
@@ -2137,8 +2149,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     return authorization;
   }
   ipcMain.handle("dialog:authorize-game-parent", async (event, input: unknown) => {
-    if (!options.desktopAuthSecret || !BrowserWindow.fromWebContents(event.sender)
-      || (event.senderFrame && event.senderFrame !== event.sender.mainFrame)) {
+    if (!isHostSender(event) || !options.desktopAuthSecret) {
       return { ok: false, reason: 'Game parent authorization requires the desktop main frame' };
     }
     try {
@@ -2148,6 +2159,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
   });
   ipcMain.handle("dialog:pick-working-dir", async (event) => {
+    requireHostSender(event);
     if (options.desktopAuthSecret == null) {
       return { ok: false, reason: "desktop auth secret not registered" };
     }
@@ -2186,7 +2198,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   // interpretation of mrcfps's round-3 review: "only allowing
   // openPath(projectId) for projects whose resolvedDir came from that
   // trusted flow."
-  ipcMain.handle("shell:open-path", async (_event, projectId: string) => {
+  ipcMain.handle("shell:open-path", async (event, projectId: string) => {
+    requireHostSender(event);
     // Round-7 (lefarcen P2): same packaged openpixo:// → daemon URL pivot as
     // the dialog:pick-and-import handler above.
     const apiBaseUrl =
@@ -2218,7 +2231,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   // "Show in Explorer" for one file. Same trust boundary as shell:open-path:
   // the daemon names the project's directory, and the file must resolve
   // inside it. showItemInFolder only selects the item; it never runs it.
-  ipcMain.handle("shell:show-item-in-folder", async (_event, projectId: string, relPath: unknown) => {
+  ipcMain.handle("shell:show-item-in-folder", async (event, projectId: string, relPath: unknown) => {
+    requireHostSender(event);
     const apiBaseUrl =
       (options.discoverDaemonUrl ? await options.discoverDaemonUrl() : null) ??
       (await options.discoverUrl());
@@ -2292,6 +2306,9 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     },
     width: 1280,
   });
+  const mainWebContentsId = window.webContents.id;
+  webviewHostIds.add(mainWebContentsId);
+  window.webContents.once("destroyed", () => webviewHostIds.delete(mainWebContentsId));
   installWindowChromeCssHook(window);
   showWindowButtons(window);
   attachDownloadSaveAsDialog(window);
@@ -2483,11 +2500,6 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     window.webContents.send(UPDATER_STATUS_EVENT, status);
   };
   const unsubscribeUpdater = options.updater?.subscribe(() => sendUpdaterStatus()) ?? (() => undefined);
-  const requireMainWindowSender = (event: Electron.IpcMainInvokeEvent): void => {
-    if (event.sender !== window.webContents) {
-      throw new Error(`host IPC is only available to the main ${PRODUCT_NAME} window`);
-    }
-  };
   const discoverUpdateDaemonBaseUrl = async (): Promise<string> => {
     const daemonUrl = await options.discoverDaemonUrl?.();
     const baseUrl = daemonUrl ?? await options.discoverUrl();
@@ -2531,7 +2543,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     guestWebContents.setWindowOpenHandler(() => ({ action: "deny" }));
   });
   ipcMain.handle("browser:clear-data", async (event, rawOptions: unknown): Promise<OpenPixoHostActionResult> => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const optionsRecord = rawOptions != null && typeof rawOptions === "object"
       ? rawOptions as { cookies?: unknown; storage?: unknown }
       : {};
@@ -2563,31 +2575,31 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     }
   });
   ipcMain.handle("pixo:update:status", async (event) => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const status = await (options.updater?.status() ?? unavailableUpdaterStatus());
     sendUpdaterStatus(status);
     return status;
   });
   ipcMain.handle("pixo:update:check", async (event, updaterOptions: unknown) => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const status = await (options.updater?.checkForUpdates(checkOptionsFromHost(updaterOptions)) ?? unavailableUpdaterStatus());
     sendUpdaterStatus(status);
     return status;
   });
   ipcMain.handle("pixo:update:clear-cache", async (event) => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const status = await (options.updater?.clearCache() ?? unavailableUpdaterStatus());
     sendUpdaterStatus(status);
     return status;
   });
   ipcMain.handle("pixo:update:download", async (event) => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const status = await (options.updater?.downloadUpdate() ?? unavailableUpdaterStatus());
     sendUpdaterStatus(status);
     return status;
   });
   ipcMain.handle("pixo:update:install", async (event, updaterOptions: unknown) => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const blocked = await guardedUpdaterStatus(updaterOptions);
     if (blocked != null) {
       // Preflight denials travel only on the IPC response. The updater store
@@ -2601,7 +2613,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     return status;
   });
   ipcMain.handle("pixo:update:quit", async (event, updaterOptions: unknown): Promise<OpenPixoHostActionResult> => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const blocked = await guardedUpdaterStatus(updaterOptions);
     if (blocked?.error != null) {
       return { details: blocked.error.details, ok: false, reason: blocked.error.code };
@@ -2617,14 +2629,14 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     return { ok: true };
   });
   ipcMain.handle("pixo:update:restart-safety", async (event): Promise<OpenPixoHostActionResult> => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const safety = await checkUpdateRestartSafety({ discoverDaemonBaseUrl: discoverUpdateDaemonBaseUrl });
     if (safety.state === "clear") return { ok: true };
     const denial = updateRestartSafetyError(safety);
     return { details: denial.details, ok: false, reason: denial.code };
   });
   ipcMain.handle("pixo:update:set-menu-labels", async (event, rawLabels: unknown): Promise<OpenPixoHostActionResult> => {
-    requireMainWindowSender(event);
+    requireHostSender(event);
     const labels = parseDesktopUpdateMenuLabels(rawLabels);
     if (labels == null) return { ok: false, reason: "invalid updater menu labels" };
     options.onUpdateMenuLabels?.(labels);
@@ -2639,11 +2651,11 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   // flash when one ends while the window is in the background. Windows clears
   // a flash only when told to, so focusing the window stops it.
   ipcMain.on("pixo:attention:set-running", (event, running: unknown) => {
-    if (window.isDestroyed() || event.sender !== window.webContents || typeof running !== "boolean") return;
+    if (!isHostSender(event) || window.isDestroyed() || typeof running !== "boolean") return;
     window.setProgressBar(running ? 2 : -1, running ? { mode: "indeterminate" } : undefined);
   });
   ipcMain.on("pixo:attention:request", (event) => {
-    if (window.isDestroyed() || event.sender !== window.webContents || window.isFocused()) return;
+    if (!isHostSender(event) || window.isDestroyed() || window.isFocused()) return;
     window.flashFrame(true);
   });
   window.on("focus", () => {
@@ -2651,7 +2663,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   });
 
   ipcMain.on("pixo:appearance:set-theme", (event, theme: unknown) => {
-    if (window.isDestroyed() || event.sender !== window.webContents) return;
+    if (!isHostSender(event) || window.isDestroyed()) return;
     if (theme !== "light" && theme !== "dark" && theme !== "system") return;
     // Pin the native appearance to the app theme. The macOS frosted window
     // (vibrancy: under-window) draws its glass in the SYSTEM appearance by
@@ -2664,7 +2676,8 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   });
 
   ipcMain.removeHandler('pixo:print-pdf');
-  ipcMain.handle('pixo:print-pdf', async (_event, html: unknown, nonce: unknown, options: unknown): Promise<void> => {
+  ipcMain.handle('pixo:print-pdf', async (event, html: unknown, nonce: unknown, options: unknown): Promise<void> => {
+    requireHostSender(event);
     if (typeof html !== 'string') {
       throw new Error('Invalid print payload: expected HTML string');
     }
@@ -2690,7 +2703,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
 
   ipcMain.removeHandler('pixo:capture-page');
   ipcMain.handle('pixo:capture-page', async (event, rawOptions: unknown): Promise<OpenPixoHostCaptureResult> => {
-    if (event.sender !== window.webContents) {
+    if (!isHostSender(event)) {
       return { ok: false, reason: 'capture sender not allowed' };
     }
     try {
@@ -2708,13 +2721,26 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   window.on("focus", () => showWindowButtons(window));
   window.on("blur", () => showWindowButtons(window));
 
+  // Popups open without the preload or `<webview>` (`allowChildWindow`) and
+  // keep to blob/openpixo/about:blank content (`guardChildWindow`).
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedChildWindowUrl(url)) return { action: "allow" };
+    if (isAllowedChildWindowUrl(url)) return allowChildWindow();
     if (isHttpUrl(url)) void shell.openExternal(url);
     else if (isFirstPartyMailtoUrl(url)) void openFirstPartyMailto(url);
     return { action: "deny" };
   });
+  window.webContents.on("did-create-window", (child) => {
+    guardChildWindow(child.webContents as unknown as GuardedWebContents, (url) => shell.openExternal(url));
+  });
 
+  // Whatever loads in this window gets the preload, so only the app's own
+  // origin may (`decideMainWindowNavigation`). Programmatic `loadURL` — the
+  // app, the crash screen — does not raise these events.
+  const leaveMainWindow = (event: { preventDefault(): void }, url: string): void => {
+    if (decideMainWindowNavigation(url, currentUrl ?? pendingUrl) === "allow") return;
+    event.preventDefault();
+    if (isHttpUrl(url)) void shell.openExternal(url);
+  };
   window.webContents.on("will-navigate", (event, url) => {
     // A `mailto:` never belongs in this window. Hand it to the local mail
     // client and cancel the navigation, otherwise Electron drops it and the
@@ -2727,12 +2753,10 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
       void openFirstPartyMailto(url);
       return;
     }
-    if (!isHttpUrl(url) || url === currentUrl) return;
-    const currentOrigin = currentUrl ? new URL(currentUrl).origin : null;
-    const nextOrigin = new URL(url).origin;
-    if (currentOrigin === nextOrigin) return;
-    event.preventDefault();
-    void shell.openExternal(url);
+    leaveMainWindow(event, url);
+  });
+  window.webContents.on("will-redirect", (details) => {
+    if (details.isMainFrame) leaveMainWindow(details, details.url);
   });
 
   if (process.platform === "darwin") {

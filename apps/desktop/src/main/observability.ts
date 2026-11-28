@@ -68,7 +68,10 @@ export async function reportPriorDesktopUncleanExits(input: {
       // OS shutdown/logoff is an expected termination, never a proven crash.
       const systemExit = ["system_shutdown", "user_logoff", "closed_by_system"].includes(String(hints.exit_hint));
       const reported = await input.report("desktop_unclean_exit", {
-        event_id: `desktop-exit-${createHash("sha256").update(crash.sessionId).digest("hex")}`,
+        // Stable per session, so a retry next launch is the same event. 32 hex
+        // keeps it (45 chars) and the daemon's `<id>:exit` (50) inside the
+        // 64-character usage-event identifier rule; the full digest was 77.
+        event_id: `desktop-exit-${createHash("sha256").update(crash.sessionId).digest("hex").slice(0, 32)}`,
         app_session_id: crash.sessionId,
         launch_attempt_id: crash.launchAttemptId ?? null,
         app_version: crash.version,

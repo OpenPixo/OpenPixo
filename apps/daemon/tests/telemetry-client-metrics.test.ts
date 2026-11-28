@@ -76,6 +76,22 @@ describe('CS01 telemetry HTTP boundary', () => {
     });
   });
 
+  it('refuses an event id the usage-event rule would drop, so the sender keeps it (review 2.9)', async () => {
+    version.mockResolvedValue({ version: '2.0.0', channel: 'stable' });
+    await withRoutes(async (url) => {
+      const send = (eventId: string) => fetch(`${url}/api/observability/event`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ event: 'desktop_unclean_exit', properties: { event_id: eventId, previous_session_id: 's' } }),
+      });
+      // `desktop-exit-<sha256 hex>`: 77 characters, over the 64 the ingest takes.
+      expect((await send(`desktop-exit-${'a'.repeat(64)}`)).status).toBe(400);
+      expect(captureSafety).not.toHaveBeenCalled();
+      const accepted = `desktop-exit-${'a'.repeat(32)}`;
+      expect((await send(accepted)).status).toBe(200);
+      expect(captureSafety).toHaveBeenCalledWith(expect.objectContaining({ insertId: accepted }));
+    });
+  });
+
   it('waits for version resolution for an event received immediately after route registration', async () => {
     let resolveVersion!: (value: unknown) => void;
     version.mockReturnValue(new Promise((resolve) => { resolveVersion = resolve; }));
