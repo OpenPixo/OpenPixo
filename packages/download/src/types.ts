@@ -33,9 +33,19 @@ export type ManagedDownloadOptions = {
   bucket: string;
   fileName: string;
   fetch?: typeof globalThis.fetch;
+  /**
+   * Longest silence (ms) allowed between body bytes before an attempt is
+   * abandoned and retried. Defaults to `DEFAULT_INACTIVITY_TIMEOUT_MS` (60 s).
+   */
+  inactivityTimeoutMs?: number;
   maxAttempts?: number;
   onProgress?: (progress: ManagedDownloadProgress) => void;
   payload: ManagedDownloadPayload;
+  /**
+   * Longest wait (ms) for response headers before an attempt is abandoned and
+   * retried. Defaults to `DEFAULT_RESPONSE_TIMEOUT_MS` (30 s).
+   */
+  responseTimeoutMs?: number;
   signal?: AbortSignal;
 };
 

@@ -9,7 +9,7 @@
  * public option/progress/result types.
  */
 
-import { DEFAULT_MAX_ATTEMPTS } from "./constants.js";
+import { DEFAULT_INACTIVITY_TIMEOUT_MS, DEFAULT_MAX_ATTEMPTS, DEFAULT_RESPONSE_TIMEOUT_MS } from "./constants.js";
 import { MANAGED_DOWNLOAD_ERROR_CODES, ManagedDownloadError } from "./errors.js";
 import { type ActiveTask, activeKey, activeTargets, activeTasks, targetActiveKey, waitForTask } from "./registry.js";
 import { runManagedDownload } from "./run.js";
@@ -44,8 +44,10 @@ export async function managedDownload(options: ManagedDownloadOptions): Promise<
     promise: runManagedDownload(target, {
       emit,
       fetchImpl: options.fetch ?? globalThis.fetch,
+      inactivityTimeoutMs: options.inactivityTimeoutMs ?? DEFAULT_INACTIVITY_TIMEOUT_MS,
       maxAttempts: options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
       requestHeaders: options.payload.headers,
+      responseTimeoutMs: options.responseTimeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS,
     }),
   };
   activeTasks.set(key, task);

@@ -25,6 +25,7 @@ import {
   objectField,
   readJson,
   readJsonStrict,
+  replaceDirectory,
   stringField,
   writeJson,
 } from "./support.js";
@@ -286,8 +287,16 @@ export async function prepareLauncherPayloadRelease(input: {
       version: input.activeRelease.ref.version,
     });
 
-    await rm(versionPaths.versionRoot, { force: true, recursive: true });
-    await rename(stagingRoot, versionPaths.versionRoot);
+    // The version root here is an unusable earlier copy of this same version
+    // (a valid one returned above, and the running payload is refused). It is
+    // moved aside rather than deleted first, so a rename that a virus scanner
+    // still blocks after the retries leaves it where it was. The aside copy
+    // lives under staging, which every cleanup sweep removes.
+    await replaceDirectory(
+      stagingRoot,
+      versionPaths.versionRoot,
+      join(versionPaths.stagingRoot, `replaced-${input.activeRelease.ref.key}`),
+    );
     promoted = true;
     await cleanupLauncherPayloadRoots({
       config: input.config,
@@ -314,6 +323,14 @@ export async function activatePreparedLauncherPayloadRelease(input: {
   config: DesktopUpdaterConfig;
   logger: DesktopUpdaterLogger;
   now: () => Date;
+  /**
+   * Runs once the launcher pointer (and any pre-armed attempt) is on disk,
+   * before old payload cleanup. What must be true only if the pointer really
+   * moved, such as recording that a release was applied automatically, goes
+   * here: earlier, an interrupted activation would record a move that never
+   * happened. A failure here is logged and does not undo the activation.
+   */
+  onPointerMoved?: () => Promise<void>;
   /**
    * Whether this process hands off to the payload itself. Off when the pointer
    * only has to take effect on the user's next launch: a pre-armed attempt with no
@@ -390,6 +407,11 @@ export async function activatePreparedLauncherPayloadRelease(input: {
       startedAt: input.now().toISOString(),
       version: nextActive.version,
     } satisfies LauncherAttemptDescriptor);
+  }
+  if (input.onPointerMoved != null) {
+    await input.onPointerMoved().catch((error: unknown) => {
+      input.logger.warn("[openpixo updater] launcher pointer moved, but recording it failed", error);
+    });
   }
   if (retryFailedGeneration) {
     await rm(launcherPaths.handoffPath, { force: true });

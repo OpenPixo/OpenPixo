@@ -32,6 +32,7 @@ spec (`e2e/specs/mac.spec.ts` / `win.spec.ts` via `release-smoke.ts`),
 | not-available / available / downloaded-stays-visible | U, P | desktop unit; specs |
 | Silent startup payload update (on unless allowSilentUpdates is false; refuses while a task runs) | U, P | desktop unit silent group; mac/win spec `applies a downloaded payload silently on the next cold start` |
 | Apply on next launch while quitting (no attempt written, one-shot per release) | U, M | desktop `updater/next-launch-and-required.test.ts`, `shutdown.test.ts`; `PACKAGING.md` local proof |
+| Store survives Windows locks, Explorer files and stalled connections | U, F | desktop `updater/store-resilience.test.ts`, `updater/next-launch-and-required.test.ts` stall group; download `index.test.ts` stall group; `tools-serve start updater` fixture |
 | Minimum usable version: feed parsing, no gate offline, failed-download escape, waits for tasks | U, M | desktop `updater/next-launch-and-required.test.ts`; web `RequiredUpdateGate.test.tsx`; e2e `tests/openpixo/release-feed.test.ts`; `PACKAGING.md` local proof |
 | Payload keeps the install's data root whatever it was built with | U, M | packaged `config.test.ts`; `PACKAGING.md` local proof |
 | Artifact selection (payload vs installer, context validity) | U, P | desktop unit routing group; specs |

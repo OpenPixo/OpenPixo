@@ -6,7 +6,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { LAUNCHER_SCHEMA_VERSION, resolveLauncherPaths, selectLauncherRuntimeTarget } from "@openpixo/launcher-proto";
+import {
+  LAUNCHER_SCHEMA_VERSION,
+  resolveLauncherPaths,
+  resolveLauncherVersionPaths,
+  selectLauncherRuntimeTarget,
+} from "@openpixo/launcher-proto";
 import { DESKTOP_UPDATE_CHANNELS, DESKTOP_UPDATE_STATES, SIDECAR_SOURCES } from "@openpixo/sidecar-proto";
 
 import { createDesktopUpdater, DESKTOP_UPDATE_ENV, requiredUpdateFromMetadata } from "../../../src/main/updater.js";
@@ -57,6 +62,7 @@ async function installedUpdater(options: {
   control?: unknown;
   currentVersion?: string;
   fetch?: typeof globalThis.fetch;
+  networkTimeoutMs?: number;
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "pixo-next-launch-"));
   roots.push(root);
@@ -112,8 +118,9 @@ async function installedUpdater(options: {
     fetch: options.fetch ?? defaultFetch,
     launchAppAfterQuit: async () => ({}),
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+    ...(options.networkTimeoutMs == null ? {} : { networkTimeoutMs: options.networkTimeoutMs }),
   });
-  return { launcherPaths, makeUpdater, updater: makeUpdater() };
+  return { launcherPaths, makeUpdater, root, updater: makeUpdater() };
 }
 
 async function readJson(path: string): Promise<Record<string, never>> {
@@ -168,6 +175,29 @@ describe("a downloaded update applies on the next launch", () => {
     expect(manual.installResult?.activeVersion).toBe(NEXT);
   });
 
+  it("keeps the release eligible when the pointer could not be moved", async () => {
+    const { launcherPaths, makeUpdater, root, updater } = await installedUpdater();
+    expect((await updater.checkForUpdates()).state).toBe(DESKTOP_UPDATE_STATES.DOWNLOADED);
+    const versionRoot = resolveLauncherVersionPaths({ channel: "beta", namespace: NAMESPACE, root, version: NEXT }).versionRoot;
+    const manifestPath = join(versionRoot, "manifest.json");
+    const manifest = await readFile(manifestPath, "utf8");
+    // Quitting stopped before the pointer moved (here: the prepared payload
+    // could not be read back).
+    rmSync(manifestPath);
+
+    await expect(updater.applyOnNextLaunch?.()).rejects.toBeTruthy();
+
+    expect(await readJson(launcherPaths.runtimePath)).toMatchObject({ active: { version: CURRENT } });
+    expect((await readJson(join(root, "updates", "metadata.json")) as { autoAppliedKey?: string }).autoAppliedKey).toBeUndefined();
+
+    // The next launch is still the old version, and it still applies the release.
+    await writeFile(manifestPath, manifest);
+    const nextLaunch = makeUpdater();
+    expect((await nextLaunch.status()).state).toBe(DESKTOP_UPDATE_STATES.DOWNLOADED);
+    await expect(nextLaunch.applyOnNextLaunch?.()).resolves.toBe(true);
+    expect(await readJson(launcherPaths.runtimePath)).toMatchObject({ active: { version: NEXT } });
+  });
+
   it("stays quiet when nothing is downloaded", async () => {
     const { updater } = await installedUpdater();
     await expect(updater.applyOnNextLaunch?.()).resolves.toBe(false);
@@ -206,6 +236,46 @@ describe("a downloaded update applies on the next launch", () => {
 
     expect(offline.state).toBe(DESKTOP_UPDATE_STATES.DOWNLOADED);
     await expect(updater.applyOnNextLaunch?.()).resolves.toBe(true);
+  });
+});
+
+describe("a stalled connection does not block the updater", () => {
+  function hanging(init?: RequestInit): Promise<Response> {
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason ?? new Error("aborted")), { once: true });
+    });
+  }
+
+  it("gives up on a feed request that never answers", async () => {
+    const fetchImpl = ((input: string | URL | Request, init?: RequestInit) => (String(input) === FEED
+      ? hanging(init)
+      : Promise.resolve(new Response(PAYLOAD_BYTES)))) as typeof globalThis.fetch;
+    const { updater } = await installedUpdater({ fetch: fetchImpl, networkTimeoutMs: 50 });
+    const checked = await updater.checkForUpdates();
+    expect(checked.state).toBe(DESKTOP_UPDATE_STATES.ERROR);
+    expect(checked.error?.code).toBe("metadata-unreachable");
+  });
+
+  it("gives up on a feed that sends headers and then stops", async () => {
+    const fetchImpl = (async (input: string | URL | Request) => (String(input) === FEED
+      ? new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("{")); } }))
+      : new Response(PAYLOAD_BYTES))) as typeof globalThis.fetch;
+    const { updater } = await installedUpdater({ fetch: fetchImpl, networkTimeoutMs: 50 });
+    const checked = await updater.checkForUpdates();
+    expect(checked.error?.code).toBe("metadata-unreachable");
+  });
+
+  it("gives up on a download that stops sending bytes, and the next operation still runs", async () => {
+    const fetchImpl = (async (input: string | URL | Request) => {
+      if (String(input) === FEED) return new Response(JSON.stringify(feedBody()));
+      return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("pay")); } }));
+    }) as typeof globalThis.fetch;
+    const { updater } = await installedUpdater({ fetch: fetchImpl, networkTimeoutMs: 50 });
+    const checked = await updater.checkForUpdates();
+    expect(checked.state).toBe(DESKTOP_UPDATE_STATES.ERROR);
+    expect(checked.error?.code).toBe("download-failed");
+    // The serialized queue moved on.
+    await expect(updater.applyOnNextLaunch?.()).resolves.toBe(false);
   });
 });
 
