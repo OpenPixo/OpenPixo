@@ -1,3 +1,4 @@
+import { isSubmitEnter } from '../../utils/ime';
 import { CreditsNotice } from '../account/CreditsNotice';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Button, Input, SegmentedTabs, Select, Textarea, VisuallyHidden } from '@openpixo/components';
@@ -384,7 +385,7 @@ export function GenerateBox({ projectId, files, uploads, onUploaded, form, onFor
             <VisuallyHidden>{presetId ? promptField?.label ?? t('studio.cloud.prompt') : form.kind === 'voice' ? t('generate.line') : t('studio.cloud.prompt')}</VisuallyHidden>
             <Textarea value={form.text} rows={3} required data-testid="generate-text" className={styles.textarea}
               placeholder={placeholder} onChange={event => set({ text: event.target.value })}
-              onKeyDown={event => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void generate(); }} />
+              onKeyDown={event => { if (isSubmitEnter(event) && (event.metaKey || event.ctrlKey)) void generate(); }} />
           </label>}
         </div>
 

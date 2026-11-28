@@ -1,3 +1,4 @@
+import { isImeComposing } from '../../utils/ime';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@openpixo/components';
 import type { Dict } from '../../i18n/types';
@@ -77,7 +78,7 @@ export function UserMessageEditor({ initialText, projectId, nextRunId, onCancel,
         disabled={pending}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing) return;
+          if (isImeComposing(event)) return;
           if (event.key === 'Escape') {
             event.preventDefault();
             onCancel();

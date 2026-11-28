@@ -1,3 +1,4 @@
+import { isSubmitEnter } from '../../utils/ime';
 import type { DragEvent, MouseEvent } from 'react';
 import type { ProjectFile } from '../../types';
 import { RemixIcon } from '../RemixIcon';
@@ -118,7 +119,7 @@ export function RenameInput({ state, ctx }: { state: RenameState; ctx: EntryCont
         ctx.onCommitRename(state.name, state.draft);
       }}
       onKeyDown={(event) => {
-        if (event.key === 'Enter') {
+        if (isSubmitEnter(event)) {
           event.preventDefault();
           event.currentTarget.dataset.skipRenameCommit = '1';
           ctx.onCommitRename(state.name, state.draft);

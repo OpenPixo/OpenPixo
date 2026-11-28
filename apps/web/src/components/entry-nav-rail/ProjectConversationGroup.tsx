@@ -1,3 +1,4 @@
+import { isSubmitEnter } from '../../utils/ime';
 import { useCallback, useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { Button, ConfirmDialog } from '@openpixo/components';
 
@@ -296,7 +297,7 @@ export function ProjectConversationGroup({ project,  activeProjectId,
                         void commitRename(conversation, event.currentTarget.value);
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
+                        if (isSubmitEnter(event)) {
                           event.preventDefault();
                           event.currentTarget.dataset.skipCommit = '1';
                           void commitRename(conversation, event.currentTarget.value);

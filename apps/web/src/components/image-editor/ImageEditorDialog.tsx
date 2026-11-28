@@ -1,3 +1,4 @@
+import { isSubmitEnter } from '../../utils/ime';
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Input } from '@openpixo/components';
 import type { ImageEditOp, ProjectAsset } from '@openpixo/contracts';
@@ -91,7 +92,7 @@ export function ImageEditorDialog({ asset, onClose, onSaved }: {
   return <AssetDialog title={t('imageEditor.title')} className={styles.dialog} busy={busy} onClose={onClose}>
     <form className={styles.editor} onSubmit={event => { event.preventDefault(); void save(); }}
       onKeyDown={event => {
-        if (event.key !== 'Enter' || !(event.target instanceof HTMLElement) || event.target.closest('button:not([data-handle])') || event.target.tagName === 'SELECT') return;
+        if (!isSubmitEnter(event) || !(event.target instanceof HTMLElement) || event.target.closest('button:not([data-handle])') || event.target.tagName === 'SELECT') return;
         event.preventDefault(); void save();
       }}>
       <p className={styles.source}>{asset.relPath}</p>

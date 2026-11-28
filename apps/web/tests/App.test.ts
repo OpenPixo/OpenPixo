@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildPersistedConfig, isAutosaveDraftOnlyChange, mergeAgentModelChoice, projectViewAuthorizationLifetimeKey, projectRouteSurfaceState, resolveDeepLinkedProject, resolveSettingsCloseConfig, shouldRouteToFirstRunOnboarding, shouldSyncMediaProvidersOnSave } from '../src/App';
+import { buildPersistedConfig, isAutosaveDraftOnlyChange, mergeAgentModelChoice, projectViewAuthorizationLifetimeKey, projectRouteSurfaceState, resolveDeepLinkedProject, resolveSettingsCloseConfig, settingsCloseRoute, settingsReturnTargetFor, shouldRouteToFirstRunOnboarding, shouldSyncMediaProvidersOnSave } from '../src/App';
 import type { AppConfig, Project } from '../src/types';
 
 
@@ -184,6 +184,32 @@ describe('resolveSettingsCloseConfig', () => {
       onboardingCompleted: true,
       customInstructions: 'fresh instructions',
     });
+  });
+});
+
+describe('settings return route', () => {
+  it.each([
+    { kind: 'home', view: 'generate', generateProjectId: 'p1' },
+    { kind: 'home', view: 'characters', characterId: 'c1' },
+    { kind: 'home', view: 'motion' },
+    { kind: 'home', view: 'store', storeItemName: 'pack' },
+    { kind: 'home', view: 'game-hub' },
+    { kind: 'project', projectId: 'p1', conversationId: 'c1', fileName: null },
+  ] as const)('closing Settings opened from $view$projectId returns there', (route) => {
+    const target = settingsReturnTargetFor(route, 'local');
+    expect(settingsCloseRoute(target, 'local')).toEqual(route);
+  });
+
+  it('does not return to the Settings page itself', () => {
+    const target = settingsReturnTargetFor({ kind: 'home', view: 'settings' }, 'local');
+    expect(settingsCloseRoute(target, 'local')).toEqual({ kind: 'home', view: 'home' });
+  });
+
+  it('goes Home when the identity changed while Settings was open', () => {
+    const target = settingsReturnTargetFor({ kind: 'home', view: 'generate' }, 'local');
+    expect(settingsCloseRoute(target, 'other')).toEqual({ kind: 'home', view: 'home' });
+    expect(settingsCloseRoute(settingsReturnTargetFor({ kind: 'home', view: 'generate' }, null), 'local'))
+      .toEqual({ kind: 'home', view: 'home' });
   });
 });
 

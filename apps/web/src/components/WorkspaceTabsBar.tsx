@@ -1,4 +1,5 @@
 
+import { isSubmitEnter } from '../utils/ime';
 import {
   type DragEvent,
   type ReactNode,
@@ -1639,7 +1640,7 @@ export function WorkspaceTabsBar({
                         onChange={(event) => setDockRenameDraft(event.target.value)}
                         onBlur={() => commitDockRename(rowProject)}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
+                          if (isSubmitEnter(event)) {
                             event.preventDefault();
                             commitDockRename(rowProject);
                           } else if (event.key === 'Escape') {

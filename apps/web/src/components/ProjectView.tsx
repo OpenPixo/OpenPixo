@@ -12,6 +12,7 @@ import { ProjectCheckpointHistory } from './checkpoints/ProjectCheckpointHistory
 import { useProjectCheckpoints } from './checkpoints/useProjectCheckpoints';
 import { UndoLastTurnDialog } from './chat/UndoLastTurnDialog';
 import { lastTurnFirstRunId } from '../runtime/chat/last-turn-run';
+import { createQueuedSteerer, type QueuedSteerHost } from '../runtime/chat/queued-steer';
 import { turnStartBaseline } from '../runtime/turn-baseline';
 import type { ComposerSlashAction } from './ChatComposer';
 import { navigationTiming, useProjectNavigationReady, observeNavigation } from '../observability/navigation-timing';
@@ -7221,9 +7222,39 @@ export function ProjectView({
     return started;
   }, [handleSend,]);
 
+  // Rebuilt every render so the steerer always reaches the latest state; the
+  // steerer itself (and its per-row in-flight set) lives for the whole view.
+  const queuedSteerHostRef = useRef<QueuedSteerHost | null>(null);
+  queuedSteerHostRef.current = {
+    steer: (request) => steerChatRun(request),
+    removeQueued: removeQueuedChatSend,
+    isShowing: (conversationId) => messagesConversationIdRef.current === conversationId,
+    appendUserMessage: (row, messageId) => {
+      // The daemon already stored this as a user message after delivery;
+      // show it now instead of waiting for the next transcript read.
+      const now = Date.now();
+      setMessages((curr) => [
+        ...curr,
+        {
+          id: messageId || randomUUID(),
+          role: 'user',
+          content: row.prompt,
+          createdAt: now,
+          startedAt: now,
+          endedAt: now,
+        },
+      ]);
+    },
+    showError: (key) => setError(t(key)),
+    // The auto-start skips a row while it is being steered; let it look again.
+    onSettled: () => setQueuedAutoStartTick((tick) => tick + 1),
+  };
+  const [queuedSteerer] = useState(() => createQueuedSteerer(() => queuedSteerHostRef.current!));
   const sendQueuedChatSendNow = useCallback((id: string) => {
     const item = queuedChatSendsRef.current.find((candidate) => candidate.id === id);
     if (!item) return;
+    // Already on its way into the running turn: a full send would repeat it.
+    if (queuedSteerer.isSteering(id)) return;
     if (currentConversationBusy) {
       // "Send now" while the agent is still working: the user has explicitly
       // chosen this turn over the in-flight one, so interrupt the running run
@@ -7252,7 +7283,7 @@ export function ProjectView({
       const started = await startQueuedChatSend(item);
       if (started) removeQueuedChatSend(id);
     })();
-  }, [ currentConversationBusy, handleStop, prioritizeQueuedChatSend, removeQueuedChatSend, startQueuedChatSend]);
+  }, [ currentConversationBusy, handleStop, prioritizeQueuedChatSend, queuedSteerer, removeQueuedChatSend, startQueuedChatSend]);
 
   /*
    * 队列行领头那颗按钮有三副面孔(C18,`runtime/chat/queue-leading-action.ts`):
@@ -7273,32 +7304,8 @@ export function ProjectView({
     const item = queuedChatSendsRef.current.find((candidate) => candidate.id === id);
     const runId = currentConversationActiveRun?.runId;
     if (!item || !runId) return;
-    void (async () => {
-      const result = await steerChatRun({ runId, text: item.prompt });
-      if (result.ok) {
-        removeQueuedChatSend(id);
-        // The daemon already stored this as a user message after delivery;
-        // show it now instead of waiting for the next transcript read.
-        const now = Date.now();
-        setMessages((curr) => [
-          ...curr,
-          {
-            id: result.messageId || randomUUID(),
-            role: 'user',
-            content: item.prompt,
-            createdAt: now,
-            startedAt: now,
-            endedAt: now,
-          },
-        ]);
-        return;
-      }
-      // The turn ended before it could take the message: the row stays queued
-      // and goes out as the next turn, the way a queued message always does.
-      if (result.code === 'RUN_STEERING_CLOSED') return;
-      setError(t(result.code === 'RUN_STEERING_UNSUPPORTED' ? 'chat.queuedSteerUnsupported' : 'chat.queuedSteerFailed'));
-    })();
-  }, [currentConversationActiveRun, removeQueuedChatSend, t]);
+    void queuedSteerer.steer(item, runId);
+  }, [currentConversationActiveRun, queuedSteerer]);
 
   useEffect(() => {
     if (currentConversationBusy) {
@@ -7313,6 +7320,8 @@ export function ProjectView({
       (item) => item.conversationId === activeConversationId,
     );
     if (!next) return;
+    // Its steer is still on its way; it settles before this row may go out.
+    if (queuedSteerer.isSteering(next.id)) return;
     startingQueuedChatSendIdRef.current = next.id;
     void (async () => {
       const started = await startQueuedChatSend(next);
@@ -7329,7 +7338,7 @@ export function ProjectView({
         setQueuedAutoStartTick((tick) => tick + 1);
       }, 0);
     })();
-  }, [activeConversationId, config.mode, config.agentId, currentConversationBusy, queuedAutoStartTick, queuedChatSends, startQueuedChatSend, removeQueuedChatSend, scheduleProjectTimeout]);
+  }, [activeConversationId, config.mode, config.agentId, currentConversationBusy, queuedAutoStartTick, queuedChatSends, queuedSteerer, startQueuedChatSend, removeQueuedChatSend, scheduleProjectTimeout]);
 
   /*
    * 〔更换模型〕(E3)。交付稿 `error-ux-design.md:130`(S08)写的是
