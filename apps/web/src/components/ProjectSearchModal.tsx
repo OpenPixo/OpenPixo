@@ -9,6 +9,7 @@
 // EntryShell's REAL merged catalog (own projects + team-shared cards), so a
 // not-yet-pulled shared project opens through the same pull-first path as the
 // All Projects grid.
+import { isImeComposing } from '../utils/ime';
 import {
   useEffect,
   useMemo,
@@ -191,6 +192,8 @@ export function ProjectSearchModal({
   };
 
   const onInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    // Enter and the arrows pick an input-method candidate while composing.
+    if (isImeComposing(event)) return;
     if (entries.length === 0) {
       if (event.key === 'Enter' && onAskAgent && trimmedQuery.length > 0) {
         event.preventDefault();

@@ -6,6 +6,7 @@
 // `ProjectHoverPreview.tsx`, shared with the chat project switcher so both
 // surfaces show one and the same card for a project (OPEND-2694).
 
+import { isSubmitEnter } from '../../utils/ime';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -350,7 +351,7 @@ export function RailRecentRow({
           onChange={(event) => setDraftName(event.target.value)}
           onBlur={commitRename}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') {
+            if (isSubmitEnter(event)) {
               event.preventDefault();
               commitRename();
             } else if (event.key === 'Escape') {

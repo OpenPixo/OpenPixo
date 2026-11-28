@@ -82,6 +82,17 @@ describe('conversation right-click menu', () => {
     expect(await screen.findByRole('button', { name: 'Boss fight' })).toBeTruthy();
   });
 
+  it('Enter that confirms a pinyin candidate does not save the half-typed title', async () => {
+    await openMenu('Session a');
+    fireEvent.click(screen.getByRole('menuitem', { name: /Rename/ }));
+    const input = await screen.findByRole('textbox', { name: 'Rename' });
+    fireEvent.change(input, { target: { value: 'boss' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    expect(patchConversation).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Rename' })).toBeTruthy();
+  });
+
   it('Escape leaves the title as it was', async () => {
     await openMenu('Session a');
     fireEvent.click(screen.getByRole('menuitem', { name: /Rename/ }));

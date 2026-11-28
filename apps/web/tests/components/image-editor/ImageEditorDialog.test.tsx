@@ -137,6 +137,18 @@ describe('project image editor', () => {
     expect(editProjectImage).toHaveBeenCalledOnce();
   });
 
+  it('does not save on the Enter that confirms an IME candidate in the output name', async () => {
+    renderEditor();
+    await waitFor(() => expect(numberInput('Crop X')).toBeEnabled());
+    changeCrop(0, 0, 8, 6);
+    const name = screen.getByRole('textbox', { name: 'Output name' });
+    fireEvent.keyDown(name, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(name, { key: 'Enter', keyCode: 229 });
+    expect(editProjectImage).not.toHaveBeenCalled();
+    fireEvent.keyDown(name, { key: 'Enter' });
+    await waitFor(() => expect(editProjectImage).toHaveBeenCalledOnce());
+  });
+
   it('keeps a failed save open and shows the error inline for retry', async () => {
     vi.mocked(editProjectImage).mockRejectedValueOnce(new Error('The output already exists'));
     const { onSaved, onClose } = renderEditor();

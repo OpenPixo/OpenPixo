@@ -7,6 +7,7 @@
 // proven with the free model-list call where the provider has one, and saved
 // through the same `mediaProviders` config Settings › Media writes.
 
+import { isSubmitEnter } from '../../utils/ime';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Input } from '@openpixo/components';
 import type { MediaProviderAvailability } from '@openpixo/contracts';
@@ -251,7 +252,7 @@ function ImageKeyPanel({ config, onConfigPersist }: Pick<ImageSetupProps, 'confi
             aria-describedby={hintId}
             aria-invalid={failureKey === 'onboarding.imageKeyRejected' || undefined}
             onChange={(event) => { setApiKey(event.target.value); if (check.status === 'failed') setCheck({ status: 'idle' }); }}
-            onKeyDown={(event) => { if (event.key === 'Enter') void checkAndSave(); }}
+            onKeyDown={(event) => { if (isSubmitEnter(event)) void checkAndSave(); }}
           />
           <Button size="sm" variant="ghost" onClick={() => setVisible((current) => !current)}>
             {visible ? t('settings.hide') : t('settings.show')}

@@ -468,9 +468,33 @@ export type ProjectRouteSurfaceState =
   | 'daemon-unavailable';
 
 interface SettingsReturnTarget {
-  route: Extract<Route, { kind: 'project' }>;
+  route: Route;
   accountGeneration: number;
   identityScopeKey: string;
+}
+
+/**
+ * Where closing Settings goes back to: the page it was opened from, whichever
+ * page that was (a game, 生成, 角色, 动态角色, the Store, 游戏管理, ...), as long
+ * as the same identity is still signed in. The Settings page itself is never
+ * a target, and with no identity there is nothing to keep.
+ */
+export function settingsReturnTargetFor(
+  route: Route,
+  identityScopeKey: string | null,
+): SettingsReturnTarget | null {
+  if (identityScopeKey === null) return null;
+  if (route.kind === 'home' && route.view === 'settings') return null;
+  return { route: { ...route }, accountGeneration: 0, identityScopeKey };
+}
+
+export function settingsCloseRoute(
+  target: SettingsReturnTarget | null,
+  identityScopeKey: string | null,
+): Route {
+  return target && target.accountGeneration === 0 && target.identityScopeKey === identityScopeKey
+    ? target.route
+    : { kind: 'home', view: 'home' };
 }
 
 /**
@@ -2953,14 +2977,7 @@ function AppInner() {
       setSettingsOpen(true);
       return;
     }
-    settingsReturnTargetRef.current =
-      currentRoute.kind === 'project' && identityScopeKey !== null
-        ? {
-            route: { ...currentRoute },
-            accountGeneration: 0,
-            identityScopeKey,
-          }
-        : null;
+    settingsReturnTargetRef.current = settingsReturnTargetFor(currentRoute, identityScopeKey);
     setSettingsWelcome(false);
     setSettingsInitialSection(section);
     navigate({ kind: 'home', view: 'settings' });
@@ -3083,16 +3100,7 @@ function AppInner() {
     if (route.kind === 'home' && route.view === 'settings') {
       const returnTarget = settingsReturnTargetRef.current;
       settingsReturnTargetRef.current = null;
-      const returnIdentityStillMatches = Boolean(
-        returnTarget
-        && returnTarget.accountGeneration === 0
-        && returnTarget.identityScopeKey === identityScopeKey
-      );
-      navigate(
-        returnIdentityStillMatches && returnTarget
-          ? returnTarget.route
-          : { kind: 'home', view: 'home' },
-      );
+      navigate(settingsCloseRoute(returnTarget, identityScopeKey));
     }
   };
 

@@ -1,3 +1,4 @@
+import { isImeComposing } from '../../utils/ime';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Button, Dialog, DialogBody, DialogDescription, DialogFooter, DialogTitle } from '@openpixo/components';
 import type { ArtStyle, GameExperience } from '@openpixo/contracts';
@@ -156,7 +157,7 @@ export function GameSetupWizard(props: GameSetupWizardProps) {
   useEffect(() => { if (advance) next(); }, [advance]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing || props.busy) return;
+    if (event.key !== 'Enter' || event.shiftKey || isImeComposing(event) || props.busy) return;
     const target = event.target as HTMLElement;
     if (target.getAttribute('role') !== 'radio') return;
     event.preventDefault();

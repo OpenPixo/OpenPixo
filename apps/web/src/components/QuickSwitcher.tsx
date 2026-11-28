@@ -5,6 +5,7 @@
 // Enter. Esc closes. ↑↓ navigates the list. With an empty query, recents
 // surface first, then the rest of the file list by mtime.
 
+import { isImeComposing } from '../utils/ime';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkspaceContextItem } from '@openpixo/contracts';
 import { motion } from 'motion/react';
@@ -112,7 +113,7 @@ export function QuickSwitcher({
     // active — those keys are how users select / commit candidates when
     // typing CJK file names. Without this guard, ↑↓/Enter would steer the
     // palette cursor instead of the IME picker.
-    if (e.nativeEvent.isComposing) return;
+    if (isImeComposing(e)) return;
     if (e.key === 'Escape') {
       onClose();
       return;

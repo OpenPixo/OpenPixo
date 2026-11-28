@@ -10,6 +10,7 @@
 
 'use client';
 
+import { isSubmitEnter } from '../utils/ime';
 import { PRODUCT_NAME } from '@openpixo/contracts';
 import { useEffect, useRef, useState } from 'react';
 
@@ -388,7 +389,7 @@ export function XaiOAuthControl() {
               placeholder={t('xaiOAuth.pastePlaceholder')}
               onChange={(e) => setPasteCode(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && pasteCode.trim()) {
+                if (isSubmitEnter(e) && pasteCode.trim()) {
                   void onPasteSubmit();
                 }
               }}
