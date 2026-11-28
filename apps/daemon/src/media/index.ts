@@ -625,7 +625,8 @@ async function generateMediaFile(args: {
   }
   if (def.provider === 'openpixo') {
     // Paid hosted path: no stub fallback, no art-style rewrite. The prompt and
-    // options must be exactly what was quoted, to the user or to the daemon.
+    // options must be exactly what was quoted, to the user or to the daemon. The signal
+    // cancels only until the submit; a job the cloud may have is followed to its file.
     if (!args.openpixoHosted || !args.hosted) throw new AccountError('GENERATION_CONFIRMATION_REQUIRED');
     if (surface !== 'image' && surface !== 'audio' && surface !== 'model3d' && surface !== 'video') throw new AccountError('GENERATION_PARAMS_INVALID');
     const staged = args.hosted.projectId !== undefined && args.hosted.projectId !== projectId;
@@ -637,7 +638,7 @@ async function generateMediaFile(args: {
       const generated = await args.openpixoHosted.generate({ taskId: args.hosted.taskId, ...jobProject, metadata: args.metadata, service: def.id,
         params: { prompt: args.hosted.prompt ?? prompt ?? '' },
         references: imageRefs.map(ref => ({ bytes: Buffer.from(ref.dataUrl.slice(ref.dataUrl.indexOf(',') + 1), 'base64'), mime: ref.mime })),
-        quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut,
+        quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut, signal: args.signal,
         onProgress: args.onProgress, onBytesWritten: args.onBytesWritten });
       return { ...generated, warnings: [...generated.warnings, ...(args.hosted.warnings ?? [])] };
     }
@@ -650,7 +651,7 @@ async function generateMediaFile(args: {
         : hostedAudioParams(resolvedAudioKind!, { style: args.hosted.style, voice, duration });
       const generated = await args.openpixoHosted.generate({ taskId: args.hosted.taskId, ...jobProject, metadata: args.metadata, service: def.id,
         params: { prompt: args.hosted.prompt ?? prompt ?? '', ...audioParams },
-        quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut,
+        quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut, signal: args.signal,
         onProgress: args.onProgress, onBytesWritten: args.onBytesWritten });
       return { ...generated, warnings: [...generated.warnings, ...(args.hosted.warnings ?? [])] };
     }
@@ -666,7 +667,7 @@ async function generateMediaFile(args: {
         ...(args.hosted.style ? { style: args.hosted.style } : {}) },
       // The cloud checks the count against the service; the order is part of the quoted price.
       references: imageRefs.map(ref => ({ bytes: Buffer.from(ref.dataUrl.slice(ref.dataUrl.indexOf(',') + 1), 'base64'), mime: ref.mime })),
-      quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut,
+      quoteId: args.hosted.quoteId, cloudRequestId: args.hosted.cloudRequestId, output: safeOut, signal: args.signal,
       onProgress: args.onProgress, onBytesWritten: shapeHosted ? undefined : args.onBytesWritten });
     const delivered = { ...generated, warnings: [...generated.warnings, ...(args.hosted.warnings ?? [])] };
     return shapeHosted
@@ -1118,6 +1119,18 @@ async function reshapeWrittenImage<T extends GeneratedProjectAssetFile & { warni
   try { await options.onBytesWritten?.({ bytes: shaped.bytes, name, mime: reshaped.mime, kind: reshaped.kind, mtime: st.mtimeMs }); }
   catch (error) { console.warn('[media] reshaped image snapshot capture failed', error); }
   return reshaped;
+}
+
+/**
+ * Finishes a hosted image that a later start of the daemon delivered, for the request that
+ * asked for it: the same size and cutout `generateMedia` gives a hosted image it delivers in
+ * one go. Only what a recipe sends (aspect, background, prompt) decides the plan.
+ */
+export async function finishResumedHostedImage<T extends GeneratedProjectAssetFile & { warnings?: string[] }>(file: T, request: {
+  projectsRoot: string; projectId: string; aspect?: string | undefined; background?: 'transparent' | 'scene' | undefined; prompt?: string | undefined;
+}): Promise<T> {
+  const plan = planImageOutput({ aspect: request.aspect, background: request.background, prompt: request.prompt });
+  return planNeedsShaping(plan) ? reshapeWrittenImage(file, plan, { projectsRoot: request.projectsRoot, projectId: request.projectId }) : file;
 }
 
 function autoOutputName(surface: MediaSurface, model: string, audioKind?: AudioKind): string {
