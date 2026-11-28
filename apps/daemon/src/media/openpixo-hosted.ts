@@ -88,6 +88,11 @@ export interface HostedGenerateArgs {
    * so a resumed job delivers there too.
    */
   writeRoot?: string | undefined;
+  /**
+   * Cancels the request, honoured only until the submit: nothing is reserved before it.
+   * Once a job may exist it is paid whatever happens, so it is followed to its file.
+   */
+  signal?: AbortSignal | undefined;
   onProgress?: ((line: string) => void) | undefined;
   onBytesWritten?: ((written: { bytes: Buffer; name: string; mime: string; kind: string; mtime: number }) => void | Promise<void>) | undefined;
 }
@@ -197,6 +202,18 @@ export class HostedGenerationError extends Error {
   }
 }
 
+/** Raised by a cancel that came before the submit: no job was asked for, so nothing was reserved. */
+export const HOSTED_CANCELLED = 'OPENPIXO_CANCELLED';
+/** Raised when the daemon stops while it follows a job; the job is still paid and resumes on the next start. */
+export const HOSTED_DAEMON_STOPPING = 'OPENPIXO_DAEMON_STOPPING';
+
+function throwIfCancelled(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new HostedGenerationError(HOSTED_CANCELLED, 'Cancelled before it was sent to OpenPixo cloud; nothing was charged.', 409, true);
+}
+
+/** A file a hosted job delivered, as `generate` returns it. */
+export type HostedDeliveredFile = Awaited<ReturnType<OpenPixoHostedMedia['generate']>>;
+
 export function migrateOpenPixoCloudJobs(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS openpixo_cloud_jobs (
@@ -282,6 +299,17 @@ interface LinkRow {
   service: string; params_json: string; output: string; state: string; write_root?: string | null;
 }
 
+/**
+ * Where the job that writes into this folder (a recipe candidate's staging folder) stands:
+ * `open` while it is followed, then `delivered` or `failed`. A job is recorded before its
+ * first submit, so null means nothing reached the cloud.
+ */
+export function hostedJobState(db: Database.Database, writeRoot: string): 'open' | 'delivered' | 'failed' | null {
+  const row = db.prepare('SELECT state FROM openpixo_cloud_jobs WHERE write_root = ? ORDER BY created_at DESC LIMIT 1').get(path.resolve(writeRoot)) as { state: string } | undefined;
+  if (!row) return null;
+  return (PENDING as readonly string[]).includes(row.state) ? 'open' : row.state === 'delivered' ? 'delivered' : 'failed';
+}
+
 /** Task ids whose cloud job is still being followed; boot reconcile must not mark them interrupted. */
 export function pendingHostedTaskIds(db: Database.Database): string[] {
   return (db.prepare(`SELECT task_id FROM openpixo_cloud_jobs WHERE state IN ('submitting','pending')`).all() as Array<{ task_id: string }>)
@@ -341,6 +369,8 @@ export class OpenPixoHostedMedia {
   private closed = false;
   private tasks: HostedTaskStore | undefined;
   private settlement: HostedSettlement | undefined;
+  /** Jobs resumed after a restart, by task id, so a job is never followed twice. */
+  private readonly resumed = new Map<string, Promise<HostedDeliveredFile>>();
 
   constructor(private readonly options: OpenPixoHostedMediaOptions) {
     this.sleep = options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms).unref?.()));
@@ -490,16 +520,27 @@ export class OpenPixoHostedMedia {
    * Runs a step that charges nothing, trying it again when the cloud did not take it, and
    * says in the end that a retry is safe. A refusal is passed on at once.
    */
-  private async beforeCharge<T>(what: string, attempt: () => Promise<T>): Promise<T> {
+  private async beforeCharge<T>(what: string, attempt: () => Promise<T>, signal?: AbortSignal): Promise<T> {
     for (let tries = 1; ; tries++) {
+      throwIfCancelled(signal);
       try { return await attempt(); }
       catch (error) {
         console.warn(`[media] hosted ${what} failed (try ${tries} of ${PRECHARGE_ATTEMPTS}): ${describeCloudFailure(error)}`);
         if (!cloudDidNotTake(error)) throw error;
         if (tries >= PRECHARGE_ATTEMPTS) throw prechargeGaveUp(error);
-        await this.sleep(PRECHARGE_RETRY_MS[Math.min(tries, PRECHARGE_RETRY_MS.length) - 1]!);
+        await this.pause(PRECHARGE_RETRY_MS[Math.min(tries, PRECHARGE_RETRY_MS.length) - 1]!, signal);
       }
     }
+  }
+
+  /** Waits, cut short by a cancel. */
+  private async pause(ms: number, signal?: AbortSignal): Promise<void> {
+    if (!signal) return this.sleep(ms);
+    if (signal.aborted) return;
+    let stop = () => {};
+    const cancelled = new Promise<void>(resolve => { stop = () => resolve(); signal.addEventListener('abort', stop, { once: true }); });
+    try { await Promise.race([this.sleep(ms), cancelled]); }
+    finally { signal.removeEventListener('abort', stop); }
   }
 
   /** Quotes exactly what `generate` will send, references included. Spends nothing. */
@@ -525,7 +566,7 @@ export class OpenPixoHostedMedia {
   async generate(args: HostedGenerateArgs) {
     // Uploading happens before any job exists, so a failure here reserves nothing and is tried again.
     const references = args.references ?? [];
-    const { hashes, trusted } = await this.beforeCharge(`reference upload for ${args.service}`, () => this.sendReferences(references, false));
+    const { hashes, trusted } = await this.beforeCharge(`reference upload for ${args.service}`, () => this.sendReferences(references, false), args.signal);
     const checks: ReferenceChecks | undefined = trusted.length ? {
       confirm: () => this.confirmReferences(trusted),
       // Same hashes, so the submit still matches its quote: only a fresh link, never a copy.
@@ -535,8 +576,11 @@ export class OpenPixoHostedMedia {
       },
     } : undefined;
     args = { ...args, params: { ...pricedParams(args.service, args.params), ...(hashes.length ? { references: hashes } : {}) } };
+    // The last moment a cancel spends nothing. From the record on a job may exist, so it is
+    // followed to its end; nothing awaits between this check, the record and the first submit.
+    throwIfCancelled(args.signal);
     const triedBefore = this.options.db.prepare('SELECT 1 FROM openpixo_cloud_jobs WHERE request_id = ? LIMIT 1').get(args.cloudRequestId) !== undefined;
-    const writeRoot = args.writeRoot ?? null;
+    const writeRoot = args.writeRoot ? path.resolve(args.writeRoot) : null;
     this.options.db.prepare(`INSERT INTO openpixo_cloud_jobs
       (task_id, project_id, request_id, quote_id, service, params_json, output, state, write_root, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'submitting', ?, ?, ?)`)
@@ -647,7 +691,7 @@ export class OpenPixoHostedMedia {
       await this.sleep(delay);
       delay = Math.min(delay * 1.5, 15_000);
     }
-    throw new HostedGenerationError('OPENPIXO_DAEMON_STOPPING', 'OpenPixo is shutting down; the job resumes on the next start.', 503, true);
+    throw new HostedGenerationError(HOSTED_DAEMON_STOPPING,'OpenPixo is shutting down; the job resumes on the next start.', 503, true);
   }
 
   private async deliver(link: LinkRow, job: OpenPixoCloudGenerationJob, params: OpenPixoGenerationParams,
@@ -698,15 +742,39 @@ export class OpenPixoHostedMedia {
   resumePending(): void {
     const rows = this.options.db.prepare(`SELECT * FROM openpixo_cloud_jobs WHERE state IN (${PENDING.map(() => '?').join(',')})`)
       .all(...PENDING) as LinkRow[];
-    for (const link of rows) {
-      const task = this.tasks?.getLiveMediaTask(link.task_id) ?? null;
-      void this.follow(link, this.options.getProjectMetadata(link.project_id), line => { if (task) this.tasks!.appendTaskProgress(task, line); })
-        .then(file => this.finishTask(task, 'done', file, null))
-        .catch(error => {
-          if (error instanceof HostedGenerationError && error.code === 'OPENPIXO_DAEMON_STOPPING') return;
-          this.finishTask(task, 'failed', null, error);
-        });
-    }
+    for (const link of rows) void this.resume(link).catch(() => { /* its media task says how it ended */ });
+  }
+
+  /** Follows one recorded job again, once however often it is asked for, and finishes its media task. */
+  private resume(link: LinkRow): Promise<HostedDeliveredFile> {
+    const running = this.resumed.get(link.task_id);
+    if (running) return running;
+    const task = this.tasks?.getLiveMediaTask(link.task_id) ?? null;
+    const followed = this.follow(link, this.options.getProjectMetadata(link.project_id), line => { if (task) this.tasks!.appendTaskProgress(task, line); });
+    this.resumed.set(link.task_id, followed);
+    void followed.then(file => this.finishTask(task, 'done', file, null), (error: unknown) => {
+      if (error instanceof HostedGenerationError && error.code === HOSTED_DAEMON_STOPPING) return;
+      this.finishTask(task, 'failed', null, error);
+    }).finally(() => this.resumed.delete(link.task_id));
+    return followed;
+  }
+
+  /**
+   * How the job that writes into this folder (a recipe candidate's staging folder) ends, for a
+   * run that outlived its daemon: its file once the cloud delivers it, following the job again
+   * if it is still open, or its failure. Null when no job was ever recorded there, so nothing
+   * reached the cloud.
+   */
+  delivery(writeRoot: string): Promise<HostedDeliveredFile> | null {
+    const link = this.options.db.prepare('SELECT * FROM openpixo_cloud_jobs WHERE write_root = ? ORDER BY created_at DESC LIMIT 1')
+      .get(path.resolve(writeRoot)) as (LinkRow & { error_code: string | null; file_json: string | null }) | undefined;
+    if (!link) return null;
+    if ((PENDING as readonly string[]).includes(link.state)) return this.resume(link);
+    if (link.state === 'delivered' && link.file_json) return Promise.resolve(JSON.parse(link.file_json) as HostedDeliveredFile);
+    const code = link.error_code ?? 'GENERATION_FAILED';
+    return Promise.reject(code === 'DOWNLOAD_GONE'
+      ? new HostedGenerationError('OPENPIXO_DOWNLOAD_FAILED', DOWNLOAD_GONE, 410, false)
+      : new HostedGenerationError(`OPENPIXO_${code}`, FAILURES[code] ?? 'Hosted generation failed.'));
   }
 
   private finishTask(task: LiveMediaTask | null, status: 'done' | 'failed', file: unknown, error: unknown): void {

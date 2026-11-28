@@ -115,7 +115,9 @@ export function registerRecipeRoutes(app: Express, ctx: RecipeRoutesDeps): Recip
   const heldQuote = (id: string): HeldRecipeQuote | undefined => { pruneQuotes(); return quotes.get(id); };
   const funnel = ctx.gameFunnel ?? NOOP_GAME_FUNNEL;
   const executor = new RecipeExecutor({ runtimeDataDir: ctx.paths.RUNTIME_DATA_DIR, projectRoot: ctx.paths.PROJECT_ROOT, db: ctx.db, mediaTasks: ctx.mediaTasks,
-    onRunSettled: run => funnel.record(null, 'recipe_run_settled', recipeRunSettledProperties(run, Date.now())) });
+    onRunSettled: run => funnel.record(null, 'recipe_run_settled', recipeRunSettledProperties(run, Date.now())),
+    // A paid job a restart interrupted is followed back into its run.
+    hosted: ctx.artBudget?.openpixoHosted });
   const adopted = (req: Request, run: RecipeRun, candidateIds: readonly string[]) =>
     funnel.record(req, 'recipe_candidates_adopted', recipeCandidatesAdoptedProperties(run, candidateIds, Date.now()));
   void executor.initialized.catch(error => console.error('[recipes] Initialization failed', error));

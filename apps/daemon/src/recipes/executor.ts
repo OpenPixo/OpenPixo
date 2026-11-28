@@ -6,11 +6,11 @@ import type Database from 'better-sqlite3';
 import { isRecipeRelativePath, OPENPIXO_IMAGE_SIZES, parseOpenPixoResolution, type OpenPixoGenerationAspect, type ArtStyle, type AssetOpRequest, type EngineProfile, type Recipe, type RecipeDetail, type RecipeRun, type RecipeRunOrigin, type RecipeRunRequest } from '@openpixo/contracts';
 import { recordAssetProvenance } from '../assets/provenance-store.js';
 import { runAssetOp } from '../assets/ops/index.js';
-import { generateMedia } from '../media/index.js';
+import { finishResumedHostedImage, generateMedia } from '../media/index.js';
 import type { createMediaTaskStore } from '../media/task-store.js';
 import { mimeFor } from '../projects.js';
 import type { MediaModel } from '../media/models.js';
-import type { OpenPixoHostedMedia } from '../media/openpixo-hosted.js';
+import { HOSTED_CANCELLED, HOSTED_DAEMON_STOPPING, hostedJobState, type OpenPixoHostedMedia } from '../media/openpixo-hosted.js';
 import type { AgentHostedDecision, AgentHostedRequest } from '../game/art-budget-spend.js';
 import { getCharacter } from './characters.js';
 import { checkRecipeFile } from './checks.js';
@@ -32,6 +32,11 @@ function recipeFailure(error: unknown): { error: string; errorCode?: string; err
     ...(typeof failure?.reason === 'string' ? { errorReason: failure.reason } : {}) };
 }
 const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+const errorCode = (error: unknown) => (error as { code?: unknown } | null)?.code;
+/** The daemon stopped while a paid job was on its way; the job is paid and the next start follows it. */
+const daemonStopping = (error: unknown) => errorCode(error) === HOSTED_DAEMON_STOPPING;
+const CANCELLED_UNSENT = 'Cancelled before it was sent; nothing was charged for it.';
+const INTERRUPTED_UNSENT = 'Interrupted by a restart before it was sent; nothing was charged for it.';
 interface StoredRun {
   run: RecipeRun; prompt: string; resolution?: string | undefined; background?: 'transparent' | undefined; output: { dir: string; name: string }; referenceHashes: string[];
   /** A video recipe's clip: its exact length, size and whether it loops back to its picture. */
@@ -42,6 +47,18 @@ interface StoredRun {
    * output names a character: those are saved only at the paths they were made with.
    */
   outputTemplate?: { dir: string; name: string } | undefined;
+  /**
+   * What happens to a candidate's file once it arrives, kept so a paid job that outlives its
+   * daemon is finished the same way by the next start. Absent on older runs: those stage the
+   * delivered file as it came.
+   */
+  finish?: RecipeFinish | undefined;
+}
+interface RecipeFinish {
+  steps: RecipePostprocessStep[];
+  checks: NonNullable<Recipe['checks']>;
+  variables: Record<string, unknown>;
+  aspect?: string | undefined;
 }
 /** Matches every run, whichever game it was made for, or none: the 生成 page's own view. */
 export const ALL_GAMES = Symbol('all games');
@@ -62,6 +79,11 @@ export interface RecipeExecutorDeps {
   postprocess?: typeof runAssetOp;
   /** Told once when a run started in this process ends: ready, failed or cancelled. Must not throw. */
   onRunSettled?: (run: RecipeRun) => void;
+  /**
+   * The hosted module, so a paid job a restart interrupted is followed back into its run
+   * instead of the run being called failed. Without it such a run fails as before.
+   */
+  hosted?: OpenPixoHostedMedia | undefined;
 }
 /** What a video recipe fixes about its clip (`generation.video`). */
 export interface RecipeVideo { duration: number; resolution?: string | undefined; loop?: boolean | undefined }
@@ -162,7 +184,8 @@ export class RecipeExecutor {
         const record = JSON.parse(await readFile(await recipePath(this.root, `${entry.name}/record.json`), 'utf8')) as StoredRun;
         if (record.run.id !== entry.name || !Array.isArray(record.run.candidates) || !isRecipeRelativePath(record.output.dir)) throw new Error('Invalid run record');
         this.records.set(record.run.id, record);
-        if (!terminal(record.run)) { record.run.status = 'failed'; record.run.error = 'Recipe interrupted by daemon restart'; await this.save(record); }
+        if (await this.resumable(record)) this.resumeHosted(record, this.deps.hosted!);
+        else if (!terminal(record.run)) { record.run.status = 'failed'; record.run.error = 'Recipe interrupted by daemon restart'; await this.save(record); }
       } catch (error) { console.warn(`[recipes] Cannot restore ${entry.name}: ${message(error)}`); }
     }
     await this.cleanup();
@@ -232,7 +255,7 @@ export class RecipeExecutor {
       .filter(run => listedFor(run, scope) && (!filter.surface || run.surface === filter.surface) && (!filter.origin || run.origin === filter.origin))
       .sort((a, b) => b.createdAt - a.createdAt).slice(0, filter.limit ?? 100).map(run => structuredClone(run));
   }
-  async wait(scope: RunScope, id: string): Promise<RecipeRun> { await this.jobs.get(id); return this.get(scope, id); }
+  async wait(scope: RunScope, id: string): Promise<RecipeRun> { await this.initialized; await this.jobs.get(id); return this.get(scope, id); }
   /**
    * Renders the run without starting it: prompt, output, count, post-processing and
    * the pricing input. A quote and the run it pays for both come from here, so the
@@ -327,7 +350,8 @@ export class RecipeExecutor {
       model: { provider: model.provider, id: model.id }, status: 'queued', candidates: Array.from({ length: count }, (_, index) => ({ id: randomUUID(), index, stagedFiles: [], checks: [] })), createdAt: Date.now(), updatedAt: Date.now() },
       prompt, ...(plan.resolution ? { resolution: plan.resolution } : {}),
       ...(plan.background ? { background: plan.background } : {}), ...(plan.video ? { video: plan.video } : {}), output, referenceHashes: referenceBytes.map(ref => hash(ref.bytes)),
-      ...(namesCharacter ? {} : { outputTemplate: { dir: recipe.output!.dir, name: recipe.output!.name } }) };
+      ...(namesCharacter ? {} : { outputTemplate: { dir: recipe.output!.dir, name: recipe.output!.name } }),
+      ...(paid ? { finish: { steps, checks: recipe.checks ?? [], variables: prepared.variables, ...(aspect ? { aspect } : {}) } } : {}) };
     this.records.set(id, record);
     try { await this.save(record); }
     catch (error) { releasePaid(); throw error; }
@@ -353,6 +377,7 @@ export class RecipeExecutor {
     const cancelled = () => signal.aborted || run.status === 'cancelled';
     if (cancelled()) return;
     run.status = 'generating'; await this.save(record);
+    let interrupted = false;
     await Promise.all(run.candidates.map(async candidate => {
       if (cancelled()) return;
       const candidateRoot = await recipePath(this.root, `${run.id}/${candidate.id}`);
@@ -367,7 +392,10 @@ export class RecipeExecutor {
       const gameId = run.projectId;
       const task = gameId === null ? detachedTask() : this.deps.mediaTasks.createMediaTask(randomUUID(), gameId, { surface, model: model.id });
       task.status = 'running';
-      if (gameId !== null) { candidate.mediaTaskId = task.id; this.deps.mediaTasks.persistMediaTask(task as LiveTask); }
+      // Saved before the generate, so a run a restart interrupts still knows its task.
+      if (gameId !== null) { candidate.mediaTaskId = task.id; this.deps.mediaTasks.persistMediaTask(task as LiveTask); await this.save(record); }
+      let paidFile = false;
+      const stop = () => cancelled() && !paidFile;
       try {
         const audioKind = model.caps.includes('tts') ? 'speech' : model.caps.includes('sfx') ? 'sfx' : 'music';
         const paidRequest = paidFor?.requests[candidate.index];
@@ -387,52 +415,77 @@ export class RecipeExecutor {
         });
         if (meta.providerError || ((meta.providerId === 'stub' || model.provider === 'stub' || meta.intentionalStub || meta.usedStubFallback) && process.env.NODE_ENV !== 'test')) throw new Error(meta.providerError || 'Stub provider output rejected');
         task.status = 'done';
-        if (cancelled()) return;
+        // A delivered paid file is paid for: a cancel no longer throws it away, and it is finished like any other.
+        paidFile = Boolean(paidFor);
+        if (stop()) return;
         const primary = await recipePath(candidateRoot, meta.name);
-        if (cancelled()) return;
+        if (stop()) return;
         // A staged file has no project filename yet; legacy media cards must not resolve it against game files.
         task.file = { ref: primary, mime: meta.mime, recipeRunId: run.id, candidateId: candidate.id };
         candidate.stagedFiles.push({ role: 'primary', ref: primary, mime: meta.mime });
-        let current = [meta.name];
-        let gridSources = current;
         run.status = 'postprocessing'; await this.save(record);
-        for (const [index, step] of steps.entries()) {
-          if (cancelled()) return;
-          try {
-            if (step.op === 'slice') gridSources = current;
-            const report = await (this.deps.postprocess ?? runAssetOp)({ projectRoot: candidateRoot }, { op: step.op, inputs: current, params: step.params, out: `derived/${index}-${step.op}` });
-            if (report.counts.failed) throw new Error(report.results.find(result => result.error)?.error ?? `${step.op} failed`);
-            const outputs = [...new Set(report.results.flatMap(result => [result.output, ...result.extraOutputs ?? []]))].filter((file): file is string => Boolean(file));
-            // An intermediate step (`keep: false`) feeds the next one without being staged.
-            if (step.keep !== false) for (const file of outputs) {
-              const ref = await recipePath(candidateRoot, file);
-              candidate.stagedFiles.push({ role: 'derived', ref, mime: String(mimeFor(file)) });
-            }
-            const mediaOutputs = outputs.filter(file => /\.(png|jpe?g|webp|wav|mp3|ogg|flac|mp4)$/i.test(file));
-            if (mediaOutputs.length && step.op !== 'seamless-check') current = mediaOutputs;
-          } catch (error) {
-            if (!step.optional) throw error;
-            candidate.checks.push({ check: `postprocess:${step.op}`, ok: false, detail: message(error) });
-          }
-        }
-        for (const check of checks) {
-          if (cancelled()) return;
-          const files = check.check === 'grid-divisible' ? gridSources : current;
-          for (const file of files) candidate.checks.push(await checkRecipeFile(await recipePath(candidateRoot, file), check, variables));
-        }
+        await this.finishCandidate(candidate, candidateRoot, meta.name, { steps, checks, variables }, stop);
       } catch (error) {
+        if (daemonStopping(error)) { interrupted = true; return; }
         const failure = recipeFailure(error);
-        if (!cancelled()) Object.assign(candidate, failure);
+        // A cancel explains a free candidate's end, and a paid one's only when it stopped before its submit.
+        if (!cancelled() || (paidFor && errorCode(error) !== HOSTED_CANCELLED)) Object.assign(candidate, failure);
         if (task.status !== 'done') { task.status = 'failed'; task.error = { message: failure.error, ...(failure.errorCode ? { code: failure.errorCode } : {}) }; }
       } finally {
-        task.endedAt = Date.now();
+        // A job the daemon stopped following is still running: its task stays open for the next start.
+        if (!interrupted) task.endedAt = Date.now();
         if (gameId !== null) { this.deps.mediaTasks.persistMediaTask(task as LiveTask); this.deps.mediaTasks.notifyTaskWaiters(task as LiveTask); }
-        if (cancelled()) { candidate.stagedFiles = []; candidate.checks = []; }
+        if (stop()) { candidate.stagedFiles = []; candidate.checks = []; }
         await this.save(record);
       }
     }));
-    if (cancelled()) return;
-    run.status = run.candidates.some(candidate => candidate.stagedFiles.length && !candidate.error) ? 'ready' : 'failed';
+    // Left as it is, so the next start follows the paid job back into this run.
+    if (interrupted) return;
+    await this.settle(record, cancelled());
+  }
+  /**
+   * Post-processes and checks a candidate's primary file. `stop` says the run was cancelled
+   * and the file may be dropped; a paid file never stops.
+   */
+  private async finishCandidate(candidate: RecipeRun['candidates'][number], candidateRoot: string, primaryName: string,
+    finish: Pick<RecipeFinish, 'steps' | 'checks' | 'variables'>, stop: () => boolean): Promise<void> {
+    let current = [primaryName];
+    let gridSources = current;
+    for (const [index, step] of finish.steps.entries()) {
+      if (stop()) return;
+      try {
+        if (step.op === 'slice') gridSources = current;
+        const report = await (this.deps.postprocess ?? runAssetOp)({ projectRoot: candidateRoot }, { op: step.op, inputs: current, params: step.params, out: `derived/${index}-${step.op}` });
+        if (report.counts.failed) throw new Error(report.results.find(result => result.error)?.error ?? `${step.op} failed`);
+        const outputs = [...new Set(report.results.flatMap(result => [result.output, ...result.extraOutputs ?? []]))].filter((file): file is string => Boolean(file));
+        // An intermediate step (`keep: false`) feeds the next one without being staged.
+        if (step.keep !== false) for (const file of outputs) {
+          const ref = await recipePath(candidateRoot, file);
+          candidate.stagedFiles.push({ role: 'derived', ref, mime: String(mimeFor(file)) });
+        }
+        const mediaOutputs = outputs.filter(file => /\.(png|jpe?g|webp|wav|mp3|ogg|flac|mp4)$/i.test(file));
+        if (mediaOutputs.length && step.op !== 'seamless-check') current = mediaOutputs;
+      } catch (error) {
+        if (!step.optional) throw error;
+        candidate.checks.push({ check: `postprocess:${step.op}`, ok: false, detail: message(error) });
+      }
+    }
+    for (const check of finish.checks) {
+      if (stop()) return;
+      const files = check.check === 'grid-divisible' ? gridSources : current;
+      for (const file of files) candidate.checks.push(await checkRecipeFile(await recipePath(candidateRoot, file), check, finish.variables));
+    }
+  }
+  /**
+   * Ends a run whose candidates have all ended: ready with any file, else failed. A cancelled
+   * run is ready only with a file it had already paid for; the candidates it stopped say so.
+   */
+  private async settle(record: StoredRun, wasCancelled: boolean): Promise<void> {
+    const run = record.run;
+    const kept = run.candidates.some(candidate => candidate.stagedFiles.length && !candidate.error);
+    if (wasCancelled && !kept) { run.status = 'cancelled'; await this.save(record); return; }
+    if (wasCancelled) for (const candidate of run.candidates) if (!candidate.stagedFiles.length && !candidate.error) candidate.error = CANCELLED_UNSENT;
+    run.status = kept ? 'ready' : 'failed';
     if (run.status === 'failed') {
       const failure = run.candidates.find(candidate => candidate.errorCode) ?? run.candidates.find(candidate => candidate.error);
       run.error = failure?.error ?? 'All candidates failed';
@@ -441,14 +494,100 @@ export class RecipeExecutor {
     }
     await this.save(record);
   }
+  /**
+   * Stops a run. What has not reached the cloud stops and costs nothing. A paid job the cloud
+   * may already have is paid whatever happens, so it is followed to its file and the run ends
+   * ready with it; until then the run keeps its status.
+   */
   async cancel(scope: RunScope, id: string): Promise<RecipeRun> {
     await this.get(scope, id);
     const record = this.records.get(id)!;
     if (!terminal(record.run)) {
-      record.run.status = 'cancelled'; this.controllers.get(id)?.abort(); await this.save(record);
+      // No await between this check and the abort: the hosted module checks the signal right
+      // before it records a job, so a candidate is either recorded here or never submitted.
+      const paidJobRecorded = await this.paidJobRecorded(record);
+      const paidOnItsWay = paidJobRecorded();
+      this.controllers.get(id)?.abort();
+      if (!paidOnItsWay) { record.run.status = 'cancelled'; await this.save(record); }
     }
-    // Providers that finish after abort still leave their results quarantined.
+    // Free providers that finish after abort still leave their results quarantined.
     return this.get(scope, id);
+  }
+  /** A check, synchronous once made, of whether any of the run's candidates has a hosted job. */
+  private async paidJobRecorded(record: StoredRun): Promise<() => boolean> {
+    if (record.run.model.provider !== 'openpixo') return () => false;
+    const roots = await Promise.all(record.run.candidates.map(candidate => recipePath(this.root, `${record.run.id}/${candidate.id}`)));
+    return () => roots.some(root => hostedJobState(this.deps.db, root) !== null);
+  }
+  /**
+   * Whether a run a restart interrupted was paying the hosted cloud for a job that is still
+   * open: unfinished, or ended (failed, or cancelled) while a paid file had not arrived yet.
+   */
+  private async resumable(record: StoredRun): Promise<boolean> {
+    if (!this.deps.hosted || record.run.model.provider !== 'openpixo') return false;
+    if (!terminal(record.run)) return true;
+    if (record.run.status === 'ready') return false;
+    for (const candidate of record.run.candidates) {
+      if (hostedJobState(this.deps.db, await recipePath(this.root, `${record.run.id}/${candidate.id}`)) === 'open') return true;
+    }
+    return false;
+  }
+  /**
+   * Finishes a run a restart interrupted from the paid jobs it left: each candidate whose job
+   * is open (or delivered, while the run was unfinished) is followed to its file and
+   * post-processed as it would have been. A candidate with no job never reached the cloud.
+   */
+  private resumeHosted(record: StoredRun, hosted: OpenPixoHostedMedia): void {
+    const run = record.run;
+    const wasUnfinished = !terminal(run);
+    const unsent = run.status === 'cancelled' ? CANCELLED_UNSENT : INTERRUPTED_UNSENT;
+    const finish: RecipeFinish = record.finish ?? { steps: [], checks: [], variables: {} };
+    let interrupted = false;
+    const job = (async () => {
+      run.status = 'generating';
+      delete run.error; delete run.errorCode; delete run.errorReason;
+      await this.save(record);
+      await Promise.all(run.candidates.map(async candidate => {
+        const candidateRoot = await recipePath(this.root, `${run.id}/${candidate.id}`);
+        const state = hostedJobState(this.deps.db, candidateRoot);
+        if (state === null) {
+          if (!candidate.stagedFiles.length && !candidate.error) candidate.error = unsent;
+          return;
+        }
+        if (state === 'delivered' && !wasUnfinished) return;
+        if (state === 'failed' && candidate.error) return;
+        const task = candidate.mediaTaskId ? this.deps.mediaTasks.getLiveMediaTask(candidate.mediaTaskId) : null;
+        try {
+          let file = await hosted.delivery(candidateRoot)!;
+          candidate.stagedFiles = []; candidate.checks = [];
+          delete candidate.error; delete candidate.errorCode; delete candidate.errorReason;
+          if (run.surface === 'image') {
+            file = await finishResumedHostedImage(file, { projectsRoot: path.dirname(candidateRoot), projectId: path.basename(candidateRoot),
+              aspect: finish.aspect, background: record.background, prompt: record.prompt });
+          }
+          const primary = await recipePath(candidateRoot, file.name);
+          candidate.stagedFiles.push({ role: 'primary', ref: primary, mime: file.mime });
+          if (task) {
+            // The hosted module finished the task with its own file record; a staged file has no game path.
+            task.status = 'done'; task.error = null;
+            task.file = { ref: primary, mime: file.mime, recipeRunId: run.id, candidateId: candidate.id };
+          }
+          run.status = 'postprocessing'; await this.save(record);
+          await this.finishCandidate(candidate, candidateRoot, file.name, finish, () => false);
+        } catch (error) {
+          if (daemonStopping(error)) { interrupted = true; return; }
+          Object.assign(candidate, recipeFailure(error));
+        } finally {
+          if (task && !interrupted) { task.endedAt ??= Date.now(); this.deps.mediaTasks.persistMediaTask(task); this.deps.mediaTasks.notifyTaskWaiters(task); }
+          await this.save(record);
+        }
+      }));
+      if (!interrupted) await this.settle(record, false);
+    })().catch(async error => {
+      console.warn(`[recipes] Cannot finish ${run.id} after a restart: ${message(error)}`);
+      if (!interrupted) { run.status = 'failed'; Object.assign(run, recipeFailure(error)); await this.save(record).catch(() => {}); }
+    }).finally(() => { this.jobs.delete(run.id); });
+    this.jobs.set(run.id, job);
   }
   /**
    * Saves candidates into a game. A game's run goes only into its own game, at the paths
