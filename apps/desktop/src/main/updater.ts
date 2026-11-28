@@ -8,7 +8,6 @@ import {
   lstat,
   mkdir,
   readdir,
-  rename,
   rm,
   stat,
 } from "node:fs/promises";
@@ -70,6 +69,7 @@ import {
   isRecord,
   readJson,
   readJsonStrict,
+  renameWithRetry,
   writeJson,
 } from "./updater/support.js";
 import {
@@ -148,6 +148,12 @@ export type DesktopUpdaterDeps = {
   launchAppAfterQuit?: (input: DeferredAppLaunchInput) => Promise<DeferredLaunchResult>;
   launchInstallerAfterQuit?: (input: DeferredInstallerLaunchInput) => Promise<string>;
   logger?: DesktopUpdaterLogger;
+  /**
+   * How long a feed or checksum request may take, and how long a download may
+   * wait for headers or go without a byte. Production keeps the defaults; tests
+   * shorten it.
+   */
+  networkTimeoutMs?: number;
   now?: () => Date;
   openPath?: (path: string) => Promise<string>;
   processExecPath?: string;
@@ -423,6 +429,7 @@ export function createDesktopUpdater(
   const config = resolveDesktopUpdaterConfig(configInput);
   const fetchImpl = deps.fetch ?? globalThis.fetch;
   const logger = deps.logger ?? console;
+  const networkTimeoutMs = deps.networkTimeoutMs;
   const now = deps.now ?? (() => new Date());
   const openPath = deps.openPath ?? (async () => "openPath is not available");
   const processPid = deps.processPid ?? process.pid;
@@ -824,7 +831,7 @@ export function createDesktopUpdater(
     if (!keepDownloadedVisible) setState(DESKTOP_UPDATE_STATES.CHECKING);
     try {
       logUpdateEvent("check-start", { metadataUrl: config.metadataUrl });
-      const body = await fetchJson(fetchImpl, config.metadataUrl);
+      const body = await fetchJson(fetchImpl, config.metadataUrl, networkTimeoutMs);
       lastCheckedAt = now().toISOString();
       metadata = body;
       const root = await writeMetadataPatch((current) => ({
@@ -1016,12 +1023,13 @@ export function createDesktopUpdater(
       metric('verify', 'started');
       let resolvedChecksum: DesktopUpdateChecksumSnapshot;
       try {
-        resolvedChecksum = await resolveChecksum(fetchImpl, nextCandidate.checksum);
+        resolvedChecksum = await resolveChecksum(fetchImpl, nextCandidate.checksum, networkTimeoutMs);
         await downloadCopyAndClear({
           basePath: downloadsRoot,
           bucket: "package-launcher",
           fetch: fetchImpl,
           fileName: outputName,
+          ...(networkTimeoutMs == null ? {} : { inactivityTimeoutMs: networkTimeoutMs, responseTimeoutMs: networkTimeoutMs }),
           maxAttempts: ARTIFACT_DOWNLOAD_MAX_ATTEMPTS,
           onProgress: (nextProgress) => {
             progress = updateProgressFromManaged(nextProgress);
@@ -1058,7 +1066,8 @@ export function createDesktopUpdater(
       await writeJson(join(stagingDir, "metadata.json"), nextCandidate.metadata);
       await writeJson(join(stagingDir, "checksum.json"), resolvedChecksum);
       try {
-        await rename(stagingDir, releaseDir);
+        // A freshly downloaded installer is what a virus scanner holds open.
+        await renameWithRetry(stagingDir, releaseDir);
       } catch (renameError) {
         return await failDownload(createError("release-promote-failed", renameError instanceof Error ? renameError.message : String(renameError)));
       }
@@ -1247,13 +1256,10 @@ export function createDesktopUpdater(
     if (!containsPath(opened.root.realRoot, resolvedDownload)) {
       return setState(DESKTOP_UPDATE_STATES.ERROR, createError("download-path-escaped", "download path is outside the update root"));
     }
-    if (options.trigger === "silent" && activeRelease.ref.artifact.type === "payload") {
-      if (opened.metadata.autoAppliedKey === activeRelease.ref.key) {
-        logUpdateEvent("auto-apply-skipped-already-tried", { key: activeRelease.ref.key });
-        return snapshot();
-      }
-      opened.metadata.autoAppliedKey = activeRelease.ref.key;
-      await writeStoreMetadata(opened.root, opened.metadata);
+    const silentPayloadApply = options.trigger === "silent" && activeRelease.ref.artifact.type === "payload";
+    if (silentPayloadApply && opened.metadata.autoAppliedKey === activeRelease.ref.key) {
+      logUpdateEvent("auto-apply-skipped-already-tried", { key: activeRelease.ref.key });
+      return snapshot();
     }
     if (metricHandle == null || metricFlowFailed || recordedStages.has('install_open:result')) beginMetricFlow(options.trigger ?? 'manual');
     metricTrigger = options.trigger ?? 'manual';
@@ -1291,11 +1297,23 @@ export function createDesktopUpdater(
       try {
         const appliedAt = now().toISOString();
         observation = await writeInstallObservation(appliedAt);
+        const appliedKey = activeRelease.ref.key;
         const activation = await activatePreparedLauncherPayloadRelease({
           activeRelease,
           config,
           logger,
           now,
+          // Recorded once the pointer moved and before the relaunch, so a
+          // release that crashes and rolls back is not applied again on its
+          // own, while one whose activation failed is still tried next time.
+          ...(silentPayloadApply
+            ? {
+                onPointerMoved: async () => {
+                  opened.metadata.autoAppliedKey = appliedKey;
+                  await writeStoreMetadata(opened.root, opened.metadata);
+                },
+              }
+            : {}),
           removeLauncherPayloadRoot,
         });
         const relaunch = await requestPayloadRelaunch(
@@ -1401,12 +1419,16 @@ export function createDesktopUpdater(
     const opened = await openStore();
     if (!opened.ok) return false;
     if (opened.metadata.autoAppliedKey === release.ref.key) return false;
-    await writeStoreMetadata(opened.root, { ...opened.metadata, autoAppliedKey: release.ref.key });
     await activatePreparedLauncherPayloadRelease({
       activeRelease: release,
       config,
       logger,
       now,
+      // Recorded only once the pointer is on disk: quitting may cut this short,
+      // and a key written first would skip a release that was never applied.
+      onPointerMoved: async () => {
+        await writeStoreMetadata(opened.root, { ...opened.metadata, autoAppliedKey: release.ref.key });
+      },
       preArmAttempt: false,
       removeLauncherPayloadRoot,
     });

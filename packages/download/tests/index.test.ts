@@ -135,6 +135,86 @@ async function startFixture(
   };
 }
 
+async function startStalledFixture(mode: "no-headers" | "mid-body"): Promise<FixtureServer> {
+  const requests: FixtureRequest[] = [];
+  const server = createServer((request: IncomingMessage, response: ServerResponse) => {
+    requests.push({});
+    if (mode === "no-headers") return;
+    response.writeHead(200, { "content-length": 1024, "content-type": "application/octet-stream" });
+    response.write(Buffer.alloc(16, 1));
+  });
+  await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", () => resolveListen()));
+  const address = server.address();
+  if (address == null || typeof address === "string") throw new Error("fixture did not listen on tcp");
+  return {
+    close: () => new Promise<void>((resolveClose) => {
+      server.closeAllConnections();
+      server.close(() => resolveClose());
+    }),
+    requests,
+    url: `http://127.0.0.1:${address.port}/artifact.bin`,
+  };
+}
+
+describe("managed download stalls", () => {
+  for (const mode of ["no-headers", "mid-body"] as const) {
+    it(`gives up on a server that stalls (${mode}) instead of waiting forever`, async () => {
+      const fixture = await startStalledFixture(mode);
+      try {
+        const startedAt = Date.now();
+        await expect(managedDownload({
+          basePath: tmpRoot(`stall-${mode}`),
+          bucket: "stall",
+          fileName: "artifact.bin",
+          inactivityTimeoutMs: 100,
+          maxAttempts: 2,
+          payload: { checksum: { algorithm: "sha256", value: sha256("never") }, url: fixture.url },
+          responseTimeoutMs: 100,
+        })).rejects.toMatchObject({ code: MANAGED_DOWNLOAD_ERROR_CODES.NETWORK_EXHAUSTED });
+        // Two attempts; a resume the server answers with 200 restarts inside the same attempt.
+        expect(fixture.requests.length).toBe(mode === "no-headers" ? 2 : 3);
+        expect(Date.now() - startedAt).toBeLessThan(5_000);
+      } finally {
+        await fixture.close();
+      }
+    }, 10_000);
+  }
+
+  it("keeps a slow but moving download alive past the inactivity window", async () => {
+    const body = Buffer.alloc(64, 7);
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-length": body.byteLength });
+      let offset = 0;
+      const timer = setInterval(() => {
+        response.write(body.subarray(offset, offset + 8));
+        offset += 8;
+        if (offset >= body.byteLength) {
+          clearInterval(timer);
+          response.end();
+        }
+      }, 40);
+    });
+    await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", () => resolveListen()));
+    const address = server.address();
+    if (address == null || typeof address === "string") throw new Error("fixture did not listen on tcp");
+    try {
+      const result = await managedDownload({
+        basePath: tmpRoot("slow"),
+        bucket: "slow",
+        fileName: "artifact.bin",
+        inactivityTimeoutMs: 150,
+        maxAttempts: 1,
+        payload: { checksum: { algorithm: "sha256", value: sha256(body) }, url: `http://127.0.0.1:${address.port}/a.bin` },
+        responseTimeoutMs: 150,
+      });
+      expect(result.bytes).toBe(body.byteLength);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+    }
+  }, 10_000);
+});
+
 describe("managed download package", () => {
   it("downloads, copies to caller output, verifies, and clears managed state", async () => {
     const body = "copy and clear payload";

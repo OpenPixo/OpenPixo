@@ -28,6 +28,16 @@ export const STORE_KIND = "openpixo-managed-download-root";
 export const MANIFEST_KIND = "openpixo-managed-download";
 /** Default number of download attempts before giving up. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
+/**
+ * Default wait (ms) for response headers. A server or proxy that accepts the
+ * connection and never answers must not hold the caller forever.
+ */
+export const DEFAULT_RESPONSE_TIMEOUT_MS = 30_000;
+/**
+ * Default silence (ms) tolerated between body bytes. Slow links keep sending;
+ * only a stalled socket goes this long without a byte.
+ */
+export const DEFAULT_INACTIVITY_TIMEOUT_MS = 60_000;
 /** Default age threshold (ms) above which prune removes stale scratch entries. */
 export const DEFAULT_PRUNE_OLDER_THAN_MS = 24 * 60 * 60 * 1000;
 /** Grace window (ms) tolerated when deciding whether a same-PID lock is ours. */

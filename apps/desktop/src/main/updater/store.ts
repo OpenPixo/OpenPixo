@@ -19,6 +19,7 @@ import {
   containsPath,
   createError,
   directoryIsEmpty,
+  isJsonWriteTmpFor,
   isRecord,
   readJson,
   stringField,
@@ -160,6 +161,37 @@ export function isAllowedRootEntry(layout: DesktopUpdaterStoreLayout, name: stri
   return rootEntriesForLayout(layout).has(name);
 }
 
+/**
+ * Files the OS file browser drops into any folder it shows: opening `updates/`
+ * in Explorer or Finder once must not make the store unusable. Compared without
+ * case because Windows names are case-insensitive. Mirrors the allowance in
+ * `packages/download/src/store.ts`.
+ */
+const OS_MANAGED_ROOT_ARTIFACTS = new Set([".ds_store", ".localized", "desktop.ini", "thumbs.db"]);
+
+/**
+ * Root entries that are not store content: OS browser files, and the temporary
+ * file of a JSON write to `metadata.json` or the ownership sentinel that an
+ * older build or a killed process left behind. A name match alone is not
+ * enough; the entry must be a plain file, so a directory squatting on one of
+ * these names still counts as unexpected.
+ */
+export async function ignorableRootEntries(root: string, entries: string[]): Promise<Set<string>> {
+  const candidates = entries.filter((entry) =>
+    OS_MANAGED_ROOT_ARTIFACTS.has(entry.toLowerCase()) ||
+    isJsonWriteTmpFor(STORE_METADATA_FILE, entry) ||
+    isJsonWriteTmpFor(OWNERSHIP_SENTINEL, entry));
+  const verified = await Promise.all(candidates.map(async (entry) => {
+    try {
+      const entryStat = await lstat(join(root, entry));
+      return entryStat.isFile() && !entryStat.isSymbolicLink() ? entry : null;
+    } catch {
+      return null;
+    }
+  }));
+  return new Set(verified.filter((entry): entry is string => entry != null));
+}
+
 export function isUpdateStoreMetadata(value: unknown): value is UpdateStoreMetadata {
   if (!isRecord(value) || value.version !== STORE_METADATA_VERSION) return false;
   if (value.active != null && !isUpdateReleaseRef(value.active)) return false;
@@ -259,7 +291,7 @@ export async function ensureOwnedUpdateRoot(
         };
       }
     } else {
-      if (!(await directoryIsEmpty(realRoot))) {
+      if (!(await directoryIsEmpty(realRoot, (entries) => ignorableRootEntries(realRoot, entries)))) {
         return {
           ok: false,
           error: createError(
@@ -276,7 +308,9 @@ export async function ensureOwnedUpdateRoot(
       });
     }
 
-    const entries = await readdir(realRoot);
+    const allEntries = await readdir(realRoot);
+    const ignorable = await ignorableRootEntries(realRoot, allEntries);
+    const entries = allEntries.filter((entry) => !ignorable.has(entry));
     const unexpected = entries.filter((entry) => !isAllowedRootEntry(layout, entry));
     if (unexpected.length > 0) {
       const error = storeShapeError(realRoot, "update store contains unexpected root entries", { unexpected });

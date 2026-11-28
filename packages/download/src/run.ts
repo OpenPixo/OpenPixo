@@ -96,8 +96,10 @@ export async function runManagedDownload(
   options: {
     emit: (progress: ManagedDownloadProgress) => void;
     fetchImpl: typeof globalThis.fetch;
+    inactivityTimeoutMs: number;
     maxAttempts: number;
     requestHeaders?: Record<string, string>;
+    responseTimeoutMs: number;
   },
 ): Promise<ManagedDownloadResult> {
   await ensureManagedBase(target.basePath);

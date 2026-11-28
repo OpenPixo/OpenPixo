@@ -28,6 +28,57 @@ type DownloadAttemptResult = {
   totalBytes?: number;
 };
 
+/** @internal Per-attempt deadlines; see `ManagedDownloadOptions`. */
+type AttemptTimeouts = {
+  inactivityTimeoutMs: number;
+  responseTimeoutMs: number;
+};
+
+/**
+ * @internal One attempt's deadlines: response headers within
+ * `responseTimeoutMs`, then never longer than `inactivityTimeoutMs` without a
+ * body byte. On a stall it aborts the request (releasing the socket) and every
+ * `guard`ed promise rejects, even if the fetch implementation ignores the
+ * signal. Without it a connection that stalls without closing never ends the
+ * attempt, and the caller's queue waits forever.
+ */
+type AttemptWatchdog = {
+  dispose(): void;
+  guard<T>(work: Promise<T>): Promise<T>;
+  signal: AbortSignal;
+  touch(): void;
+};
+
+function createAttemptWatchdog(timeouts: AttemptTimeouts): AttemptWatchdog {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let rejectStall: (error: Error) => void = () => undefined;
+  const stalled = new Promise<never>((_resolve, reject) => {
+    rejectStall = reject;
+  });
+  stalled.catch(() => undefined);
+  const arm = (ms: number, message: string) => {
+    if (timer != null) clearTimeout(timer);
+    timer = setTimeout(() => {
+      const error = new Error(message);
+      controller.abort(error);
+      rejectStall(error);
+    }, ms);
+  };
+  arm(timeouts.responseTimeoutMs, `download server did not answer within ${timeouts.responseTimeoutMs}ms`);
+  return {
+    dispose: () => {
+      if (timer != null) clearTimeout(timer);
+    },
+    guard: async <T>(work: Promise<T>) => {
+      work.catch(() => undefined);
+      return await Promise.race([work, stalled]);
+    },
+    signal: controller.signal,
+    touch: () => arm(timeouts.inactivityTimeoutMs, `download stalled: no data for ${timeouts.inactivityTimeoutMs}ms`),
+  };
+}
+
 /**
  * @internal Extract a human-readable message from an unknown thrown value.
  */
@@ -103,13 +154,16 @@ async function writeResponseBodyToPartial(
     emit: (progress: ManagedDownloadProgress) => void;
     startBytes: number;
     totalBytes?: number;
+    watchdog: AttemptWatchdog;
   },
 ): Promise<void> {
   if (response.body == null) throw new Error("download response did not include a body");
+  options.watchdog.touch();
   let receivedBytes = options.startBytes;
   let sessionReceivedBytes = 0;
   const meter = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
+      options.watchdog.touch();
       receivedBytes += chunk.byteLength;
       sessionReceivedBytes += chunk.byteLength;
       options.emit({
@@ -120,11 +174,12 @@ async function writeResponseBodyToPartial(
       callback(null, chunk);
     },
   });
-  await pipeline(
+  await options.watchdog.guard(pipeline(
     Readable.fromWeb(response.body as never),
     meter,
     createWriteStream(target.partialPath, { flags: options.startBytes > 0 ? "a" : "w" }),
-  );
+    { signal: options.watchdog.signal },
+  ));
 }
 
 /**
@@ -137,19 +192,45 @@ async function tryResumeDownload(
   fetchImpl: typeof globalThis.fetch,
   emit: (progress: ManagedDownloadProgress) => void,
   requestHeaders: Record<string, string> | undefined,
+  timeouts: AttemptTimeouts,
 ): Promise<DownloadAttemptResult | "restart"> {
   const partialBytes = await statFileSize(target.partialPath);
   if (partialBytes == null || partialBytes <= 0) return "restart";
-  const response = await fetchImpl(target.url, {
+  const watchdog = createAttemptWatchdog(timeouts);
+  try {
+    return await resumeWithWatchdog(target, manifest, fetchImpl, emit, requestHeaders, partialBytes, watchdog);
+  } finally {
+    watchdog.dispose();
+  }
+}
+
+/**
+ * @internal The body of {@link tryResumeDownload}, under one attempt watchdog.
+ */
+async function resumeWithWatchdog(
+  target: NormalizedTarget,
+  manifest: DownloadManifest,
+  fetchImpl: typeof globalThis.fetch,
+  emit: (progress: ManagedDownloadProgress) => void,
+  requestHeaders: Record<string, string> | undefined,
+  partialBytes: number,
+  watchdog: AttemptWatchdog,
+): Promise<DownloadAttemptResult | "restart"> {
+  const response = await watchdog.guard(fetchImpl(target.url, {
     headers: {
       ...(requestHeaders ?? {}),
       ...(manifest.validators?.etag == null ? {} : { "If-Range": manifest.validators.etag }),
       Range: `bytes=${partialBytes}-`,
     },
-  });
-  if (response.status !== 206) return "restart";
+    signal: watchdog.signal,
+  }));
+  if (response.status !== 206) {
+    await response.body?.cancel().catch(() => undefined);
+    return "restart";
+  }
   const range = parseContentRange(response.headers.get("content-range"));
   if (range == null || range.start !== partialBytes || validatorsConflict(manifest.validators, response)) {
+    await response.body?.cancel().catch(() => undefined);
     return "restart";
   }
   const totalBytes = range.totalBytes ?? manifest.totalBytes ?? partialBytes + (contentLength(response) ?? 0);
@@ -161,7 +242,7 @@ async function tryResumeDownload(
     updatedAt: new Date().toISOString(),
     validators: manifest.validators ?? validatorsFromResponse(response),
   } satisfies DownloadManifest);
-  await writeResponseBodyToPartial(response, target, { emit, startBytes: partialBytes, totalBytes });
+  await writeResponseBodyToPartial(response, target, { emit, startBytes: partialBytes, totalBytes, watchdog });
   return { resumed: true, totalBytes };
 }
 
@@ -174,15 +255,24 @@ async function downloadFromZero(
   fetchImpl: typeof globalThis.fetch,
   emit: (progress: ManagedDownloadProgress) => void,
   requestHeaders: Record<string, string> | undefined,
+  timeouts: AttemptTimeouts,
 ): Promise<DownloadAttemptResult> {
   await rm(target.partialPath, { force: true }).catch(() => undefined);
-  const response = await fetchImpl(target.url, { headers: requestHeaders });
-  if (!response.ok) throw new Error(`download request returned HTTP ${response.status}`);
-  const totalBytes = contentLength(response);
-  const validators = validatorsFromResponse(response);
-  await writeJson(target.manifestPath, createManifest(target, "partial", { totalBytes, validators }));
-  await writeResponseBodyToPartial(response, target, { emit, startBytes: 0, totalBytes });
-  return { resumed: false, totalBytes };
+  const watchdog = createAttemptWatchdog(timeouts);
+  try {
+    const response = await watchdog.guard(fetchImpl(target.url, { headers: requestHeaders, signal: watchdog.signal }));
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error(`download request returned HTTP ${response.status}`);
+    }
+    const totalBytes = contentLength(response);
+    const validators = validatorsFromResponse(response);
+    await writeJson(target.manifestPath, createManifest(target, "partial", { totalBytes, validators }));
+    await writeResponseBodyToPartial(response, target, { emit, startBytes: 0, totalBytes, watchdog });
+    return { resumed: false, totalBytes };
+  } finally {
+    watchdog.dispose();
+  }
 }
 
 /**
@@ -197,22 +287,28 @@ export async function downloadWithRetries(
   options: {
     emit: (progress: ManagedDownloadProgress) => void;
     fetchImpl: typeof globalThis.fetch;
+    inactivityTimeoutMs: number;
     maxAttempts: number;
     requestHeaders?: Record<string, string>;
+    responseTimeoutMs: number;
   },
 ): Promise<DownloadAttemptResult> {
+  const timeouts: AttemptTimeouts = {
+    inactivityTimeoutMs: options.inactivityTimeoutMs,
+    responseTimeoutMs: options.responseTimeoutMs,
+  };
   let lastError: unknown;
   let nextManifest = manifest;
   let resumed = false;
   for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
     try {
       if (nextManifest?.state === "partial") {
-        const resume = await tryResumeDownload(target, nextManifest, options.fetchImpl, options.emit, options.requestHeaders);
+        const resume = await tryResumeDownload(target, nextManifest, options.fetchImpl, options.emit, options.requestHeaders, timeouts);
         if (resume !== "restart") return { ...resume, resumed: true };
         await rm(target.partialPath, { force: true }).catch(() => undefined);
         nextManifest = null;
       }
-      const full = await downloadFromZero(target, options.fetchImpl, options.emit, options.requestHeaders);
+      const full = await downloadFromZero(target, options.fetchImpl, options.emit, options.requestHeaders, timeouts);
       resumed = resumed || full.resumed;
       return { ...full, resumed };
     } catch (error) {

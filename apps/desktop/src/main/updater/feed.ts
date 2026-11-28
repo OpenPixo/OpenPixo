@@ -447,12 +447,56 @@ export function requiredUpdateFromMetadata(
   };
 }
 
-export async function fetchJson(fetchImpl: typeof globalThis.fetch, url: string): Promise<Record<string, unknown>> {
-  const response = await fetchImpl(url);
-  if (!response.ok) throw new Error(`metadata request returned HTTP ${response.status}`);
-  const body = await response.json();
-  if (!isRecord(body)) throw new Error("metadata response was not a JSON object");
-  return body;
+/**
+ * Upper bound on one feed request, body included. Update work is serialized, so
+ * a connection that stalls without closing would otherwise hold every later
+ * check, download and install behind it until the app restarts.
+ */
+export const FEED_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Runs `read` on the response of one GET and gives up after `timeoutMs`,
+ * aborting the request so the socket is released. The deadline holds even
+ * when `fetchImpl` ignores the abort signal.
+ */
+export async function fetchWithDeadline<T>(
+  fetchImpl: typeof globalThis.fetch,
+  url: string,
+  label: string,
+  timeoutMs: number,
+  read: (response: Response) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${label} request timed out after ${timeoutMs}ms`);
+      controller.abort(error);
+      reject(error);
+    }, timeoutMs);
+  });
+  const work = (async () => await read(await fetchImpl(url, { signal: controller.signal })))();
+  // The losing side of the race still settles later; keep it from surfacing
+  // as an unhandled rejection.
+  work.catch(() => undefined);
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function fetchJson(
+  fetchImpl: typeof globalThis.fetch,
+  url: string,
+  timeoutMs: number = FEED_REQUEST_TIMEOUT_MS,
+): Promise<Record<string, unknown>> {
+  return await fetchWithDeadline(fetchImpl, url, "metadata", timeoutMs, async (response) => {
+    if (!response.ok) throw new Error(`metadata request returned HTTP ${response.status}`);
+    const body = await response.json();
+    if (!isRecord(body)) throw new Error("metadata response was not a JSON object");
+    return body;
+  });
 }
 
 export async function hasValidLauncherPayloadContext(config: DesktopUpdaterConfig): Promise<boolean> {
@@ -480,14 +524,20 @@ export function parseChecksumText(text: string, algorithm: "sha256" | "sha512"):
   return match[0].toLowerCase();
 }
 
-export async function resolveChecksum(fetchImpl: typeof globalThis.fetch, checksum: DesktopUpdateChecksumSnapshot): Promise<DesktopUpdateChecksumSnapshot> {
+export async function resolveChecksum(
+  fetchImpl: typeof globalThis.fetch,
+  checksum: DesktopUpdateChecksumSnapshot,
+  timeoutMs: number = FEED_REQUEST_TIMEOUT_MS,
+): Promise<DesktopUpdateChecksumSnapshot> {
   if (checksum.value != null) return checksum;
   if (checksum.url == null) throw new Error("artifact checksum is missing");
-  const response = await fetchImpl(checksum.url);
-  if (!response.ok) throw new Error(`checksum request returned HTTP ${response.status}`);
+  const text = await fetchWithDeadline(fetchImpl, checksum.url, "checksum", timeoutMs, async (response) => {
+    if (!response.ok) throw new Error(`checksum request returned HTTP ${response.status}`);
+    return await response.text();
+  });
   return {
     ...checksum,
-    value: parseChecksumText(await response.text(), checksum.algorithm),
+    value: parseChecksumText(text, checksum.algorithm),
   };
 }
 
