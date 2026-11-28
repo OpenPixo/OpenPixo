@@ -1,7 +1,7 @@
 import type { OpenPixoCloudConfig } from "@openpixo/contracts";
 import type { UpdateLifecycleObservation } from "@openpixo/desktop/main";
 import { randomUUID } from "node:crypto";
-import type { ChildProcess } from "node:child_process";
+import { execFile, type ChildProcess } from "node:child_process";
 import { access, appendFile, mkdir, open, rename, type FileHandle } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { delimiter, dirname, join } from "node:path";
@@ -23,6 +23,8 @@ import {
 import {
   mergeProxyAwareEnv,
   resolveSystemProxyEnv,
+  resolveSystemProxyEnvAsync,
+  type ResolveSystemProxyEnvAsyncOptions,
   wellKnownUserToolchainBins,
 } from "@openpixo/platform";
 import { releaseChannelFromNamespace, releaseChannelFromVersion } from "@openpixo/release";
@@ -667,6 +669,42 @@ export function resolvePackagedChildBaseEnv(
     : mergeProxyAwareEnv(process.platform, forwardedEnv);
 }
 
+function runSystemProxyQuery(command: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, { encoding: "utf8", killSignal: "SIGKILL", timeout: 2_000, windowsHide: true }, (error, stdout) => {
+      if (error) reject(error);
+      else resolve(stdout);
+    });
+  });
+}
+
+/**
+ * The OS proxy settings, read without holding the launcher's main thread.
+ *
+ * On Windows these are three `reg query` processes. Run one after another
+ * they held the main thread for about 100 ms; side by side about 18 ms
+ * (measured 2026-11-28). The lookup runs in this thread, not in the worker
+ * `resolveSystemProxyEnvAsync` uses by default: the launcher is prebundled
+ * into one file, so a worker started from the module's URL would run the
+ * whole launcher again.
+ */
+export async function lookupPackagedSystemProxyEnv(
+  options: ResolveSystemProxyEnvAsyncOptions = {},
+): Promise<NodeJS.ProcessEnv> {
+  return await resolveSystemProxyEnvAsync({ runCommand: runSystemProxyQuery, ...options }).catch(() => ({}));
+}
+
+/**
+ * The system proxy a sidecar is started with. The daemon reads the proxy
+ * itself when it needs one (`runtimes/env.ts`), so only the web gets it here.
+ */
+export async function packagedSidecarSystemProxyEnv(
+  app: AppKey,
+  lookup: () => Promise<NodeJS.ProcessEnv> = lookupPackagedSystemProxyEnv,
+): Promise<NodeJS.ProcessEnv> {
+  return app === APP_KEYS.DAEMON ? {} : await lookup();
+}
+
 function createPackagedDaemonManagedPathEnv(
   paths: PackagedNamespacePaths,
 ): PackagedDaemonManagedPathEnv {
@@ -793,6 +831,8 @@ async function spawnSidecarChild(options: {
   /** The caller already retired this sidecar's previous generation (see retireExistingSidecars). */
   priorRetired?: boolean;
   runtime: SidecarRuntimeContext<SidecarStamp>;
+  /** A lookup the caller started earlier (see startPackagedSidecars); otherwise one starts here. */
+  systemProxyEnv?: Promise<NodeJS.ProcessEnv>;
 }): Promise<ManagedSidecarChild> {
   const stamp = packagedChildStamp(options.app, options.channel, options.runtime);
   const logPath = logPathFor(options.paths, options.app);
@@ -807,7 +847,10 @@ async function spawnSidecarChild(options: {
       ...resolvePackagedChildBaseEnv(
         process.env,
         options.app === APP_KEYS.DAEMON,
-        resolveSystemProxyEnv(),
+        await packagedSidecarSystemProxyEnv(
+          options.app,
+          options.systemProxyEnv == null ? undefined : () => options.systemProxyEnv!,
+        ),
         options.app !== APP_KEYS.DAEMON,
       ),
       ...options.env,
@@ -1025,6 +1068,9 @@ export async function startPackagedSidecars(
     // the web's URL registration waits for the daemon (see `registerUrl`).
     const daemonPort = await reservePackagedDaemonPort();
     options.onPhase?.("daemon-spawning");
+    // The first web spawn takes this lookup; it runs while the previous
+    // generations are retired below instead of after them.
+    let firstWebSystemProxyEnv: Promise<NodeJS.ProcessEnv> | undefined = lookupPackagedSystemProxyEnv();
     // Both previous generations go in one process-table snapshot; the first
     // web spawn below then skips its own. A later web respawn retires as usual.
     await retireExistingSidecars([APP_KEYS.DAEMON, APP_KEYS.WEB].map((app) => ({
@@ -1120,6 +1166,7 @@ export async function startPackagedSidecars(
       },
       spawn: async () => await spawnSidecarChild({
         priorRetired: (() => { const retired = webPriorRetired; webPriorRetired = false; return retired; })(),
+        systemProxyEnv: (() => { const lookup = firstWebSystemProxyEnv; firstWebSystemProxyEnv = undefined; return lookup; })(),
         app: APP_KEYS.WEB,
         channel,
         entryPath: webSidecarEntry,
