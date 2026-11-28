@@ -12,6 +12,12 @@ const MOODS: Record<string, keyof Dict> = {
 /** The size the character is drawn at; the page scales the canvas. */
 const SIZE = { width: 512, height: 640 } as const;
 
+/** Takes a character out of the page and gives its drawing back to the browser, which keeps only a few at a time. */
+function release(actor: MotionActor): void {
+  actor.canvas.remove();
+  actor.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+}
+
 /** The character moving in the page, with the player a game gets. It looks at the pointer. */
 export function MotionStage({ characterId, name }: { characterId: string; name: string }) {
   const { t } = useI18n();
@@ -28,7 +34,8 @@ export function MotionStage({ characterId, name }: { characterId: string; name: 
         const [player, file] = await Promise.all([loadMotionPlayer(), fetchMotionFile(characterId)]);
         if (left) return;
         made = await player.createPixoMotion(file, SIZE);
-        if (left || !host.current) return;
+        // closed while it was being made: nothing below takes it back, so give it back here
+        if (left || !host.current) { release(made); made = null; return; }
         made.canvas.className = styles.canvas ?? '';
         host.current.append(made.canvas);
         actorRef.current = made;
@@ -46,7 +53,7 @@ export function MotionStage({ characterId, name }: { characterId: string; name: 
       left = true;
       cancelAnimationFrame(frame);
       actorRef.current = null;
-      if (made) { made.canvas.remove(); made.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); }
+      if (made) release(made);
     };
   }, [characterId]);
 

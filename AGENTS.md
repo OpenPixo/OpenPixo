@@ -297,7 +297,7 @@ Every user-facing capability must be reachable through both the web UI **and** t
 - 动态角色 / Moving character (`/motion`, `components/motion/`) makes one moving 2D character from one portrait, made by OpenPixo Cloud for credits and delivered as a `.pxmo` file. The page, `/api/motion/*` and `pixo motion` come and go with `characterUrl` (the same service as Characters); without it nothing of the feature shows and no prompt mentions it.
 - The user describes the character or gives a picture, sees a portrait first (free within a daily limit), then the price; only a delivered file is charged. The cloud answers results only; `apps/daemon/src/motion/wire.ts` rebuilds every answer field by field, and downloads go to the service's own origin alone. Nothing here may say how a character is made.
 - Only the user's own requests paint a portrait or order. An agent's token reads, downloads, installs into its own game and suggests.
-- The players in `game-sdk/openpixo-motion/` (web, Phaser, Godot) are built elsewhere and copied in as they are; do not edit them by hand. Installing puts the `.pxmo` and the player for the game's engine into the game and leaves a player that was changed by hand alone.
+- The players in `game-sdk/openpixo-motion/` (web, Phaser, Godot) are built elsewhere and copied in as they are; do not edit them by hand. The `.d.ts` files beside the web and Phaser players are written here, and `apps/daemon/tests/motion/motion-install-types.test.ts` checks them against the players' exports; update them when a new player changes its API. Installing puts the `.pxmo` and the player for the game's engine into the game (with the declarations when the game is TypeScript) and leaves a player that was changed by hand alone.
 
 ## Chat UI conventions
 
