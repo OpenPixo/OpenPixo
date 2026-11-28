@@ -44,11 +44,18 @@ export async function createQuickSample(locale = 'en'): Promise<OpenPixoHostProj
   throw new GameTemplateRequestError('Sample names already exist', 409, 'TARGET_EXISTS');
 }
 
+/** Shown when the sample cannot be made by itself: the game dialog opens on it with the error. */
+export interface QuickSampleFallback {
+  error: unknown;
+  /** For the dialog's `onMade`. */
+  onMade: (made: { projectId: string; templateId: string }) => void;
+}
+
 /** Makes the finished sample and opens it already running: it is there to be played. */
 export function useQuickSample(onCreated?: (response: OpenPixoHostProjectImportSuccess) => Promise<void> | void) {
   const { locale } = useI18n();
   const [busy, setBusy] = useState(false);
-  const [fallback, setFallback] = useState<{ error: unknown } | null>(null);
+  const [fallback, setFallback] = useState<QuickSampleFallback | null>(null);
   const active = useRef(false);
   /** `onMade` runs once the sample exists, before its project opens. */
   async function start(onMade?: (projectId: string) => void) {
@@ -62,7 +69,14 @@ export function useQuickSample(onCreated?: (response: OpenPixoHostProjectImportS
       onMade?.(sample.projectId);
       await onCreated(sample);
     }
-    catch (error) { setFallback({ error }); }
+    catch (error) {
+      // The game dialog takes over; a sample made there still gets what this start was for (the walkthrough).
+      setFallback({ error, onMade: made => {
+        if (made.templateId !== SAMPLE_TEMPLATE_ID) return;
+        queueProjectGameStart(made.projectId);
+        onMade?.(made.projectId);
+      } });
+    }
     finally { active.current = false; setBusy(false); }
   }
   return { busy, start, fallback, closeFallback: () => setFallback(null) };

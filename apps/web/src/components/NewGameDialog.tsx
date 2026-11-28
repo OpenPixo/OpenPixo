@@ -73,6 +73,8 @@ import {
 interface Props {
   onClose: () => void;
   onCreated: (response: OpenPixoHostProjectImportSuccess) => Promise<void> | void;
+  /** Runs once the game exists, before `onCreated` opens it, with the template it was made from. */
+  onMade?: (made: { projectId: string; templateId: string }) => void;
   initialTemplateId?: string;
   initialError?: unknown;
   /** The idea typed on Home: it seeds the pitch and goes to the agent as the first message. */
@@ -147,7 +149,7 @@ function initialDraft(initialTemplateId: string, initialPrompt: string): { draft
   return stored;
 }
 
-export function NewGameDialog({ onClose, onCreated, initialTemplateId = '', initialError, initialPrompt = '', initialFiles, onOpenFolder, onOpenEngineSettings }: Props) {
+export function NewGameDialog({ onClose, onCreated, onMade, initialTemplateId = '', initialError, initialPrompt = '', initialFiles, onOpenFolder, onOpenEngineSettings }: Props) {
   const { t, locale } = useI18n();
   const id = useId();
   const hostMode = useMemo(() => isOpenPixoHostAvailable(), []);
@@ -503,6 +505,7 @@ export function NewGameDialog({ onClose, onCreated, initialTemplateId = '', init
       rememberStudio(draft.studio);
       rememberScope(draft.scope);
       clearDraft();
+      onMade?.({ projectId, templateId });
       await onCreated({ ok: true, projectId, conversationId: created.conversationId, entryFile: created.entryFile });
       requestClose();
     } catch (err) {

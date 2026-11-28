@@ -121,6 +121,7 @@ export function HomeDashboard({ projects, projectsLoading, onOpenProject,
     {sample.fallback && onImportFolderResponse && <NewGameDialog
       initialTemplateId={SAMPLE_TEMPLATE_ID}
       initialError={sample.fallback.error}
+      onMade={sample.fallback.onMade}
       onClose={sample.closeFallback}
       onCreated={onImportFolderResponse} />}
   </div>;

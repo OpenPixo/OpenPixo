@@ -184,7 +184,8 @@ export function OnboardingView(props: OnboardingViewProps) {
   function choosePrice(sku: string) {
     setChosenSku(sku);
     setPricingOpen(false);
-    if (signedIn) { afterSignIn(); return; }
+    // State set here is not visible until the next render, so the pick is handed on.
+    if (signedIn) { afterSignIn(sku); return; }
     // After the window's exit, put the cursor where signing in starts.
     window.setTimeout(() => creditsChoiceRef.current?.querySelector<HTMLInputElement>('input')?.focus(), 160);
   }
@@ -194,9 +195,10 @@ export function OnboardingView(props: OnboardingViewProps) {
     goTo('welcome');
   }
 
-  function afterSignIn() {
+  /** Pays for a plan picked in the prices window first; otherwise a new user goes on to the free walkthrough. */
+  function afterSignIn(sku: string | null = chosenSku) {
     setPath('cloud');
-    goTo(canSpend || (offerGuide && !chosenSku) ? cloudEnd : 'plan');
+    goTo(canSpend || (offerGuide && !sku) ? cloudEnd : 'plan');
   }
 
   /** The one question before a new user's first game; only a beginner is walked through it. */
@@ -374,7 +376,7 @@ export function OnboardingView(props: OnboardingViewProps) {
                 if (renderedAttempt === flowAttempt.current) afterSignIn();
               }} />
             ) : (
-              <Button size="lg" variant="primary" className={styles.wide} onClick={afterSignIn}>{t('onboarding.continue')}</Button>
+              <Button size="lg" variant="primary" className={styles.wide} onClick={() => afterSignIn()}>{t('onboarding.continue')}</Button>
             )}
           </div>
         </div>

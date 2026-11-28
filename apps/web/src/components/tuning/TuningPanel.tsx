@@ -42,7 +42,7 @@ export interface TuningPanelProps {
 
 export function TuningPanel({ projectId, viewerOnly, active = true, onOpenFile, onRefreshFiles, onReloadGame, highlight }: TuningPanelProps) {
   const { locale, t } = useI18n();
-  const tuning = useTuning(projectId, onRefreshFiles);
+  const tuning = useTuning(projectId, onRefreshFiles, active);
   const url = useRunningPreview(projectId, active);
   const [applying, setApplying] = useState(false);
   const [previewError, setPreviewError] = useState(false);

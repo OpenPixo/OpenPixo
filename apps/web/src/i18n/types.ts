@@ -74,6 +74,7 @@ export interface Dict {
   'guide.ask.bodyOwn': string;
   'guide.ask.prompt': string;
   'guide.ask.fill': string;
+  'guide.ask.checking': string;
   'guide.ask.working': string;
   'guide.ask.done': string;
   'guide.ask.failed': string;

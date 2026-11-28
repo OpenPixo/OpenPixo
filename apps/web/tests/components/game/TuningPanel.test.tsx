@@ -237,3 +237,52 @@ it('finishes a pending slider edit before refreshing on focus', async () => {
   await act(async () => { await vi.advanceTimersByTimeAsync(300); });
   expect(writes()).toHaveLength(1);
 });
+
+const reads = () => fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/game/tuning') && !init?.method);
+function deferredRead(next: GameTuningParameter) {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  fetchMock.mockImplementation(async (url, init) => {
+    if (String(url).endsWith('/game/run')) return response({ status: 'idle' });
+    if (init?.method === 'PATCH') { const body = JSON.parse(String(init.body)); return response({ parameter: { ...next, value: body.value, fileHash: 'e'.repeat(64) } }); }
+    await gate;
+    return response({ parameters: [next], warnings: [] });
+  });
+  return async () => { await act(async () => { release(); await vi.advanceTimersByTimeAsync(0); }); };
+}
+
+it('keeps the sliders on screen while it re-reads values after focus returns from the game', async () => {
+  await mount();
+  const release = deferredRead({ ...parameter, value: 180, fileHash: 'c'.repeat(64) });
+  await act(async () => { fireEvent.focus(window); });
+  // Focus comes back from the game iframe on the very click that grabs a slider.
+  expect(screen.getByRole('slider', { name: 'Speed' })).toBeTruthy();
+  expect(screen.queryByText('gameTuning.loading')).toBeNull();
+  await release();
+  expect((screen.getByRole('slider', { name: 'Speed' }) as HTMLInputElement).value).toBe('180');
+});
+
+it('keeps an edit made while re-reading and writes it with the file hash it re-read', async () => {
+  await mount();
+  const release = deferredRead({ ...parameter, value: 220, fileHash: 'c'.repeat(64) });
+  await act(async () => { fireEvent.focus(window); });
+  fireEvent.change(screen.getByRole('slider', { name: 'Speed' }), { target: { value: '260' } });
+  expect((screen.getByRole('slider', { name: 'Speed' }) as HTMLInputElement).value).toBe('260');
+  await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+  // The old hash may be stale: nothing is written until the re-read lands.
+  expect(writes()).toHaveLength(0);
+  await release();
+  expect((screen.getByRole('slider', { name: 'Speed' }) as HTMLInputElement).value).toBe('260');
+  expect(writes()).toHaveLength(1);
+  expect(JSON.parse(String(writes()[0]![1]?.body))).toEqual({ id: 'speed', value: 260, fileHash: 'c'.repeat(64) });
+});
+
+it('does not re-read on focus while the panel is closed, and re-reads when it opens again', async () => {
+  const { rerender } = await act(async () => render(<TuningPanel projectId="game" active={false} onOpenFile={vi.fn()} />));
+  expect(reads()).toHaveLength(1);
+  await act(async () => { fireEvent.focus(window); });
+  expect(reads()).toHaveLength(1);
+  await act(async () => { rerender(<TuningPanel projectId="game" active onOpenFile={vi.fn()} />); });
+  expect(reads()).toHaveLength(2);
+  expect(screen.getByRole('slider', { name: 'Speed' })).toBeTruthy();
+});
