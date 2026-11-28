@@ -80,6 +80,12 @@ const CLIENT_TYPES: ReadonlySet<string> = new Set(['web', 'desktop', 'daemon', '
 
 const optionalIdentifier = (value: unknown): string | null => (isUsageIdentifier(value) ? value : null);
 
+// The legacy PostHog OS names some senders still produce; their spaces fail
+// the identifier rule, which left every macOS event with no OS at all.
+const SPACED_OS_NAMES: Record<string, string> = { 'Mac OS X': 'macOS', 'Chrome OS': 'ChromeOS' };
+const usageOsName = (value: unknown): string | null =>
+  optionalIdentifier(typeof value === 'string' && Object.hasOwn(SPACED_OS_NAMES, value) ? SPACED_OS_NAMES[value] : value);
+
 /**
  * Builds a valid event or returns null. Used by every sender before queueing,
  * and by the Worker on receipt.
@@ -112,7 +118,7 @@ export function normalizeUsageEvent(input: {
     app_version: optionalIdentifier(input.app_version),
     channel: optionalIdentifier(input.channel),
     client_type: input.client_type as UsageEventClientType,
-    os: optionalIdentifier(input.os),
+    os: usageOsName(input.os),
     properties,
   };
 }

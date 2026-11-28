@@ -227,7 +227,7 @@ describe("isFirstPartyMailtoUrl", () => {
     const willNavigate = runtimeSource.slice(runtimeSource.indexOf('window.webContents.on("will-navigate"'));
     expect(willNavigate).toContain("isFirstPartyMailtoUrl(url)");
     expect(willNavigate.indexOf("isFirstPartyMailtoUrl(url)")).toBeLessThan(
-      willNavigate.indexOf("if (!isHttpUrl(url)"),
+      willNavigate.indexOf("leaveMainWindow(event, url)"),
     );
   });
 });

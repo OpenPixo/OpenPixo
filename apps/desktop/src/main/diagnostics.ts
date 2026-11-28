@@ -115,8 +115,19 @@ export async function exportDiagnosticsToFile(
   }
 }
 
-export function registerDesktopDiagnosticsIpc(deps: DesktopDiagnosticsDeps): () => void {
+/**
+ * `authorizeSender` decides who may export: the main window's top frame only
+ * (the crash screen shares that frame). Anyone else gets a refusal before any
+ * dialog opens or any daemon data is read.
+ */
+export function registerDesktopDiagnosticsIpc(
+  deps: DesktopDiagnosticsDeps,
+  authorizeSender: (event: Electron.IpcMainInvokeEvent) => boolean,
+): () => void {
   const handler = async (event: Electron.IpcMainInvokeEvent): Promise<DesktopDiagnosticsExportResult> => {
+    if (!authorizeSender(event)) {
+      return { ok: false, cancelled: false, message: "diagnostics export is only available to the main window" };
+    }
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
     return await exportDiagnosticsToFile(deps, senderWindow);
   };

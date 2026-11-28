@@ -2,7 +2,7 @@ import { observeUpdateLifecycleStages } from '../migration/update-apply-observat
 import express, { type Express } from 'express';
 import { SIDECAR_DEFAULTS } from '@openpixo/sidecar-proto';
 import { randomUUID } from 'node:crypto';
-import { USAGE_EVENTS_MAX_BATCH } from '@openpixo/contracts/analytics';
+import { USAGE_EVENTS_MAX_BATCH, isUsageIdentifier } from '@openpixo/contracts/analytics';
 import {
   type McpAnalyticsEventRequest,
   type McpAnalyticsContextResponse,
@@ -307,6 +307,16 @@ export function registerTelemetryRoutes(app: Express, deps: RegisterTelemetryRou
       res.status(400).json({ error: 'invalid client metric properties' });
       return;
     }
+    // The usage-event rule (and the ingest Worker after it) drops an event
+    // whose id is not identifier-shaped, at most 64 characters, and so does
+    // the `<id>:exit` a process-exit event becomes as well. Say so here: a
+    // 200 tells the desktop the crash record can be deleted (review 2.9).
+    const eventId = metric ? metric.event_id : properties.event_id;
+    if (eventId !== undefined && (!isUsageIdentifier(eventId)
+      || (isProcessExitEventName(eventName) && !isUsageIdentifier(`${eventId}:exit`)))) {
+      res.status(400).json({ error: 'invalid `event_id`: at most 59 letters, digits, `.`, `_`, `:` or `-` for a process exit, 64 otherwise' });
+      return;
+    }
     if (['client_launch_attempt', 'client_business_ready', 'client_launch_result'].includes(eventName) && metric && typeof metric.app_session_id === 'string') {
       getDaemonHealth()?.setLaunchContext({ app_session_id: metric.app_session_id as string, launch_attempt_id: metric.launch_attempt_id as string });
     }
@@ -315,7 +325,7 @@ export function registerTelemetryRoutes(app: Express, deps: RegisterTelemetryRou
       eventName,
       appVersion: appVersion?.version ?? UNKNOWN_APP_VERSION,
       properties: { ...(metric ?? properties), },
-      ...(metric ? { insertId: metric.event_id as string } : typeof properties.event_id === 'string' && /^[a-zA-Z0-9_.:-]{1,128}$/.test(properties.event_id) ? { insertId: properties.event_id } : {}),
+      ...(typeof eventId === 'string' ? { insertId: eventId } : {}),
     };
     if (metric && LAUNCH_METRIC_EVENTS.has(eventName)) {
       await launchEventQueue.submit(capture);

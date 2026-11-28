@@ -75,6 +75,7 @@ import {
   registerDesktopDiagnosticsIpc,
 } from "./diagnostics.js";
 import { notifyDesktopExternalShow } from "./external-show.js";
+import { isHostMainFrameSender } from "./window-confinement.js";
 import { registerDesktopAuthPatiently } from "./desktop-auth-handshake.js";
 
 // Re-export pure URL-policy helpers so the packaged workspace's
@@ -1003,9 +1004,10 @@ async function runDesktopMainWithTiming(
       ...startupTiming.context(), launch_attempt_id: options.startupTiming === null ? null : startupTiming.context().launch_attempt_id, app_version: options.update?.currentVersion ?? app.getVersion(), ...properties,
     }),
   );
-  removeDiagnosticsIpc = registerDesktopDiagnosticsIpc({
-    discoverDaemonBaseUrl: resolveDaemonBaseUrl(options),
-  });
+  removeDiagnosticsIpc = registerDesktopDiagnosticsIpc(
+    { discoverDaemonBaseUrl: resolveDaemonBaseUrl(options) },
+    (event) => isHostMainFrameSender(event, (id) => desktop?.ownsWebContents(id) === true),
+  );
   
   const discoverUpdaterAppConfigBaseUrl = resolveDaemonBaseUrl(options);
   updateScheduler = createDesktopUpdaterScheduler(updater, {

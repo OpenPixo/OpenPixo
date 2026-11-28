@@ -21,7 +21,7 @@ describe("desktop updater host boundary", () => {
     expect(runtime).toContain("pixo:update:install");
     expect(runtime).toContain("pixo:update:quit");
     expect(runtime).toContain("UPDATER_STATUS_EVENT");
-    expect(runtime).toContain("event.sender !== window.webContents");
+    expect(runtime).toContain("requireHostSender(event)");
   });
 
   it("lists every registered pixo:update:* handler in the teardown channel table", () => {
