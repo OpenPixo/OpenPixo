@@ -5,6 +5,7 @@ import { GAME_PLAYTEST_LIMITS, gamePlaytestPreset, parseGamePlaytestRequest, typ
   type GamePlaytestRequest, type ParsedGamePlaytestRequest, type GamePlaytestResult, type GameVerifyStep, type GameWebCaptureResult, type GameWebPlaytestCapture } from '@openpixo/contracts';
 import type { GameWebCapture } from './verify.js';
 import { missingGameToolGuidance } from './verify-tools.js';
+import { resolveGameCommandTool } from './install-deps.js';
 import { executeGameProcess, GameCommandTimeout, VERIFY_LOG_LIMIT } from './verify-process.js';
 import { saveGameFrame, saveGamePlaytestOverview } from './frame-store.js';
 import { godotMovieArgs } from './playtest-godot.js';
@@ -37,11 +38,12 @@ export async function playtestGame(options: {
   if (!command?.argv[0]) return unavailable('RUN_COMMAND_UNAVAILABLE');
   if (web && !options.captureWeb) return unavailable('SCREENSHOT_HOST_UNAVAILABLE');
   if (!web && request.script.length) return unavailable('SCRIPT_UNSUPPORTED');
-  const executable = await options.resolveTool(command.argv[0]);
-  if (!executable) { result.missingTools = [command.argv[0]]; result.missingToolGuidance = missingGameToolGuidance(result.missingTools); return result; }
+  const tool = await resolveGameCommandTool(command.argv, options.resolveTool);
+  if (!tool) { result.missingTools = [command.argv[0]]; result.missingToolGuidance = missingGameToolGuidance(result.missingTools); return result; }
+  const { executable } = tool;
   await mkdir(artifactDir, { recursive: true });
   const logRef = randomUUID(), started = Date.now();
-  const step: GameVerifyStep = { name: 'run', argv: [...command.argv], status: 'failed', exitCode: null, durationMs: 0, logRef, timedOut: false };
+  const step: GameVerifyStep = { name: 'run', argv: [...tool.argv], status: 'failed', exitCode: null, durationMs: 0, logRef, timedOut: false };
   result.steps.push(step);
   let log = Buffer.alloc(0), movieDir: string | undefined;
   const godotErrors = createGodotErrorCollector({ projectUsesCSharp: web || await godotProjectUsesCSharp(options.projectDir) });
@@ -61,7 +63,7 @@ export async function playtestGame(options: {
     if (overview) result.playtest.overview = overview;
   };
   try {
-    let argv = [...command.argv];
+    let argv = [...tool.argv];
     if (!web) { movieDir = path.join(artifactDir, randomUUID()); await mkdir(movieDir); argv = godotMovieArgs(argv, path.join(movieDir, 'frame.png'), request.durationMs); }
     step.argv = argv;
     const timeoutMs = Math.min(120_000, command.timeoutMs + request.durationMs + 5000);

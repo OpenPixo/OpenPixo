@@ -2887,6 +2887,7 @@ export async function startServer({
   const folderImporter = registerImportRoutes(app, {
     db,
     publicFileMutations,
+    releaseProjectFolder: (projectId) => projectAssetRoutes.release(projectId),
 
     http: httpDeps,
     uploads: uploadDeps,

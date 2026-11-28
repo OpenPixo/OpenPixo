@@ -250,8 +250,8 @@ const REGISTRY: readonly Entry[] = [
 
   {
     file: 'packages/contracts/src/prompts/openpixo-game.ts',
-    match: 'Playtest CLI exit 1 means failed and exit 2 means unavailable',
-    chars: [398],
+    match: 'Verify and playtest CLI exit 1 means failed and exit 2 means unavailable',
+    chars: [409],
     verdict: 'self-report',
     why: 'These exit codes describe verification work performed by the model. '
       + 'The line distinguishes capture completion from gameplay correctness and '

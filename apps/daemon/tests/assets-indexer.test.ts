@@ -51,6 +51,26 @@ describe('project asset index', () => {
       expect(await f.indexer.mediaAssetCount('new-game', metadata)).toBe(1);
     } finally { await f.cleanup(); }
   });
+  // 2026-11-28 review: after `POST /api/projects/:id/working-dir`, every Assets read and the
+  // next-steps card threw "Project folder changed; reopen the asset index" until a restart.
+  it('follows a project to its new folder and forgets the old one', async () => {
+    const f = await fixture('godot');
+    try {
+      expect((await f.indexer.list('game', {}, f.metadata)).assets.map(asset => asset.relPath)).toContain('assets/hero.png');
+      await f.indexer.watchingReady('game');
+      const moved = path.join(f.dir, 'other-game');
+      await mkdir(path.join(moved, 'art'), { recursive: true });
+      await writeFile(path.join(moved, 'art', 'villain.png'), f.png);
+      const metadata: ProjectMetadata = { ...f.metadata, baseDir: moved };
+      expect((await f.indexer.list('game', {}, metadata)).assets.map(asset => asset.relPath)).toEqual(['art/villain.png']);
+      expect(await f.indexer.mediaAssetCount('game', metadata)).toBe(1);
+      // A change in the old folder no longer reaches the index.
+      await writeFile(path.join(f.root, 'assets', 'late.png'), f.png);
+      await f.indexer.watchingReady('game');
+      expect((await f.indexer.list('game', {}, metadata)).assets.map(asset => asset.relPath)).toEqual(['art/villain.png']);
+    } finally { await f.cleanup(); }
+  });
+
   it('counts existing and generated media before the Assets list is opened using the same inventory', async () => {
     const f = await fixture('godot');
     try {

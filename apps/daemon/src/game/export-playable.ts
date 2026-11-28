@@ -88,10 +88,19 @@ const W=window.Worker;if(W){window.Worker=class extends W{constructor(u,o){super
 
 export interface PlayableHtml { html: string; embedded: number }
 
+/**
+ * Inlined code and stylesheets wait outside the page, behind a marker, until the page's
+ * own rewrites are done: a `src="…"`, `crossorigin` or `<link>` inside the game's code is
+ * the game's, and the page's attribute and tag rewrites must never reach it.
+ */
+const HELD = /\u0000pixo-inline-(\d+)\u0000/gu;
+
 export function buildPlayableHtml(indexHtml: string, files: ReadonlyMap<string, Buffer>): PlayableHtml {
   const inlined = new Set<string>();
   const atEnd: string[] = [];
-  let html = indexHtml;
+  const held: string[] = [];
+  const hold = (element: string) => `\u0000pixo-inline-${held.push(element) - 1}\u0000`;
+  let html = indexHtml.replace(HELD, '');
 
   // Scripts the page loads from the build become inline scripts.
   html = html.replace(/<script\b([^>]*)>\s*<\/script>/giu, (whole, attrs: string) => {
@@ -109,7 +118,7 @@ export function buildPlayableHtml(indexHtml: string, files: ReadonlyMap<string, 
       }
     }
     inlined.add(key);
-    const element = `<script${module ? ' type="module"' : ''}>${inlineScriptText(code)}</script>`;
+    const element = hold(`<script${module ? ' type="module"' : ''}>${inlineScriptText(code)}</script>`);
     // An inline classic script runs where it stands; a deferred one expected the whole page.
     if (!module && /\s(defer|async)\b/iu.test(attrs)) { atEnd.push(element); return ''; }
     return element;
@@ -135,7 +144,7 @@ export function buildPlayableHtml(indexHtml: string, files: ReadonlyMap<string, 
       const target = localKey(ref, files, dirOf(key));
       return target ? `url(${dataUri(target, files)})` : whole;
     });
-    return `<style>${css.replace(/<\/(style)/giu, '<\\/$1')}</style>`;
+    return hold(`<style>${css.replace(/<\/(style)/giu, '<\\/$1')}</style>`);
   });
 
   // The page's own static references (icons, images, audio) as data URIs.
@@ -154,5 +163,6 @@ export function buildPlayableHtml(indexHtml: string, files: ReadonlyMap<string, 
   const loader = `<script>${LOADER.replace('__FILES__', () => JSON.stringify(embedded).replace(/</gu, '\\u003c'))}</script>`;
   const headEnd = findRealTagEnd(html, HTML_TAG_PATTERNS.headOpen);
   html = headEnd < 0 ? prependAfterDoctype(html, `${loader}\n`) : `${html.slice(0, headEnd)}\n${loader}${html.slice(headEnd)}`;
+  html = html.replace(HELD, (_marker, index: string) => held[Number(index)]!);
   return { html, embedded: Object.keys(embedded).length };
 }

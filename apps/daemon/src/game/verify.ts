@@ -3,9 +3,10 @@ import { accessSync, constants, statSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { GAME_SCREENSHOT_HOST_UNAVAILABLE, type EngineProfile, type GameVerifyRequest, type GameVerifyResult,
-  type GameVerifyStep, type GameWebCaptureRequest, type GameWebCaptureResult } from '@openpixo/contracts';
+  type GameVerifyStep, type GameVerifyStepName, type GameWebCaptureRequest, type GameWebCaptureResult } from '@openpixo/contracts';
 import { resolveOnPath } from '../runtimes/executables.js';
 import { missingGameToolGuidance } from './verify-tools.js';
+import { resolveGameCommandTool } from './install-deps.js';
 import { executeGameProcess, GameCommandTimeout, VERIFY_LOG_LIMIT } from './verify-process.js';
 import { saveGameFrame } from './frame-store.js';
 import { godotMovieArgs } from './playtest-godot.js';
@@ -37,12 +38,13 @@ export async function verifyGame(options: {
   const requested = request.steps ?? ['check', ...(profile.commands.build ? ['build' as const] : []), ...(request.screenshot ? ['run' as const] : [])];
   const names = (['check', 'build', 'run'] as const).filter(name => requested.includes(name));
   const result: GameVerifyResult = { status: 'unavailable', steps: [], screenshots: [], missingTools: [], ...(request.runId ? { runId: request.runId } : {}) };
-  const tools = new Map<string, string>();
+  // Every step's tool is found before any runs, so a missing one stops nothing halfway.
+  const resolved = new Map<GameVerifyStepName, { executable: string; argv: string[] }>();
   for (const name of names) {
-    const id = profile.commands[name]?.argv[0];
-    if (!id || tools.has(id)) continue;
-    const executable = await resolveTool(id);
-    if (!executable) result.missingTools.push(id); else tools.set(id, executable);
+    const argv = profile.commands[name]?.argv;
+    if (!argv?.[0]) continue;
+    const command = await resolveGameCommandTool(argv, resolveTool);
+    if (!command) result.missingTools.push(argv[0]); else resolved.set(name, command);
   }
   result.missingTools = [...new Set(result.missingTools)];
   if (result.missingTools.length) { result.missingToolGuidance = missingGameToolGuidance(result.missingTools); return result; }
@@ -70,14 +72,15 @@ export async function verifyGame(options: {
       if (name === 'run' && request.screenshot && web && !options.captureWeb) {
         Object.assign(step, GAME_SCREENSHOT_HOST_UNAVAILABLE); unavailable = true; continue;
       }
-      let argv = [...command.argv];
+      const tool = resolved.get(name)!;
+      let argv = [...tool.argv];
       if (name === 'run' && profile.engine === 'godot') {
         movieDir = path.join(artifactDir, randomUUID()); await mkdir(movieDir);
         argv = godotMovieArgs(argv, path.join(movieDir, 'frame.png'), 1000);
       }
       step.argv = argv; executed = true;
       const outcome = await executeGameProcess<GameWebCaptureResult | undefined>({ projectDir: options.projectDir, command, argv,
-        executable: tools.get(argv[0]!)!, output: append, env: engineEnv,
+        executable: tool.executable, output: append, env: engineEnv,
         ...(name === 'run' && web ? { action: async ({ urlReady, remainingMs }) => {
           const url = await urlReady;
           return request.screenshot ? options.captureWeb!({ url, timeoutMs: remainingMs(), waitMs: 1000 }) : undefined;

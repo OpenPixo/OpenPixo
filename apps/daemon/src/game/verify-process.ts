@@ -5,6 +5,7 @@ import { createCommandInvocation, forceStopWindowsProcessTree } from '@openpixo/
 import type { EngineCommand } from '@openpixo/contracts';
 import { withoutDaemonMode } from '../daemon-mode-env.js';
 import { waitForGameInstall } from './install-state.js';
+import { withEnv } from './child-env.js';
 
 export const VERIFY_LOG_LIMIT = 1024 * 1024;
 /** Only loopback HTTP dev servers may cross the privileged capture boundary. */
@@ -25,15 +26,6 @@ async function killTree(child: ChildProcess, spawnedAtMs: number): Promise<void>
   if (!child.pid) return;
   if (process.platform === 'win32') await forceStopWindowsProcessTree(child.pid, { spawnedAtMs });
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
-}
-/** Windows variable names ignore case, so an addition replaces `Appdata` as well as `APPDATA`. */
-function withEnv(base: NodeJS.ProcessEnv, additions: Record<string, string>): NodeJS.ProcessEnv {
-  const names = new Set(Object.keys(additions).map(name => name.toUpperCase()));
-  const env: NodeJS.ProcessEnv = {};
-  for (const [name, value] of Object.entries(base)) {
-    if (!(process.platform === 'win32' ? names.has(name.toUpperCase()) : Object.hasOwn(additions, name))) env[name] = value;
-  }
-  return { ...env, ...additions };
 }
 export class GameCommandTimeout extends Error { constructor() { super('Engine command timed out'); } }
 

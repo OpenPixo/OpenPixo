@@ -58,7 +58,7 @@ beforeEach(async () => {
   vi.stubEnv('PATH', `${bin}${path.delimiter}${process.env.PATH ?? ''}`);
   vi.stubEnv('PIXO_VERIFY_TEST_PID', path.join(root, 'child.pid'));
 });
-afterEach(async () => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); toolTokenRegistry.clear(); await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { process.exitCode = undefined; vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); toolTokenRegistry.clear(); await rm(root, { recursive: true, force: true }); });
 
 function profile(commands: EngineProfile['commands'], engine: EngineProfile['engine'] = 'web-generic'): EngineProfile {
   return { detectorVersion: 1, engine, confidence: 'certain', evidence: [], languages: [], assetRoots: [], importMetadata: 'none', commands, tools: [], detectedAt: 0 };
@@ -150,6 +150,22 @@ it('prints missing tool installation and executable settings guidance in CLI tex
   expect(text).toContain('Godot');
   expect(text).toContain('https://godotengine.org/download');
   expect(text).toContain('executable path in game engine settings');
+  // A check that could not run is not a pass: the same code as `game playtest`.
+  expect(process.exitCode).toBe(2);
+  process.exitCode = undefined;
+});
+
+// 2026-11-28 review: the starters ask for pnpm. Run and publish used npm when pnpm was missing;
+// verify reported `missingTools: ['pnpm']` on a computer with only Node and npm.
+it('checks a game that asks for pnpm with npm when pnpm is not installed', async () => {
+  const ok = path.join(root, 'bin', `ok${process.platform === 'win32' ? '.cmd' : ''}`);
+  const resolveTool = (id: string) => id === 'npm' ? ok : id === 'node' ? process.execPath : null;
+  const result = await verifyGame({ profile: profile({ check: { argv: ['pnpm', 'run', 'check'], cwd: '.', timeoutMs: 5000 } }),
+    projectDir, artifactDir, request: { steps: ['check'] }, resolveTool });
+  expect(result).toMatchObject({ status: 'passed', missingTools: [], steps: [{ name: 'check', argv: ['npm', 'run', 'check'], status: 'passed' }] });
+  const missing = await verifyGame({ profile: profile({ check: { argv: ['pnpm', 'run', 'check'], cwd: '.', timeoutMs: 5000 } }),
+    projectDir, artifactDir, request: { steps: ['check'] }, resolveTool: () => null });
+  expect(missing).toMatchObject({ status: 'unavailable', missingTools: ['pnpm'] });
 });
 
 it('captures a web URL then stops the server, and reports an absent desktop as unavailable', async () => {

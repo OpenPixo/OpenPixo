@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { createCommandInvocation, forceStopWindowsProcessTree } from '@openpixo/platform';
@@ -70,6 +70,20 @@ async function loopbackPort(): Promise<number> {
       server.close(error => error ? reject(error) : resolve(address.port));
     });
   });
+}
+
+/**
+ * Whether the package script a web command runs starts Vite. Only Vite knows
+ * `--strictPort`; webpack, Parcel and other dev servers refuse an unknown flag.
+ */
+async function runsVite(cwd: string, command: EngineCommand): Promise<boolean> {
+  const script = command.argv[1] === 'run' ? command.argv[2] : undefined;
+  if (!script) return false;
+  try {
+    const manifest = JSON.parse((await readFile(path.join(cwd, 'package.json'), 'utf8')).replace(/^﻿/u, '')) as { scripts?: Record<string, unknown> };
+    const text = manifest.scripts?.[script];
+    return typeof text === 'string' && /(?:^|[\s;&|(/])vite(?=\s|$)/u.test(text);
+  } catch { return false; }
 }
 
 async function killTree(child: ChildProcess, spawnedAtMs: number): Promise<void> {
@@ -251,7 +265,10 @@ export class GameRunManager {
     const { instant } = entry;
     const port = web ? await loopbackPort() : undefined;
     if (entry.stopRequested) { entry.state.status = 'exited'; return; }
-    const argv = web ? [...command.argv.slice(1), ...(tool === 'npm' && !command.argv.includes('--') ? ['--'] : []), '--host', '127.0.0.1', '--port', String(port), '--strictPort'] : ['--path', cwd];
+    const strictPort = web && await runsVite(cwd, command);
+    if (entry.stopRequested) { entry.state.status = 'exited'; return; }
+    const argv = web ? [...command.argv.slice(1), ...(tool === 'npm' && !command.argv.includes('--') ? ['--'] : []), '--host', '127.0.0.1', '--port', String(port),
+      ...(strictPort ? ['--strictPort'] : [])] : ['--path', cwd];
     if (!entry.logFile) {
       const logRef = await this.openLog(entry);
       if (entry.stopRequested) { entry.state.status = 'exited'; return; }

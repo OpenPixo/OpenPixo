@@ -3,6 +3,7 @@ import { npmRegistryEnv } from './npm-registry.js';
 import { gamePackageCacheSetup } from './package-caches.js';
 import { beginGameInstall, gameInstallState } from './install-state.js';
 import { withoutDaemonMode } from '../daemon-mode-env.js';
+import { withEnv } from './child-env.js';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
@@ -75,6 +76,40 @@ export async function resolveGameCommandDirectory(projectDir: string, relativeCw
   return cwd;
 }
 
+const GAME_PACKAGE_MANAGERS: readonly string[] = ['npm', 'pnpm', 'yarn', 'bun'] satisfies GamePackageManager[];
+
+/**
+ * The package manager a game asks for, or npm when that one is not installed.
+ * Install, run, verify, playtest and publish all pick it here, so a computer with
+ * only Node and npm can do all of them with a game that asks for pnpm.
+ */
+export async function resolveGamePackageManager(requested: GamePackageManager, resolveTool: GameToolResolver):
+  Promise<{ packageManager: GamePackageManager; executable: string } | null> {
+  const executable = await resolveTool(requested);
+  if (executable) return { packageManager: requested, executable };
+  if (requested === 'npm') return null;
+  const npm = await resolveTool('npm');
+  return npm ? { packageManager: 'npm', executable: npm } : null;
+}
+
+/**
+ * The executable and argv for an engine profile command. A package script
+ * (`<manager> run <script>`) runs with npm when its manager is missing: every
+ * manager takes `run <script>` the same way. Any other command needs its own tool.
+ * Null names `argv[0]` as the missing tool.
+ */
+export async function resolveGameCommandTool(argv: readonly string[], resolveTool: GameToolResolver):
+  Promise<{ executable: string; argv: string[] } | null> {
+  const [tool, ...rest] = argv;
+  if (!tool) return null;
+  if (GAME_PACKAGE_MANAGERS.includes(tool) && rest[0] === 'run') {
+    const resolved = await resolveGamePackageManager(tool as GamePackageManager, resolveTool);
+    return resolved && { executable: resolved.executable, argv: [resolved.packageManager, ...rest] };
+  }
+  const executable = await resolveTool(tool);
+  return executable ? { executable, argv: [...argv] } : null;
+}
+
 type InstallPlan = Omit<GameInstallDepsResult, 'status' | 'reasonCode'> & { status: 'ready' | 'failed';
   reasonCode?: 'NODE_MISSING' | 'PACKAGE_MANAGER_MISSING'; executable?: string; argv?: string[]; node?: string };
 export async function prepareGameDependencyInstall(cwd: string, resolveTool: GameToolResolver): Promise<InstallPlan> {
@@ -82,11 +117,10 @@ export async function prepareGameDependencyInstall(cwd: string, resolveTool: Gam
   const node = await resolveTool('node');
   if (!node) return { status: 'failed', reasonCode: 'NODE_MISSING', requestedPackageManager,
     message: 'Install Node.js, restart OpenPixo, and try again. https://nodejs.org/en/download' };
-  let packageManager = requestedPackageManager;
-  let executable = await resolveTool(packageManager);
-  if (!executable && packageManager !== 'npm') { packageManager = 'npm'; executable = await resolveTool('npm'); }
-  if (!executable) return { status: 'failed', reasonCode: 'PACKAGE_MANAGER_MISSING', requestedPackageManager,
+  const resolved = await resolveGamePackageManager(requestedPackageManager, resolveTool);
+  if (!resolved) return { status: 'failed', reasonCode: 'PACKAGE_MANAGER_MISSING', requestedPackageManager,
     message: `Neither ${requestedPackageManager} nor npm is available on PATH` };
+  const { packageManager, executable } = resolved;
   const argv = packageManager === 'pnpm' && await belongsToForeignPnpmWorkspace(cwd) ? ['install', '--ignore-workspace'] : ['install'];
   return { status: 'ready', packageManager, requestedPackageManager, fallback: packageManager !== requestedPackageManager,
     installCommand: [packageManager, ...argv].join(' '), executable, argv, node };
@@ -130,7 +164,8 @@ async function executeInstall(packageManager: GamePackageManager, executable: st
   const child = spawn(invocation.command, invocation.args, {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true,
     windowsVerbatimArguments: invocation.windowsVerbatimArguments,
-    env: { ...withoutDaemonMode(process.env), ...registry, ...caches.env, PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH ?? ''}`, PIXO_DATA_DIR: dataDir },
+    env: withEnv(withoutDaemonMode(process.env), { ...registry, ...caches.env,
+      PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH ?? ''}`, PIXO_DATA_DIR: dataDir }),
   });
   let timedOut = false;
   let cancelled = false;
