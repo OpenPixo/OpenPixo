@@ -2402,6 +2402,8 @@ export const zhCN: Dict = {
   'motion.portraitFree': '画肖像免费，只有做好的角色才收费。',
   'motion.painting': '正在画肖像…',
   'motion.paintingHint': '稍等，画好后会出现在这里。',
+  'motion.paintingBackHint': '可以返回，但这张肖像仍计入今天的次数。',
+  'motion.pictureAgain': '页面刷新后不会保留你的图片。请重新添加图片，再画肖像。',
   'motion.portraitAlt': '角色肖像',
   'motion.portraitQuestion': '这是你想要的角色吗？',
   'motion.usePortrait': '就用这张',

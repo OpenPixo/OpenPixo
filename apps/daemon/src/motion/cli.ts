@@ -11,8 +11,8 @@ import { motionSlug } from './install.js';
 
 export const MOTION_USAGE = `Moving characters, made by OpenPixo Cloud for credits: describe or show one, take the portrait, then order it.
 ${PRODUCT_CLI_NAME} motion service [--json]                       The price, portraits left today, and whether it is available.
-${PRODUCT_CLI_NAME} motion portrait (--text <words> | --prompt-file <path|->) [--image <png|jpeg|webp>] [--wait] [--json]
-    Paints a portrait to look at first. Free, a few a day. Not good? Ask again.
+${PRODUCT_CLI_NAME} motion portrait [--text <words> | --prompt-file <path|->] [--image <png|jpeg|webp>] [--wait] [--json]
+    Paints a portrait to look at first, from words, a picture or both. Free, a few a day. Not good? Ask again.
 ${PRODUCT_CLI_NAME} motion status <job id|portrait id> [--wait] [--json]
 ${PRODUCT_CLI_NAME} motion order <portrait id> --name <name> [--yes] [--wait] [--json]
     Shows the price; --yes orders it (about five minutes). A failed job is charged nothing.

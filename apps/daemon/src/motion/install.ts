@@ -48,13 +48,23 @@ async function placeFor(projectDir: string, profile: EngineProfile): Promise<Pla
   if (!isWebProject(profile, projectDir)) return null;
   const cwd = webProjectCwd(profile), dir = path.join(projectDir, ...cwd.split('/')), manifest = await readFile(path.join(dir, 'package.json'), 'utf8').catch(() => '');
   // a bundler serves `public` at the root of the page; a plain page serves its own folder
-  const served = await exists(path.join(dir, 'public')) || /\bvite\b/u.test(manifest);
+  const served = await exists(path.join(dir, 'public')) || /\bvite\b/u.test(manifest), typescript = await exists(path.join(dir, 'tsconfig.json')) || /"typescript"\s*:/u.test(manifest);
   const home = (await Promise.all(['src', 'js', 'scripts'].map(async d => await stat(path.join(dir, d)).then(s => s.isDirectory(), () => false) ? d : null))).find(Boolean) ?? '.';
   const phaser = profile.engine === 'phaser';
   return {
     engine: phaser ? 'phaser' : 'web', folder: under(cwd, served ? 'public' : '', 'assets/characters'), load: slug => `assets/characters/${slug}.pxmo`, playerDir: under(cwd, home, 'pixo-motion'),
-    players: [{ from: 'web/pixo-motion.min.js', name: 'pixo-motion.min.js' }, ...(phaser ? [{ from: 'phaser/pixo-motion-phaser.js', name: 'pixo-motion-phaser.js' }] : [])],
+    players: webPlayerFiles(phaser, typescript),
   };
+}
+
+/**
+ * The web players, and for a TypeScript game their declarations beside them: the players are plain JavaScript, and a strict
+ * project without `allowJs` refuses to import a module it has no types for.
+ */
+function webPlayerFiles(phaser: boolean, typescript: boolean): Place['players'] {
+  const names = ['web/pixo-motion.min', ...(phaser ? ['phaser/pixo-motion-phaser'] : [])];
+  const files = (ext: string): Place['players'] => names.map(from => ({ from: `${from}${ext}`, name: `${path.posix.basename(from)}${ext}` }));
+  return [...files('.js'), ...(typescript ? files('.d.ts') : [])];
 }
 
 async function writeWhole(file: string, data: Buffer | string): Promise<void> {

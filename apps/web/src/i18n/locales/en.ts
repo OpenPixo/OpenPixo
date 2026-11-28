@@ -2319,6 +2319,8 @@ export const en: Dict = {
   'motion.portraitFree': 'Portraits are free. You pay only for a finished character.',
   'motion.painting': 'Painting the portrait…',
   'motion.paintingHint': 'Hang on: it shows up here when it is ready.',
+  'motion.paintingBackHint': 'You can go back, but this portrait still counts against today.',
+  'motion.pictureAgain': 'Your picture is not kept when the page reloads. Add your picture again, then paint.',
   'motion.portraitAlt': 'Portrait of your character',
   'motion.portraitQuestion': 'Is this your character?',
   'motion.usePortrait': 'Use this portrait',

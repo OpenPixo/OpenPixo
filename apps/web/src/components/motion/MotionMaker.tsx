@@ -29,7 +29,7 @@ export function useMotionMaker() {
       const was = kept();
       if (was && step.kind === 'describe') {
         void fetchPortrait(was).then(p => {
-          if (p.state === 'painting') setStep({ kind: 'painting', portraitId: p.id });
+          if (p.state === 'painting') { setText(p.text); setStep({ kind: 'painting', portraitId: p.id }); }
           else if (p.state === 'ready' && !p.used && Date.parse(p.expiresAt) > Date.now()) { setText(p.text); setStep({ kind: 'portrait', portrait: p }); }
           else keep(null);
         }, () => undefined);
@@ -146,7 +146,12 @@ export function MotionMaker({ maker, service, available, onOrdered, onOpenAccoun
     return <section className={styles.box} aria-label={t('motion.painting')} data-testid="motion-painting">
       <div className={styles.portraitRow}>
         <div className={`${styles.portrait} ${styles.portraitPainting}`}>{preview && <img src={preview} alt="" />}</div>
-        <div className={styles.portraitSide}><h2 role="status">{t('motion.painting')}</h2><p className={styles.hint}>{t('motion.paintingHint')}</p></div>
+        <div className={styles.portraitSide}>
+          <h2 role="status">{t('motion.painting')}</h2>
+          <p className={styles.hint}>{t('motion.paintingHint')}</p>
+          <p className={styles.hint}>{t('motion.paintingBackHint')}</p>
+          <div className={styles.actions}><Button variant="ghost" onClick={() => setStep({ kind: 'describe' })} data-testid="motion-painting-back">{t('motion.back')}</Button></div>
+        </div>
       </div>
       {problem}
     </section>;
@@ -154,6 +159,9 @@ export function MotionMaker({ maker, service, available, onOrdered, onOpenAccoun
 
   const { portrait } = step;
   if (step.kind === 'portrait') {
+    // after a reload the picture is not here any more: painting again without it would paint someone else
+    const lost = portrait.fromPicture && !picture;
+    const again = (): void => { if (lost) { setStep({ kind: 'describe' }); setError(t('motion.pictureAgain')); } else void paint(); };
     return <section className={styles.box} aria-label={t('motion.portraitAlt')} data-testid="motion-portrait">
       <div className={styles.portraitRow}>
         <div className={styles.portrait}><img src={portraitPicture(portrait.id)} alt={t('motion.portraitAlt')} /></div>
@@ -162,7 +170,7 @@ export function MotionMaker({ maker, service, available, onOrdered, onOpenAccoun
           <p className={styles.hint}>{t('motion.portraitFree')}</p>
           <div className={styles.actions}>
             <Button variant="primary" onClick={() => setStep({ kind: 'confirm', portrait, requestId: crypto.randomUUID() })} data-testid="motion-use">{t('motion.usePortrait')}</Button>
-            <Button variant="secondary" disabled={busy || paused || left < 1} onClick={() => void paint()} data-testid="motion-again">{t('motion.tryAgainLeft', { count: left })}</Button>
+            <Button variant="secondary" disabled={busy || paused || left < 1} onClick={again} data-testid="motion-again">{t('motion.tryAgainLeft', { count: left })}</Button>
             <Button variant="ghost" disabled={busy} onClick={() => setStep({ kind: 'describe' })}>{t('motion.back')}</Button>
           </div>
         </div>

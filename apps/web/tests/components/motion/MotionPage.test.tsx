@@ -136,6 +136,62 @@ describe('making one', () => {
   });
 });
 
+describe('waiting for a portrait', () => {
+  beforeEach(() => { localStorage.clear(); });
+  const polls = (): number => fetchMock.mock.calls.filter(([url]) => String(url) === `/api/motion/portraits/${PORTRAIT}`).length;
+
+  it('can be left, keeping the words, and stops looking', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    painted = portrait();
+    await show();
+    fireEvent.change(screen.getByTestId('motion-text'), { target: { value: 'a fox knight' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('motion-paint')); });
+    await flush();
+    const painting = screen.getByTestId('motion-painting');
+    expect(painting.textContent).toContain('still counts against today');
+    fireEvent.click(within(painting).getByRole('button', { name: 'Back' }));
+    expect((screen.getByTestId('motion-text') as HTMLTextAreaElement).value).toBe('a fox knight');
+    const before = polls();
+    await act(async () => { vi.advanceTimersByTime(6_000); });
+    await flush();
+    expect(polls()).toBe(before);
+    expect(localStorage.getItem('openpixo.motion.portrait')).toBeNull();
+  });
+
+  it('can be left after the page was reloaded, with the words it was painted from', async () => {
+    localStorage.setItem('openpixo.motion.portrait', PORTRAIT);
+    painted = portrait({ text: 'a fox knight' });
+    await show();
+    fireEvent.click(within(screen.getByTestId('motion-painting')).getByRole('button', { name: 'Back' }));
+    expect((screen.getByTestId('motion-text') as HTMLTextAreaElement).value).toBe('a fox knight');
+  });
+
+  it('is never painted again without the picture it was painted from', async () => {
+    localStorage.setItem('openpixo.motion.portrait', PORTRAIT);
+    painted = portrait({ state: 'ready', text: '', fromPicture: true, expiresAt: '2999-01-01T00:00:00.000Z' });
+    await show();
+    await act(async () => { fireEvent.click(screen.getByTestId('motion-again')); });
+    await flush();
+    expect(sent('/api/motion/portraits', 'POST')).toEqual([]);
+    expect(screen.getByTestId('motion-describe').textContent).toContain('Add your picture again');
+  });
+});
+
+describe('the stage', () => {
+  it('gives the drawing back when it is closed while the character is still loading', async () => {
+    const loseContext = vi.fn(), canvas = document.createElement('canvas');
+    canvas.getContext = vi.fn(() => ({ getExtension: () => ({ loseContext }) })) as never;
+    let made!: (value: typeof actor) => void;
+    player.createPixoMotion.mockImplementationOnce(() => new Promise(resolve => { made = resolve; }));
+    await show({ characterId: ID });
+    expect(player.createPixoMotion).toHaveBeenCalled();
+    cleanup();
+    await act(async () => { made({ ...actor, canvas }); });
+    await flush();
+    expect(loseContext).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('one moving character', () => {
   it('moves, tries moods and talking, downloads and goes into a game', async () => {
     const { onOpenProject } = await show({ characterId: ID });

@@ -2653,6 +2653,8 @@ export interface Dict {
   'motion.portraitFree': string;
   'motion.painting': string;
   'motion.paintingHint': string;
+  'motion.paintingBackHint': string;
+  'motion.pictureAgain': string;
   'motion.portraitAlt': string;
   'motion.portraitQuestion': string;
   'motion.usePortrait': string;
