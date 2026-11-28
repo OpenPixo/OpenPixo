@@ -39,6 +39,9 @@ export function migrateProjectAssets(db: Database.Database): void {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_asset_provenance_hash ON asset_provenance(project_id, content_hash);
+    -- Provenance is looked up by path OR hash for every listed asset; with both
+    -- indexed SQLite unions two seeks instead of walking the project's rows.
+    CREATE INDEX IF NOT EXISTS idx_asset_provenance_path ON asset_provenance(project_id, rel_path);
   `);
   migrated.add(db);
 }

@@ -214,7 +214,17 @@ export async function retireObservedSidecarGeneration(
   return (await retireObservedSidecarGenerations([{ observation, options }]))[0]!;
 }
 
-/** Retire an invocation-fenced resource set and verify replacements once. */
+/**
+ * Retire an invocation-fenced resource set and verify replacements once.
+ *
+ * The replacement check is a second process-table snapshot taken after the
+ * retirement work, to catch a generation that started while the old one was
+ * stopping. When the observation found no generation at all there was no
+ * retirement work: a second snapshot would only repeat the observation a
+ * moment later, and on Windows each one is a PowerShell + WMI query that cost
+ * 1.3–1.7 s during packaged startup (measured 2026-11-28), on the path to the
+ * first window of every clean start.
+ */
 export async function retireObservedSidecarGenerations(
   requests: readonly Readonly<{
     observation: ObservedSidecarGeneration;
@@ -225,13 +235,14 @@ export async function retireObservedSidecarGenerations(
     observation.ref == null
       ? alreadyStoppedResult()
       : await retireSidecarGeneration(observation.ref, options, observation.processes)));
-  const replacementSnapshots = await captureSidecarGenerationSetSnapshot(
-    requests.map(({ observation }) => observation.stamp),
-  );
+  const retiredAny = requests.some(({ observation }) => observation.ref != null);
+  const replacementSnapshots = retiredAny
+    ? await captureSidecarGenerationSetSnapshot(requests.map(({ observation }) => observation.stamp))
+    : null;
 
   return await Promise.all(requests.map(async ({ observation }, index) => {
     const base = baseResults[index]!;
-    const replacements = replacementSnapshots[index]!.roots.filter(({ pid }) => isProcessAlive(pid));
+    const replacements = (replacementSnapshots?.[index]!.roots ?? []).filter(({ pid }) => isProcessAlive(pid));
     const remainingPids = [...new Set([
       ...base.remainingPids,
       ...replacements.map(({ pid }) => pid),
