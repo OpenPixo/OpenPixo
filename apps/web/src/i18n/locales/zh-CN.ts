@@ -107,6 +107,7 @@ export const zhCN: Dict = {
   'guide.ask.bodyOwn': "下面这句话已经写好了。发出去，你自己的 AI 就会改这个游戏。",
   'guide.ask.prompt': "让主角能二段跳：在空中再按一次跳，可以再跳一次。其他都不要动。",
   'guide.ask.fill': "填入这句话",
+  'guide.ask.checking': "正在确认谁来回答…",
   'guide.ask.working': "AI 正在改游戏，可能要几分钟，可以先接着玩。",
   'guide.ask.done': "改好了。点一下游戏，连跳两次试试。还想改什么，在这里说就行。",
   'guide.ask.failed': "这次没做完，原因在上面的对话里。可以再发一次，也可以先往下走。",

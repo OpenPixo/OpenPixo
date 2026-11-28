@@ -127,7 +127,11 @@ export function useProjectGuide(input: ProjectGuideInput): ProjectGuide {
     if (ask === 'done') {
       return <GuideCard step="ask" tone="done" title={t('guide.ask.title')} body={t('guide.ask.done')} actions={next} onSkip={skipFirstRunGuide} />;
     }
-    if (!canAsk && agent !== 'loading') {
+    // Until the account answers, the card cannot know which of the cards below is true; it offers none of them.
+    if (agent === 'loading') {
+      return <GuideCard step="ask" tone="working" title={t('guide.ask.title')} body={t('guide.ask.checking')} onSkip={skipFirstRunGuide} />;
+    }
+    if (!canAsk) {
       const [title, body, label, act] = agent === 'needs-setup'
         ? [t('guide.ask.setupTitle'), t('guide.ask.setupBody'), t('guide.ask.setup'), onSetUpAgent] as const
         : agent === 'needs-sign-in'

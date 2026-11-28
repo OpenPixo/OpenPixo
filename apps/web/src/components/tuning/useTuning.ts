@@ -11,6 +11,8 @@ interface Session {
   controller: AbortController;
   parameters: Map<string, GameTuningParameter>;
   pending: Map<string, GameTuningValue>;
+  /** Settles once this session's own read has landed; writes wait for it so they never use a hash from before the read. */
+  ready: Promise<void>;
   timer?: ReturnType<typeof setTimeout>;
   running?: Promise<boolean>;
 }
@@ -25,7 +27,7 @@ interface State {
 const initial: State = { parameters: [], warnings: [], loading: true, saving: false, dirty: false, error: null };
 
 /** A single queue keeps file hashes current across controls that share the same file. */
-export function useTuning(projectId: string, onCommitted?: () => Promise<void>) {
+export function useTuning(projectId: string, onCommitted?: () => Promise<void>, active = true) {
   const [state, setState] = useState<State>(initial);
   const [revision, setRevision] = useState(0);
   const sessionRef = useRef<Session | null>(null);
@@ -35,8 +37,15 @@ export function useTuning(projectId: string, onCommitted?: () => Promise<void>) 
 
   useEffect(() => {
     if (defaultsProject.current !== projectId) { defaults.current.clear(); defaultsProject.current = projectId; }
-    const session: Session = { projectId, active: true, failed: false, controller: new AbortController(), parameters: new Map(), pending: new Map() };
-    sessionRef.current = session; setState(initial);
+    const previous = sessionRef.current;
+    // A re-read of the same game keeps the controls on screen (and editable) until the new values land:
+    // focus comes back from the game on the very click that grabs a slider.
+    const revalidate = !!previous && previous.projectId === projectId && !previous.failed && previous.parameters.size > 0;
+    let landed!: () => void;
+    const session: Session = { projectId, active: true, failed: false, controller: new AbortController(),
+      parameters: revalidate ? new Map(previous.parameters) : new Map(), pending: new Map(), ready: new Promise(resolve => { landed = resolve; }) };
+    sessionRef.current = session;
+    if (!revalidate) setState(initial);
     void listGameTuning(projectId, session.controller.signal).then(result => {
       if (!session.active) return;
       const parameters = result.parameters.map(parameter => {
@@ -45,10 +54,16 @@ export function useTuning(projectId: string, onCommitted?: () => Promise<void>) 
         return { ...parameter, defaultValue: defaults.current.get(parameter.id)!.value };
       });
       session.parameters = new Map(parameters.map(parameter => [parameter.id, parameter]));
-      setState({ ...initial, parameters, warnings: result.warnings, loading: false });
+      // An edit made during the re-read stays on screen; it is written with the hash just read.
+      const shown = parameters.map(parameter => session.pending.has(parameter.id) ? { ...parameter, value: session.pending.get(parameter.id)! } : parameter);
+      setState({ ...initial, parameters: shown, warnings: result.warnings, loading: false, dirty: session.pending.size > 0 });
     }).catch(cause => {
-      if (session.active) { session.failed = true; setState({ ...initial, loading: false, error: cause instanceof TuningRequestError ? cause.code : 'TUNING_READ_FAILED' }); }
-    });
+      if (session.active) {
+        session.failed = true; session.pending.clear(); clearTimeout(session.timer);
+        const error = cause instanceof TuningRequestError ? cause.code : 'TUNING_READ_FAILED';
+        setState(previous => revalidate ? { ...previous, loading: false, dirty: false, error } : { ...initial, loading: false, error });
+      }
+    }).finally(landed);
     return () => { session.active = false; session.controller.abort(); clearTimeout(session.timer); session.pending.clear(); };
   }, [projectId, revision]);
 
@@ -67,6 +82,8 @@ export function useTuning(projectId: string, onCommitted?: () => Promise<void>) 
     const run = async (): Promise<boolean> => {
       setState(previous => ({ ...previous, saving: session.pending.size > 0 }));
       try {
+        await session.ready;
+        if (session.failed) return false;
         while (session.active && session.pending.size) {
           const [id, value] = session.pending.entries().next().value!;
           session.pending.delete(id);
@@ -99,20 +116,31 @@ export function useTuning(projectId: string, onCommitted?: () => Promise<void>) 
     return session.running;
   }, [projectId]);
 
+  /** Re-reads from disk, after the user's own queued edits are written so an external change is read on top of them. */
+  const reread = useCallback(() => {
+    const session = sessionRef.current;
+    if (session?.pending.size || session?.running) void flush().then(saved => { if (saved && session === sessionRef.current) refresh(); });
+    else refresh();
+  }, [flush, refresh]);
+
+  const activeRef = useRef(active); activeRef.current = active;
   useEffect(() => {
     const restored = (event: Event) => {
       if ((event as CustomEvent<{ projectId: string }>).detail?.projectId === projectId) refresh();
     };
-    const focused = () => {
-      const session = sessionRef.current;
-      // Finish the user's own edits before reading changes from an external editor.
-      if (session?.pending.size || session?.running) void flush().then(saved => { if (saved && session === sessionRef.current) refresh(); });
-      else refresh();
-    };
+    // A closed or hidden panel has nothing on screen to bring up to date; it re-reads when it is shown again.
+    const focused = () => { if (activeRef.current) reread(); };
     window.addEventListener(CHECKPOINT_RESTORED, restored);
     window.addEventListener('focus', focused);
     return () => { window.removeEventListener(CHECKPOINT_RESTORED, restored); window.removeEventListener('focus', focused); };
-  }, [projectId, refresh, flush]);
+  }, [projectId, refresh, reread]);
+
+  const wasActive = useRef(active);
+  useEffect(() => {
+    const reopened = active && !wasActive.current;
+    wasActive.current = active;
+    if (reopened) reread();
+  }, [active, reread]);
 
   function edit(id: string, value: GameTuningValue) {
     const session = sessionRef.current;

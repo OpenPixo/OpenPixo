@@ -157,6 +157,17 @@ describe('asking the AI', () => {
     expect(takeProjectComposerPrefill('sample')).toBeUndefined();
   });
 
+  it('waits quietly while it finds out who can answer, instead of offering the message first', async () => {
+    at('ask');
+    show();
+    // Nothing is known about the account yet: no message to put in, no sign-in or plans either.
+    expect(screen.queryByTestId('first-run-guide-fill')).toBeNull();
+    expect(screen.queryByTestId('first-run-guide-fix')).toBeNull();
+    expect(card().textContent).toContain('Checking who can answer');
+    await screen.findByText('The AI needs credits');
+    expect(screen.queryByTestId('first-run-guide-fill')).toBeNull();
+  });
+
   it('offers plans instead of an empty wallet, and a way past', async () => {
     at('ask');
     show();

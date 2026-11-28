@@ -52,7 +52,7 @@ import { type EntrySettingsSection } from './EntrySettingsMenu';
 import type { CreateInput } from './create-project-input';
 import type { PluginShareAction, PluginShareProjectOutcome } from '../state/projects';
 import { OnboardingView } from './onboarding/OnboardingView';
-import { startFirstRunGuide, useFirstRunGuide } from '../state/first-run-guide';
+import { useFirstRunGuide } from '../state/first-run-guide';
 import { SignInDialog } from './account/SignInDialog';
 import onboardingStyles from './onboarding/Onboarding.module.css';
 import { NewGameDialog } from './NewGameDialog';
@@ -68,6 +68,7 @@ import {
   ENTRY_RAIL_TOGGLE_EVENT,
   ENTRY_SEARCH_OPEN_EVENT,
   readStoredRailOpen,
+  requestEntryGuide,
   requestEntryNewGame,
   writeStoredRailOpen,
 } from './entryRailBridge';
@@ -598,7 +599,9 @@ export function EntryShell({
             onFinish={finishOnboarding}
             onStartSample={() => void onboardingSample.start()}
             offerGuide={guide == null && !projectsLoading && projects.length === 0}
-            onStartGuide={() => void onboardingSample.start(startFirstRunGuide)}
+            // Home makes the sample: it shows the walkthrough getting ready, and its one queue
+            // keeps a click there from making a second sample beside this one.
+            onStartGuide={requestEntryGuide}
             onOpenDoctor={() => onOpenSettings('doctor')}
             onOpenAccount={() => onOpenSettings('account')}
           />
@@ -858,6 +861,7 @@ export function EntryShell({
         <NewGameDialog
           initialTemplateId={SAMPLE_TEMPLATE_ID}
           initialError={onboardingSample.fallback.error}
+          onMade={onboardingSample.fallback.onMade}
           onClose={onboardingSample.closeFallback}
           onCreated={onImportFolderResponse}
         />

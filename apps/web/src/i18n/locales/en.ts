@@ -66,6 +66,7 @@ export const en: Dict = {
   'guide.ask.bodyOwn': "The message below is ready. Send it and your own AI changes the game.",
   'guide.ask.prompt': "Let the hero double jump: pressing jump again in the air jumps once more. Change nothing else.",
   'guide.ask.fill': "Put the message in",
+  'guide.ask.checking': "Checking who can answer…",
   'guide.ask.working': "The AI is changing the game. It can take a few minutes; you can keep playing.",
   'guide.ask.done': "Done. Click the game and jump twice. Anything else you want to change, just say it here.",
   'guide.ask.failed': "That didn't finish. The reason is in the chat above; send it again, or go on without it.",

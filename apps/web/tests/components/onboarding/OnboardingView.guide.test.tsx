@@ -112,6 +112,16 @@ describe('a new user on credits', () => {
     expect(await screen.findByRole('heading', { name: 'Have you made a game before?' })).toBeTruthy();
   });
 
+  it('goes on to pay for a plan picked in the prices window when already signed in', async () => {
+    routes({ 'GET /api/openpixo/account': SIGNED_IN });
+    renderNewUser();
+    await screen.findByRole('button', { name: 'Continue' });
+    fireEvent.click(screen.getByTestId('onboarding-see-prices'));
+    fireEvent.click(await screen.findByTestId('onboarding-pricing-choose-plan_starter_monthly_v3'));
+    expect(await screen.findByRole('heading', { name: 'Choose a plan' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Have you made a game before?' })).toBeNull();
+  });
+
   it('asks the same of a paying customer on a new computer', async () => {
     routes({
       'GET /api/openpixo/account': SIGNED_IN,

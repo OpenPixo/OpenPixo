@@ -18,7 +18,8 @@ vi.mock('../../../src/router', async (importOriginal) => ({
 vi.mock('../../../src/components/useOpenFolderImport', () => ({
   useOpenFolderImport: () => ({ available: false, importing: false, error: null, openFolder: vi.fn() }),
 }));
-vi.mock('../../../src/components/NewGameDialog', () => ({ NewGameDialog: () => null }));
+const dialogs = vi.hoisted(() => ({ last: null as null | Record<string, any> }));
+vi.mock('../../../src/components/NewGameDialog', () => ({ NewGameDialog: (props: Record<string, any>) => { dialogs.last = props; return null; } }));
 
 const template = { id: 'phaser3-sample-platformer', name: 'Sample: pixel platformer', engine: 'phaser', description: 'Ready to play' };
 const project = (id: string, templateId?: string): Project => ({ id, name: id, createdAt: 1, updatedAt: 1, skillId: null,
@@ -26,6 +27,7 @@ const project = (id: string, templateId?: string): Project => ({ id, name: id, c
 const made = { project: project('made', template.id), conversationId: 'c', entryFile: 'index.html', git: { status: 'skipped' } };
 
 let creations = 0;
+let failCreate = false;
 function dashboard(projects: Project[], projectsLoading = false) {
   const onOpenProject = vi.fn();
   const onImportFolderResponse = vi.fn();
@@ -37,6 +39,8 @@ function dashboard(projects: Project[], projectsLoading = false) {
 
 beforeEach(() => {
   creations = 0;
+  failCreate = false;
+  dialogs.last = null;
   localStorage.clear();
   resetFirstRunGuideForTests();
   takeEntryGuideRequest();
@@ -45,7 +49,10 @@ beforeEach(() => {
     const url = String(input);
     if (url === '/api/game-templates') return Response.json({ templates: [template], defaultParentDir: 'C:\\Games' });
     if (url.endsWith('/game-from-template/check')) return Response.json({ status: 'available' });
-    if (url.endsWith('/game-from-template')) { creations += 1; return Response.json(made); }
+    if (url.endsWith('/game-from-template')) {
+      creations += 1;
+      return failCreate ? Response.json({ error: { code: 'TARGET_REJECTED', message: 'no' } }, { status: 403 }) : Response.json(made);
+    }
     return Response.json({});
   }));
 });
@@ -77,6 +84,34 @@ describe('the walkthrough from Home', () => {
     fireEvent.click(document.querySelector('[data-step="guide"] button')!);
     await waitFor(() => expect(onImportFolderResponse).toHaveBeenCalledOnce());
     expect(readFirstRunGuide()).toEqual({ status: 'active', step: 'play', projectId: 'made' });
+  });
+});
+
+describe('when the sample cannot be made by itself', () => {
+  async function openFallback() {
+    failCreate = true;
+    publishFirstRunGuide(null);
+    const view = dashboard([]);
+    fireEvent.click(screen.getByRole('button', { name: /Show me around/ }));
+    await waitFor(() => expect(dialogs.last?.initialTemplateId).toBe(template.id));
+    return view;
+  }
+
+  it('starts the walkthrough in the sample made in the game dialog instead', async () => {
+    const { onImportFolderResponse } = await openFallback();
+    const response = { ok: true, projectId: 'by-hand', conversationId: 'c', entryFile: 'index.html' };
+    await act(async () => { dialogs.last!.onMade?.({ projectId: 'by-hand', templateId: template.id }); await dialogs.last!.onCreated(response); });
+    expect(readFirstRunGuide()).toEqual({ status: 'active', step: 'play', projectId: 'by-hand' });
+    expect(onImportFolderResponse).toHaveBeenCalledWith(response);
+    // Like the sample made in one click, it opens running.
+    expect(takeProjectGameStart('by-hand')).toBe(true);
+  });
+
+  it('leaves the walkthrough alone when another kind of game is made there', async () => {
+    await openFallback();
+    await act(async () => { dialogs.last!.onMade?.({ projectId: 'other', templateId: 'godot-blank' }); await dialogs.last!.onCreated({ ok: true, projectId: 'other' }); });
+    expect(readFirstRunGuide()).toBeNull();
+    expect(takeProjectGameStart('other')).toBe(false);
   });
 });
 
