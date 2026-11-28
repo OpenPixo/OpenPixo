@@ -53,8 +53,8 @@ import { parseOrchestratorWorkspace } from './workspace-contract.js';
 export interface RegisterImportRoutesDeps extends RouteDeps<'db' | 'http' | 'uploads' | 'node' | 'ids' | 'paths' | 'imports' | 'auth' | 'projectStore' | 'conversations' | 'projectFiles' | 'validation'> {
   authorizeProjectRequest?: AuthorizeProjectRequest;
   publicFileMutations?: ProjectMutations;
-
-
+  /** Lets go of what the daemon holds open in a project's folder, such as its asset index watcher. */
+  releaseProjectFolder?: (projectId: string) => Promise<void>;
 }
 
 export function registerImportRoutes(app: Express, ctx: RegisterImportRoutesDeps) {
@@ -250,6 +250,9 @@ export function registerImportRoutes(app: Express, ctx: RegisterImportRoutesDeps
           deleteProjectWorkspaceArtifacts(db, projectId);
         })();
       })();
+      // The old folder is no longer the project's: nothing keeps it open (Windows
+      // counts a watched folder as in use) and the asset index moves with the project.
+      if (replacing) await ctx.releaseProjectFolder?.(projectId).catch(error => console.warn('[working-dir] could not let go of the old folder', error));
       // Retirement adopts reserved metadata after the root mutation commits.
       updated = getProject(db, projectId);
       if (!updated) {

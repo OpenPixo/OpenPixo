@@ -69,6 +69,35 @@ it('fails on captured page errors even when the server was ready', async () => {
   expect(result.status).toBe('failed'); expect(result.playtest.pageErrors).toEqual(['Uncaught fixture failure']);
 });
 
+/** A package-manager stand-in that records its arguments and serves a page. */
+async function packageManagerShim(name: string): Promise<{ tool: string; argsFile: string }> {
+  const argsFile = path.join(root, `${name}-args.json`), script = path.join(root, `${name}.cts`);
+  await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(argsFile)}, JSON.stringify(process.argv.slice(2)));
+console.log('Local: http://127.0.0.1:5199/'); setInterval(()=>{},1000);`);
+  const tool = path.join(root, process.platform === 'win32' ? `${name}.cmd` : name);
+  await writeFile(tool, process.platform === 'win32'
+    ? `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`
+    : `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
+  return { tool, argsFile };
+}
+
+// 2026-11-28 review: the starters ask for pnpm. Run and publish used npm when pnpm was missing;
+// playtest reported `missingTools: ['pnpm']` on a computer with only Node and npm.
+it('plays a game that asks for pnpm with npm when pnpm is not installed', async () => {
+  const npm = await packageManagerShim('npm');
+  const resolveTool = (id: string) => id === 'npm' ? npm.tool : id === 'node' ? process.execPath : null;
+  const result = await playtestGame({ profile: profile(['pnpm', 'run', 'dev']), projectDir, artifactDir,
+    request: { durationMs: 100 }, resolveTool, captureWeb: async () => captured() });
+  expect(result).toMatchObject({ status: 'passed', missingTools: [], steps: [{ argv: ['npm', 'run', 'dev'] }] });
+  expect(JSON.parse(await readFile(npm.argsFile, 'utf8'))).toEqual(['run', 'dev']);
+});
+
+it('names the package manager the game asks for when neither it nor npm is there', async () => {
+  const result = await playtestGame({ profile: profile(['pnpm', 'run', 'dev']), projectDir, artifactDir,
+    request: { durationMs: 100 }, resolveTool: () => null, captureWeb: async () => captured() });
+  expect(result).toMatchObject({ status: 'unavailable', missingTools: ['pnpm'] });
+});
+
 it('preflights unavailable hosts, tools and unsupported engines without spawning a game', async () => {
   const resolveTool = vi.fn(() => process.execPath);
   expect(await playtestGame({ profile: profile(['node']), projectDir, artifactDir, resolveTool }))

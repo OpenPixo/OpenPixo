@@ -77,4 +77,20 @@ describe('a playable single-file export', () => {
     expect(out.lastIndexOf('window.late = 1')).toBeGreaterThan(out.indexOf('const tpl'));
     expect(out.indexOf('XMLHttpRequest.prototype.open')).toBeLessThan(out.indexOf('const tpl'));
   });
+
+  // 2026-11-28 review: the page's attribute rewrites ran after the game code was inlined, so they
+  // rewrote the code too: a `src="…"` string became a data URI (the file then shipped twice), and
+  // markup the game builds lost its `crossorigin` and its `<link>`.
+  it('leaves the inlined game code and stylesheet exactly as they were built', () => {
+    const code = 'el.innerHTML=\'<img src="art/logo.png" crossorigin="anonymous"><link rel="stylesheet" href="assets/index.css">\';';
+    const css = 'body{background:url(../art/bg.png)} .x::after{content:\' src="art/logo.png"\'}';
+    const built = files(code);
+    built.set('assets/index.css', Buffer.from(css));
+    const out = buildPlayableHtml(index, built).html;
+    expect(out).toContain(`<script type="module">${code}</script>`);
+    expect(out).toContain('.x::after{content:\' src="art/logo.png"\'}');
+    // The page's own references are still rewritten.
+    expect(out).toMatch(/<img src="data:image\/png;base64,[^"]+" alt="">/);
+    expect(out).not.toMatch(/<script[^>]*\bcrossorigin/);
+  });
 });

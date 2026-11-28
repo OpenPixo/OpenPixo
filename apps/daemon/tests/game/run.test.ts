@@ -77,6 +77,18 @@ it('starts a game in its own mode, not the packaged daemon\u2019s', async () => 
   expect(JSON.parse(await readFile(path.join(dataDir, 'launch-mode.json'), 'utf8'))).toBeNull();
 });
 
+// 2026-11-28 review: `--strictPort` is Vite's own flag; other dev servers refuse to start with it.
+it.each([['vite', true], ['webpack serve', false]] as const)('passes --strictPort to a dev script that runs %s only when it is Vite', async (dev, strict) => {
+  await mkdir(path.join(projectDir, 'node_modules'));
+  await writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ scripts: { dev } }));
+  const runs = manager();
+  await runs.start('game', async () => context());
+  await vi.waitFor(() => expect(runs.status('game').status).toBe('running'), { timeout: 10_000 });
+  const args = JSON.parse(await readFile(path.join(dataDir, 'launch-args.json'), 'utf8')) as string[];
+  expect(args).toEqual(expect.arrayContaining(['--host', '127.0.0.1', '--port']));
+  expect(args.includes('--strictPort')).toBe(strict);
+});
+
 it('asks for an install when only some of a game\u2019s packages are there', async () => {
   // What the packaged app left behind: the game's own packages, without its tools.
   await writeFile(path.join(projectDir, 'package.json'), JSON.stringify({ dependencies: { phaser: '3.90.0' }, devDependencies: { vite: '7.1.12', '@types/node': '24' } }));

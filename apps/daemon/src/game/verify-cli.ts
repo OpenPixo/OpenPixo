@@ -66,7 +66,8 @@ export async function runGameCli(args: string[]): Promise<void> {
       for (const shot of registered.screenshots) console.log(`Screenshot: ${shot.path}`);
       if (saved) console.log(`Report: ${saved}`);
     }
-    if (registered.status === 'failed') process.exitCode = 1;
+    // The same codes as `game playtest`: a check that could not run is not a pass.
+    if (registered.status !== 'passed') process.exitCode = registered.status === 'unavailable' ? 2 : 1;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await writeGameErrorReport(reportFile, { message });

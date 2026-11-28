@@ -70,11 +70,13 @@ export class ProjectAssetIndexer {
     if (this.closed) throw new Error('Asset indexer is closed');
     const root = resolveProjectDir(this.projectsRoot, id, metadata);
     const existing = this.sessions.get(id);
-    if (existing) {
-      if (existing.root !== root) throw new Error('Project folder changed; reopen the asset index');
+    if (existing?.root === root) {
       existing.metadata = metadata;
       return existing;
     }
+    // The project moved to another folder (`POST /api/projects/:id/working-dir`):
+    // the old session lets go of its folder and the new one inventories this one.
+    if (existing) void this.release(id).catch(error => console.warn('[assets] could not let go of the old project folder', error));
     const engine = metadata?.engineProfile?.engine;
     const ignored = (rel: string) => {
       const segments = rel.split('/');
@@ -130,6 +132,8 @@ export class ProjectAssetIndexer {
       }
     };
     await walk(session.root);
+    // A session retired while it walked describes a folder the project left.
+    if (!this.current(session)) return;
     const seen = new Set(rows.map(row => row.rel));
     this.db.transaction(() => {
       for (const row of rows) this.upsert(session.id, row.rel, row.size, row.mtime);
@@ -144,6 +148,7 @@ export class ProjectAssetIndexer {
     if (!session.watcher && !this.closed) {
       const ignored = makeIgnored(session.root);
       session.watcher = subscribe(this.projectsRoot, session.id, event => {
+        if (!this.current(session)) return;
         void this.applyEvent(session.id, event).catch(error => console.warn('[assets] watcher update failed', error));
       }, { metadata: session.metadata, ignored: (file, stats) => ignored(file, stats)
         || session.ignored(path.relative(session.root, file).replace(/\\/g, '/')) });
@@ -151,12 +156,17 @@ export class ProjectAssetIndexer {
       // bootstrap cannot hold up the list, then reconcile once at the ready
       // boundary to cover changes made while it was attaching native watches.
       void session.watcher.ready.then(() => {
-        if (this.closed) return;
+        if (this.closed || !this.current(session)) return;
         const reconcile = () => this.scan(session);
         session.updates = session.updates.then(reconcile, reconcile);
         void session.updates.catch(error => console.warn('[assets] watcher reconciliation failed', error));
       });
     }
+  }
+
+  /** Whether this session still describes the project's folder. */
+  private current(session: Session): boolean {
+    return this.sessions.get(session.id) === session;
   }
 
   private upsert(id: string, rel: string, size: number, mtime: number): void {
@@ -334,6 +344,7 @@ export class ProjectAssetIndexer {
   }
 
   private async enrich(session: Session, rel: string): Promise<void> {
+    if (!this.current(session)) return;
     const before = this.row(session.id, rel);
     if (!before) return;
     const file = await resolveAssetFile(this.projectsRoot, session.id, rel, session.metadata);

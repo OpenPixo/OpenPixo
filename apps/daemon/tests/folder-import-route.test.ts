@@ -362,6 +362,34 @@ describe('POST /api/import/folder', () => {
     expect(body.error?.message).toMatch(/orchestratorWorkspace\.kind/i);
   });
 
+  // 2026-11-28 review: after a working-dir change, the Assets panel and the next-steps card
+  // answered "Project folder changed; reopen the asset index" until the daemon restarted.
+  it('lists the new folder\'s assets right after the working directory changes', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    const folder = makeFolder();
+    await writeFile(path.join(folder, 'index.html'), '<!doctype html>');
+    await writeFile(path.join(folder, 'old-hero.png'), png);
+    const importResp = await importFolder({ baseDir: folder });
+    expect(importResp.status).toBe(200);
+    const { project } = (await importResp.json()) as { project: { id: string } };
+    const assets = async () => {
+      const resp = await fetch(`${baseUrl}/api/projects/${project.id}/assets`);
+      return { status: resp.status, body: (await resp.json()) as { assets?: { relPath: string }[] } };
+    };
+    expect((await assets()).body.assets?.map(asset => asset.relPath)).toEqual(['old-hero.png']);
+
+    const nextFolder = makeFolder();
+    await writeFile(path.join(nextFolder, 'index.html'), '<!doctype html>');
+    await writeFile(path.join(nextFolder, 'new-hero.png'), png);
+    const replaceResp = await fetch(`${baseUrl}/api/projects/${project.id}/working-dir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseDir: nextFolder }),
+    });
+    expect(replaceResp.status).toBe(200);
+    expect(await assets()).toEqual({ status: 200, body: expect.objectContaining({ assets: [expect.objectContaining({ relPath: 'new-hero.png' })] }) });
+  });
+
   it('rejects malformed orchestrator workspace metadata on working-dir replacement', async () => {
     const folder = makeFolder();
     await writeFile(path.join(folder, 'index.html'), '<!doctype html>');

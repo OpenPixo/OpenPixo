@@ -110,6 +110,26 @@ it('installs everything a game declares, whatever mode the daemon itself runs in
   expect(JSON.parse(await readFile(path.join(project, 'mode.json'), 'utf8'))).toEqual([]);
 });
 
+/*
+ * 2026-11-28 review: Windows names the search path `Path`. The install spread the daemon's
+ * environment and added `PATH`, so the child got both, and which one it read was luck.
+ */
+it('gives the install one search path, starting with the Node it installs for', async () => {
+  const project = path.join(root, 'game'); await mkdir(project);
+  const script = path.join(root, 'fake-npm.cts');
+  await writeFile(script, `const names = Object.keys(process.env).filter(name => name.toUpperCase() === 'PATH');
+require('node:fs').writeFileSync('path.json', JSON.stringify({ names, first: process.env.PATH.split(require('node:path').delimiter)[0] }));`);
+  const tool = path.join(root, process.platform === 'win32' ? 'npm.cmd' : 'npm');
+  await writeFile(tool, process.platform === 'win32'
+    ? `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`
+    : `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
+  const node = path.join(root, 'node-home', process.platform === 'win32' ? 'node.exe' : 'node');
+  await installGameDependencies(project, path.join(root, 'data'), id => id === 'node' ? node : tool);
+  const seen = JSON.parse(await readFile(path.join(project, 'path.json'), 'utf8'));
+  expect(seen.names).toHaveLength(1);
+  expect(seen.first).toBe(path.dirname(node));
+});
+
 it('keeps a pnpm install inside a game folder that sits under an unrelated pnpm workspace', async () => {
   await writeFile(path.join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'apps/*'\n");
   const game = path.join(root, 'scratch', 'my-game');
